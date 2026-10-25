@@ -200,7 +200,7 @@ app.get('/api/users', requireAuth, requireRole('admin'), (req, res) => {
 
 app.post('/api/users', requireAuth, requireRole('admin'), (req, res) => {
   const { username, password, role } = req.body || {};
-  if (typeof username !== 'string' || !/^[\\p{L}\\p{N}._-]{3,64}$/u.test(username.trim()) ||
+  if (typeof username !== 'string' || !/^[\p{L}\p{N}._-]{3,64}$/u.test(username.trim()) ||
       typeof password !== 'string' || password.length < 12 || password.length > 200 ||
       !['admin', 'staff', 'reviewer'].includes(role)) {
     return res.status(400).json({ error: 'اسم المستخدم أو كلمة المرور أو الدور غير صالح.' });
