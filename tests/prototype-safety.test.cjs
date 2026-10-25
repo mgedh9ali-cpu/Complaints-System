@@ -29,3 +29,12 @@ test('modal opening and tab navigation share visible focus targets', () => {
   assert.ok(app.includes('const items=modalFocusables(dlg);(items[0]||dlg).focus()'), 'opening a modal must focus the first visible target');
   assert.ok(app.includes('const items=modalFocusables(dlg);if(!items.length)'), 'tab navigation must use the same visible targets');
 });
+
+test('HTML escaping neutralizes markup and attribute delimiters', () => {
+  const definition = app.split(String.fromCharCode(10)).find(line => line.startsWith('function esc('));
+  assert.ok(definition, 'esc() must exist in app.js');
+  const escapeHtml = vm.runInNewContext('(' + definition.replace('function esc', 'function') + ')');
+  assert.equal(escapeHtml('<script>alert("x")</script>'), '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;');
+  assert.equal(escapeHtml("O'Reilly & Co"), 'O&#39;Reilly &amp; Co');
+  assert.equal(escapeHtml(null), '—');
+});
