@@ -235,13 +235,16 @@ app.post('/api/sync/import', requireAuth, requireRole('admin'), (req, res) => {
   try {
     const publicKeyPath = path.resolve(process.env.UPDATE_PUBLIC_KEY_PATH || './data/trusted-update-public.pem');
     let updateTrusted = false;
+    let trustedPublicKey = null;
     if (fs.existsSync(publicKeyPath)) {
-      try { updateTrusted = verifyProgramUpdate(payload, fs.readFileSync(publicKeyPath, 'utf8')); }
-      catch { updateTrusted = false; }
+      try {
+        trustedPublicKey = fs.readFileSync(publicKeyPath, 'utf8');
+        updateTrusted = verifyProgramUpdate(payload, trustedPublicKey);
+      } catch { trustedPublicKey = null; updateTrusted = false; }
     }
     // Data sync may proceed without a trusted program signature; untrusted code is never staged.
     const pendingDir = updateTrusted
-      ? stageProgramUpdate(payload, path.resolve(process.env.DATA_DIR || './data'))
+      ? stageProgramUpdate(payload, path.resolve(process.env.DATA_DIR || './data'), trustedPublicKey)
       : null;
     const now = new Date().toISOString();
     db.transaction(() => {
