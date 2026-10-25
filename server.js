@@ -9,6 +9,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
 const { rateLimit } = require('express-rate-limit');
+const { hashAuditEvent } = require('./lib/audit-integrity');
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
@@ -184,7 +185,6 @@ function requireRole(...roles) {
 
 const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
-const { hashAuditEvent } = require('./lib/audit-integrity');
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local' }));
 
