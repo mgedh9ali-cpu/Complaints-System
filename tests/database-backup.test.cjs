@@ -5,10 +5,15 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const Database = require('better-sqlite3');
+const hasSqliteDependency = (() => {
+  try { require.resolve('better-sqlite3'); return true; } catch { return false; }
+})();
 const { backupDatabase } = require('../scripts/backup-database');
 
-test('SQLite backup is integrity-checked and preserves critical table counts', async t => {
+test('SQLite backup is integrity-checked and preserves critical table counts', {
+  skip: hasSqliteDependency ? false : 'better-sqlite3 is not installed in this workflow.'
+}, async t => {
+  const Database = require('better-sqlite3');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-backup-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const source = path.join(root, 'source.sqlite');
@@ -34,7 +39,10 @@ test('SQLite backup is integrity-checked and preserves critical table counts', a
   copy.close();
 });
 
-test('SQLite backup refuses to overwrite an existing destination', async t => {
+test('SQLite backup refuses to overwrite an existing destination', {
+  skip: hasSqliteDependency ? false : 'better-sqlite3 is not installed in this workflow.'
+}, async t => {
+  const Database = require('better-sqlite3');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-backup-existing-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const source = path.join(root, 'source.sqlite');
