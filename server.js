@@ -153,6 +153,7 @@ function requireRole(...roles) {
 }
 
 const { validComplaint } = require('./lib/validation');
+const { diffComplaints } = require('./lib/complaint-state-diff');
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local' }));
 
@@ -208,12 +209,23 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), (req, res) => {
   }
   const stateJson=JSON.stringify(state);
   if(Buffer.byteLength(stateJson,'utf8')>900*1024)return res.status(413).json({error:'حجم البيانات أكبر من الحد المسموح.'});
+  const previousRow=db.prepare('SELECT state_json FROM app_state WHERE id=1').get();
+  const previousState=previousRow?JSON.parse(previousRow.state_json):null;
+  const complaintChanges=diffComplaints(previousState,state);
   const now=new Date().toISOString();
-  db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at) VALUES(1,?,?,?)
-    ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
-    .run(stateJson,req.user.id,now);
-  audit(req.user.id,'application_state_saved','application',null,{complaintCount:state.complaints.length});
-  res.json({saved:true,updatedAt:now});
+  db.transaction(() => {
+    db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at) VALUES(1,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
+      .run(stateJson,req.user.id,now);
+    for(const change of complaintChanges){
+      audit(req.user.id,change.action,'complaint',change.id,change.details);
+    }
+    audit(req.user.id,'application_state_saved','application',null,{
+      complaintCount:state.complaints.length,
+      complaintChanges:complaintChanges.length
+    });
+  })();
+  res.json({saved:true,updatedAt:now,complaintChangesLogged:complaintChanges.length});
 });
 
 
