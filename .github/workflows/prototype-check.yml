@@ -21,4 +21,6 @@ jobs:
       - name: Verify required prototype files
         run: test -s index.html && test -s styles.css && test -s app.js
       - name: Verify modal focus trap and CSV formula mitigation
-        run: grep -Fq 'const items=$$(' app.js && grep -Fq 'function csvSafe(value)' app.js && grep -Fq 'aria-describedby="modalDescription"' app.js
+        run: grep -Fq 'const items=$(' app.js && grep -Fq 'function csvSafe(value)' app.js && grep -Fq 'aria-describedby="modalDescription"' app.js
+      - name: Run prototype safety regression tests
+        run: node --test tests/*.test.cjs
