@@ -55,6 +55,16 @@ test('offline sync package validates contents and detects tampering', () => {
 });
 
 
+test('complaint state diff records content changes without copying sensitive values', () => {
+  const { diffComplaints } = require('../lib/complaint-state-diff');
+  assert.deepEqual(diffComplaints(
+    { complaints: [{ id: 'A', status: 'new', summary: 'old', phone: '111' }] },
+    { complaints: [{ id: 'A', status: 'new', summary: 'new', phone: '111' }] }
+  ), [
+    { action: 'complaint_updated', id: 'A', details: { source: 'state_api', changedFields: ['summary'] } }
+  ]);
+});
+
 test('application-state complaint changes are individually auditable', () => {
   const { diffComplaints } = require('../lib/complaint-state-diff');
   const previous = { complaints: [
