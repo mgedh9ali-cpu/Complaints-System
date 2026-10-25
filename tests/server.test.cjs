@@ -31,6 +31,14 @@ test('local UI uses authenticated API and server-backed state rather than localS
 });
 
 
+test('complaint status updates require an administrative or staff role', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(server.includes("app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff')"),
+    'reviewers and unauthenticated users must not change complaint status');
+});
+
 test('offline sync package validates contents and detects tampering', () => {
   const { createSyncPackage, validateSyncPackage } = require('../lib/offline-sync');
   const os = require('node:os');
