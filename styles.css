@@ -5,3 +5,16 @@
 @media(max-width:390px){.stats-grid{grid-template-columns:1fr 1fr}.stat-card{min-height:105px}.stat-number{font-size:22px}.mini-card-grid{grid-template-columns:1fr}.topbar{padding:0 9px}.breadcrumbs span:first-child{display:none}.crumb-sep{display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 .page-footer{display:flex;justify-content:space-between;padding:14px 30px;background:#fff;border-top:1px solid var(--line);font-size:10px;color:#87958e}
+
+/* Settings list controls: clear hierarchy and usable action groups on narrow screens. */
+.settings-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.settings-section-title .subheading{margin:0}
+.settings-list .setting-row>div:first-child{min-width:0;overflow-wrap:anywhere}
+.settings-list .setting-row .footer-actions{flex-wrap:wrap;justify-content:flex-end}
+.settings-list .setting-row .btn{white-space:nowrap}
+@media(max-width:640px){
+  .settings-list .setting-row{align-items:flex-start;flex-direction:column}
+  .settings-list .setting-row .footer-actions{width:100%;justify-content:flex-start}
+  .settings-section-title{align-items:flex-start}
+  .settings-section-title .btn{white-space:normal}
+}
