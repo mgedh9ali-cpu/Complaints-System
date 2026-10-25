@@ -203,7 +203,7 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), (req, res) => {
 });
 
 
-const { createSyncPackage, validateSyncPackage, stageProgramUpdate } = require('./lib/offline-sync');
+const { createSyncPackage, validateSyncPackage, stageProgramUpdate, verifyProgramUpdate } = require('./lib/offline-sync');
 const instanceIdPath = path.resolve(process.env.INSTANCE_ID_PATH || './data/instance-id');
 fs.mkdirSync(path.dirname(instanceIdPath), { recursive: true });
 if (!fs.existsSync(instanceIdPath)) fs.writeFileSync(instanceIdPath, crypto.randomUUID() + '\n', { flag: 'wx' });
@@ -233,7 +233,19 @@ app.post('/api/sync/import', requireAuth, requireRole('admin'), (req, res) => {
   if (db.prepare("SELECT id FROM audit_events WHERE action='sync_imported' AND target_id=?").get(payload.syncId))
     return res.status(409).json({ error: 'سبق استيراد ملف المزامنة هذا.' });
   try {
-    const pendingDir = stageProgramUpdate(payload, path.resolve(process.env.DATA_DIR || './data'));
+    const publicKeyPath = path.resolve(process.env.UPDATE_PUBLIC_KEY_PATH || './data/trusted-update-public.pem');
+    let updateTrusted = false;
+    let trustedPublicKey = null;
+    if (fs.existsSync(publicKeyPath)) {
+      try {
+        trustedPublicKey = fs.readFileSync(publicKeyPath, 'utf8');
+        updateTrusted = verifyProgramUpdate(payload, trustedPublicKey);
+      } catch { trustedPublicKey = null; updateTrusted = false; }
+    }
+    // Data sync may proceed without a trusted program signature; untrusted code is never staged.
+    const pendingDir = updateTrusted
+      ? stageProgramUpdate(payload, path.resolve(process.env.DATA_DIR || './data'), trustedPublicKey)
+      : null;
     const now = new Date().toISOString();
     db.transaction(() => {
       db.prepare('INSERT INTO app_state(id,state_json,updated_by,updated_at) VALUES(1,?,?,?) ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at')
@@ -241,13 +253,16 @@ app.post('/api/sync/import', requireAuth, requireRole('admin'), (req, res) => {
       audit(req.user.id, 'sync_imported', 'sync', payload.syncId, {
         sourceInstanceId: payload.sourceInstanceId,
         complaintCount: payload.state.complaints.length,
-        programUpdateStaged: true
+        programUpdateStaged: Boolean(updateTrusted),
+        programUpdateSignatureVerified: Boolean(updateTrusted)
       });
     })();
     res.json({
-      imported: true, complaintCount: payload.state.complaints.length, updateStaged: true,
-      updatePath: path.relative(process.cwd(), pendingDir),
-      warning: 'استوردت البيانات؛ حزمة البرنامج محفوظة للمراجعة ولم تُشغّل تلقائيًا.'
+      imported: true, complaintCount: payload.state.complaints.length, updateStaged: Boolean(updateTrusted),
+      ...(pendingDir ? { updatePath: path.relative(process.cwd(), pendingDir) } : {}),
+      warning: updateTrusted
+        ? 'استوردت البيانات؛ حزمة البرنامج موقعة بمفتاح موثوق ومحفوظة للمراجعة، ولم تُشغّل تلقائيًا.'
+        : 'استوردت البيانات فقط. لم تُحفظ ملفات البرنامج للتطبيق لأن التوقيع الرقمي الموثوق غير موجود أو غير صالح.'
     });
   } catch (error) {
     console.error('Offline sync import failed:', error.message);
