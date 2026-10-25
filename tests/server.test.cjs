@@ -96,6 +96,15 @@ test('dedicated complaint status endpoint requires an authorized staff role', ()
   assert.ok(source.includes("app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff')"));
 });
 
+test('server initializes and appends hash-chained audit events', () => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(source.includes("ALTER TABLE audit_events ADD COLUMN previous_hash TEXT"));
+  assert.ok(source.includes("ALTER TABLE audit_events ADD COLUMN event_hash TEXT"));
+  assert.ok(source.includes("SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1"));
+  assert.ok(source.includes('previous_hash, event_hash'));
+});
+
 test('state API persists complaint-change audit events in the same transaction', () => {
   const fs = require('node:fs');
   const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
