@@ -94,13 +94,54 @@ test('server migrates legacy audit rows and appends verifiable events', { timeou
     body: JSON.stringify({ username: 'auditadmin', password: 'audit-migration-test-password-123' })
   });
   assert.equal(login.status, 200);
+  const adminCookie = login.headers.get('set-cookie')?.split(';')[0];
+  assert.ok(adminCookie, 'admin login should establish an HTTP-only session cookie');
+
+  const createReviewer = await fetch(baseUrl + '/api/users', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    body: JSON.stringify({ username: 'reviewer1', password: 'reviewer-test-password-123', role: 'reviewer' })
+  });
+  assert.equal(createReviewer.status, 201);
+
+  const createComplaint = await fetch(baseUrl + '/api/complaints', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    body: JSON.stringify({ summary: 'اختبار صلاحيات', province: 'دمشق', category: 'خدمات عامة' })
+  });
+  assert.equal(createComplaint.status, 201);
+  const complaint = (await createComplaint.json()).complaint;
+
+  const reviewerLogin = await fetch(baseUrl + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: 'reviewer1', password: 'reviewer-test-password-123' })
+  });
+  assert.equal(reviewerLogin.status, 200);
+  const reviewerCookie = reviewerLogin.headers.get('set-cookie')?.split(';')[0];
+  assert.ok(reviewerCookie, 'reviewer login should establish a session cookie');
+
+  const forbiddenUpdate = await fetch(baseUrl + '/api/complaints/' + encodeURIComponent(complaint.id) + '/status', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', cookie: reviewerCookie },
+    body: JSON.stringify({ status: 'closed' })
+  });
+  assert.equal(forbiddenUpdate.status, 403, 'reviewers must not change complaint status');
+
+  const allowedUpdate = await fetch(baseUrl + '/api/complaints/' + encodeURIComponent(complaint.id) + '/status', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    body: JSON.stringify({ status: 'in_progress' })
+  });
+  assert.equal(allowedUpdate.status, 200);
 
   const resultDb = new Database(databasePath, { readonly: true, fileMustExist: true });
   try {
     rows = resultDb.prepare(`SELECT id, actor_user_id, action, target_type, target_id, details_json,
       created_at, previous_hash, event_hash FROM audit_events ORDER BY rowid ASC`).all();
-    assert.equal(rows.length, 2);
+    assert.equal(rows.length, 6);
     assert.equal(verifyAuditRows(rows).valid, true);
+    assert.ok(rows.some(row => row.action === 'complaint_status_changed'));
   } finally {
     resultDb.close();
   }
