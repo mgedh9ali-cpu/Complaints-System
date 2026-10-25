@@ -6,7 +6,7 @@ const test = require('node:test');
 const app = fs.readFileSync('app.js', 'utf8');
 
 test('CSV sanitizer prefixes formula-leading values', () => {
-  const definition = app.split('\\n').find(line => line.startsWith('function csvSafe(value)'));
+  const definition = app.split(String.fromCharCode(10)).find(line => line.startsWith('function csvSafe(value)'));
   assert.ok(definition, 'csvSafe(value) must exist in app.js');
   const sanitizer = vm.runInNewContext('(' + definition.replace('function csvSafe', 'function') + ')');
   const payloads = ['=1+1', '+SUM(A1:A2)', '-2+3', '@SUM(A1)', '  =1+1', String.fromCharCode(9) + '=1+1', String.fromCharCode(1) + '@SUM(A1)'];
