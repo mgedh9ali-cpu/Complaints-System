@@ -111,6 +111,7 @@ test('two isolated local instances exchange data and stage only a trusted signed
 
   const keyPair = crypto.generateKeyPairSync('ed25519');
   const publicKeyPath = path.join(destinationRoot, 'data', 'trusted-update-public.pem');
+  fs.mkdirSync(path.dirname(publicKeyPath), { recursive: true });
   fs.writeFileSync(publicKeyPath, keyPair.publicKey.export({ type: 'spki', format: 'pem' }), { mode: 0o600 });
 
   source = await startInstance(sourceRoot);
