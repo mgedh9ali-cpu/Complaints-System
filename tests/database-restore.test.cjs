@@ -5,14 +5,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const hasSqliteDependency = (() => {
-  try { require.resolve('better-sqlite3'); return true; } catch { return false; }
-})();
 const { verifyRestore } = require('../scripts/verify-database-restore');
 
-test('restore drill verifies a temporary restored copy and preserves row counts', {
-  skip: hasSqliteDependency ? false : 'better-sqlite3 is not installed in this workflow.'
-}, async t => {
+test('restore drill verifies a temporary restored copy and preserves row counts', async t => {
   const Database = require('better-sqlite3');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-restore-test-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -37,9 +32,7 @@ test('restore drill verifies a temporary restored copy and preserves row counts'
   assert.equal(fs.existsSync(backup), true, 'original backup must remain untouched');
 });
 
-test('restore drill rejects a database missing required schema', {
-  skip: hasSqliteDependency ? false : 'better-sqlite3 is not installed in this workflow.'
-}, async t => {
+test('restore drill rejects a database missing required schema', async t => {
   const Database = require('better-sqlite3');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-restore-invalid-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
