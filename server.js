@@ -193,6 +193,54 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ user: { id: req.user.id, username: req.user.username, role: req.user.role } });
 });
 
+app.get('/api/users', requireAuth, requireRole('admin'), (req, res) => {
+  const users = db.prepare('SELECT id, username, role, active, created_at AS createdAt FROM users ORDER BY created_at ASC').all();
+  res.json({ users });
+});
+
+app.post('/api/users', requireAuth, requireRole('admin'), (req, res) => {
+  const { username, password, role } = req.body || {};
+  if (typeof username !== 'string' || !/^[\\p{L}\\p{N}._-]{3,64}$/u.test(username.trim()) ||
+      typeof password !== 'string' || password.length < 12 || password.length > 200 ||
+      !['admin', 'staff', 'reviewer'].includes(role)) {
+    return res.status(400).json({ error: 'اسم المستخدم أو كلمة المرور أو الدور غير صالح.' });
+  }
+  const id = crypto.randomUUID();
+  const normalizedUsername = username.trim();
+  const passwordHash = bcrypt.hashSync(password, 12);
+  try {
+    db.prepare('INSERT INTO users(id, username, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, 1, ?)')
+      .run(id, normalizedUsername, passwordHash, role, new Date().toISOString());
+  } catch (error) {
+    if (error && error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'اسم المستخدم مستخدم بالفعل.' });
+    }
+    throw error;
+  }
+  audit(req.user.id, 'user_created', 'user', id, { username: normalizedUsername, role });
+  res.status(201).json({ user: { id, username: normalizedUsername, role, active: 1 } });
+});
+
+app.patch('/api/users/:id/active', requireAuth, requireRole('admin'), (req, res) => {
+  if (typeof req.body?.active !== 'boolean') {
+    return res.status(400).json({ error: 'قيمة تفعيل الحساب غير صالحة.' });
+  }
+  const target = db.prepare('SELECT id, username, role, active FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.status(404).json({ error: 'الحساب غير موجود.' });
+  if (target.id === req.user.id && req.body.active === false) {
+    return res.status(409).json({ error: 'لا يمكن للمدير تعطيل حسابه الحالي.' });
+  }
+  if (target.role === 'admin' && target.active === 1 && req.body.active === false) {
+    const activeAdmins = db.prepare("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND active=1").get().count;
+    if (activeAdmins <= 1) return res.status(409).json({ error: 'لا يمكن تعطيل آخر حساب مدير نشط.' });
+  }
+  db.prepare('UPDATE users SET active = ? WHERE id = ?').run(req.body.active ? 1 : 0, target.id);
+  audit(req.user.id, req.body.active ? 'user_activated' : 'user_deactivated', 'user', target.id, {
+    username: target.username, role: target.role
+  });
+  res.json({ user: { id: target.id, username: target.username, role: target.role, active: req.body.active ? 1 : 0 } });
+});
+
 app.get('/api/state', requireAuth, (req, res) => {
   const row=db.prepare('SELECT state_json, updated_at FROM app_state WHERE id=1').get();
   res.json({state:row?JSON.parse(row.state_json):null,updatedAt:row?.updated_at||null});
