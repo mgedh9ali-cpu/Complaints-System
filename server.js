@@ -73,6 +73,25 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at DESC);
 `);
 
+const auditColumns = new Set(db.prepare('PRAGMA table_info(audit_events)').all().map(row => row.name));
+const auditChainNeedsMigration = !auditColumns.has('previous_hash') || !auditColumns.has('event_hash');
+if (!auditColumns.has('previous_hash')) db.exec('ALTER TABLE audit_events ADD COLUMN previous_hash TEXT');
+if (!auditColumns.has('event_hash')) db.exec('ALTER TABLE audit_events ADD COLUMN event_hash TEXT');
+if (auditChainNeedsMigration) {
+  const migrateAuditChain = db.transaction(() => {
+    let previousHash = null;
+    const rows = db.prepare(`SELECT rowid AS _rowid, id, actor_user_id, action, target_type, target_id,
+      details_json, created_at FROM audit_events ORDER BY rowid ASC`).all();
+    const update = db.prepare('UPDATE audit_events SET previous_hash = ?, event_hash = ? WHERE rowid = ?');
+    for (const row of rows) {
+      const eventHash = hashAuditEvent(row, previousHash);
+      update.run(previousHash, eventHash, row._rowid);
+      previousHash = eventHash;
+    }
+  });
+  migrateAuditChain();
+}
+
 const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
 if (userCount === 0) {
   const passwordHash = bcrypt.hashSync(adminPassword, 12);
@@ -125,11 +144,22 @@ const loginLimiter = rateLimit({
 });
 
 function audit(actorUserId, action, targetType, targetId = null, details = {}) {
+  const event = {
+    id: crypto.randomUUID(),
+    actor_user_id: actorUserId || null,
+    action,
+    target_type: targetType,
+    target_id: targetId,
+    details_json: JSON.stringify(details),
+    created_at: new Date().toISOString()
+  };
+  const previousHash = db.prepare('SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1').get()?.event_hash ?? null;
+  const eventHash = hashAuditEvent(event, previousHash);
   db.prepare(`INSERT INTO audit_events
-    (id, actor_user_id, action, target_type, target_id, details_json, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .run(crypto.randomUUID(), actorUserId || null, action, targetType, targetId,
-      JSON.stringify(details), new Date().toISOString());
+    (id, actor_user_id, action, target_type, target_id, details_json, created_at, previous_hash, event_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(event.id, event.actor_user_id, event.action, event.target_type, event.target_id,
+      event.details_json, event.created_at, previousHash, eventHash);
 }
 
 function requireAuth(req, res, next) {
@@ -154,6 +184,7 @@ function requireRole(...roles) {
 
 const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
+const { hashAuditEvent } = require('./lib/audit-integrity');
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local' }));
 
