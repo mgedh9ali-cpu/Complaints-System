@@ -61,3 +61,15 @@ test('server rejects attempts to bind beyond loopback', {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+
+test('server configures a restrictive same-origin Content Security Policy', () => {
+  const source = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
+  assert.match(source, /contentSecurityPolicy:\s*\{/);
+  assert.match(source, /defaultSrc:\s*\[["']'self'["']\]/);
+  assert.match(source, /scriptSrc:\s*\[["']'self'["']\]/);
+  assert.match(source, /connectSrc:\s*\[["']'self'["']\]/);
+  assert.match(source, /objectSrc:\s*\[["']'none'["']\]/);
+  assert.match(source, /frameAncestors:\s*\[["']'none'["']\]/);
+  assert.doesNotMatch(source, /contentSecurityPolicy:\s*false/);
+});
