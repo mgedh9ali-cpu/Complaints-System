@@ -22,3 +22,10 @@ test('modal focus trap uses a collection selector and accessible description', (
   assert.ok(app.includes('const items=$$('), 'focus trap must query all focusable items');
   assert.ok(app.includes('aria-describedby="modalDescription"'), 'modal must describe its content to assistive technology');
 });
+
+test('modal opening and tab navigation share visible focus targets', () => {
+  assert.ok(app.includes('function modalFocusables(dlg)'), 'shared visible-focus selector must exist');
+  assert.ok(app.includes('.filter(el=>el.offsetParent!==null)'), 'focus targets must be visible');
+  assert.ok(app.includes('const items=modalFocusables(dlg);(items[0]||dlg).focus()'), 'opening a modal must focus the first visible target');
+  assert.ok(app.includes('const items=modalFocusables(dlg);if(!items.length)'), 'tab navigation must use the same visible targets');
+});
