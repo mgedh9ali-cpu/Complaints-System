@@ -19,7 +19,7 @@ function requiredEnv(name, minLength = 1) {
 }
 
 const app = express();
-const host = process.env.HOST || '127.0.0.1';
+const host = '127.0.0.1'; // Forced loopback: this application must not listen on the LAN or internet.
 const port = Number(process.env.PORT || 3000);
 const sessionSecret = requiredEnv('SESSION_SECRET', 32);
 const adminUsername = requiredEnv('ADMIN_USERNAME', 3);
@@ -29,8 +29,8 @@ const databasePath = path.resolve(process.env.DATABASE_PATH || './data/complaint
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('PORT must be a valid TCP port');
 }
-if (host !== '127.0.0.1' && host !== 'localhost' && process.env.ALLOW_LAN !== 'true') {
-  throw new Error('Network exposure is disabled. Set ALLOW_LAN=true only after configuring firewall and TLS.');
+if (process.env.ALLOW_LAN === 'true' || (process.env.HOST && !['127.0.0.1','localhost'].includes(process.env.HOST))) {
+  throw new Error('This offline build is loopback-only; remove HOST/ALLOW_LAN overrides.');
 }
 
 fs.mkdirSync(path.dirname(databasePath), { recursive: true });
@@ -200,6 +200,59 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), (req, res) => {
     .run(stateJson,req.user.id,now);
   audit(req.user.id,'application_state_saved','application',null,{complaintCount:state.complaints.length});
   res.json({saved:true,updatedAt:now});
+});
+
+
+const { createSyncPackage, validateSyncPackage, stageProgramUpdate } = require('./lib/offline-sync');
+const instanceIdPath = path.resolve(process.env.INSTANCE_ID_PATH || './data/instance-id');
+fs.mkdirSync(path.dirname(instanceIdPath), { recursive: true });
+if (!fs.existsSync(instanceIdPath)) fs.writeFileSync(instanceIdPath, crypto.randomUUID() + '\n', { flag: 'wx' });
+const sourceInstanceId = fs.readFileSync(instanceIdPath, 'utf8').trim();
+
+app.get('/api/sync/export', requireAuth, requireRole('admin', 'staff'), (req, res) => {
+  const row = db.prepare('SELECT state_json FROM app_state WHERE id=1').get();
+  const state = row ? JSON.parse(row.state_json) : {
+    complaints: [], notifications: [], templates: [],
+    settings: { slaDays: 7, slaApproved: false, provinces: [], entities: [], categories: [] }
+  };
+  const bundle = createSyncPackage(state, __dirname, sourceInstanceId);
+  audit(req.user.id, 'sync_exported', 'sync', bundle.syncId, { complaintCount: state.complaints.length });
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="complaints-sync-' + new Date().toISOString().slice(0, 10) + '.json"');
+  res.send(JSON.stringify(bundle));
+});
+
+app.post('/api/sync/import', requireAuth, requireRole('admin'), (req, res) => {
+  const payload = req.body;
+  const validation = validateSyncPackage(payload);
+  if (!validation.ok) return res.status(400).json({ error: validation.error });
+  if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > 950 * 1024)
+    return res.status(413).json({ error: 'ملف المزامنة أكبر من الحد المسموح.' });
+  if (payload.sourceInstanceId === sourceInstanceId)
+    return res.status(400).json({ error: 'هذا الملف صادر من النسخة الحالية.' });
+  if (db.prepare("SELECT id FROM audit_events WHERE action='sync_imported' AND target_id=?").get(payload.syncId))
+    return res.status(409).json({ error: 'سبق استيراد ملف المزامنة هذا.' });
+  try {
+    const pendingDir = stageProgramUpdate(payload, path.resolve(process.env.DATA_DIR || './data'));
+    const now = new Date().toISOString();
+    db.transaction(() => {
+      db.prepare('INSERT INTO app_state(id,state_json,updated_by,updated_at) VALUES(1,?,?,?) ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at')
+        .run(JSON.stringify(payload.state), req.user.id, now);
+      audit(req.user.id, 'sync_imported', 'sync', payload.syncId, {
+        sourceInstanceId: payload.sourceInstanceId,
+        complaintCount: payload.state.complaints.length,
+        programUpdateStaged: true
+      });
+    })();
+    res.json({
+      imported: true, complaintCount: payload.state.complaints.length, updateStaged: true,
+      updatePath: path.relative(process.cwd(), pendingDir),
+      warning: 'استوردت البيانات؛ حزمة البرنامج محفوظة للمراجعة ولم تُشغّل تلقائيًا.'
+    });
+  } catch (error) {
+    console.error('Offline sync import failed:', error.message);
+    res.status(500).json({ error: 'تعذر إكمال الاستيراد. راجع سجل الخادم.' });
+  }
 });
 
 app.get('/api/complaints', requireAuth, (req, res) => {
