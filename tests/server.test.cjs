@@ -19,3 +19,13 @@ test('complaint validation rejects excessive or malformed user input', () => {
   assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', details: 17 }), false);
   assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', phone: 'x'.repeat(41) }), false);
 });
+
+test('local UI uses authenticated API and server-backed state rather than localStorage for records', () => {
+  const fs = require('node:fs');
+  const ui = fs.readFileSync(require('node:path').join(__dirname, '..', 'app.js'), 'utf8');
+  const server = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(ui.includes("api('/api/auth/login'"), 'login form must call the server');
+  assert.ok(ui.includes("api('/api/state'"), 'dashboard persistence must use the server state API');
+  assert.ok(server.includes("app.put('/api/state', requireAuth, requireRole('admin','staff')"), 'saving state must require an authenticated write role');
+  assert.ok(server.includes('CREATE TABLE IF NOT EXISTS app_state'), 'persistent application state must be stored in SQLite');
+});

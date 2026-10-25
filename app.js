@@ -30,9 +30,66 @@ const seed = {
   ],
   settings:{slaDays:7,slaApproved:false,provinces:['دمشق','ريف دمشق','حلب','حمص','حماة','اللاذقية','طرطوس','إدلب','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'],entities:['مديرية الخدمات العامة','مديرية النقل','مديرية الشؤون الاجتماعية','مديرية التجارة الداخلية','مديرية التربية','مديرية المياه'],categories:['خدمات عامة','نقل ومواصلات','شؤون اجتماعية','أسعار وأسواق','تعليم','مياه وصرف صحي','استفسار عام']}
 };
-let db = loadDb(), page='dashboard', searchText='', statusFilter='all', priorityFilter='all', selectedIds=new Set(), currentId=null, toastTimer=null;
-function loadDb(){try{const saved=localStorage.getItem(STORAGE_KEY);if(saved){const x=JSON.parse(saved);if(x&&Array.isArray(x.complaints))return x;}}catch(e){}return structuredClone(seed);}
-function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(db));}catch(e){toast('تعذر حفظ التغييرات في تخزين المتصفح.','error');}}
+let db = cleanState(), page='dashboard', searchText='', statusFilter='all', priorityFilter='all', selectedIds=new Set(), currentId=null, toastTimer=null;
+let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), stateLoaded=false;
+function cleanState(){const x=structuredClone(seed);x.complaints=[];x.notifications=[];return x;}
+function loadDb(){return cleanState();}
+async function api(url, options={}) {
+  const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+  if(response.status===204)return null;
+  const body=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(body.error||'تعذر تنفيذ الطلب.');
+  return body;
+}
+function persist(){
+  if(!authenticatedUser||!stateLoaded)return;
+  clearTimeout(persistTimer);
+  const snapshot=JSON.stringify(db);
+  persistTimer=setTimeout(()=>{
+    persistQueue=persistQueue.then(()=>api('/api/state',{method:'PUT',body:snapshot}))
+      .catch(err=>toast('لم يُحفظ التغيير في قاعدة البيانات: '+err.message,'error'));
+  },250);
+}
+function updateSignedInUi(){
+  const name=authenticatedUser?.username||'غير مسجل';
+  ['#sideUserName','#topUserName'].forEach(sel=>{const el=$(sel);if(el)el.textContent=name;});
+  const role=authenticatedUser?.role||'';
+  const sideRole=$('#sideUserRole');if(sideRole)sideRole.textContent=({admin:'مدير النظام',staff:'موظف',reviewer:'مراجع'})[role]||role;
+  const logout=$('#logoutButton');if(logout)logout.hidden=!authenticatedUser;
+  const note=$('.prototype-note');if(note)note.innerHTML='<span class="status-dot"></span> قاعدة بيانات محلية · تسجيل دخول مفعل';
+  const env=$('.env-chip');if(env)env.innerHTML='<span></span> تخزين محلي';
+}
+function showLogin(){
+  let style=$('#loginStyles');
+  if(!style){style=document.createElement('style');style.id='loginStyles';style.textContent=`
+  .login-overlay{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:rgba(9,30,26,.82);backdrop-filter:blur(5px)}
+  .login-card{width:min(100%,440px);background:#fff;border-radius:18px;padding:28px;box-shadow:0 24px 90px #0005;color:#17372f}
+  .login-card h1{font-size:24px;margin:0 0 8px}.login-card p{color:#64746f;font-size:13px;line-height:1.8;margin:0 0 20px}
+  .login-card label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}
+  .login-card input{width:100%;box-sizing:border-box;border:1px solid #cbd7d2;border-radius:9px;padding:12px;font:inherit;direction:ltr;text-align:left}
+  .login-card button{width:100%;border:0;border-radius:9px;padding:12px;margin-top:18px;background:#145b49;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+  .login-error{color:#a52626;background:#fff0f0;padding:10px;border-radius:8px;margin-top:12px;font-size:13px}
+  .login-note{font-size:11px!important;margin-top:16px!important}`;
+  document.head.append(style);}
+  let root=$('#loginOverlay');
+  if(!root){root=document.createElement('div');root.id='loginOverlay';root.className='login-overlay';root.innerHTML='<section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><h1 id="loginTitle">تسجيل الدخول</h1><p>أدخل بيانات المدير التي أنشأتها عند إعداد النظام على هذا اللابتوب.</p><form id="loginForm"><label for="loginUsername">اسم المستخدم</label><input id="loginUsername" name="username" autocomplete="username" required maxlength="100"><label for="loginPassword">كلمة المرور</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="200"><div id="loginError" class="login-error" role="alert" hidden></div><button type="submit">دخول إلى النظام</button></form><p class="login-note">إذا لم تُعد ملف .env بعد، راجع تعليمات التشغيل في README. لا توجد كلمة مرور افتراضية مخفية.</p></section>';document.body.append(root);
+    $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('#loginForm button');button.disabled=true;button.textContent='جارٍ التحقق…';const err=$('#loginError');err.hidden=true;try{
+      const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#loginUsername').value,password:$('#loginPassword').value})});
+      authenticatedUser=result.user;
+      const stored=await api('/api/state');
+      if(stored.state&&Array.isArray(stored.state.complaints)){db=stored.state;}
+      else{db=cleanState();await api('/api/state',{method:'PUT',body:JSON.stringify(db)});}
+      stateLoaded=true;root.remove();updateSignedInUi();render();
+      toast('تم تسجيل الدخول وحُملت البيانات من قاعدة SQLite.');
+    }catch(ex){err.textContent=ex.message;err.hidden=false;}finally{button.disabled=false;button.textContent='دخول إلى النظام';}
+    });
+  }
+  root.hidden=false;$('#loginUsername')?.focus();
+}
+async function logout(){
+  try{clearTimeout(persistTimer);await persistQueue;if(authenticatedUser&&stateLoaded)await api('/api/state',{method:'PUT',body:JSON.stringify(db)});await api('/api/auth/logout',{method:'POST',body:'{}'});}catch(e){}
+  authenticatedUser=null;stateLoaded=false;db=cleanState();updateSignedInUi();showLogin();
+}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function norm(s=''){return String(s).normalize('NFKD').replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/[ىئي]/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ء/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
 function phoneNorm(s=''){let n=String(s).replace(/[^\d+]/g,'');if(n.startsWith('+963'))n='0'+n.slice(4);if(n.startsWith('963'))n='0'+n.slice(3);return n;}
@@ -166,6 +223,8 @@ document.addEventListener('input',e=>{if(e.target.id==='complaintSearch'){search
 document.addEventListener('change',e=>{if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?['مها العلي','خالد منصور','سليم عمر','وسيم صالح','مستخدم تجريبي']:['urgent','high','normal']).map(x=>'<option value="'+x+'">'+(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
 document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root.dataset.open&&e.key==='Tab'){const dlg=$('.modal',root);const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!dlg.contains(document.activeElement))){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dlg.contains(document.activeElement))){e.preventDefault();first.focus();}}if(e.key==='Escape'&&root.dataset.open){closeModal();return;}if(e.ctrlKey&&e.key.toLowerCase()==='k'){e.preventDefault();go('complaints');setTimeout(()=>$('#complaintSearch')?.focus(),0);}if(e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
 $('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
-window.addEventListener('storage',()=>{db=loadDb();render();});
+$('#logoutButton')?.addEventListener('click',logout);
+updateSignedInUi();
 render();
+api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateLoaded=true;updateSignedInUi();render();}).catch(()=>{showLogin();});
 })();
