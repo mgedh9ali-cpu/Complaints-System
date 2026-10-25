@@ -19,7 +19,7 @@ test('CSV sanitizer prefixes formula-leading values', () => {
 });
 
 test('modal focus trap uses a collection selector and accessible description', () => {
-  assert.ok(app.includes('const items=$$('), 'focus trap must query all focusable items');
+  assert.ok(app.includes('function modalFocusables(dlg){return $$('), 'shared helper must query all focusable items');
   assert.ok(app.includes('aria-describedby="modalDescription"'), 'modal must describe its content to assistive technology');
 });
 
