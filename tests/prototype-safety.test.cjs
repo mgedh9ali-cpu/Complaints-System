@@ -6,9 +6,9 @@ const test = require('node:test');
 const app = fs.readFileSync('app.js', 'utf8');
 
 test('CSV sanitizer prefixes formula-leading values', () => {
-  const match = app.match(/function csvSafe\\(value\\)\\{[^\\n]*\\}/);
-  assert.ok(match, 'csvSafe(value) must exist in app.js');
-  const sanitizer = vm.runInNewContext(`(${match[0].replace(/^function csvSafe/, 'function')})`);
+  const definition = app.split('\\n').find(line => line.startsWith('function csvSafe(value)'));
+  assert.ok(definition, 'csvSafe(value) must exist in app.js');
+  const sanitizer = vm.runInNewContext('(' + definition.replace('function csvSafe', 'function') + ')');
   const payloads = ['=1+1', '+SUM(A1:A2)', '-2+3', '@SUM(A1)', '  =1+1', String.fromCharCode(9) + '=1+1', String.fromCharCode(1) + '@SUM(A1)'];
   for (const payload of payloads) {
     assert.equal(sanitizer(payload), "'" + payload, `should neutralize ${JSON.stringify(payload)}`);
@@ -19,6 +19,6 @@ test('CSV sanitizer prefixes formula-leading values', () => {
 });
 
 test('modal focus trap uses a collection selector and accessible description', () => {
-  assert.match(app, /const items=\\$\\$\\(/, 'focus trap must query all focusable items');
-  assert.match(app, /aria-describedby="modalDescription"/, 'modal must describe its content to assistive technology');
+  assert.ok(app.includes('const items=$$('), 'focus trap must query all focusable items');
+  assert.ok(app.includes('aria-describedby="modalDescription"'), 'modal must describe its content to assistive technology');
 });
