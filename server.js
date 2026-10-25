@@ -54,6 +54,12 @@ db.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS app_state (
+    id INTEGER PRIMARY KEY CHECK(id = 1),
+    state_json TEXT NOT NULL CHECK(json_valid(state_json)),
+    updated_by TEXT NOT NULL REFERENCES users(id),
+    updated_at TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS audit_events (
     id TEXT PRIMARY KEY,
     actor_user_id TEXT REFERENCES users(id),
@@ -82,7 +88,7 @@ if (userCount === 0) {
 
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json({ limit: '256kb', strict: true }));
+app.use(express.json({ limit: '1mb', strict: true }));
 app.use(session({
   name: 'complaints.sid',
   secret: sessionSecret,
@@ -171,6 +177,29 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ user: { id: req.user.id, username: req.user.username, role: req.user.role } });
+});
+
+app.get('/api/state', requireAuth, (req, res) => {
+  const row=db.prepare('SELECT state_json, updated_at FROM app_state WHERE id=1').get();
+  res.json({state:row?JSON.parse(row.state_json):null,updatedAt:row?.updated_at||null});
+});
+
+app.put('/api/state', requireAuth, requireRole('admin','staff'), (req, res) => {
+  const state=req.body;
+  if(!state||typeof state!=='object'||Array.isArray(state)||
+     !Array.isArray(state.complaints)||state.complaints.length>5000||
+     !Array.isArray(state.notifications)||!Array.isArray(state.templates)||
+     !state.settings||typeof state.settings!=='object'||Array.isArray(state.settings)){
+    return res.status(400).json({error:'بنية البيانات المرسلة غير صالحة.'});
+  }
+  const stateJson=JSON.stringify(state);
+  if(Buffer.byteLength(stateJson,'utf8')>900*1024)return res.status(413).json({error:'حجم البيانات أكبر من الحد المسموح.'});
+  const now=new Date().toISOString();
+  db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at) VALUES(1,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
+    .run(stateJson,req.user.id,now);
+  audit(req.user.id,'application_state_saved','application',null,{complaintCount:state.complaints.length});
+  res.json({saved:true,updatedAt:now});
 });
 
 app.get('/api/complaints', requireAuth, (req, res) => {
