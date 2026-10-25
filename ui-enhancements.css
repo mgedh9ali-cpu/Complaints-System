@@ -1,0 +1,103 @@
+/* Local UI enhancements: no external fonts, CDNs, or network dependencies. */
+:root {
+  --ui-font: "Tahoma", "Segoe UI", Arial, sans-serif;
+  --ui-radius: 10px;
+}
+html, body, button, input, select, textarea {
+  font-family: var(--ui-font);
+}
+button, .btn, .icon-button, .nav-link, .filter-chip {
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+button:active:not(:disabled), .btn:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { cursor: wait; opacity: .68; }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid rgba(43, 107, 88, .22);
+  outline-offset: 1px;
+  border-color: var(--green-700, #2b6b58);
+}
+.ui-tool-button {
+  min-height: 36px;
+  border: 1px solid var(--line, #dfe7e2);
+  border-radius: 9px;
+  padding: 7px 11px;
+  background: var(--paper, #fff);
+  color: var(--green-900, #153d34);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ui-tool-button:hover { background: var(--green-100, #e8f2ed); }
+.ui-tool-button[aria-pressed="true"] { background: var(--green-900, #153d34); color: #fff; }
+.ui-login-password-wrap { display: flex; align-items: stretch; gap: 6px; }
+.ui-login-password-wrap input { flex: 1; min-width: 0; }
+.ui-password-toggle {
+  flex: 0 0 auto;
+  border: 1px solid #cbd7d2;
+  border-radius: 9px;
+  background: #f6f9f7;
+  color: #17372f;
+  padding: 0 10px;
+  font-size: 12px;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e5ece8;
+  --muted: #a7b6ae;
+  --line: #354941;
+  --paper: #182a24;
+  --bg: #101b17;
+  --green-950: #e5eee9;
+  --green-900: #d2e5db;
+  --green-800: #b8d4c6;
+  --green-100: #243b31;
+  --shadow: 0 5px 20px rgba(0,0,0,.18);
+  background: var(--bg);
+  color: var(--ink);
+}
+html[data-theme="dark"] body,
+html[data-theme="dark"] .main-area { background: var(--bg); color: var(--ink); }
+html[data-theme="dark"] .sidebar,
+html[data-theme="dark"] .topbar,
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .mini-card,
+html[data-theme="dark"] .login-card,
+html[data-theme="dark"] .ui-tool-button,
+html[data-theme="dark"] .table-footer button {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--line);
+}
+html[data-theme="dark"] th,
+html[data-theme="dark"] tbody tr:hover,
+html[data-theme="dark"] .table-footer,
+html[data-theme="dark"] .field,
+html[data-theme="dark"] .select-field,
+html[data-theme="dark"] .textarea-field,
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background: #1d3129;
+  color: var(--ink);
+  border-color: var(--line);
+}
+html[data-theme="dark"] td,
+html[data-theme="dark"] .panel-header,
+html[data-theme="dark"] .setting-row,
+html[data-theme="dark"] .notice-item { border-color: var(--line); }
+html[data-theme="dark"] .row-title,
+html[data-theme="dark"] .stat-number,
+html[data-theme="dark"] .mini-card strong { color: #e5eee9; }
+html[data-theme="dark"] .login-overlay { background: rgba(0,0,0,.82); }
+html[data-theme="dark"] .login-card p,
+html[data-theme="dark"] .login-card label { color: #d0ddd6; }
+html[data-theme="dark"] .login-card input { background: #1d3129; color: #f3f7f4; border-color: #496357; }
+html[data-theme="dark"] .ui-password-toggle { background: #243b31; color: #e5eee9; border-color: #496357; }
+@media (max-width: 720px) {
+  .ui-tool-button { min-height: 34px; padding: 6px 8px; font-size: 11px; }
+  .top-actions { gap: 6px; flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; }
+}
