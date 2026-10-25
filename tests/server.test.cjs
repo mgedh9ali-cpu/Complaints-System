@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { validComplaint } = require('../server');
+const { validComplaint } = require('../lib/validation');
 
 test('complaint validation accepts a minimal valid complaint', () => {
   assert.equal(validComplaint({ summary: 'طلب متابعة', province: 'دمشق', category: 'خدمات عامة' }), true);
