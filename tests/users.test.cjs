@@ -8,6 +8,7 @@ const path = require('node:path');
 const net = require('node:net');
 const { spawn } = require('node:child_process');
 const { setTimeout: delay } = require('node:timers/promises');
+const hasServerDependencies = ['express', 'helmet', 'express-session', 'bcryptjs', 'better-sqlite3', 'express-rate-limit'].every(name => { try { require.resolve(name); return true; } catch { return false; } });
 
 async function freePort() {
   const server = net.createServer();
@@ -35,7 +36,7 @@ function cookieFrom(response) {
   return value.split(';', 1)[0];
 }
 
-test('local account management enforces administrator-only access and safe deactivation', async t => {
+test('local account management enforces administrator-only access and safe deactivation', { timeout: 30000, skip: hasServerDependencies ? false : 'Server dependencies are not installed in this workflow.' }, async t => {
   const root = path.resolve(__dirname, '..');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-users-test-'));
   const port = await freePort();
