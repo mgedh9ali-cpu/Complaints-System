@@ -207,6 +207,17 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), (req, res) => {
      !state.settings||typeof state.settings!=='object'||Array.isArray(state.settings)){
     return res.status(400).json({error:'بنية البيانات المرسلة غير صالحة.'});
   }
+  const complaintIds=new Set();
+  for(const complaint of state.complaints){
+    if(!complaint||typeof complaint!=='object'||Array.isArray(complaint)||
+       typeof complaint.id!=='string'||!complaint.id.trim()||complaint.id.length>100){
+      return res.status(400).json({error:'يتضمن ملف الشكاوى سجلًا بمعرّف غير صالح.'});
+    }
+    if(complaintIds.has(complaint.id)){
+      return res.status(400).json({error:'تتضمن البيانات معرّفات شكاوى مكررة.'});
+    }
+    complaintIds.add(complaint.id);
+  }
   const stateJson=JSON.stringify(state);
   if(Buffer.byteLength(stateJson,'utf8')>900*1024)return res.status(413).json({error:'حجم البيانات أكبر من الحد المسموح.'});
   const previousRow=db.prepare('SELECT state_json FROM app_state WHERE id=1').get();
