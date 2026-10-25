@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --env-file=.env server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check app.js"
+    "check": "node --check server.js && node --check app.js && node --check lib/offline-sync.js"
   },
   "engines": {
     "node": ">=20.6"
