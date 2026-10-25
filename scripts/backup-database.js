@@ -2,7 +2,6 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const Database = require('better-sqlite3');
 
 const TABLES = ['users', 'complaints', 'app_state', 'audit_events'];
 
@@ -25,6 +24,7 @@ function counts(db) {
 }
 
 async function backupDatabase(sourcePath, destinationPath) {
+  const Database = require('better-sqlite3');
   const source = path.resolve(sourcePath);
   const destination = path.resolve(destinationPath);
   if (source === destination) throw new Error('Backup destination must differ from the source database.');
@@ -46,8 +46,8 @@ async function backupDatabase(sourcePath, destinationPath) {
     }
     return { source, destination, counts: actualCounts, verified: true };
   } catch (error) {
-    if (backupDb) backupDb.close();
-    sourceDb.close();
+    if (backupDb && backupDb.open) backupDb.close();
+    if (sourceDb.open) sourceDb.close();
     // The destination was created by this invocation and failed verification.
     fs.rmSync(destination, { force: true });
     throw error;
