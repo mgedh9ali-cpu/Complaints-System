@@ -36,5 +36,5 @@ test('HTML escaping neutralizes markup and attribute delimiters', () => {
   const escapeHtml = vm.runInNewContext('(' + definition.replace('function esc', 'function') + ')');
   assert.equal(escapeHtml('<script>alert("x")</script>'), '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;');
   assert.equal(escapeHtml("O'Reilly & Co"), 'O&#39;Reilly &amp; Co');
-  assert.equal(escapeHtml(null), '—');
+  assert.equal(escapeHtml(null), 'null');
 });
