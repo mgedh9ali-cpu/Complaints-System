@@ -19,7 +19,7 @@ function requiredEnv(name, minLength = 1) {
 }
 
 const app = express();
-const host = process.env.HOST || '127.0.0.1';
+const host = '127.0.0.1'; // Forced loopback: this application must not listen on the LAN or internet.
 const port = Number(process.env.PORT || 3000);
 const sessionSecret = requiredEnv('SESSION_SECRET', 32);
 const adminUsername = requiredEnv('ADMIN_USERNAME', 3);
@@ -29,8 +29,8 @@ const databasePath = path.resolve(process.env.DATABASE_PATH || './data/complaint
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('PORT must be a valid TCP port');
 }
-if (host !== '127.0.0.1' && host !== 'localhost' && process.env.ALLOW_LAN !== 'true') {
-  throw new Error('Network exposure is disabled. Set ALLOW_LAN=true only after configuring firewall and TLS.');
+if (process.env.ALLOW_LAN === 'true' || (process.env.HOST && !['127.0.0.1','localhost'].includes(process.env.HOST))) {
+  throw new Error('This offline build is loopback-only; remove HOST/ALLOW_LAN overrides.');
 }
 
 fs.mkdirSync(path.dirname(databasePath), { recursive: true });
