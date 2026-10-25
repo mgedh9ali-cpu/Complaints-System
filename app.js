@@ -239,9 +239,12 @@ $('#syncImportFile')?.addEventListener('change',async event=>{
     if(file.size>950*1024)throw new Error('حجم الملف يتجاوز الحد المسموح.');
     const payload=JSON.parse(await file.text());
     if(!confirm('سيستبدل الاستيراد بيانات الشكاوى الحالية. هل أخذت نسخة احتياطية وتريد المتابعة؟'))return;
-    await api('/api/sync/import',{method:'POST',body:JSON.stringify(payload)});
+    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify(payload)});
     const stored=await api('/api/state');db=stored.state||cleanState();stateLoaded=true;render();
-    toast('استوردت البيانات. تحديث البرنامج محفوظ للمراجعة ولم يُطبّق تلقائيًا.','warn');
+    toast(result.updateStaged
+      ? 'استوردت البيانات؛ حزمة البرنامج الموقعة محفوظة للمراجعة ولم تُطبّق تلقائيًا.'
+      : 'استوردت البيانات فقط؛ لم تُحفظ ملفات البرنامج لأن التوقيع الموثوق غير صالح أو غير موجود.',
+      'warn');
   }catch(error){toast(error.message,'error');}finally{event.target.value='';}
 });
 $('#logoutButton')?.addEventListener('click',logout);
