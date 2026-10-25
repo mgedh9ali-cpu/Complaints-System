@@ -29,3 +29,27 @@ test('local UI uses authenticated API and server-backed state rather than localS
   assert.ok(server.includes("app.put('/api/state', requireAuth, requireRole('admin','staff')"), 'saving state must require an authenticated write role');
   assert.ok(server.includes('CREATE TABLE IF NOT EXISTS app_state'), 'persistent application state must be stored in SQLite');
 });
+
+
+test('offline sync package validates contents and detects tampering', () => {
+  const { createSyncPackage, validateSyncPackage } = require('../lib/offline-sync');
+  const os = require('node:os');
+  const path = require('node:path');
+  const fs = require('node:fs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'offline-sync-'));
+  try {
+    fs.mkdirSync(path.join(root, 'lib'), { recursive: true });
+    for (const name of ['server.js', 'app.js', 'index.html', 'styles.css', 'package.json', 'lib/validation.js', 'lib/offline-sync.js']) {
+      const full = path.join(root, name);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, 'fixture:' + name);
+    }
+    const state = { complaints: [], notifications: [], templates: [], settings: { slaDays: 7, slaApproved: false, provinces: [], entities: [], categories: [] } };
+    const bundle = createSyncPackage(state, root, 'instance-a');
+    assert.equal(validateSyncPackage(bundle).ok, true);
+    bundle.programUpdate.files['app.js'].content += 'tampered';
+    assert.equal(validateSyncPackage(bundle).ok, false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
