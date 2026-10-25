@@ -53,3 +53,30 @@ test('offline sync package validates contents and detects tampering', () => {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+
+test('application-state complaint changes are individually auditable', () => {
+  const { diffComplaints } = require('../lib/complaint-state-diff');
+  const previous = { complaints: [
+    { id: 'A', status: 'new' },
+    { id: 'B', status: 'closed' }
+  ] };
+  const next = { complaints: [
+    { id: 'A', status: 'in_progress' },
+    { id: 'C', status: 'new' }
+  ] };
+  assert.deepEqual(diffComplaints(previous, next), [
+    { action: 'complaint_status_changed', id: 'A', details: { source: 'state_api', from: 'new', to: 'in_progress' } },
+    { action: 'complaint_created', id: 'C', details: { source: 'state_api', status: 'new' } },
+    { action: 'complaint_removed', id: 'B', details: { source: 'state_api' } }
+  ]);
+});
+
+test('state API persists complaint-change audit events in the same transaction', () => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(source.includes("const { diffComplaints } = require('./lib/complaint-state-diff')"));
+  assert.ok(source.includes('const complaintChanges=diffComplaints(previousState,state)'));
+  assert.ok(source.includes("audit(req.user.id,change.action,'complaint',change.id,change.details)"));
+  assert.ok(source.includes('complaintChangesLogged:complaintChanges.length'));
+});
