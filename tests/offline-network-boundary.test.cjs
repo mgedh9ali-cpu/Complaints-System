@@ -8,6 +8,8 @@ const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 
 const root = path.join(__dirname, '..');
+const hasServerDependencies = ['express', 'helmet', 'express-session', 'bcryptjs', 'better-sqlite3', 'express-rate-limit']
+  .every(name => { try { require.resolve(name); return true; } catch { return false; } });
 
 test('browser assets do not depend on remote URLs or externally hosted resources', () => {
   for (const name of ['index.html', 'app.js', 'styles.css']) {
@@ -18,7 +20,9 @@ test('browser assets do not depend on remote URLs or externally hosted resources
   }
 });
 
-test('server rejects attempts to bind beyond loopback', () => {
+test('server rejects attempts to bind beyond loopback', {
+  skip: hasServerDependencies ? false : 'Server dependencies are not installed in this workflow.'
+}, () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-loopback-'));
   try {
     const commonEnv = {
