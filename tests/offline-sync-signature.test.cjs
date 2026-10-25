@@ -22,6 +22,20 @@ test('program updates require a valid trusted Ed25519 signature before they can 
     assert.equal(verifyProgramUpdate(bundle, publicKey), false);
     assert.throws(() => stageProgramUpdate(bundle, path.join(root, 'pending'), publicKey), /valid trusted Ed25519 signature/);
 
+    const unsafeBundle = JSON.parse(JSON.stringify(bundle));
+    const unsafeContent = 'outside';
+    unsafeBundle.programUpdate.files['../escaped.txt'] = {
+      content: unsafeContent,
+      sha256: crypto.createHash('sha256').update(unsafeContent, 'utf8').digest('hex')
+    };
+    unsafeBundle.programUpdate.signature = {
+      algorithm: 'Ed25519',
+      value: crypto.sign(null, signedBytes(unsafeBundle.programUpdate.files), privateKey).toString('base64')
+    };
+    assert.equal(verifyProgramUpdate(unsafeBundle, publicKey), true, 'even a correctly signed package must pass structural validation');
+    assert.throws(() => stageProgramUpdate(unsafeBundle, path.join(root, 'pending-unsafe'), publicKey), /package is invalid/);
+    assert.equal(fs.existsSync(path.join(root, 'escaped.txt')), false, 'invalid file paths must never be written');
+
     bundle.programUpdate.signature = {
       algorithm: 'Ed25519',
       value: crypto.sign(null, signedBytes(bundle.programUpdate.files), privateKey).toString('base64')
