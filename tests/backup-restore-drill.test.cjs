@@ -89,7 +89,7 @@ test('restore verification rejects a database missing required tables', async t 
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const invalid = path.join(root, 'incomplete.sqlite');
   const db = new Database(invalid);
-  db.exec('CREATE TABLE users (id TEXT PRIMARY KEY)');
+  db.exec(`CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL, active INTEGER NOT NULL, created_at TEXT NOT NULL)`);
   db.close();
   await assert.rejects(verifyRestore(invalid), /missing required table/);
 });
