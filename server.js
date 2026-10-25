@@ -324,7 +324,7 @@ app.post('/api/complaints', requireAuth, (req, res) => {
   res.status(201).json({ complaint: { ...payload, id, createdAt: now, updatedAt: now } });
 });
 
-app.patch('/api/complaints/:id/status', requireAuth, (req, res) => {
+app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff'), (req, res) => {
   const allowed = ['new', 'in_progress', 'awaiting_reply', 'awaiting_approval', 'closed'];
   if (!allowed.includes(req.body?.status)) return res.status(400).json({ error: 'حالة الشكوى غير صالحة.' });
   const row = db.prepare('SELECT payload_json FROM complaints WHERE id = ?').get(req.params.id);
