@@ -149,7 +149,7 @@ test('two isolated local instances exchange data and stage only a trusted signed
   assert.equal(restored.status, 200);
   assert.deepEqual(restored.body.state, state, 'destination must restore the exact exported application state');
 
-  const pendingDir = path.resolve(destinationRoot, imported.body.updatePath);
+  const pendingDir = path.resolve(repoRoot, imported.body.updatePath);
   assert.equal(fs.existsSync(path.join(pendingDir, 'manifest.json')), true, 'signed update should be staged for review');
   const manifest = JSON.parse(fs.readFileSync(path.join(pendingDir, 'manifest.json'), 'utf8'));
   assert.equal(manifest.signatureVerified, true);
