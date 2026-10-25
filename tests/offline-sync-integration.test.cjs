@@ -9,6 +9,8 @@ const { spawn } = require('node:child_process');
 const net = require('node:net');
 const test = require('node:test');
 const { signedBytes } = require('../lib/offline-sync');
+const hasServerDependencies = ['express', 'helmet', 'express-session', 'bcryptjs', 'better-sqlite3', 'express-rate-limit']
+  .every(name => { try { require.resolve(name); return true; } catch { return false; } });
 
 const repoRoot = path.join(__dirname, '..');
 const username = 'offline-admin';
@@ -94,7 +96,10 @@ async function request(instance, route, options = {}) {
   return { status: response.status, body };
 }
 
-test('two isolated local instances exchange data and stage only a trusted signed program update', { timeout: 30000 }, async t => {
+test('two isolated local instances exchange data and stage only a trusted signed program update', {
+  timeout: 30000,
+  skip: hasServerDependencies ? false : 'Server dependencies are not installed in this workflow.'
+}, async t => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'offline-sync-e2e-'));
   const sourceRoot = path.join(tempRoot, 'source');
   const destinationRoot = path.join(tempRoot, 'destination');
