@@ -72,6 +72,12 @@ test('application-state complaint changes are individually auditable', () => {
   ]);
 });
 
+test('dedicated complaint status endpoint requires an authorized staff role', () => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(source.includes("app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff')"));
+});
+
 test('state API persists complaint-change audit events in the same transaction', () => {
   const fs = require('node:fs');
   const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
