@@ -146,7 +146,7 @@ function settingsPageBase(){
   '<section class="panel" style="margin-bottom:16px"><div class="panel-header"><div><h2>المزامنة اليدوية بين النسختين</h2><p>نقل يدوي فقط، دون اتصال بين الجهازين</p></div></div><div class="panel-body"><p>صدّر الملف وانقله يدويًا إلى الجهاز الآخر. الاستيراد يستبدل بيانات النسخة الحالية؛ احتفظ بنسخة احتياطية أولًا.</p><div class="footer-actions"><button class="btn btn-primary" data-action="sync-export">تصدير ملف المزامنة</button><button class="btn" data-action="sync-import">استيراد ملف مزامنة</button><input id="syncImportFile" type="file" accept="application/json,.json" hidden></div><p class="small-copy">يتضمن الملف حزمة تحديث البرنامج. تُفحص بصمات الملفات وتُحفظ للمراجعة؛ لا يُشغّل كود وارد تلقائيًا دون توقيع موثوق.</p></div></section>'+
   '<div class="risk-note">المهل والتصعيد التلقائي معطلان حتى تعتمد الجهة المدة الرسمية. تعديل هذا الإعداد لا ينشئ تصعيدًا خادميًا.</div>'+
   '<div class="two-col"><section class="panel"><div class="panel-header"><div><h2>مهلة المعالجة</h2><p>لا تعتمد قبل موافقة الجهة</p></div><span class="setting-value">'+(db.settings.slaApproved?'مفعلة تجريبيًا':'غير معتمدة')+'</span></div><div class="panel-body"><div class="form-field"><label for="slaDays">عدد الأيام</label><input class="field" id="slaDays" type="number" min="1" max="365" value="'+db.settings.slaDays+'"></div><label style="display:flex;gap:9px;align-items:center;margin-top:14px;font-size:11px"><input type="checkbox" id="slaApproved" '+(db.settings.slaApproved?'checked':'')+'> اعتماد المهلة للتجربة فقط</label><button class="btn btn-primary" style="margin-top:14px" data-action="save-sla">حفظ الإعداد</button><p class="small-copy">في التشغيل الفعلي يجب تسجيل هوية المعتمد ووقت الاعتماد وتاريخ سريان المهلة، مع مراجعة الاستثناءات الرسمية.</p></div></section>'+
-  '<section class="panel"><div class="panel-header"><div><h2>التصنيفات والجهات</h2><p>إضافة وتعديل وحذف نهائي مع وصف لكل عنصر</p></div></div><div class="panel-body"><div class="footer-actions"><button class="btn btn-sm" data-action="clear-setting-type" data-type="categories">حذف كل التصنيفات</button><button class="btn btn-sm" data-action="clear-setting-type" data-type="entities">حذف كل الجهات</button><button class="btn btn-sm" data-action="restore-settings">استعادة الافتراضي</button></div><p class="small-copy">الحذف يزيل القيمة من الخيارات الجديدة فقط؛ لا يعدّل النصوص المحفوظة داخل الشكاوى السابقة.</p><h3 class="subheading">التصنيفات</h3>'+renderMasterList('categories','categoryDescriptions')+'<h3 class="subheading" style="margin-top:22px">الجهات المختصة</h3>'+renderMasterList('entities','entityDescriptions')+'</div></section></div>'+
+  '<section class="panel"><div class="panel-header"><div><h2>التصنيفات والجهات</h2><p>إضافة وتعديل وحذف نهائي مع وصف لكل عنصر</p></div></div><div class="panel-body"><div class="footer-actions"><button class="btn btn-sm" data-action="clear-setting-type" data-type="categories">حذف كل التصنيفات</button><button class="btn btn-sm" data-action="clear-setting-type" data-type="entities">حذف كل الجهات</button><button class="btn btn-sm" data-action="restore-settings">استعادة الافتراضي</button></div><p class="small-copy">الحذف يزيل القيمة من الخيارات الجديدة فقط؛ لا يعدّل النصوص المحفوظة داخل الشكاوى السابقة.</p><div class="settings-section-title"><h3 class="subheading">التصنيفات</h3><button class="btn btn-sm" data-action="restore-settings" data-type="categories">استعادة التصنيفات الافتراضية</button></div>'+renderMasterList('categories','categoryDescriptions')+'<div class="settings-section-title" style="margin-top:22px"><h3 class="subheading">الجهات المختصة</h3><button class="btn btn-sm" data-action="restore-settings" data-type="entities">استعادة الجهات الافتراضية</button></div>'+renderMasterList('entities','entityDescriptions')+'</div></section></div>'+
   '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>حالة الجاهزية والقيود الأمنية</h2></div><div class="panel-body"><div class="settings-list">'+[['المصادقة الثنائية والجلسات','المصادقة الثنائية غير منفذة؛ الجلسات في ذاكرة الخادم وتنتهي عند إعادة تشغيله.','غير مكتمل'],['سلامة سجل التدقيق','السجل محفوظ في SQLite على الخادم، لكن من يملك ملف القاعدة يستطيع تعديله؛ ليس مقاومًا للتلاعب.','قابل للتعديل'],['السرية والوصول الطارئ','لا توجد ضوابط مكتملة للبيانات السرية أو الوصول الطارئ.','غير مكتمل'],['التشفير والنسخ الاحتياطي','تتوفر أدوات نسخ احتياطي وفحص استعادة؛ تشفير ملف قاعدة البيانات نفسه غير مهيأ.','جزئي'],['الذكاء الاصطناعي','معطل ولا توجد استدعاءات خارجية في هذه النسخة.','معطل']].map(([a,b,status])=>'<div class="setting-row"><div><strong>'+a+'</strong><small>'+b+'</small></div><span class="setting-value">'+status+'</span></div>').join('')+'</div></div></section>';
 }
 
@@ -220,13 +220,13 @@ function clearSettingType(type){
   db.settings[settingDescriptionKey(type)]={};
   persist();render();toast('تم إفراغ القائمة.');
 }
-function restoreDefaultSettings(){
-  if(!confirm('استعادة التصنيفات والجهات الافتراضية؟ ستُستبدل القوائم الحالية، ولن تتغير الشكاوى السابقة.'))return;
-  db.settings.categories=[...seed.settings.categories];
-  db.settings.entities=[...seed.settings.entities];
-  db.settings.categoryDescriptions={};
-  db.settings.entityDescriptions={};
-  persist();render();toast('تمت استعادة القوائم الافتراضية.');
+function restoreDefaultSettings(type='all'){
+  if(!['all','categories','entities'].includes(type))return;
+  const label=type==='categories'?'التصنيفات':type==='entities'?'الجهات':'التصنيفات والجهات';
+  if(!confirm('استعادة '+label+' الافتراضية؟ ستُستبدل القائمة المحددة، ولن تتغير الشكاوى السابقة.'))return;
+  if(type==='all'||type==='categories'){db.settings.categories=[...seed.settings.categories];db.settings.categoryDescriptions={};}
+  if(type==='all'||type==='entities'){db.settings.entities=[...seed.settings.entities];db.settings.entityDescriptions={};}
+  persist();render();toast('تمت استعادة '+label+' الافتراضية.');
 }
 function archiveSetting(type,value){
   if(!validSettingType(type)||!db.settings[type].includes(value))return;
@@ -294,7 +294,7 @@ case 'add-entity':addSetting('entities');break;
 case 'edit-setting':addSetting(el.dataset.type,el.dataset.value);break;
 case 'delete-setting':deleteSetting(el.dataset.type,el.dataset.value);break;
 case 'clear-setting-type':clearSettingType(el.dataset.type);break;
-case 'restore-settings':restoreDefaultSettings();break;
+case 'restore-settings':restoreDefaultSettings(el.dataset.type||'all');break;
 case 'save-setting':{
   const type=el.dataset.type,mode=el.dataset.mode||'create',value=$('#settingValue')?.value.trim(),description=$('#settingDescription')?.value.trim()||'';
   if(!validSettingType(type))return toast('نوع القائمة غير صالح.','error');
