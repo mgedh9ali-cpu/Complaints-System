@@ -74,6 +74,7 @@ function updateSignedInUi(){
   const sideRole=$('#sideUserRole');if(sideRole)sideRole.textContent=({admin:'مدير النظام',staff:'موظف',reviewer:'مراجع'})[role]||role;
   const logout=$('#logoutButton');if(logout)logout.hidden=!authenticatedUser;
   const backup=$('#databaseBackupButton');if(backup)backup.hidden=authenticatedUser?.role!=='admin';
+  const verifyBackup=$('#databaseBackupVerifyButton');if(verifyBackup)verifyBackup.hidden=authenticatedUser?.role!=='admin';
   const note=$('.prototype-note');if(note)note.innerHTML='<span class="status-dot"></span> قاعدة بيانات محلية · تسجيل دخول مفعل';
   const env=$('.env-chip');if(env)env.innerHTML='<span></span> تخزين محلي';
 }
@@ -299,6 +300,8 @@ case 'database-backup':{
     link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
     toast('تم تنزيل نسخة احتياطية كاملة من قاعدة البيانات. احتفظ بها في مكان آمن.');
   }catch(error){toast(error.message,'error');}finally{el.disabled=false;el.textContent='نسخ احتياطي';}})();break;}
+case 'database-backup-verify':{
+  const input=$('#databaseBackupVerifyFile');if(input)input.click();break;}
 case 'sync-export':{
   (async()=>{try{
     const response=await fetch('/api/sync/export',{credentials:'same-origin'});
@@ -388,6 +391,34 @@ case 'print-report':window.print();break;
 document.addEventListener('input',e=>{if(e.target.id==='complaintSearch'){searchText=e.target.value;const pos=e.target.selectionStart;render();const input=$('#complaintSearch');input.focus();input.setSelectionRange(pos,pos);}if(['cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
 );
 document.addEventListener('change',e=>{if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?['مها العلي','خالد منصور','سليم عمر','وسيم صالح','مستخدم تجريبي']:['urgent','high','normal']).map(x=>'<option value="'+x+'">'+(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='databaseBackupVerifyFile')return;
+  const file=e.target.files?.[0];
+  if(!file)return;
+  const button=$('#databaseBackupVerifyButton');
+  try{
+    if(file.size===0)throw new Error('الملف فارغ.');
+    if(file.size>250*1024*1024)throw new Error('حجم النسخة يتجاوز الحد المسموح وهو 250 ميغابايت.');
+    if(button){button.disabled=true;button.textContent='جارٍ فحص النسخة…';}
+    const response=await fetch('/api/backup/verify',{
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'Content-Type':'application/vnd.sqlite3'},
+      body:file
+    });
+    const body=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(body.error||'فشل فحص النسخة الاحتياطية.');
+    if(body.verified!==true)throw new Error('لم يؤكد الخادم سلامة النسخة.');
+    const counts=body.counts||{};
+    const details=Object.entries(counts).map(([name,count])=>name+': '+count).join('، ');
+    toast('النسخة سليمة واجتازت اختبار الاستعادة التجريبي. '+details);
+  }catch(error){
+    toast(error.message||'تعذر فحص النسخة الاحتياطية.','error');
+  }finally{
+    e.target.value='';
+    if(button){button.disabled=false;button.textContent='فحص نسخة';}
+  }
+});
 document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root.dataset.open&&e.key==='Tab'){const dlg=$('.modal',root);const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!dlg.contains(document.activeElement))){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dlg.contains(document.activeElement))){e.preventDefault();first.focus();}}if(e.key==='Escape'&&root.dataset.open){closeModal();return;}if(e.ctrlKey&&e.key.toLowerCase()==='k'){e.preventDefault();go('complaints');setTimeout(()=>$('#complaintSearch')?.focus(),0);}if(e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
 $('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
 $('#syncImportFile')?.addEventListener('change',async event=>{
