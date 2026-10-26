@@ -128,8 +128,31 @@ test('two isolated local instances exchange data and stage only a trusted signed
     templates: [{ name: 'قالب اختبار', version: 1, text: 'نص تجريبي' }],
     settings: { slaDays: 7, slaApproved: false, provinces: [], entities: [], categories: [] }
   };
-  const saved = await request(source, '/api/state', { method: 'PUT', body: JSON.stringify(state) });
+  const initialState = await request(source, '/api/state');
+  assert.equal(initialState.status, 200);
+  assert.equal(initialState.body.revision, 0, 'a new database starts at revision zero');
+
+  const missingRevision = await request(source, '/api/state', {
+    method: 'PUT',
+    body: JSON.stringify(state)
+  });
+  assert.equal(missingRevision.status, 428, 'writes without a revision precondition must be rejected');
+
+  const saved = await request(source, '/api/state', {
+    method: 'PUT',
+    headers: { 'X-State-Revision': String(initialState.body.revision) },
+    body: JSON.stringify(state)
+  });
   assert.equal(saved.status, 200, 'source instance should save the test state');
+  assert.equal(saved.body.revision, 1, 'successful saves advance the revision');
+
+  const staleWrite = await request(source, '/api/state', {
+    method: 'PUT',
+    headers: { 'X-State-Revision': String(initialState.body.revision) },
+    body: JSON.stringify({ ...state, notifications: [{ id: 2, title: 'stale write', body: 'must not replace state' }] })
+  });
+  assert.equal(staleWrite.status, 409, 'a stale state revision must not overwrite newer data');
+  assert.equal(staleWrite.body.currentRevision, saved.body.revision);
 
   const exportedResponse = await fetch(source.baseUrl + '/api/sync/export', {
     headers: { cookie: source.cookie }
