@@ -2,6 +2,7 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 const crypto = require('node:crypto');
 const express = require('express');
 const helmet = require('helmet');
@@ -185,6 +186,7 @@ function requireRole(...roles) {
 
 const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
+const { backupDatabase } = require('./scripts/backup-database');
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local' }));
 
@@ -271,6 +273,27 @@ app.patch('/api/users/:id/active', requireAuth, requireRole('admin'), (req, res)
     username: target.username, role: target.role
   });
   res.json({ user: { id: target.id, username: target.username, role: target.role, active: req.body.active ? 1 : 0 } });
+});
+
+app.get('/api/backup/database', requireAuth, requireRole('admin'), async (req, res, next) => {
+  const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-database-backup-'));
+  const filename = 'complaints-database-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.sqlite';
+  const destination = path.join(backupDir, filename);
+  try {
+    audit(req.user.id, 'database_backup_created', 'database', filename, { format: 'sqlite', verified: true });
+    const result = await backupDatabase(databasePath, destination);
+    if (!result.verified) throw new Error('Backup verification did not complete.');
+    res.setHeader('Content-Type', 'application/vnd.sqlite3');
+    res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '"');
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(destination, error => {
+      fs.rmSync(backupDir, { recursive: true, force: true });
+      if (error && !res.headersSent) next(error);
+    });
+  } catch (error) {
+    fs.rmSync(backupDir, { recursive: true, force: true });
+    next(error);
+  }
 });
 
 app.get('/api/state', requireAuth, (req, res) => {
