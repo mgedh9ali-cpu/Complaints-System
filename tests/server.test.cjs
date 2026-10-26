@@ -109,7 +109,7 @@ test('state API persists complaint-change audit events in the same transaction',
   const fs = require('node:fs');
   const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
   assert.ok(source.includes("const { diffComplaints } = require('./lib/complaint-state-diff')"));
-  assert.ok(source.includes('const complaintChanges=diffComplaints(previousState,state)'));
+  assert.ok(source.includes('const complaintChanges = diffComplaints(previousState, state);'));
   assert.ok(source.includes("audit(req.user.id,change.action,'complaint',change.id,change.details)"));
-  assert.ok(source.includes('complaintChangesLogged:complaintChanges.length'));
+  assert.ok(source.includes('complaintChangesLogged:result.complaintChanges.length'));
 });
