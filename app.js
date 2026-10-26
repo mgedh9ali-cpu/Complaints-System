@@ -32,22 +32,39 @@ const seed = {
 };
 let db = cleanState(), page='dashboard', searchText='', statusFilter='all', priorityFilter='all', selectedIds=new Set(), currentId=null, toastTimer=null;
 let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), stateLoaded=false;
+let stateRevision=0, stateConflict=false;
 function cleanState(){const x=structuredClone(seed);x.complaints=[];x.notifications=[];return x;}
 function loadDb(){return cleanState();}
 async function api(url, options={}) {
   const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
   if(response.status===204)return null;
   const body=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(body.error||'تعذر تنفيذ الطلب.');
+  if(!response.ok){const error=new Error(body.error||'تعذر تنفيذ الطلب.');error.status=response.status;throw error;}
   return body;
 }
 function persist(){
-  if(!authenticatedUser||!stateLoaded)return;
+  if(!authenticatedUser||!stateLoaded||stateConflict)return;
   clearTimeout(persistTimer);
   const snapshot=JSON.stringify(db);
   persistTimer=setTimeout(()=>{
-    persistQueue=persistQueue.then(()=>api('/api/state',{method:'PUT',body:snapshot}))
-      .catch(err=>toast('لم يُحفظ التغيير في قاعدة البيانات: '+err.message,'error'));
+    persistQueue=persistQueue.then(async()=>{
+      if(stateConflict)return;
+      try{
+        const saved=await api('/api/state',{
+          method:'PUT',
+          headers:{'X-State-Revision':String(stateRevision)},
+          body:snapshot
+        });
+        stateRevision=saved.revision;
+      }catch(error){
+        if(error.status===409||error.status===428){
+          stateConflict=true;
+          toast(error.message+' لم تُحذف تعديلات هذه الصفحة؛ لا تُعد التحميل قبل حفظ ما تحتاج إليه.','error');
+        }else{
+          toast('لم يُحفظ التغيير في قاعدة البيانات: '+error.message,'error');
+        }
+      }
+    });
   },250);
 }
 function updateSignedInUi(){
@@ -78,8 +95,18 @@ function showLogin(){
       const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#loginUsername').value,password:$('#loginPassword').value})});
       authenticatedUser=result.user;
       const stored=await api('/api/state');
+      stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;
+      stateConflict=false;
       if(stored.state&&Array.isArray(stored.state.complaints)){db=stored.state;}
-      else{db=cleanState();await api('/api/state',{method:'PUT',body:JSON.stringify(db)});}
+      else{
+        db=cleanState();
+        const saved=await api('/api/state',{
+          method:'PUT',
+          headers:{'X-State-Revision':String(stateRevision)},
+          body:JSON.stringify(db)
+        });
+        stateRevision=saved.revision;
+      }
       stateLoaded=true;root.remove();updateSignedInUi();render();refreshManagedUsers();
       toast('تم تسجيل الدخول وحُملت البيانات من قاعدة SQLite.');
     }catch(ex){err.textContent=ex.message;err.hidden=false;}finally{button.disabled=false;button.textContent='دخول إلى النظام';}
@@ -88,8 +115,31 @@ function showLogin(){
   root.hidden=false;$('#loginUsername')?.focus();
 }
 async function logout(){
-  try{clearTimeout(persistTimer);await persistQueue;if(authenticatedUser&&stateLoaded)await api('/api/state',{method:'PUT',body:JSON.stringify(db)});await api('/api/auth/logout',{method:'POST',body:'{}'});}catch(e){}
-  authenticatedUser=null;stateLoaded=false;db=cleanState();updateSignedInUi();showLogin();
+  clearTimeout(persistTimer);
+  await persistQueue;
+  if(stateConflict){
+    if(!confirm('هناك تعديلات لم تُحفظ بسبب تعارض مع نسخة أحدث. سيؤدي تسجيل الخروج إلى فقدان تعديلات هذه الصفحة. هل تريد المتابعة؟'))return;
+  }else if(authenticatedUser&&stateLoaded){
+    try{
+      const saved=await api('/api/state',{
+        method:'PUT',
+        headers:{'X-State-Revision':String(stateRevision)},
+        body:JSON.stringify(db)
+      });
+      stateRevision=saved.revision;
+    }catch(error){
+      if(error.status===409||error.status===428){
+        stateConflict=true;
+        if(!confirm(error.message+' سيؤدي تسجيل الخروج إلى فقدان تعديلات هذه الصفحة. هل تريد المتابعة؟'))return;
+      }else{
+        toast('تعذر حفظ التغييرات: '+error.message,'error');
+        return;
+      }
+    }
+  }
+  try{await api('/api/auth/logout',{method:'POST',body:'{}'});}
+  catch(error){toast('تعذر إنهاء الجلسة: '+error.message,'error');return;}
+  authenticatedUser=null;stateLoaded=false;stateRevision=0;stateConflict=false;db=cleanState();updateSignedInUi();showLogin();
 }
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function norm(s=''){return String(s).normalize('NFKD').replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/[ىئي]/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ء/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
@@ -347,7 +397,7 @@ $('#syncImportFile')?.addEventListener('change',async event=>{
     const payload=JSON.parse(await file.text());
     if(!confirm('سيستبدل الاستيراد بيانات الشكاوى الحالية. هل أخذت نسخة احتياطية وتريد المتابعة؟'))return;
     const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify(payload)});
-    const stored=await api('/api/state');db=stored.state||cleanState();stateLoaded=true;render();
+    const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;render();
     toast(result.updateStaged
       ? 'استوردت البيانات؛ حزمة البرنامج الموقعة محفوظة للمراجعة ولم تُطبّق تلقائيًا.'
       : 'استوردت البيانات فقط؛ لم تُحفظ ملفات البرنامج لأن التوقيع الموثوق غير صالح أو غير موجود.',
@@ -357,5 +407,5 @@ $('#syncImportFile')?.addEventListener('change',async event=>{
 $('#logoutButton')?.addEventListener('click',logout);
 updateSignedInUi();
 render();
-api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateLoaded=true;updateSignedInUi();render();refreshManagedUsers();}).catch(()=>{showLogin();});
+api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();render();refreshManagedUsers();}).catch(()=>{showLogin();});
 })();
