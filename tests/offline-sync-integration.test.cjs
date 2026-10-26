@@ -24,7 +24,7 @@ async function freePort() {
   return port;
 }
 
-async function startInstance(root) {
+async function startInstance(root, sessionSecret = crypto.randomBytes(48).toString('hex')) {
   const port = await freePort();
   const dataDir = path.join(root, 'data');
   fs.mkdirSync(dataDir, { recursive: true });
@@ -39,7 +39,7 @@ async function startInstance(root) {
       INSTANCE_ID_PATH: path.join(dataDir, 'instance-id'),
       ADMIN_USERNAME: username,
       ADMIN_PASSWORD: password,
-      SESSION_SECRET: crypto.randomBytes(48).toString('hex'),
+      SESSION_SECRET: sessionSecret,
       UPDATE_PUBLIC_KEY_PATH: path.join(dataDir, 'trusted-update-public.pem')
     },
     stdio: ['ignore', 'pipe', 'pipe']
@@ -95,6 +95,40 @@ async function request(instance, route, options = {}) {
   const body = response.status === 204 ? null : await response.json();
   return { status: response.status, body };
 }
+
+test('SQLite-backed login session survives a local server restart', {
+  timeout: 30000,
+  skip: hasServerDependencies ? false : 'Server dependencies are not installed in this workflow.'
+}, async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'session-restart-'));
+  const sessionSecret = crypto.randomBytes(48).toString('hex');
+  let first;
+  let second;
+
+  t.after(async () => {
+    if (first) await first.close();
+    if (second) await second.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  first = await startInstance(root, sessionSecret);
+  const previousCookie = first.cookie;
+  const beforeRestart = await fetch(first.baseUrl + '/api/auth/me', {
+    headers: { cookie: previousCookie }
+  });
+  assert.equal(beforeRestart.status, 200, 'session should work before restart');
+
+  await first.close();
+  first = null;
+
+  second = await startInstance(root, sessionSecret);
+  const afterRestart = await fetch(second.baseUrl + '/api/auth/me', {
+    headers: { cookie: previousCookie }
+  });
+  assert.equal(afterRestart.status, 200, 'the same unexpired session should work after restart');
+  const body = await afterRestart.json();
+  assert.equal(body.user.username, username);
+});
 
 test('two isolated local instances exchange data and stage only a trusted signed program update', {
   timeout: 30000,
