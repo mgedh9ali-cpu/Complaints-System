@@ -1,0 +1,28 @@
+{
+  "name": "شعبة الاستفسارات والشكاوى",
+  "short_name": "الشكاوى",
+  "description": "نظام إدارة الشكاوى المحلي - يعمل دون اتصال",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#123b32",
+  "theme_color": "#145b49",
+  "orientation": "any",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%23145b49'/%3E%3Cpath d='M96 32L160 56v52c0 40-28 64-64 80-36-16-64-40-64-80V56L96 32z' fill='none' stroke='%23d4af37' stroke-width='8'/%3E%3Cpath d='M64 80h64M64 104h64M72 56h48' stroke='%23d4af37' stroke-width='8' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23145b49'/%3E%3Cpath d='M256 80L420 140v140c0 108-76 172-164 216-88-44-164-108-164-216V140L256 80z' fill='none' stroke='%23d4af37' stroke-width='20'/%3E%3Cpath d='M170 210h172M170 270h172M190 150h132' stroke='%23d4af37' stroke-width='20' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "screenshots": []
+}
