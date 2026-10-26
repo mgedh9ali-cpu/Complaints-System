@@ -125,7 +125,7 @@ class SQLiteSessionStore extends session.Store {
     this.db = database;
     this.getStatement = database.prepare('SELECT sess, expires_at FROM sessions WHERE sid = ?');
     this.setStatement = database.prepare('INSERT INTO sessions(sid, sess, expires_at) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET sess=excluded.sess, expires_at=excluded.expires_at');
-    this.touchStatement = database.prepare('UPDATE sessions SET sess = ?, expires_at = ? WHERE sid = ?');
+    this.touchStatement = database.prepare('UPDATE sessions SET expires_at = ? WHERE sid = ?');
     this.destroyStatement = database.prepare('DELETE FROM sessions WHERE sid = ?');
     this.pruneStatement = database.prepare('DELETE FROM sessions WHERE expires_at <= ?');
     this.pruneStatement.run(Date.now());
@@ -166,7 +166,7 @@ class SQLiteSessionStore extends session.Store {
   touch(sid, sessionData, callback = () => {}) {
     try {
       this.pruneStatement.run(Date.now());
-      this.touchStatement.run(JSON.stringify(sessionData), this.expiry(sessionData), sid);
+      this.touchStatement.run(this.expiry(sessionData), sid);
       callback(null);
     } catch (error) {
       callback(error);
