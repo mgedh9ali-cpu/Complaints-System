@@ -1,13 +1,15 @@
 {
   "name": "complaints-local-system",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Local-first complaints management server with SQLite",
+  "description": "Local-first complaints management server with SQLite - enhanced security and validation",
   "main": "server.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check app.js && node --check ui-enhancements.js && node --check lib/offline-sync.js && node --check scripts/sign-program-update.js && node --check scripts/backup-database.js && node --check scripts/verify-database-restore.js && node --check scripts/verify-audit-log.js && node --check lib/audit-integrity.js"
+    "check": "node --check server.js && node --check app.js && node --check ui-enhancements.js && node --check lib/offline-sync.js && node --check scripts/sign-program-update.js && node --check scripts/backup-database.js && node --check scripts/verify-database-restore.js && node --check scripts/verify-audit-log.js && node --check lib/audit-integrity.js && node --check lib/validation.js",
+    "verify-audit": "node scripts/verify-audit-log.js",
+    "backup": "node scripts/backup-database.js"
   },
   "engines": {
     "node": ">=20.6"
