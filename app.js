@@ -56,6 +56,7 @@ function updateSignedInUi(){
   const role=authenticatedUser?.role||'';
   const sideRole=$('#sideUserRole');if(sideRole)sideRole.textContent=({admin:'مدير النظام',staff:'موظف',reviewer:'مراجع'})[role]||role;
   const logout=$('#logoutButton');if(logout)logout.hidden=!authenticatedUser;
+  const backup=$('#databaseBackupButton');if(backup)backup.hidden=authenticatedUser?.role!=='admin';
   const note=$('.prototype-note');if(note)note.innerHTML='<span class="status-dot"></span> قاعدة بيانات محلية · تسجيل دخول مفعل';
   const env=$('.env-chip');if(env)env.innerHTML='<span></span> تخزين محلي';
 }
@@ -236,6 +237,18 @@ function csvSafe(value){const text=String(value??'');return /^[\s\u0000-\u001f]*
 function exportCsv(){const rows=filteredComplaints();const header=['رقم الشكوى','الموضوع','المحافظة','التصنيف','الحالة','الأولوية','المسؤول','تاريخ التسجيل'];const csv=[header,...rows.map(c=>[c.id,c.summary,c.province,c.category,statusLabel(c.status),priorityLabel(c.priority),c.owner,dateText(c.created)])].map(row=>row.map(v=>'"'+csvSafe(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='demo-complaints.csv';document.body.appendChild(a);a.click();a.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);toast('تم إنشاء ملف CSV تجريبي. تذكّر أنه غير رسمي.','warn');}
 document.addEventListener('click',e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return;}const goto=e.target.closest('[data-goto]');if(goto){go(goto.dataset.goto);return;}const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=el.dataset.id;
 switch(a){
+case 'database-backup':{
+  (async()=>{try{
+    el.disabled=true;el.textContent='جارٍ تجهيز النسخة…';
+    const response=await fetch('/api/backup/database',{credentials:'same-origin'});
+    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'تعذر إنشاء النسخة الاحتياطية.');}
+    const blob=await response.blob();if(!blob.size)throw new Error('الملف الناتج فارغ؛ لم تُنزّل نسخة احتياطية.');
+    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    const disposition=response.headers.get('Content-Disposition')||'';
+    const filename=disposition.match(/filename="?([^";]+)"?/i)?.[1]||('complaints-database-backup-'+new Date().toISOString().slice(0,10)+'.sqlite');
+    link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast('تم تنزيل نسخة احتياطية كاملة من قاعدة البيانات. احتفظ بها في مكان آمن.');
+  }catch(error){toast(error.message,'error');}finally{el.disabled=false;el.textContent='نسخ احتياطي';}})();break;}
 case 'sync-export':{
   (async()=>{try{
     const response=await fetch('/api/sync/export',{credentials:'same-origin'});
