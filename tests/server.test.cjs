@@ -20,6 +20,22 @@ test('complaint validation rejects excessive or malformed user input', () => {
   assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', phone: 'x'.repeat(41) }), false);
 });
 
+test('complaint validation rejects invalid phone characters and priority/status', () => {
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', phone: 'abc<script>' }), false);
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', phone: '0944 123 456' }), true);
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', priority: 'critical' }), false);
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', priority: 'urgent' }), true);
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', status: 'deleted' }), false);
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', status: 'closed' }), true);
+});
+
+test('complaint validation rejects prototype pollution keys', () => {
+  const polluted = { summary: 'x', province: 'دمشق', category: 'عام' };
+  Object.defineProperty(polluted, '__proto__', { value: { polluted: true }, enumerable: true });
+  // Even if __proto__ is present as own property in some engines, our check should reject
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', __proto__: { x: 1 } }), false);
+});
+
 test('local UI uses authenticated API and server-backed state rather than localStorage for records', () => {
   const fs = require('node:fs');
   const ui = fs.readFileSync(require('node:path').join(__dirname, '..', 'app.js'), 'utf8');
