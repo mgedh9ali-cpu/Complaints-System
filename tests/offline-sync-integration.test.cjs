@@ -9,6 +9,7 @@ const { spawn } = require('node:child_process');
 const net = require('node:net');
 const test = require('node:test');
 const { signedBytes } = require('../lib/offline-sync');
+const { backupDatabase } = require('../scripts/backup-database');
 const hasServerDependencies = ['express', 'helmet', 'express-session', 'bcryptjs', 'better-sqlite3', 'express-rate-limit']
   .every(name => { try { require.resolve(name); return true; } catch { return false; } });
 
@@ -128,6 +129,55 @@ test('SQLite-backed login session survives a local server restart', {
   assert.equal(afterRestart.status, 200, 'the same unexpired session should work after restart');
   const body = await afterRestart.json();
   assert.equal(body.user.username, username);
+});
+
+test('admin backup verification endpoint validates uploaded SQLite without replacing live data', {
+  timeout: 30000,
+  skip: hasServerDependencies ? false : 'Server dependencies are not installed in this workflow.'
+}, async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-verify-api-'));
+  const sessionSecret = crypto.randomBytes(48).toString('hex');
+  let instance;
+
+  t.after(async () => {
+    if (instance) await instance.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  instance = await startInstance(root, sessionSecret);
+  const backupPath = path.join(root, 'verified-fixture.sqlite');
+  const created = await backupDatabase(path.join(root, 'complaints.sqlite'), backupPath);
+  assert.equal(created.verified, true);
+
+  const backupBytes = fs.readFileSync(backupPath);
+  const unauthorized = await fetch(instance.baseUrl + '/api/backup/verify', {
+    method: 'POST',
+    headers: { 'content-type': 'application/vnd.sqlite3' },
+    body: backupBytes
+  });
+  assert.equal(unauthorized.status, 401, 'backup verification must require login');
+
+  const verified = await fetch(instance.baseUrl + '/api/backup/verify', {
+    method: 'POST',
+    headers: { cookie: instance.cookie, 'content-type': 'application/vnd.sqlite3' },
+    body: backupBytes
+  });
+  assert.equal(verified.status, 200);
+  const verification = await verified.json();
+  assert.equal(verification.verified, true);
+  assert.ok(verification.counts.users >= 1);
+
+  const invalid = await fetch(instance.baseUrl + '/api/backup/verify', {
+    method: 'POST',
+    headers: { cookie: instance.cookie, 'content-type': 'application/vnd.sqlite3' },
+    body: Buffer.from('not a SQLite database')
+  });
+  assert.equal(invalid.status, 400, 'invalid files must be rejected');
+
+  const stillSignedIn = await fetch(instance.baseUrl + '/api/auth/me', {
+    headers: { cookie: instance.cookie }
+  });
+  assert.equal(stillSignedIn.status, 200, 'verification must not replace or corrupt the live database');
 });
 
 test('two isolated local instances exchange data and stage only a trusted signed program update', {
