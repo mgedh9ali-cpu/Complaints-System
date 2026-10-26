@@ -1,15 +1,16 @@
 {
   "name": "complaints-local-system",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "description": "Local-first complaints management server with SQLite - enhanced security and validation",
+  "description": "Local-first complaints management server with SQLite - sessions on disk, CSRF, CSV export, PWA, auto-backup",
   "main": "server.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
     "test": "node --test",
     "check": "node --check server.js && node --check app.js && node --check ui-enhancements.js && node --check lib/offline-sync.js && node --check scripts/sign-program-update.js && node --check scripts/backup-database.js && node --check scripts/verify-database-restore.js && node --check scripts/verify-audit-log.js && node --check lib/audit-integrity.js && node --check lib/validation.js",
     "verify-audit": "node scripts/verify-audit-log.js",
-    "backup": "node scripts/backup-database.js"
+    "backup": "node scripts/backup-database.js",
+    "postinstall": "echo 'Run npm start after configuring .env'"
   },
   "engines": {
     "node": ">=20.6"
@@ -20,6 +21,7 @@
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
-    "helmet": "^8.1.0"
+    "helmet": "^8.1.0",
+    "session-file-store": "^1.5.0"
   }
 }
