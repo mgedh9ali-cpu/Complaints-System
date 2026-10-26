@@ -2,9 +2,10 @@
   'use strict';
   const THEME_KEY = 'complaints-ui-theme-v1';
   const $ = (selector, root = document) => root.querySelector(selector);
+  let csrfToken = null;
 
   function notify(message, kind = 'success') {
-    let region = $('#toastRegion');
+    let region = $('#toastRegion') || $('#uiEnhancementToasts');
     if (!region) {
       region = document.createElement('div');
       region.id = 'uiEnhancementToasts';
@@ -19,6 +20,25 @@
     region.append(toast);
     window.setTimeout(() => toast.remove(), 3600);
   }
+
+  async function fetchCsrf() {
+    try {
+      const res = await fetch('/api/csrf', { credentials: 'same-origin' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      csrfToken = data.csrfToken;
+      return csrfToken;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Expose for app.js if needed
+  window.__complaintsCsrf = {
+    getToken: () => csrfToken,
+    refresh: fetchCsrf,
+    headers: () => (csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+  };
 
   function applyTheme(theme, announce = false) {
     const selected = theme === 'dark' ? 'dark' : 'light';
@@ -67,9 +87,104 @@
     notify('تم تجهيز ملف CSV من الصفوف الظاهرة في الجدول.');
   }
 
+  async function exportFromApi() {
+    try {
+      const res = await fetch('/api/export/csv', { credentials: 'same-origin' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'تعذر التصدير');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'complaints-export-' + new Date().toISOString().slice(0, 10) + '.csv';
+      link.hidden = true;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notify('تم تصدير الشكاوى بنجاح.');
+    } catch (err) {
+      notify(err.message || 'فشل التصدير', 'error');
+    }
+  }
+
+  // Browser notifications for approaching SLA deadlines
+  function requestNotificationPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(p => {
+        if (p === 'granted') notify('تم تفعيل إشعارات المتصفح.');
+      });
+    }
+  }
+
+  function checkSlaNotifications() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    // This is a lightweight hook; the main app can call window.__checkSla if it exposes due dates
+    const lateBadges = document.querySelectorAll('[data-late="true"], .status-late, .late');
+    if (lateBadges.length > 0) {
+      new Notification('تنبيه SLA', {
+        body: `يوجد ${lateBadges.length} شكوى متأخرة أو قاربت على الانتهاء.`,
+        dir: 'rtl',
+        lang: 'ar'
+      });
+    }
+  }
+
+  // Advanced search helper (filters visible table rows)
+  function setupAdvancedSearch() {
+    if ($('#advancedSearchBox')) return;
+    const content = $('#content');
+    if (!content) return;
+    const box = document.createElement('div');
+    box.id = 'advancedSearchBox';
+    box.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center';
+    box.innerHTML = `
+      <input id="advSearchText" placeholder="بحث برقم / هاتف / اسم / ملخص..." style="flex:1;min-width:180px;padding:8px 12px;border-radius:8px;border:1px solid #cbd7d2">
+      <select id="advSearchStatus" style="padding:8px;border-radius:8px;border:1px solid #cbd7d2">
+        <option value="">كل الحالات</option>
+        <option value="new">جديدة</option>
+        <option value="in_progress">قيد المعالجة</option>
+        <option value="awaiting_reply">بانتظار رد</option>
+        <option value="awaiting_approval">بانتظار اعتماد</option>
+        <option value="closed">مغلقة</option>
+      </select>
+      <button type="button" id="advSearchBtn" class="btn btn-primary">بحث</button>
+      <button type="button" id="advSearchClear" class="btn">مسح</button>
+    `;
+    content.prepend(box);
+
+    const runFilter = () => {
+      const q = ($('#advSearchText')?.value || '').trim().toLowerCase();
+      const st = $('#advSearchStatus')?.value || '';
+      const rows = content.querySelectorAll('table tbody tr');
+      let visible = 0;
+      rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        const statusMatch = !st || text.includes(st) || row.querySelector(`[data-status="${st}"]`);
+        const textMatch = !q || text.includes(q);
+        const show = statusMatch && textMatch;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      notify(`عدد النتائج: ${visible}`);
+    };
+
+    $('#advSearchBtn')?.addEventListener('click', runFilter);
+    $('#advSearchClear')?.addEventListener('click', () => {
+      if ($('#advSearchText')) $('#advSearchText').value = '';
+      if ($('#advSearchStatus')) $('#advSearchStatus').value = '';
+      content.querySelectorAll('table tbody tr').forEach(r => r.style.display = '');
+    });
+    $('#advSearchText')?.addEventListener('keydown', e => { if (e.key === 'Enter') runFilter(); });
+  }
+
   function addTools() {
     const host = $('.top-actions');
     if (!host) return;
+
     if (!$('#themeToggle')) {
       const theme = document.createElement('button');
       theme.type = 'button';
@@ -81,12 +196,21 @@
       try { saved = localStorage.getItem(THEME_KEY) || 'light'; } catch (_) {}
       applyTheme(saved);
     }
+
+    // API CSV button
+    const csvApiBtn = $('#csvExportButton');
+    if (csvApiBtn && !csvApiBtn.dataset.bound) {
+      csvApiBtn.dataset.bound = '1';
+      csvApiBtn.hidden = false;
+      csvApiBtn.addEventListener('click', exportFromApi);
+    }
+
     if (!$('#exportVisibleCsv')) {
       const exportButton = document.createElement('button');
       exportButton.type = 'button';
       exportButton.id = 'exportVisibleCsv';
       exportButton.className = 'ui-tool-button';
-      exportButton.textContent = 'تصدير CSV';
+      exportButton.textContent = 'تصدير الظاهر';
       exportButton.title = 'تصدير صفوف الجدول الظاهرة فقط';
       exportButton.addEventListener('click', exportVisibleTable);
       const theme = $('#themeToggle');
@@ -122,11 +246,23 @@
   function start() {
     addTools();
     addPasswordToggle();
+    fetchCsrf();
+    requestNotificationPermission();
+
+    // Periodically refresh CSRF and check SLA
+    setInterval(fetchCsrf, 10 * 60 * 1000);
+    setInterval(checkSlaNotifications, 5 * 60 * 1000);
+
     const observer = new MutationObserver(() => {
       addTools();
       addPasswordToggle();
+      // Add advanced search when complaints page is visible
+      if ($('#content table') && !$('#advancedSearchBox')) {
+        setupAdvancedSearch();
+      }
     });
     observer.observe(document.body, { childList: true, subtree: true });
+
     window.addEventListener('beforeprint', () => {
       document.documentElement.dataset.printTheme = document.documentElement.dataset.theme || 'light';
     });
