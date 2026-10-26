@@ -72,6 +72,12 @@ db.exec(`
     details_json TEXT NOT NULL CHECK(json_valid(details_json)),
     created_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS sessions (
+    sid TEXT PRIMARY KEY,
+    sess TEXT NOT NULL CHECK(json_valid(sess)),
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
   CREATE INDEX IF NOT EXISTS idx_complaints_updated ON complaints(updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at DESC);
 `);
@@ -113,6 +119,70 @@ if (userCount === 0) {
   }
 }
 
+class SQLiteSessionStore extends session.Store {
+  constructor(database) {
+    super();
+    this.db = database;
+    this.getStatement = database.prepare('SELECT sess, expires_at FROM sessions WHERE sid = ?');
+    this.setStatement = database.prepare('INSERT INTO sessions(sid, sess, expires_at) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET sess=excluded.sess, expires_at=excluded.expires_at');
+    this.touchStatement = database.prepare('UPDATE sessions SET sess = ?, expires_at = ? WHERE sid = ?');
+    this.destroyStatement = database.prepare('DELETE FROM sessions WHERE sid = ?');
+    this.pruneStatement = database.prepare('DELETE FROM sessions WHERE expires_at <= ?');
+    this.pruneStatement.run(Date.now());
+  }
+
+  expiry(sessionData) {
+    const now = Date.now();
+    const expires = sessionData?.cookie?.expires
+      ? new Date(sessionData.cookie.expires).getTime()
+      : now + (Number.isFinite(sessionData?.cookie?.maxAge) ? sessionData.cookie.maxAge : 30 * 60 * 1000);
+    return Number.isFinite(expires) ? Math.max(now, expires) : now;
+  }
+
+  get(sid, callback) {
+    try {
+      const row = this.getStatement.get(sid);
+      if (!row) return callback(null, null);
+      if (row.expires_at <= Date.now()) {
+        this.destroyStatement.run(sid);
+        return callback(null, null);
+      }
+      callback(null, JSON.parse(row.sess));
+    } catch (error) {
+      callback(error);
+    }
+  }
+
+  set(sid, sessionData, callback = () => {}) {
+    try {
+      this.pruneStatement.run(Date.now());
+      this.setStatement.run(sid, JSON.stringify(sessionData), this.expiry(sessionData));
+      callback(null);
+    } catch (error) {
+      callback(error);
+    }
+  }
+
+  touch(sid, sessionData, callback = () => {}) {
+    try {
+      this.pruneStatement.run(Date.now());
+      this.touchStatement.run(JSON.stringify(sessionData), this.expiry(sessionData), sid);
+      callback(null);
+    } catch (error) {
+      callback(error);
+    }
+  }
+
+  destroy(sid, callback = () => {}) {
+    try {
+      this.destroyStatement.run(sid);
+      callback(null);
+    } catch (error) {
+      callback(error);
+    }
+  }
+}
+
 app.disable('x-powered-by');
 app.use(helmet({
   contentSecurityPolicy: {
@@ -133,6 +203,7 @@ app.use(express.json({ limit: '1mb', strict: true }));
 app.use(session({
   name: 'complaints.sid',
   secret: sessionSecret,
+  store: new SQLiteSessionStore(db),
   resave: false,
   saveUninitialized: false,
   cookie: {
