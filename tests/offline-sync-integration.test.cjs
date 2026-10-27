@@ -68,8 +68,12 @@ async function startInstance(root) {
     assert.equal(login.status, 200, 'test administrator should be able to log in');
     const cookie = login.headers.get('set-cookie')?.split(';', 1)[0];
     assert.ok(cookie, 'login must return a session cookie');
+    const csrfRes = await fetch(baseUrl + '/api/csrf', { headers: { cookie } });
+    assert.equal(csrfRes.status, 200);
+    const { csrfToken } = await csrfRes.json();
+    assert.ok(csrfToken);
     return {
-      baseUrl, cookie, child, output: () => output,
+      baseUrl, cookie, csrfToken, child, output: () => output,
       close: () => new Promise(resolve => {
         if (child.exitCode !== null) return resolve();
         child.once('exit', resolve);
@@ -88,6 +92,7 @@ async function request(instance, route, options = {}) {
     ...options,
     headers: {
       cookie: instance.cookie,
+      'X-CSRF-Token': instance.csrfToken,
       ...(options.body ? { 'content-type': 'application/json' } : {}),
       ...(options.headers || {})
     }
@@ -128,7 +133,11 @@ test('two isolated local instances exchange data and stage only a trusted signed
     templates: [{ name: 'قالب اختبار', version: 1, text: 'نص تجريبي' }],
     settings: { slaDays: 7, slaApproved: false, provinces: [], entities: [], categories: [] }
   };
-  const saved = await request(source, '/api/state', { method: 'PUT', body: JSON.stringify(state) });
+  const saved = await request(source, '/api/state', {
+    method: 'PUT',
+    headers: { 'X-State-Revision': '0' },
+    body: JSON.stringify(state)
+  });
   assert.equal(saved.status, 200, 'source instance should save the test state');
 
   const exportedResponse = await fetch(source.baseUrl + '/api/sync/export', {
