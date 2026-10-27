@@ -77,9 +77,13 @@ test('local account management enforces administrator-only access and safe deact
   });
   assert.equal(adminLogin.status, 200);
   const adminCookie = cookieFrom(adminLogin);
+  const csrfResponse = await fetch(baseUrl + '/api/csrf', { headers: { cookie: adminCookie } });
+  assert.equal(csrfResponse.status, 200);
+  const csrfToken = (await csrfResponse.json()).csrfToken;
+  assert.ok(csrfToken, 'authenticated session should expose a CSRF token');
   const adminFetch = (url, options = {}) => fetch(baseUrl + url, {
     ...options,
-    headers: { cookie: adminCookie, ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) }
+    headers: { cookie: adminCookie, 'X-CSRF-Token': csrfToken, ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) }
   });
 
   const initial = await adminFetch('/api/users');
