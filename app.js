@@ -41,7 +41,7 @@ async function api(url, options={}) {
   if(!['GET','HEAD','OPTIONS'].includes(method)&&csrfToken&&!headers['X-CSRF-Token']){
     headers['X-CSRF-Token']=csrfToken;
   }
-  const response=await fetch(url,{credentials:'same-origin',headers,...options});
+  const response=await fetch(url,{credentials:'same-origin',...options,headers});
   if(response.status===204)return null;
   const body=await response.json().catch(()=>({}));
   if(!response.ok){const error=new Error(body.error||'تعذر تنفيذ الطلب.');error.status=response.status;throw error;}
