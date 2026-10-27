@@ -115,6 +115,15 @@ test('complaint status endpoint persists transitions, requires reasons, and reco
   });
   assert.equal(saveInitial.status, 200);
 
+  const illegalState = structuredClone(initialState);
+  illegalState.complaints[0].status = 'closed';
+  const bypassAttempt = await request('/api/state', {
+    method: 'PUT',
+    headers: { 'X-State-Revision': '1' },
+    body: JSON.stringify(illegalState)
+  });
+  assert.equal(bypassAttempt.status, 409, 'full-state saves must not bypass the status state machine');
+
   const illegalJump = await request('/api/complaints/' + complaint.id + '/status', {
     method: 'PATCH',
     body: JSON.stringify({ status: 'closed', reason: 'اختبار انتقال غير مسموح' })
