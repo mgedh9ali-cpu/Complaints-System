@@ -68,8 +68,12 @@ async function startInstance(root) {
     assert.equal(login.status, 200, 'test administrator should be able to log in');
     const cookie = login.headers.get('set-cookie')?.split(';', 1)[0];
     assert.ok(cookie, 'login must return a session cookie');
+    const csrfResponse = await fetch(baseUrl + '/api/csrf', { headers: { cookie } });
+    assert.equal(csrfResponse.status, 200, 'authenticated instance should issue a CSRF token');
+    const csrfToken = (await csrfResponse.json()).csrfToken;
+    assert.ok(csrfToken, 'authenticated instance should return a CSRF token');
     return {
-      baseUrl, cookie, child, output: () => output,
+      baseUrl, cookie, csrfToken, child, output: () => output,
       close: () => new Promise(resolve => {
         if (child.exitCode !== null) return resolve();
         child.once('exit', resolve);
@@ -88,6 +92,7 @@ async function request(instance, route, options = {}) {
     ...options,
     headers: {
       cookie: instance.cookie,
+      'X-CSRF-Token': instance.csrfToken,
       ...(options.body ? { 'content-type': 'application/json' } : {}),
       ...(options.headers || {})
     }
