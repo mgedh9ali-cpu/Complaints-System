@@ -46,7 +46,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path installer/payload | Out-Null
           $nodePath = (Get-Command node.exe).Source
+          $nodeDirectory = Split-Path -Parent $nodePath
           Copy-Item -LiteralPath $nodePath -Destination installer/payload/node.exe -Force
+          Get-ChildItem -LiteralPath $nodeDirectory -Filter '*.dll' -File -ErrorAction SilentlyContinue |
+            Copy-Item -Destination installer/payload -Force
           if (!(Test-Path installer/payload/node.exe)) { throw 'Bundled node.exe was not created.' }
 
       - name: Locate Inno Setup compiler
