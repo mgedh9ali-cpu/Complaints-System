@@ -1,13 +1,13 @@
 {
   "name": "complaints-local-system",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Local-first Arabic complaints system with attachments, Excel export, PWA, CSRF, persistent sessions",
   "main": "server.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check app.js && node --check ui-enhancements.js && node --check attachments-ui-bridge.js && node --check lib/offline-sync.js && node --check lib/attachments.js && node --check lib/excel-export.js && node --check scripts/sign-program-update.js && node --check scripts/backup-database.js && node --check scripts/verify-database-restore.js && node --check scripts/verify-audit-log.js && node --check lib/audit-integrity.js && node --check lib/validation.js",
+    "check": "node --check server.js && node --check app.js && node --check ui-enhancements.js && node --check attachments-ui-bridge.js && node --check lib/offline-sync.js && node --check lib/attachments.js && node --check lib/excel-export.js && node --check lib/logger.js && node --check lib/file-magic.js && node --check scripts/sign-program-update.js && node --check scripts/backup-database.js && node --check scripts/verify-database-restore.js && node --check scripts/verify-audit-log.js && node --check lib/audit-integrity.js && node --check lib/validation.js",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js"
   },
