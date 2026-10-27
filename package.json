@@ -1,8 +1,8 @@
 {
   "name": "complaints-local-system",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
-  "description": "Local-first Arabic complaints system - persistent sessions, CSRF, CSV export, auto-backup, PWA, advanced search helpers",
+  "description": "Local-first Arabic complaints system with attachments, Excel export, PWA, CSRF, persistent sessions",
   "main": "server.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
@@ -17,10 +17,12 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.10.0",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
     "helmet": "^8.1.0",
+    "multer": "^1.4.5-lts.1",
     "session-file-store": "^1.5.0"
   }
 }
