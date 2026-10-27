@@ -1,0 +1,77 @@
+name: Windows single-file installer
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'installer/**'
+      - 'scripts/**'
+      - 'server.js'
+      - 'app.js'
+      - 'index.html'
+      - 'styles.css'
+      - 'ui-enhancements.*'
+      - 'manifest.json'
+      - 'sw.js'
+      - 'package.json'
+      - 'start-installed-app.bat'
+      - '.github/workflows/windows-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies for the Windows target
+        run: npm install --no-audit --no-fund
+
+      - name: Run syntax checks and tests
+        run: |
+          npm run check
+          npm test
+
+      - name: Prepare bundled Node.js runtime
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path installer/payload | Out-Null
+          $nodePath = (Get-Command node.exe).Source
+          Copy-Item -LiteralPath $nodePath -Destination installer/payload/node.exe -Force
+          if (!(Test-Path installer/payload/node.exe)) { throw 'Bundled node.exe was not created.' }
+
+      - name: Locate Inno Setup compiler
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          )
+          $compiler = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (!$compiler) { choco install innosetup --yes --no-progress }
+          $compiler = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (!$compiler) { throw 'Inno Setup compiler could not be located.' }
+          "ISCC_PATH=$compiler" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build the single-file installer
+        shell: pwsh
+        run: |
+          & "$env:ISCC_PATH" installer/ComplaintsSystem.iss
+          if (!(Test-Path dist/Shubat-Al-Shakawi-Setup.exe)) { throw 'Installer output is missing.' }
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shubat-Al-Shakawi-Windows-Installer
+          path: dist/Shubat-Al-Shakawi-Setup.exe
+          if-no-files-found: error
+          retention-days: 14
