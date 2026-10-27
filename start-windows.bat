@@ -24,19 +24,22 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist ".env" (
-  echo ERROR: .env is missing.
-  echo Copy .env.example to .env and configure unique local credentials first.
-  pause
-  exit /b 1
-)
-
 if not exist "node_modules\express\package.json" (
   echo ERROR: Required dependencies are not installed.
   echo This launcher will NOT download packages or access the internet.
   echo Prepare dependencies from a trusted package cache or installation media first.
   pause
   exit /b 1
+)
+
+if not exist ".env" (
+  echo First launch detected. Creating private local configuration...
+  node "scripts\initialize-local-config.js"
+  if errorlevel 1 (
+    echo ERROR: Could not create the local configuration.
+    pause
+    exit /b 1
+  )
 )
 
 if not exist "open-local-browser.ps1" (

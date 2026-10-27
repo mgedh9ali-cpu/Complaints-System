@@ -8,15 +8,23 @@ const test = require('node:test');
 const root = path.join(__dirname, '..');
 const launcherPath = path.join(root, 'start-windows.bat');
 const browserHelperPath = path.join(root, 'open-local-browser.ps1');
+const configGeneratorPath = path.join(root, 'scripts', 'initialize-local-config.js');
 
-test('Windows launcher exists and checks required local prerequisites', () => {
-  assert.equal(fs.existsSync(launcherPath), true, 'Windows launcher must be present');
+test('Windows launcher checks Node.js and initializes configuration locally on first launch', () => {
+  assert.equal(fs.existsSync(launcherPath), true, 'launcher must be present');
+  assert.equal(fs.existsSync(configGeneratorPath), true, 'local configuration generator must be present');
   const source = fs.readFileSync(launcherPath, 'utf8');
 
   assert.match(source, /where node/i, 'launcher must check for Node.js');
   assert.match(source, /20\.6/i, 'launcher must enforce the minimum Node.js version');
-  assert.match(source, /if not exist ["']?\.env/i, 'launcher must refuse to run without local configuration');
+  assert.match(source, /if not exist ["']?\.env/i, 'launcher must detect missing local configuration');
+  assert.match(source, /scripts\\initialize-local-config\.js/i, 'launcher must generate local configuration without network access');
   assert.match(source, /node_modules\\express\\package\.json/i, 'launcher must check that dependencies are preinstalled');
+
+  const dependencyCheckIndex = source.indexOf('node_modules\\express\\package.json');
+  const configGenerationIndex = source.indexOf('scripts\\initialize-local-config.js');
+  assert.ok(dependencyCheckIndex < configGenerationIndex,
+    'launcher must check preinstalled dependencies before generating first-run credentials');
 });
 
 test('Windows launcher is offline-safe and runs tests before starting the server', () => {
@@ -31,7 +39,7 @@ test('Windows launcher is offline-safe and runs tests before starting the server
   const startIndex = source.indexOf('call npm start');
   const browserHelperIndex = source.indexOf('start "" /b powershell.exe');
   assert.notEqual(testIndex, -1, 'launcher must run automated tests');
-  assert.notEqual(startIndex, -1, 'launcher must start the local server');
+  assert.notEqual(startIndex, -1, 'launcher must start the server');
   assert.ok(testIndex < browserHelperIndex && browserHelperIndex < startIndex,
     'browser readiness watcher must start after tests and before the server');
   assert.match(source, /http:\/\/127\.0\.0\.1:3000/i, 'launcher must use loopback only');
