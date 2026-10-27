@@ -144,7 +144,7 @@ test('server migrates legacy audit rows and appends verifiable events', { timeou
 
   const allowedUpdate = await fetch(baseUrl + '/api/complaints/' + encodeURIComponent(complaint.id) + '/status', {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    headers: { 'content-type': 'application/json', cookie: adminCookie, 'X-CSRF-Token': csrfToken },
     body: JSON.stringify({ status: 'in_progress' })
   });
   assert.equal(allowedUpdate.status, 200);
@@ -153,7 +153,7 @@ test('server migrates legacy audit rows and appends verifiable events', { timeou
   try {
     rows = resultDb.prepare(`SELECT id, actor_user_id, action, target_type, target_id, details_json,
       created_at, previous_hash, event_hash FROM audit_events ORDER BY rowid ASC`).all();
-    assert.equal(rows.length, 6);
+    assert.equal(rows.length, 7);
     assert.equal(verifyAuditRows(rows).valid, true);
     assert.ok(rows.some(row => row.action === 'complaint_status_changed'));
   } finally {
