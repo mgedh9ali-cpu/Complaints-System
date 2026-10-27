@@ -265,10 +265,11 @@ app.get('/api/export/csv', requireAuth, requireRole('admin', 'staff', 'reviewer'
 
 // Auto-backup
 const AUTO_BACKUP_HOURS = Number(process.env.AUTO_BACKUP_HOURS || 6);
+let autoBackupTimer = null;
 if (AUTO_BACKUP_HOURS > 0) {
   const backupDir = path.resolve('./data/auto-backups');
   fs.mkdirSync(backupDir, { recursive: true });
-  setInterval(async () => {
+  autoBackupTimer = setInterval(async () => {
     try {
       const filename = 'auto-' + new Date().toISOString().replace(/[:.]/g, '-') + '.sqlite';
       const dest = path.join(backupDir, filename);
@@ -574,6 +575,7 @@ const server = app.listen(port, host, () => {
 });
 
 function shutdown() {
+  if (autoBackupTimer) clearInterval(autoBackupTimer);
   server.close(() => {
     db.close();
     process.exit(0);
