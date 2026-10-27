@@ -54,8 +54,8 @@ test('complaint status updates require an administrative or staff role', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.ok(server.includes("app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff')"),
-    'reviewers and unauthenticated users must not change complaint status');
+  assert.match(server, /app\.patch\('\/api\/complaints\/:id\/status',\s*requireAuth,\s*requireRole\('admin',\s*'staff'\),\s*requireCsrf/,
+    'status changes must require authentication, an authorized role, and CSRF protection');
 });
 
 test('offline sync package validates contents and detects tampering', () => {
@@ -112,22 +112,22 @@ test('application-state complaint changes are individually auditable', () => {
 test('dedicated complaint status endpoint requires an authorized staff role', () => {
   const fs = require('node:fs');
   const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
-  assert.ok(source.includes("app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff')"));
+  assert.match(source, /app\.patch\('\/api\/complaints\/:id\/status',\s*requireAuth,\s*requireRole\('admin',\s*'staff'\),\s*requireCsrf/);
 });
 
 test('server initializes and appends hash-chained audit events', () => {
   const fs = require('node:fs');
   const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
-  assert.ok(source.includes("ALTER TABLE audit_events ADD COLUMN previous_hash TEXT"));
-  assert.ok(source.includes("ALTER TABLE audit_events ADD COLUMN event_hash TEXT"));
-  assert.ok(source.includes("SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1"));
-  assert.ok(source.includes('previous_hash, event_hash'));
+  assert.match(source, /ALTER TABLE audit_events ADD COLUMN previous_hash TEXT/);
+  assert.match(source, /ALTER TABLE audit_events ADD COLUMN event_hash TEXT/);
+  assert.match(source, /SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1/);
+  assert.match(source, /previous_hash, event_hash/);
 });
 
 test('state API persists complaint-change audit events in the same transaction', () => {
   const fs = require('node:fs');
   const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
-  assert.ok(source.includes("const { diffComplaints } = require('./lib/complaint-state-diff')"));
+  assert.match(source, /const \{ diffComplaints \} = require\('\.\/lib\/complaint-state-diff'\)/);
   assert.match(source, /const complaintChanges\s*=\s*diffComplaints\(previousState,\s*state\)/);
   assert.match(source, /audit\(req\.user\.id,\s*change\.action,\s*'complaint',\s*change\.id,\s*change\.details\)/);
   assert.match(source, /complaintChangesLogged:\s*result\.complaintChanges\.length/);
