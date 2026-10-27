@@ -18,7 +18,7 @@
     toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
     toast.style.cssText = 'padding:12px 15px;border-radius:10px;background:' + (kind === 'error' ? '#8f2929' : '#153d34') + ';color:#fff;box-shadow:0 8px 28px #0002;font-size:13px;line-height:1.6';
     region.append(toast);
-    window.setTimeout(() => toast.remove(), 3600);
+    window.setTimeout(() => toast.remove(), 4000);
   }
 
   async function fetchCsrf() {
@@ -28,16 +28,37 @@
       const data = await res.json();
       csrfToken = data.csrfToken;
       return csrfToken;
-    } catch (_) {
-      return null;
-    }
+    } catch (_) { return null; }
   }
 
-  // Expose for app.js if needed
   window.__complaintsCsrf = {
     getToken: () => csrfToken,
     refresh: fetchCsrf,
     headers: () => (csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+  };
+
+  /** Upload files for a complaint */
+  window.__uploadAttachments = async function(complaintId, fileList) {
+    if (!complaintId || !fileList || fileList.length === 0) {
+      notify('اختر ملفاً واحداً على الأقل.', 'error');
+      return null;
+    }
+    await fetchCsrf();
+    const form = new FormData();
+    for (const f of fileList) form.append('files', f);
+    const res = await fetch('/api/attachments/' + encodeURIComponent(complaintId), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: window.__complaintsCsrf.headers(),
+      body: form
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      notify(data.error || 'فشل رفع المرفقات', 'error');
+      return null;
+    }
+    notify('تم رفع ' + (data.attachments?.length || 0) + ' مرفق بنجاح.');
+    return data.attachments;
   };
 
   function applyTheme(theme, announce = false) {
@@ -47,44 +68,33 @@
     const button = $('#themeToggle');
     if (button) {
       button.setAttribute('aria-pressed', String(selected === 'dark'));
-      button.setAttribute('aria-label', selected === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن');
       button.textContent = selected === 'dark' ? '☀ الوضع الفاتح' : '☾ الوضع الداكن';
     }
     if (announce) notify(selected === 'dark' ? 'تم تفعيل الوضع الداكن.' : 'تم تفعيل الوضع الفاتح.');
   }
 
-  function safeCsvCell(value) {
-    let text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
-    if (/^[=+@\-\t]/.test(text)) text = "'" + text;
-    return '"' + text.replace(/"/g, '""') + '"';
-  }
-
-  function exportVisibleTable() {
-    const table = $('#content table');
-    if (!table) {
-      notify('لا يوجد جدول في الصفحة الحالية لتصديره.', 'error');
-      return;
+  async function exportXlsx() {
+    try {
+      notify('جاري تجهيز ملف Excel...');
+      const res = await fetch('/api/export/xlsx', { credentials: 'same-origin' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'تعذر التصدير');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'تقرير-الشكاوى-' + new Date().toISOString().slice(0, 10) + '.xlsx';
+      link.hidden = true;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      notify('تم تصدير تقرير Excel بنجاح.');
+    } catch (err) {
+      notify(err.message || 'فشل تصدير Excel', 'error');
     }
-    const rows = [...table.querySelectorAll('tr')].filter(row => {
-      const style = window.getComputedStyle(row);
-      return style.display !== 'none' && style.visibility !== 'hidden' && row.getClientRects().length > 0;
-    }).map(row => [...row.querySelectorAll('th,td')].map(cell => safeCsvCell(cell.innerText)));
-    if (rows.length < 2) {
-      notify('لا توجد سجلات ظاهرة قابلة للتصدير.', 'error');
-      return;
-    }
-    const csv = '\uFEFF' + rows.map(row => row.join(',')).join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'complaints-report-' + new Date().toISOString().slice(0, 10) + '.csv';
-    link.hidden = true;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notify('تم تجهيز ملف CSV من الصفوف الظاهرة في الجدول.');
   }
 
   async function exportFromApi() {
@@ -103,14 +113,13 @@
       document.body.append(link);
       link.click();
       link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      notify('تم تصدير الشكاوى بنجاح.');
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notify('تم تصدير CSV بنجاح.');
     } catch (err) {
       notify(err.message || 'فشل التصدير', 'error');
     }
   }
 
-  // Browser notifications for approaching SLA deadlines
   function requestNotificationPermission() {
     if (!('Notification' in window)) return;
     if (Notification.permission === 'default') {
@@ -122,18 +131,15 @@
 
   function checkSlaNotifications() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    // This is a lightweight hook; the main app can call window.__checkSla if it exposes due dates
     const lateBadges = document.querySelectorAll('[data-late="true"], .status-late, .late');
     if (lateBadges.length > 0) {
       new Notification('تنبيه SLA', {
         body: `يوجد ${lateBadges.length} شكوى متأخرة أو قاربت على الانتهاء.`,
-        dir: 'rtl',
-        lang: 'ar'
+        dir: 'rtl', lang: 'ar'
       });
     }
   }
 
-  // Advanced search helper (filters visible table rows)
   function setupAdvancedSearch() {
     if ($('#advancedSearchBox')) return;
     const content = $('#content');
@@ -163,13 +169,13 @@
       let visible = 0;
       rows.forEach(row => {
         const text = row.innerText.toLowerCase();
-        const statusMatch = !st || text.includes(st) || row.querySelector(`[data-status="${st}"]`);
+        const statusMatch = !st || text.includes(st);
         const textMatch = !q || text.includes(q);
         const show = statusMatch && textMatch;
         row.style.display = show ? '' : 'none';
         if (show) visible++;
       });
-      notify(`عدد النتائج: ${visible}`);
+      notify('عدد النتائج: ' + visible);
     };
 
     $('#advSearchBtn')?.addEventListener('click', runFilter);
@@ -197,24 +203,23 @@
       applyTheme(saved);
     }
 
-    // API CSV button
+    // Excel export button
+    if (!$('#excelExportBtn')) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'excelExportBtn';
+      btn.className = 'ui-tool-button';
+      btn.textContent = '📊 Excel';
+      btn.title = 'تصدير تقرير Excel كامل';
+      btn.addEventListener('click', exportXlsx);
+      host.insertBefore(btn, host.firstChild);
+    }
+
     const csvApiBtn = $('#csvExportButton');
     if (csvApiBtn && !csvApiBtn.dataset.bound) {
       csvApiBtn.dataset.bound = '1';
       csvApiBtn.hidden = false;
       csvApiBtn.addEventListener('click', exportFromApi);
-    }
-
-    if (!$('#exportVisibleCsv')) {
-      const exportButton = document.createElement('button');
-      exportButton.type = 'button';
-      exportButton.id = 'exportVisibleCsv';
-      exportButton.className = 'ui-tool-button';
-      exportButton.textContent = 'تصدير الظاهر';
-      exportButton.title = 'تصدير صفوف الجدول الظاهرة فقط';
-      exportButton.addEventListener('click', exportVisibleTable);
-      const theme = $('#themeToggle');
-      host.insertBefore(exportButton, theme ? theme.nextSibling : host.firstChild);
     }
   }
 
@@ -230,14 +235,10 @@
     button.id = 'toggleLoginPassword';
     button.className = 'ui-password-toggle';
     button.textContent = 'إظهار';
-    button.setAttribute('aria-label', 'إظهار كلمة المرور');
-    button.setAttribute('aria-pressed', 'false');
     button.addEventListener('click', () => {
       const visible = input.type === 'password';
       input.type = visible ? 'text' : 'password';
       button.textContent = visible ? 'إخفاء' : 'إظهار';
-      button.setAttribute('aria-label', visible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
-      button.setAttribute('aria-pressed', String(visible));
       input.focus();
     });
     wrapper.append(button);
@@ -248,24 +249,15 @@
     addPasswordToggle();
     fetchCsrf();
     requestNotificationPermission();
-
-    // Periodically refresh CSRF and check SLA
     setInterval(fetchCsrf, 10 * 60 * 1000);
     setInterval(checkSlaNotifications, 5 * 60 * 1000);
 
     const observer = new MutationObserver(() => {
       addTools();
       addPasswordToggle();
-      // Add advanced search when complaints page is visible
-      if ($('#content table') && !$('#advancedSearchBox')) {
-        setupAdvancedSearch();
-      }
+      if ($('#content table') && !$('#advancedSearchBox')) setupAdvancedSearch();
     });
     observer.observe(document.body, { childList: true, subtree: true });
-
-    window.addEventListener('beforeprint', () => {
-      document.documentElement.dataset.printTheme = document.documentElement.dataset.theme || 'light';
-    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
