@@ -24,6 +24,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not exist "node_modules\express\package.json" (
+  echo ERROR: Required dependencies are not installed.
+  echo This launcher will NOT download packages or access the internet.
+  echo Prepare dependencies from a trusted package cache or installation media first.
+  pause
+  exit /b 1
+)
+
 if not exist ".env" (
   echo First launch detected. Creating private local configuration...
   node "scripts\initialize-local-config.js"
@@ -32,14 +40,6 @@ if not exist ".env" (
     pause
     exit /b 1
   )
-)
-
-if not exist "node_modules\express\package.json" (
-  echo ERROR: Required dependencies are not installed.
-  echo This launcher will NOT download packages or access the internet.
-  echo Prepare dependencies from a trusted package cache or installation media first.
-  pause
-  exit /b 1
 )
 
 if not exist "open-local-browser.ps1" (
