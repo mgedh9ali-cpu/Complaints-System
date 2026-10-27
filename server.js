@@ -395,7 +395,7 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), requireCsrf, (r
     if (complaintIds.has(complaint.id)) return res.status(400).json({ error: 'تتضمن البيانات معرّفات شكاوى مكررة.' });
     complaintIds.add(complaint.id);
   }
-  const stateJson = JSON.stringify(state);
+  let stateJson = JSON.stringify(state);
   if (Buffer.byteLength(stateJson, 'utf8') > 900 * 1024) return res.status(413).json({ error: 'حجم البيانات أكبر من الحد المسموح.' });
   const now = new Date().toISOString();
   const saveState = db.transaction(() => {
@@ -419,13 +419,32 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), requireCsrf, (r
       if (!transitions[previous.status]?.includes(complaint.status)) {
         return { error: 'invalid_transition', id: complaint.id, from: previous.status, to: complaint.status };
       }
-      const history = Array.isArray(complaint.statusHistory) ? complaint.statusHistory : [];
-      const entry = [...history].reverse().find(item => item && item.from === previous.status && item.to === complaint.status);
+      const submittedHistory = Array.isArray(complaint.statusHistory) ? complaint.statusHistory : [];
+      const submittedEntry = [...submittedHistory].reverse().find(item => item && item.from === previous.status && item.to === complaint.status);
+      const reason = typeof submittedEntry?.reason === 'string' ? submittedEntry.reason.trim() : '';
       const reasonRequired = complaint.status === 'closed' || complaint.status === 'cancelled' || previous.status === 'closed';
-      if (!entry || typeof entry.reason !== 'string' || (reasonRequired && !entry.reason.trim())) {
+      if (!submittedEntry || (reasonRequired && !reason)) {
         return { error: 'status_history_required', id: complaint.id };
       }
+
+      // The server, not the browser, is authoritative for the actor and timestamp.
+      complaint.statusHistory = [
+        ...(Array.isArray(previous.statusHistory) ? previous.statusHistory : []),
+        { from: previous.status, to: complaint.status, by: req.user.username, at: now, reason }
+      ];
+      complaint.timeline = [
+        ...(Array.isArray(previous.timeline) ? previous.timeline : []),
+        {
+          event: 'تغيير حالة الشكوى',
+          by: req.user.username,
+          at: now,
+          detail: previous.status + ' → ' + complaint.status + (reason ? ' — ' + reason : '')
+        }
+      ];
+      complaint.updated = now;
     }
+    stateJson = JSON.stringify(state);
+    if (Buffer.byteLength(stateJson, 'utf8') > 900 * 1024) return { error: 'state_too_large' };
     const complaintChanges=diffComplaints(previousState,state);
     const nextRevision = currentRevision + 1;
     db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at,revision) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at,revision=excluded.revision`)
@@ -442,6 +461,7 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), requireCsrf, (r
   if (result.conflict) return res.status(409).json({ error: 'لم يُحفظ التغيير لأن مستخدمًا آخر حفظ نسخة أحدث.', currentRevision: result.currentRevision });
   if (result.error === 'invalid_transition') return res.status(409).json({ error: 'انتقال الحالة غير مسموح من ' + result.from + ' إلى ' + result.to + '.', complaintId: result.id });
   if (result.error === 'status_history_required') return res.status(400).json({ error: 'يجب تسجيل سجل الحالة وسبب الإغلاق أو الإلغاء أو إعادة الفتح.', complaintId: result.id });
+  if (result.error === 'state_too_large') return res.status(413).json({ error: 'حجم البيانات بعد إضافة سجل الحالة أكبر من الحد المسموح.' });
   const complaintChanges = result.complaintChanges;
   res.json({ saved:true, updatedAt:now, revision:result.revision, complaintChangesLogged:complaintChanges.length });
 });
