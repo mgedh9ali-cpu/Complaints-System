@@ -14,7 +14,10 @@ const hasServerDependencies = ['express', 'helmet', 'express-session', 'bcryptjs
 test('browser assets do not depend on remote URLs or externally hosted resources', () => {
   for (const name of ['index.html', 'app.js', 'styles.css']) {
     const source = fs.readFileSync(path.join(root, name), 'utf8');
-    assert.doesNotMatch(source, /https?:\/\//i, name + ' must not contain absolute HTTP(S) URLs');
+    // An inline SVG data URI may contain the XML namespace string http://www.w3.org;
+    // strip data URIs before checking for actual remote-resource references.
+    const withoutDataUris = source.replace(/data:[^\s"')]+/gi, '');
+    assert.doesNotMatch(withoutDataUris, /https?:\/\//i, name + ' must not contain absolute HTTP(S) resource URLs');
     assert.doesNotMatch(source, /(?:src|href)\s*=\s*["']\/\//i, name + ' must not reference protocol-relative resources');
     assert.doesNotMatch(source, /url\(\s*["']?\/\//i, name + ' must not load protocol-relative CSS resources');
   }
