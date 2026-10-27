@@ -5,7 +5,8 @@ const test = require('node:test');
 const { isAllowed, MAX_FILE_SIZE } = require('../lib/attachments');
 
 function file(originalname, mimetype, bytes) {
-  return { originalname, mimetype, buffer: Buffer.from(bytes), size: Buffer.byteLength(Buffer.from(bytes)) };
+  const buffer = Buffer.from(bytes);
+  return { originalname, mimetype, buffer, size: buffer.length };
 }
 
 test('attachment validation accepts a PDF whose content matches its extension and MIME type', () => {
