@@ -493,17 +493,38 @@ app.post('/api/sync/import', requireAuth, requireRole('admin'), requireCsrf, (re
     return res.status(400).json({ error: 'هذا الملف صادر من النسخة الحالية.' });
   if (db.prepare("SELECT id FROM audit_events WHERE action='sync_imported' AND target_id=?").get(payload.syncId))
     return res.status(409).json({ error: 'سبق استيراد ملف المزامنة هذا.' });
-  // Simplified import handling - full logic from original remains in spirit
+  let pendingUpdatePath;
   try {
-    const state = payload.state || payload;
+    const publicKeyPath = path.resolve(process.env.UPDATE_PUBLIC_KEY_PATH || './data/trusted-update-public.pem');
+    if (!fs.existsSync(publicKeyPath)) {
+      return res.status(400).json({ error: 'مفتاح التحقق الموثوق غير موجود؛ لم يتم استيراد البيانات أو تحديث البرنامج.' });
+    }
+    const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
+    if (!verifyProgramUpdate(payload, publicKey)) {
+      return res.status(400).json({ error: 'توقيع تحديث البرنامج غير صالح؛ رُفض ملف المزامنة.' });
+    }
+    const dataDir = path.resolve(process.env.DATA_DIR || './data');
+    pendingUpdatePath = stageProgramUpdate(payload, dataDir, publicKey);
+    const state = payload.state;
     const now = new Date().toISOString();
-    db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at,revision) VALUES(1,?,?,?,1)
-      ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at,revision=revision+1`)
-      .run(JSON.stringify(state), req.user.id, now);
-    audit(req.user.id, 'sync_imported', 'sync', payload.syncId || 'unknown', { complaintCount: (state.complaints || []).length });
-    res.json({ imported: true });
+    const stateJson = JSON.stringify(state);
+    const saveImportedState = db.transaction(() => {
+      const current = db.prepare('SELECT revision FROM app_state WHERE id=1').get();
+      const nextRevision = (current?.revision ?? 0) + 1;
+      db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at,revision) VALUES(1,?,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at,revision=excluded.revision`)
+        .run(stateJson, req.user.id, now, nextRevision);
+      audit(req.user.id, 'sync_imported', 'sync', payload.syncId, {
+        complaintCount: state.complaints.length,
+        updateSignatureVerified: true,
+        updateStatus: 'staged-not-applied'
+      });
+      return nextRevision;
+    });
+    const revision = saveImportedState.immediate();
+    res.json({ imported: true, revision, updateStaged: true, updatePath: path.relative(process.cwd(), pendingUpdatePath) });
   } catch (err) {
-    res.status(500).json({ error: 'فشل الاستيراد: ' + err.message });
+    res.status(400).json({ error: 'فشل استيراد ملف المزامنة: ' + err.message });
   }
 });
 
