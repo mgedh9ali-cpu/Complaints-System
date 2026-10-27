@@ -13,7 +13,6 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
 OutputBaseFilename=Shubat-Al-Shakawi-Setup
-SetupIconFile=complaints.ico
 UninstallDisplayIcon={app}\node.exe
 ArchitecturesInstallIn64BitMode=x64
 Compression=lzma2
@@ -34,6 +33,7 @@ Name: "{app}\data"
 
 [Files]
 Source: "payload\node.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "payload\*.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\start-installed-app.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\scripts\initialize-local-config.js"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "..\scripts\open-browser-new-window.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
