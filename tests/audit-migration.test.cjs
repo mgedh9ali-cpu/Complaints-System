@@ -108,13 +108,23 @@ test('server migrates legacy audit rows and appends verifiable events', { timeou
   });
   assert.equal(createReviewer.status, 201);
 
-  const createComplaint = await fetch(baseUrl + '/api/complaints', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: adminCookie, 'X-CSRF-Token': csrfToken },
-    body: JSON.stringify({ summary: 'اختبار صلاحيات', province: 'دمشق', category: 'خدمات عامة' })
+  const complaint = { id: 'CMP-AUDIT-TEST-001' };
+  const createComplaint = await fetch(baseUrl + '/api/state', {
+    method: 'PUT',
+    headers: {
+      'content-type': 'application/json',
+      cookie: adminCookie,
+      'X-CSRF-Token': csrfToken,
+      'X-State-Revision': '0'
+    },
+    body: JSON.stringify({
+      complaints: [{ ...complaint, summary: 'اختبار صلاحيات', province: 'دمشق', category: 'خدمات عامة' }],
+      notifications: [],
+      templates: [],
+      settings: { slaDays: 7, slaApproved: false, provinces: [], entities: [], categories: [] }
+    })
   });
-  assert.equal(createComplaint.status, 201);
-  const complaint = (await createComplaint.json()).complaint;
+  assert.equal(createComplaint.status, 200);
 
   const reviewerLogin = await fetch(baseUrl + '/api/auth/login', {
     method: 'POST',
