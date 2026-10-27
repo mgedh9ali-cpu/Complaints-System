@@ -96,17 +96,21 @@ test('server migrates legacy audit rows and appends verifiable events', { timeou
   assert.equal(login.status, 200);
   const adminCookie = login.headers.get('set-cookie')?.split(';')[0];
   assert.ok(adminCookie, 'admin login should establish an HTTP-only session cookie');
+  const csrfResponse = await fetch(baseUrl + '/api/csrf', { headers: { cookie: adminCookie } });
+  assert.equal(csrfResponse.status, 200);
+  const csrfToken = (await csrfResponse.json()).csrfToken;
+  assert.ok(csrfToken, 'authenticated session should expose a CSRF token');
 
   const createReviewer = await fetch(baseUrl + '/api/users', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    headers: { 'content-type': 'application/json', cookie: adminCookie, 'X-CSRF-Token': csrfToken },
     body: JSON.stringify({ username: 'reviewer1', password: 'reviewer-test-password-123', role: 'reviewer' })
   });
   assert.equal(createReviewer.status, 201);
 
   const createComplaint = await fetch(baseUrl + '/api/complaints', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    headers: { 'content-type': 'application/json', cookie: adminCookie, 'X-CSRF-Token': csrfToken },
     body: JSON.stringify({ summary: 'اختبار صلاحيات', province: 'دمشق', category: 'خدمات عامة' })
   });
   assert.equal(createComplaint.status, 201);
