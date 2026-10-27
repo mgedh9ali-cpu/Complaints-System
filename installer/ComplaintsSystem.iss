@@ -55,7 +55,9 @@ Source: "..\node_modules\*"; DestDir: "{app}\node_modules"; Flags: recursesubdir
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\start-installed-app.bat"; WorkingDir: "{app}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\start-installed-app.bat"; WorkingDir: "{app}"; Tasks: desktopicon
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\start-installed-app.bat"; WorkingDir: "{app}"; Flags: postinstall nowait skipifsilent
+
+[Run]
+Filename: "{app}\start-installed-app.bat"; WorkingDir: "{app}"; Description: "تشغيل شعبة الاستفسارات والشكاوى"; Flags: postinstall nowait skipifsilent
 
 [UninstallDelete]
 Type: files; Name: "{app}\*.log"
