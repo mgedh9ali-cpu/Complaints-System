@@ -32,8 +32,9 @@ test('complaint validation rejects invalid phone characters and priority/status'
 test('complaint validation rejects prototype pollution keys', () => {
   const polluted = { summary: 'x', province: 'دمشق', category: 'عام' };
   Object.defineProperty(polluted, '__proto__', { value: { polluted: true }, enumerable: true });
-  // Even if __proto__ is present as own property in some engines, our check should reject
-  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', __proto__: { x: 1 } }), false);
+  assert.equal(validComplaint(polluted), false);
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', constructor: { polluted: true } }), false);
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', prototype: { polluted: true } }), false);
 });
 
 test('local UI uses authenticated API and server-backed state rather than localStorage for records', () => {
@@ -125,7 +126,7 @@ test('state API persists complaint-change audit events in the same transaction',
   const fs = require('node:fs');
   const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
   assert.ok(source.includes("const { diffComplaints } = require('./lib/complaint-state-diff')"));
-  assert.ok(source.includes('const complaintChanges=diffComplaints(previousState,state)'));
-  assert.ok(source.includes("audit(req.user.id,change.action,'complaint',change.id,change.details)"));
-  assert.ok(source.includes('complaintChangesLogged:complaintChanges.length'));
+  assert.match(source, /const complaintChanges\s*=\s*diffComplaints\(previousState,\s*state\)/);
+  assert.match(source, /audit\(req\.user\.id,\s*change\.action,\s*'complaint',\s*change\.id,\s*change\.details\)/);
+  assert.match(source, /complaintChangesLogged:\s*result\.complaintChanges\.length/);
 });
