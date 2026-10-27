@@ -33,7 +33,15 @@ test('complaint validation rejects prototype pollution keys', () => {
   const polluted = { summary: 'x', province: 'دمشق', category: 'عام' };
   Object.defineProperty(polluted, '__proto__', { value: { polluted: true }, enumerable: true });
   // Even if __proto__ is present as own property in some engines, our check should reject
-  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', __proto__: { x: 1 } }), false);
+  assert.equal(validComplaint(polluted), false, 'an own __proto__ property must be rejected');
+
+  // A literal __proto__ key replaces the prototype instead of creating an own property.
+  assert.equal(validComplaint({ summary: 'x', province: 'دمشق', category: 'عام', __proto__: { x: 1 } }), false,
+    'a replaced prototype must be rejected');
+
+  // The same payload as it actually arrives from the HTTP body (JSON.parse keeps __proto__ as an own key).
+  const fromJson = JSON.parse('{"summary":"x","province":"دمشق","category":"عام","__proto__":{"x":1}}');
+  assert.equal(validComplaint(fromJson), false, 'prototype pollution keys from JSON input must be rejected');
 });
 
 test('local UI uses authenticated API and server-backed state rather than localStorage for records', () => {
