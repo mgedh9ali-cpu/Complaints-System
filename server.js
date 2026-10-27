@@ -403,6 +403,29 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), requireCsrf, (r
     const currentRevision = currentRow?.revision ?? 0;
     if (currentRevision !== expectedRevision) return { conflict: true, currentRevision };
     const previousState = currentRow ? JSON.parse(currentRow.state_json) : null;
+    const previousById = new Map((Array.isArray(previousState?.complaints) ? previousState.complaints : [])
+      .filter(item => item && typeof item.id === 'string').map(item => [item.id, item]));
+    const transitions = {
+      new: ['in_progress', 'cancelled'],
+      in_progress: ['awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'],
+      awaiting_reply: ['in_progress', 'awaiting_approval', 'closed'],
+      awaiting_approval: ['in_progress', 'closed'],
+      closed: ['in_progress'],
+      cancelled: []
+    };
+    for (const complaint of state.complaints) {
+      const previous = previousById.get(complaint.id);
+      if (!previous || previous.status === complaint.status) continue;
+      if (!transitions[previous.status]?.includes(complaint.status)) {
+        return { error: 'invalid_transition', id: complaint.id, from: previous.status, to: complaint.status };
+      }
+      const history = Array.isArray(complaint.statusHistory) ? complaint.statusHistory : [];
+      const entry = [...history].reverse().find(item => item && item.from === previous.status && item.to === complaint.status);
+      const reasonRequired = complaint.status === 'closed' || complaint.status === 'cancelled' || previous.status === 'closed';
+      if (!entry || typeof entry.reason !== 'string' || (reasonRequired && !entry.reason.trim())) {
+        return { error: 'status_history_required', id: complaint.id };
+      }
+    }
     const complaintChanges=diffComplaints(previousState,state);
     const nextRevision = currentRevision + 1;
     db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at,revision) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at,revision=excluded.revision`)
@@ -417,6 +440,8 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), requireCsrf, (r
   });
   const result = saveState.immediate();
   if (result.conflict) return res.status(409).json({ error: 'لم يُحفظ التغيير لأن مستخدمًا آخر حفظ نسخة أحدث.', currentRevision: result.currentRevision });
+  if (result.error === 'invalid_transition') return res.status(409).json({ error: 'انتقال الحالة غير مسموح من ' + result.from + ' إلى ' + result.to + '.', complaintId: result.id });
+  if (result.error === 'status_history_required') return res.status(400).json({ error: 'يجب تسجيل سجل الحالة وسبب الإغلاق أو الإلغاء أو إعادة الفتح.', complaintId: result.id });
   const complaintChanges = result.complaintChanges;
   res.json({ saved:true, updatedAt:now, revision:result.revision, complaintChangesLogged:complaintChanges.length });
 });
