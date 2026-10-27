@@ -36,12 +36,12 @@ function cookieFrom(response) {
   return value.split(';', 1)[0];
 }
 
-async function csrfToken(baseUrl, cookie) {
-  const res = await fetch(baseUrl + '/api/csrf', { headers: { cookie } });
-  assert.equal(res.status, 200);
-  const body = await res.json();
-  assert.ok(body.csrfToken);
-  return body.csrfToken;
+async function csrfHeaders(baseUrl, cookie) {
+  const response = await fetch(baseUrl + '/api/csrf', { headers: { cookie } });
+  assert.equal(response.status, 200);
+  const { csrfToken } = await response.json();
+  assert.ok(csrfToken, 'the session must expose a CSRF token');
+  return { 'content-type': 'application/json', cookie, 'X-CSRF-Token': csrfToken };
 }
 
 test('local account management enforces administrator-only access and safe deactivation', { timeout: 30000, skip: hasServerDependencies ? false : 'Server dependencies are not installed in this workflow.' }, async t => {
@@ -85,15 +85,10 @@ test('local account management enforces administrator-only access and safe deact
   });
   assert.equal(adminLogin.status, 200);
   const adminCookie = cookieFrom(adminLogin);
-  const adminCsrf = await csrfToken(baseUrl, adminCookie);
+  const adminHeaders = await csrfHeaders(baseUrl, adminCookie);
   const adminFetch = (url, options = {}) => fetch(baseUrl + url, {
     ...options,
-    headers: {
-      cookie: adminCookie,
-      'X-CSRF-Token': adminCsrf,
-      ...(options.body ? { 'content-type': 'application/json' } : {}),
-      ...(options.headers || {})
-    }
+    headers: { cookie: adminCookie, ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) }
   });
 
   const initial = await adminFetch('/api/users');
@@ -105,6 +100,7 @@ test('local account management enforces administrator-only access and safe deact
 
   const createdResponse = await adminFetch('/api/users', {
     method: 'POST',
+    headers: adminHeaders,
     body: JSON.stringify({ username: 'reviewer1', password: 'Review-password-2026', role: 'reviewer' })
   });
   assert.equal(createdResponse.status, 201);
@@ -114,18 +110,21 @@ test('local account management enforces administrator-only access and safe deact
 
   const duplicate = await adminFetch('/api/users', {
     method: 'POST',
+    headers: adminHeaders,
     body: JSON.stringify({ username: 'reviewer1', password: 'Another-password-2026', role: 'staff' })
   });
   assert.equal(duplicate.status, 409);
 
   const weakPassword = await adminFetch('/api/users', {
     method: 'POST',
+    headers: adminHeaders,
     body: JSON.stringify({ username: 'weakuser', password: 'short', role: 'staff' })
   });
   assert.equal(weakPassword.status, 400);
 
   const selfDeactivate = await adminFetch('/api/users/' + initialBody.users[0].id + '/active', {
     method: 'PATCH',
+    headers: adminHeaders,
     body: JSON.stringify({ active: false })
   });
   assert.equal(selfDeactivate.status, 409);
@@ -137,17 +136,19 @@ test('local account management enforces administrator-only access and safe deact
   });
   assert.equal(reviewerLogin.status, 200);
   const reviewerCookie = cookieFrom(reviewerLogin);
+  const reviewerHeaders = await csrfHeaders(baseUrl, reviewerCookie);
   const reviewerUsers = await fetch(baseUrl + '/api/users', { headers: { cookie: reviewerCookie } });
   assert.equal(reviewerUsers.status, 403);
   const reviewerStatusChange = await fetch(baseUrl + '/api/complaints/CMP-NONEXISTENT/status', {
     method: 'PATCH',
-    headers: { cookie: reviewerCookie, 'content-type': 'application/json', 'X-CSRF-Token': 'dummy' },
+    headers: reviewerHeaders,
     body: JSON.stringify({ status: 'closed' })
   });
   assert.equal(reviewerStatusChange.status, 403);
 
   const deactivate = await adminFetch('/api/users/' + created.id + '/active', {
     method: 'PATCH',
+    headers: adminHeaders,
     body: JSON.stringify({ active: false })
   });
   assert.equal(deactivate.status, 200);
