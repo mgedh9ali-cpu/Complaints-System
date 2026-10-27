@@ -29,7 +29,7 @@ test('Windows launcher is offline-safe and runs tests before starting the server
 
   const testIndex = source.indexOf('call npm test');
   const startIndex = source.indexOf('call npm start');
-  const browserHelperIndex = source.indexOf('open-local-browser.ps1');
+  const browserHelperIndex = source.indexOf('start "" /b powershell.exe');
   assert.notEqual(testIndex, -1, 'launcher must run automated tests');
   assert.notEqual(startIndex, -1, 'launcher must start the local server');
   assert.ok(testIndex < browserHelperIndex && browserHelperIndex < startIndex,
