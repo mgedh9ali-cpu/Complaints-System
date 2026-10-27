@@ -68,10 +68,10 @@ async function startInstance(root) {
     assert.equal(login.status, 200, 'test administrator should be able to log in');
     const cookie = login.headers.get('set-cookie')?.split(';', 1)[0];
     assert.ok(cookie, 'login must return a session cookie');
-    const csrfRes = await fetch(baseUrl + '/api/csrf', { headers: { cookie } });
-    assert.equal(csrfRes.status, 200);
-    const { csrfToken } = await csrfRes.json();
-    assert.ok(csrfToken);
+    const csrfResponse = await fetch(baseUrl + '/api/csrf', { headers: { cookie } });
+    assert.equal(csrfResponse.status, 200);
+    const { csrfToken } = await csrfResponse.json();
+    assert.ok(csrfToken, 'the session must expose a CSRF token');
     return {
       baseUrl, cookie, csrfToken, child, output: () => output,
       close: () => new Promise(resolve => {
@@ -133,10 +133,12 @@ test('two isolated local instances exchange data and stage only a trusted signed
     templates: [{ name: 'قالب اختبار', version: 1, text: 'نص تجريبي' }],
     settings: { slaDays: 7, slaApproved: false, provinces: [], entities: [], categories: [] }
   };
+  const currentState = await request(source, '/api/state');
+  assert.equal(currentState.status, 200);
   const saved = await request(source, '/api/state', {
     method: 'PUT',
-    headers: { 'X-State-Revision': '0' },
-    body: JSON.stringify(state)
+    body: JSON.stringify(state),
+    headers: { 'X-State-Revision': String(currentState.body.revision) }
   });
   assert.equal(saved.status, 200, 'source instance should save the test state');
 
