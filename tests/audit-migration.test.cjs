@@ -31,6 +31,14 @@ async function waitForServer(child, url) {
   throw new Error('Server did not become ready before timeout.');
 }
 
+async function csrfHeaders(baseUrl, cookie) {
+  const res = await fetch(baseUrl + '/api/csrf', { headers: { cookie } });
+  assert.equal(res.status, 200);
+  const { csrfToken } = await res.json();
+  assert.ok(csrfToken);
+  return { 'content-type': 'application/json', cookie, 'X-CSRF-Token': csrfToken };
+}
+
 test('server migrates legacy audit rows and appends verifiable events', { timeout: 20000 }, async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-audit-migration-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -97,16 +105,18 @@ test('server migrates legacy audit rows and appends verifiable events', { timeou
   const adminCookie = login.headers.get('set-cookie')?.split(';')[0];
   assert.ok(adminCookie, 'admin login should establish an HTTP-only session cookie');
 
+  const adminHeaders = await csrfHeaders(baseUrl, adminCookie);
+
   const createReviewer = await fetch(baseUrl + '/api/users', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    headers: adminHeaders,
     body: JSON.stringify({ username: 'reviewer1', password: 'reviewer-test-password-123', role: 'reviewer' })
   });
   assert.equal(createReviewer.status, 201);
 
   const createComplaint = await fetch(baseUrl + '/api/complaints', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    headers: adminHeaders,
     body: JSON.stringify({ summary: 'اختبار صلاحيات', province: 'دمشق', category: 'خدمات عامة' })
   });
   assert.equal(createComplaint.status, 201);
@@ -120,17 +130,18 @@ test('server migrates legacy audit rows and appends verifiable events', { timeou
   assert.equal(reviewerLogin.status, 200);
   const reviewerCookie = reviewerLogin.headers.get('set-cookie')?.split(';')[0];
   assert.ok(reviewerCookie, 'reviewer login should establish a session cookie');
+  const reviewerHeaders = await csrfHeaders(baseUrl, reviewerCookie);
 
   const forbiddenUpdate = await fetch(baseUrl + '/api/complaints/' + encodeURIComponent(complaint.id) + '/status', {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json', cookie: reviewerCookie },
+    headers: reviewerHeaders,
     body: JSON.stringify({ status: 'closed' })
   });
   assert.equal(forbiddenUpdate.status, 403, 'reviewers must not change complaint status');
 
   const allowedUpdate = await fetch(baseUrl + '/api/complaints/' + encodeURIComponent(complaint.id) + '/status', {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json', cookie: adminCookie },
+    headers: adminHeaders,
     body: JSON.stringify({ status: 'in_progress' })
   });
   assert.equal(allowedUpdate.status, 200);
