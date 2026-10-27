@@ -20,6 +20,11 @@ test('Windows launcher checks Node.js and initializes configuration locally on f
   assert.match(source, /if not exist ["']?\.env/i, 'launcher must detect missing local configuration');
   assert.match(source, /scripts\\initialize-local-config\.js/i, 'launcher must generate local configuration without network access');
   assert.match(source, /node_modules\\express\\package\.json/i, 'launcher must check that dependencies are preinstalled');
+
+  const dependencyCheckIndex = source.indexOf('node_modules\\express\\package.json');
+  const configGenerationIndex = source.indexOf('scripts\\initialize-local-config.js');
+  assert.ok(dependencyCheckIndex < configGenerationIndex,
+    'launcher must check preinstalled dependencies before generating first-run credentials');
 });
 
 test('Windows launcher is offline-safe and runs tests before starting the server', () => {
@@ -34,7 +39,7 @@ test('Windows launcher is offline-safe and runs tests before starting the server
   const startIndex = source.indexOf('call npm start');
   const browserHelperIndex = source.indexOf('start "" /b powershell.exe');
   assert.notEqual(testIndex, -1, 'launcher must run automated tests');
-  assert.notEqual(startIndex, -1, 'launcher must start the local server');
+  assert.notEqual(startIndex, -1, 'launcher must start the server');
   assert.ok(testIndex < browserHelperIndex && browserHelperIndex < startIndex,
     'browser readiness watcher must start after tests and before the server');
   assert.match(source, /http:\/\/127\.0\.0\.1:3000/i, 'launcher must use loopback only');
