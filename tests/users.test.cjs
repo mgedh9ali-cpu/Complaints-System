@@ -36,6 +36,14 @@ function cookieFrom(response) {
   return value.split(';', 1)[0];
 }
 
+async function csrfToken(baseUrl, cookie) {
+  const res = await fetch(baseUrl + '/api/csrf', { headers: { cookie } });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(body.csrfToken);
+  return body.csrfToken;
+}
+
 test('local account management enforces administrator-only access and safe deactivation', { timeout: 30000, skip: hasServerDependencies ? false : 'Server dependencies are not installed in this workflow.' }, async t => {
   const root = path.resolve(__dirname, '..');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-users-test-'));
@@ -77,9 +85,15 @@ test('local account management enforces administrator-only access and safe deact
   });
   assert.equal(adminLogin.status, 200);
   const adminCookie = cookieFrom(adminLogin);
+  const adminCsrf = await csrfToken(baseUrl, adminCookie);
   const adminFetch = (url, options = {}) => fetch(baseUrl + url, {
     ...options,
-    headers: { cookie: adminCookie, ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) }
+    headers: {
+      cookie: adminCookie,
+      'X-CSRF-Token': adminCsrf,
+      ...(options.body ? { 'content-type': 'application/json' } : {}),
+      ...(options.headers || {})
+    }
   });
 
   const initial = await adminFetch('/api/users');
@@ -127,7 +141,7 @@ test('local account management enforces administrator-only access and safe deact
   assert.equal(reviewerUsers.status, 403);
   const reviewerStatusChange = await fetch(baseUrl + '/api/complaints/CMP-NONEXISTENT/status', {
     method: 'PATCH',
-    headers: { cookie: reviewerCookie, 'content-type': 'application/json' },
+    headers: { cookie: reviewerCookie, 'content-type': 'application/json', 'X-CSRF-Token': 'dummy' },
     body: JSON.stringify({ status: 'closed' })
   });
   assert.equal(reviewerStatusChange.status, 403);
