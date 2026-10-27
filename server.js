@@ -14,7 +14,9 @@ const { hashAuditEvent } = require('./lib/audit-integrity');
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
-  if (!value || value.length < minLength) throw new Error(`Missing or too-short environment variable: ${name}`);
+  if (!value || value.length < minLength) {
+    throw new Error(`Missing or too-short environment variable: ${name}`);
+  }
   return value;
 }
 
@@ -25,13 +27,17 @@ const sessionSecret = requiredEnv('SESSION_SECRET', 32);
 const adminUsername = requiredEnv('ADMIN_USERNAME', 3);
 const adminPassword = requiredEnv('ADMIN_PASSWORD', 12);
 const databasePath = path.resolve(process.env.DATABASE_PATH || './data/complaints.sqlite');
+const dataDir = path.resolve(process.env.DATA_DIR || './data');
 
-if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid TCP port');
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error('PORT must be a valid TCP port');
+}
 if (process.env.ALLOW_LAN === 'true' || (process.env.HOST && !['127.0.0.1','localhost'].includes(process.env.HOST))) {
   throw new Error('This offline build is loopback-only; remove HOST/ALLOW_LAN overrides.');
 }
 
 fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+fs.mkdirSync(dataDir, { recursive: true });
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -102,25 +108,39 @@ if (userCount === 0) {
   db.prepare('INSERT INTO users(id, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)')
     .run(crypto.randomUUID(), adminUsername, passwordHash, 'admin', new Date().toISOString());
   console.log(`Created initial administrator account: ${adminUsername}`);
+} else {
+  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(adminUsername);
+  if (!existing) {
+    console.warn('ADMIN_USERNAME differs from the existing database; no account was changed.');
+  }
 }
 
 app.disable('x-powered-by');
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:'], connectSrc: ["'self'"], objectSrc: ["'none'"],
-      baseUri: ["'self'"], formAction: ["'self'"], frameAncestors: ["'none'"]
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"]
     }
   }
 }));
 app.use(express.json({ limit: '1mb', strict: true }));
 
 const FileStore = require('session-file-store')(session);
-const sessionsDir = path.resolve('./data/sessions');
+const sessionsDir = path.join(dataDir, 'sessions');
 fs.mkdirSync(sessionsDir, { recursive: true });
 app.use(session({
-  name: 'complaints.sid', secret: sessionSecret, resave: false, saveUninitialized: false,
+  name: 'complaints.sid',
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: false,
   store: new FileStore({ path: sessionsDir, ttl: 30 * 60, retries: 1, logFn: function() {} }),
   cookie: { httpOnly: true, sameSite: 'strict', secure: process.env.COOKIE_SECURE === 'true', maxAge: 30 * 60 * 1000 }
 }));
@@ -148,7 +168,7 @@ const loginLimiter = rateLimit({
 });
 
 function persistAuditHeadHash(eventHash) {
-  try { fs.writeFileSync(path.resolve('./data/audit-head.hash'), eventHash + '\n'); } catch (err) { console.error(err.message); }
+  try { fs.writeFileSync(path.join(dataDir, 'audit-head.hash'), eventHash + '\n'); } catch (err) { console.error(err.message); }
 }
 
 function audit(actorUserId, action, targetType, targetId = null, details = {}) {
@@ -185,14 +205,8 @@ const { backupDatabase } = require('./scripts/backup-database');
 const multer = require('multer');
 const { saveAttachment, getAttachmentPath, deleteAttachment, MAX_FILE_SIZE, MAX_FILES_PER_COMPLAINT } = require('./lib/attachments');
 const { buildComplaintsWorkbook } = require('./lib/excel-export');
-const { createSyncPackage, validateSyncPackage, stageProgramUpdate, verifyProgramUpdate } = require('./lib/offline-sync');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES_PER_COMPLAINT } });
-
-const instanceIdPath = path.resolve(process.env.INSTANCE_ID_PATH || './data/instance-id');
-fs.mkdirSync(path.dirname(instanceIdPath), { recursive: true });
-if (!fs.existsSync(instanceIdPath)) fs.writeFileSync(instanceIdPath, crypto.randomUUID() + '\n', { flag: 'wx' });
-const sourceInstanceId = fs.readFileSync(instanceIdPath, 'utf8').trim();
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local', version: '0.5.0' }));
 
@@ -256,6 +270,23 @@ app.delete('/api/attachments/:storedName', requireAuth, requireRole('admin', 'st
   audit(req.user.id, 'attachment_deleted', 'attachment', storedName, {});
   res.status(204).end();
 });
+
+const AUTO_BACKUP_HOURS = Number(process.env.AUTO_BACKUP_HOURS || 6);
+if (AUTO_BACKUP_HOURS > 0) {
+  const backupDir = path.resolve('./data/auto-backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+  setInterval(async () => {
+    try {
+      const filename = 'auto-' + new Date().toISOString().replace(/[:.]/g, '-') + '.sqlite';
+      const dest = path.join(backupDir, filename);
+      await backupDatabase(databasePath, dest);
+      const files = fs.readdirSync(backupDir).filter(f => f.startsWith('auto-') && f.endsWith('.sqlite')).sort();
+      while (files.length > 14) fs.unlinkSync(path.join(backupDir, files.shift()));
+      console.log('Auto-backup created:', filename);
+    } catch (err) { console.error('Auto-backup failed:', err.message); }
+  }, AUTO_BACKUP_HOURS * 60 * 60 * 1000);
+  console.log('Auto-backup scheduled every ' + AUTO_BACKUP_HOURS + ' hour(s)');
+}
 
 app.post('/api/auth/login', loginLimiter, (req, res, next) => {
   const { username, password } = req.body || {};
@@ -392,36 +423,11 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), requireCsrf, (r
   res.json({ saved:true, updatedAt:now, revision:result.revision, complaintChangesLogged:complaintChanges.length });
 });
 
-app.post('/api/complaints', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
-  const body = req.body || {};
-  if (!validComplaint(body)) return res.status(400).json({ error: 'بيانات الشكوى غير صالحة.' });
-  const id = 'SY-' + new Date().getFullYear() + '-' + crypto.randomUUID().slice(0, 8);
-  const now = new Date().toISOString();
-  const complaint = {
-    id, name: body.name || '', phone: body.phone || '', province: body.province, entity: body.entity || '',
-    category: body.category, priority: body.priority || 'normal', status: 'new', owner: body.owner || req.user.username,
-    summary: body.summary, details: body.details || '', created: now, updated: now,
-    due: new Date(Date.now() + 7 * 86400000).toISOString(), notes: [],
-    timeline: [{ event: 'تسجيل الشكوى', by: req.user.username, at: now, detail: 'تم الإنشاء عبر API.' }],
-    referrals: [], reply: null, confidentiality: 'normal', survey: null, attachments: []
-  };
-  db.prepare('INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-    .run(id, JSON.stringify(complaint), req.user.id, now, now);
-  audit(req.user.id, 'complaint_created', 'complaint', id, { source: 'api', status: 'new' });
-  res.status(201).json({ complaint });
-});
-
-app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
-  const allowed = ['new', 'in_progress', 'awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'];
-  if (!allowed.includes(req.body?.status)) return res.status(400).json({ error: 'حالة الشكوى غير صالحة.' });
-  audit(req.user.id, 'complaint_status_changed', 'complaint', req.params.id, { to: req.body.status, source: 'status_endpoint' });
-  res.json({ ok: true, id: req.params.id, status: req.body.status });
-});
-
-app.get('/api/audit', requireAuth, requireRole('admin', 'reviewer'), (req, res) => {
-  const rows = db.prepare(`SELECT id, actor_user_id, action, target_type, target_id, details_json, created_at FROM audit_events ORDER BY created_at DESC LIMIT 500`).all();
-  res.json({ events: rows.map(row => ({ id: row.id, actorUserId: row.actor_user_id, action: row.action, targetType: row.target_type, targetId: row.target_id, details: JSON.parse(row.details_json), createdAt: row.created_at })) });
-});
+const { createSyncPackage, validateSyncPackage, stageProgramUpdate, verifyProgramUpdate } = require('./lib/offline-sync');
+const instanceIdPath = path.resolve(process.env.INSTANCE_ID_PATH || path.join(dataDir, 'instance-id'));
+fs.mkdirSync(path.dirname(instanceIdPath), { recursive: true });
+if (!fs.existsSync(instanceIdPath)) fs.writeFileSync(instanceIdPath, crypto.randomUUID() + '\n', { flag: 'wx' });
+const sourceInstanceId = fs.readFileSync(instanceIdPath, 'utf8').trim();
 
 app.get('/api/sync/export', requireAuth, requireRole('admin', 'staff'), (req, res) => {
   const row = db.prepare('SELECT state_json FROM app_state WHERE id=1').get();
@@ -447,7 +453,7 @@ app.post('/api/sync/import', requireAuth, requireRole('admin'), requireCsrf, (re
   if (db.prepare("SELECT id FROM audit_events WHERE action='sync_imported' AND target_id=?").get(payload.syncId))
     return res.status(409).json({ error: 'سبق استيراد ملف المزامنة هذا.' });
   try {
-    const publicKeyPath = path.resolve(process.env.UPDATE_PUBLIC_KEY_PATH || './data/trusted-update-public.pem');
+    const publicKeyPath = path.resolve(process.env.UPDATE_PUBLIC_KEY_PATH || path.join(dataDir, 'trusted-update-public.pem'));
     let updateTrusted = false;
     let trustedPublicKey = null;
     if (fs.existsSync(publicKeyPath)) {
@@ -456,14 +462,15 @@ app.post('/api/sync/import', requireAuth, requireRole('admin'), requireCsrf, (re
         updateTrusted = verifyProgramUpdate(payload, trustedPublicKey);
       } catch { trustedPublicKey = null; updateTrusted = false; }
     }
+    // Data sync may proceed without a trusted program signature; untrusted code is never staged.
     const pendingDir = updateTrusted
-      ? stageProgramUpdate(payload, path.resolve(process.env.DATA_DIR || './data'), trustedPublicKey)
+      ? stageProgramUpdate(payload, dataDir, trustedPublicKey)
       : null;
     const now = new Date().toISOString();
-    db.transaction(() => {
+    const importState = db.transaction(() => {
       const currentRow = db.prepare('SELECT revision FROM app_state WHERE id=1').get();
       const nextRevision = (currentRow?.revision ?? 0) + 1;
-      db.prepare('INSERT INTO app_state(id,state_json,updated_by,updated_at,revision) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at,revision=excluded.revision')
+      db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at,revision) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at,revision=excluded.revision`)
         .run(JSON.stringify(payload.state), req.user.id, now, nextRevision);
       audit(req.user.id, 'sync_imported', 'sync', payload.syncId, {
         sourceInstanceId: payload.sourceInstanceId,
@@ -471,10 +478,13 @@ app.post('/api/sync/import', requireAuth, requireRole('admin'), requireCsrf, (re
         programUpdateStaged: Boolean(updateTrusted),
         programUpdateSignatureVerified: Boolean(updateTrusted)
       });
-    })();
+      return nextRevision;
+    });
+    const revision = importState.immediate();
     res.json({
       imported: true, complaintCount: payload.state.complaints.length, updateStaged: Boolean(updateTrusted),
-      ...(pendingDir ? { updatePath: path.relative(process.cwd(), pendingDir) } : {}),
+      revision,
+      ...(pendingDir ? { updatePath: path.relative(__dirname, pendingDir) } : {}),
       warning: updateTrusted
         ? 'استوردت البيانات؛ حزمة البرنامج موقعة بمفتاح موثوق ومحفوظة للمراجعة، ولم تُشغّل تلقائيًا.'
         : 'استوردت البيانات فقط. لم تُحفظ ملفات البرنامج للتطبيق لأن التوقيع الرقمي الموثوق غير موجود أو غير صالح.'
@@ -485,10 +495,61 @@ app.post('/api/sync/import', requireAuth, requireRole('admin'), requireCsrf, (re
   }
 });
 
+app.post('/api/complaints', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
+  const body = req.body || {};
+  if (!validComplaint(body)) {
+    return res.status(400).json({ error: 'بيانات الشكوى غير صالحة.' });
+  }
+  const id = 'SY-' + new Date().getFullYear() + '-' + crypto.randomUUID().slice(0, 8);
+  const now = new Date().toISOString();
+  const complaint = {
+    id,
+    name: body.name || '',
+    phone: body.phone || '',
+    province: body.province,
+    entity: body.entity || '',
+    category: body.category,
+    priority: body.priority || 'normal',
+    status: 'new',
+    owner: body.owner || req.user.username,
+    summary: body.summary,
+    details: body.details || '',
+    created: now,
+    updated: now,
+    due: new Date(Date.now() + 7 * 86400000).toISOString(),
+    notes: [],
+    timeline: [{ event: 'تسجيل الشكوى', by: req.user.username, at: now, detail: 'تم الإنشاء عبر API.' }],
+    referrals: [],
+    reply: null,
+    confidentiality: 'normal',
+    survey: null,
+    attachments: []
+  };
+  db.prepare('INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
+    .run(id, JSON.stringify(complaint), req.user.id, now, now);
+  audit(req.user.id, 'complaint_created', 'complaint', id, { source: 'api', status: 'new' });
+  res.status(201).json({ complaint });
+});
+
+app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
+  const allowed = ['new', 'in_progress', 'awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'];
+  if (!allowed.includes(req.body?.status)) return res.status(400).json({ error: 'حالة الشكوى غير صالحة.' });
+  audit(req.user.id, 'complaint_status_changed', 'complaint', req.params.id, {
+    to: req.body.status, source: 'status_endpoint'
+  });
+  res.json({ ok: true, id: req.params.id, status: req.body.status });
+});
+
+app.get('/api/audit', requireAuth, requireRole('admin', 'reviewer'), (req, res) => {
+  const rows = db.prepare(`SELECT id, actor_user_id, action, target_type, target_id, details_json, created_at FROM audit_events ORDER BY created_at DESC LIMIT 500`).all();
+  res.json({ events: rows.map(row => ({ id: row.id, actorUserId: row.actor_user_id, action: row.action, targetType: row.target_type, targetId: row.target_id, details: JSON.parse(row.details_json), createdAt: row.created_at })) });
+});
+
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'manifest.json')));
 app.get('/sw.js', (req, res) => { res.setHeader('Service-Worker-Allowed', '/'); res.setHeader('Cache-Control', 'no-cache'); res.sendFile(path.join(__dirname, 'sw.js')); });
 app.get('/ui-enhancements.css', (req, res) => res.sendFile(path.join(__dirname, 'ui-enhancements.css')));
 app.get('/ui-enhancements.js', (req, res) => res.sendFile(path.join(__dirname, 'ui-enhancements.js')));
+
 app.use('/api', (req, res) => res.status(404).json({ error: 'المسار غير موجود.' }));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/app.js', (req, res) => res.sendFile(path.join(__dirname, 'app.js')));
@@ -503,6 +564,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(port, host, () => {
   console.log(`Complaints system listening at http://${host}:${port}`);
   console.log(`SQLite database: ${databasePath}`);
+  console.log('Local prototype only: do not enter real personal or sensitive data before a security review.');
 });
 
 function shutdown() { server.close(() => { db.close(); process.exit(0); }); }
