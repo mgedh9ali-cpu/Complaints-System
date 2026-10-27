@@ -7,6 +7,7 @@ const test = require('node:test');
 
 const root = path.join(__dirname, '..');
 const launcherPath = path.join(root, 'start-windows.bat');
+const browserHelperPath = path.join(root, 'open-local-browser.ps1');
 
 test('Windows launcher exists and checks required local prerequisites', () => {
   assert.equal(fs.existsSync(launcherPath), true, 'Windows launcher must be present');
@@ -28,10 +29,25 @@ test('Windows launcher is offline-safe and runs tests before starting the server
 
   const testIndex = source.indexOf('call npm test');
   const startIndex = source.indexOf('call npm start');
+  const browserHelperIndex = source.indexOf('start "" /b powershell.exe');
   assert.notEqual(testIndex, -1, 'launcher must run automated tests');
   assert.notEqual(startIndex, -1, 'launcher must start the local server');
-  assert.ok(testIndex < startIndex, 'tests must run before the server starts');
-
-  assert.match(source, /http:\/\/127\.0\.0\.1:3000/i, 'launcher must direct users to loopback only');
+  assert.ok(testIndex < browserHelperIndex && browserHelperIndex < startIndex,
+    'browser readiness watcher must start after tests and before the server');
+  assert.match(source, /http:\/\/127\.0\.0\.1:3000/i, 'launcher must use loopback only');
   assert.match(source, /Ctrl\+C/i, 'launcher must document how to stop the server');
+});
+
+test('browser helper waits for the local port before opening the browser', () => {
+  assert.equal(fs.existsSync(browserHelperPath), true, 'browser readiness helper must be present');
+  const source = fs.readFileSync(browserHelperPath, 'utf8');
+
+  assert.match(source, /127\.0\.0\.1/);
+  assert.match(source, /3000/);
+  assert.match(source, /TcpClient/);
+  assert.match(source, /Start-Sleep/);
+  assert.match(source, /Start-Process \$url/);
+  assert.match(source, /AddSeconds\(60\)/);
+  assert.doesNotMatch(source, /https?:\/\/(?!127\.0\.0\.1)/i,
+    'browser helper must not contact external hosts');
 });

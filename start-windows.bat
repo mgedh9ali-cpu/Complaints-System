@@ -39,6 +39,12 @@ if not exist "node_modules\express\package.json" (
   exit /b 1
 )
 
+if not exist "open-local-browser.ps1" (
+  echo ERROR: The local browser readiness helper is missing.
+  pause
+  exit /b 1
+)
+
 echo Running automated tests before startup...
 call npm test
 if errorlevel 1 (
@@ -49,9 +55,10 @@ if errorlevel 1 (
 
 echo.
 echo Starting the local server.
-echo Open http://127.0.0.1:3000 in your browser.
+echo The browser will open automatically when http://127.0.0.1:3000 is ready.
 echo Keep this window open. Press Ctrl+C to stop the server.
 echo.
+start "" /b powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0open-local-browser.ps1"
 call npm start
 set "EXIT_CODE=%ERRORLEVEL%"
 echo.
