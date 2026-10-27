@@ -25,10 +25,13 @@ if errorlevel 1 (
 )
 
 if not exist ".env" (
-  echo ERROR: .env is missing.
-  echo Copy .env.example to .env and configure unique local credentials first.
-  pause
-  exit /b 1
+  echo First launch detected. Creating private local configuration...
+  node "scripts\initialize-local-config.js"
+  if errorlevel 1 (
+    echo ERROR: Could not create the local configuration.
+    pause
+    exit /b 1
+  )
 )
 
 if not exist "node_modules\express\package.json" (
