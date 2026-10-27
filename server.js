@@ -421,6 +421,42 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), requireCsrf, (r
   res.json({ saved:true, updatedAt:now, revision:result.revision, complaintChangesLogged:complaintChanges.length });
 });
 
+app.post('/api/complaints', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
+  const body = req.body || {};
+  if (!validComplaint(body)) {
+    return res.status(400).json({ error: 'بيانات الشكوى غير صالحة.' });
+  }
+  const id = 'SY-' + new Date().getFullYear() + '-' + crypto.randomUUID().slice(0, 8);
+  const now = new Date().toISOString();
+  const complaint = {
+    id,
+    name: body.name || '',
+    phone: body.phone || '',
+    province: body.province,
+    entity: body.entity || '',
+    category: body.category,
+    priority: body.priority || 'normal',
+    status: 'new',
+    owner: body.owner || req.user.username,
+    summary: body.summary,
+    details: body.details || '',
+    created: now,
+    updated: now,
+    due: new Date(Date.now() + 7 * 86400000).toISOString(),
+    notes: [],
+    timeline: [{ event: 'تسجيل الشكوى', by: req.user.username, at: now, detail: 'تم الإنشاء عبر API.' }],
+    referrals: [],
+    reply: null,
+    confidentiality: 'normal',
+    survey: null,
+    attachments: []
+  };
+  db.prepare('INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
+    .run(id, JSON.stringify(complaint), req.user.id, now, now);
+  audit(req.user.id, 'complaint_created', 'complaint', id, { source: 'api', status: 'new' });
+  res.status(201).json({ complaint });
+});
+
 app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
   const allowed = ['new', 'in_progress', 'awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'];
   if (!allowed.includes(req.body?.status)) return res.status(400).json({ error: 'حالة الشكوى غير صالحة.' });
