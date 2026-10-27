@@ -97,7 +97,7 @@ test('local account management enforces administrator-only access and safe deact
     method: 'POST',
     body: JSON.stringify({ username: 'reviewer1', password: 'Review-password-2026', role: 'reviewer' })
   });
-  assert.equal(createdResponse.status, 201);
+  assert.equal(createdResponse.status, 201, 'create user failed: ' + JSON.stringify(await createdResponse.clone().json().catch(() => ({}))));
   const created = (await createdResponse.json()).user;
   assert.equal(created.role, 'reviewer');
   assert.equal(created.active, 1);
