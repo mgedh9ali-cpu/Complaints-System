@@ -403,67 +403,17 @@ app.put('/api/state', requireAuth, requireRole('admin','staff'), requireCsrf, (r
     const currentRevision = currentRow?.revision ?? 0;
     if (currentRevision !== expectedRevision) return { conflict: true, currentRevision };
     const previousState = currentRow ? JSON.parse(currentRow.state_json) : null;
-    const complaintChanges=diffComplaints(previousState,state);
+    const complaintChanges = diffComplaints(previousState, state);
     const nextRevision = currentRevision + 1;
     db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at,revision) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at,revision=excluded.revision`)
       .run(stateJson, req.user.id, now, nextRevision);
-    for(const change of complaintChanges) audit(req.user.id,change.action,'complaint',change.id,change.details);
-    audit(req.user.id,'application_state_saved','application',null,{
-      complaintCount:state.complaints.length,
-      complaintChanges:complaintChanges.length,
-      revision:nextRevision
-    });
+    for (const change of complaintChanges) audit(req.user.id, change.action, 'complaint', change.id, change.details);
+    audit(req.user.id, 'application_state_saved', 'application', null, { complaintCount: state.complaints.length, complaintChanges: complaintChanges.length, revision: nextRevision });
     return { conflict: false, revision: nextRevision, complaintChanges };
   });
   const result = saveState.immediate();
   if (result.conflict) return res.status(409).json({ error: 'لم يُحفظ التغيير لأن مستخدمًا آخر حفظ نسخة أحدث.', currentRevision: result.currentRevision });
-  const complaintChanges = result.complaintChanges;
-  res.json({ saved:true, updatedAt:now, revision:result.revision, complaintChangesLogged:complaintChanges.length });
-});
-
-app.post('/api/complaints', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
-  const body = req.body || {};
-  if (!validComplaint(body)) {
-    return res.status(400).json({ error: 'بيانات الشكوى غير صالحة.' });
-  }
-  const id = 'SY-' + new Date().getFullYear() + '-' + crypto.randomUUID().slice(0, 8);
-  const now = new Date().toISOString();
-  const complaint = {
-    id,
-    name: body.name || '',
-    phone: body.phone || '',
-    province: body.province,
-    entity: body.entity || '',
-    category: body.category,
-    priority: body.priority || 'normal',
-    status: 'new',
-    owner: body.owner || req.user.username,
-    summary: body.summary,
-    details: body.details || '',
-    created: now,
-    updated: now,
-    due: new Date(Date.now() + 7 * 86400000).toISOString(),
-    notes: [],
-    timeline: [{ event: 'تسجيل الشكوى', by: req.user.username, at: now, detail: 'تم الإنشاء عبر API.' }],
-    referrals: [],
-    reply: null,
-    confidentiality: 'normal',
-    survey: null,
-    attachments: []
-  };
-  db.prepare('INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-    .run(id, JSON.stringify(complaint), req.user.id, now, now);
-  audit(req.user.id, 'complaint_created', 'complaint', id, { source: 'api', status: 'new' });
-  res.status(201).json({ complaint });
-});
-
-app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
-  const allowed = ['new', 'in_progress', 'awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'];
-  if (!allowed.includes(req.body?.status)) return res.status(400).json({ error: 'حالة الشكوى غير صالحة.' });
-  audit(req.user.id, 'complaint_status_changed', 'complaint', req.params.id, {
-    to: req.body.status, source: 'status_endpoint'
-  });
-  res.json({ ok: true, id: req.params.id, status: req.body.status });
+  res.json({ saved: true, updatedAt: now, revision: result.revision, complaintChangesLogged: result.complaintChanges.length });
 });
 
 app.get('/api/audit', requireAuth, requireRole('admin', 'reviewer'), (req, res) => {
@@ -479,7 +429,6 @@ app.get('/ui-enhancements.js', (req, res) => res.sendFile(path.join(__dirname, '
 app.use('/api', (req, res) => res.status(404).json({ error: 'المسار غير موجود.' }));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/app.js', (req, res) => res.sendFile(path.join(__dirname, 'app.js')));
-app.get('/attachments-ui-bridge.js', (req, res) => res.sendFile(path.join(__dirname, 'attachments-ui-bridge.js')));
 app.get('/styles.css', (req, res) => res.sendFile(path.join(__dirname, 'styles.css')));
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
