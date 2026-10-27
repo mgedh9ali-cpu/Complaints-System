@@ -31,12 +31,17 @@ const seed = {
   settings:{slaDays:7,slaApproved:false,categoryDescriptions:{},entityDescriptions:{},provinces:['دمشق','ريف دمشق','حلب','حمص','حماة','اللاذقية','طرطوس','إدلب','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'],entities:['مديرية الخدمات العامة','مديرية النقل','مديرية الشؤون الاجتماعية','مديرية التجارة الداخلية','مديرية التربية','مديرية المياه'],categories:['خدمات عامة','نقل ومواصلات','شؤون اجتماعية','أسعار وأسواق','تعليم','مياه وصرف صحي','استفسار عام'],priorities:[{value:'normal',label:'عادية'},{value:'high',label:'عالية'},{value:'urgent',label:'عاجلة'}]}
 };
 let db = cleanState(), page='dashboard', searchText='', statusFilter='all', priorityFilter='all', selectedIds=new Set(), currentId=null, toastTimer=null;
-let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), stateLoaded=false;
+let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), stateLoaded=false, csrfToken=null;
 let stateRevision=0, stateConflict=false;
 function cleanState(){const x=structuredClone(seed);x.complaints=[];x.notifications=[];return x;}
 function loadDb(){return cleanState();}
 async function api(url, options={}) {
-  const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+  const method=String(options.method||'GET').toUpperCase();
+  const headers={'Content-Type':'application/json',...(options.headers||{})};
+  if(!['GET','HEAD','OPTIONS'].includes(method)&&csrfToken&&!headers['X-CSRF-Token']){
+    headers['X-CSRF-Token']=csrfToken;
+  }
+  const response=await fetch(url,{credentials:'same-origin',headers,...options});
   if(response.status===204)return null;
   const body=await response.json().catch(()=>({}));
   if(!response.ok){const error=new Error(body.error||'تعذر تنفيذ الطلب.');error.status=response.status;throw error;}
@@ -94,6 +99,8 @@ function showLogin(){
     $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('#loginForm button');button.disabled=true;button.textContent='جارٍ التحقق…';const err=$('#loginError');err.hidden=true;try{
       const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#loginUsername').value,password:$('#loginPassword').value})});
       authenticatedUser=result.user;
+      const csrf=await api('/api/csrf');
+      csrfToken=csrf.csrfToken;
       const stored=await api('/api/state');
       stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;
       stateConflict=false;
