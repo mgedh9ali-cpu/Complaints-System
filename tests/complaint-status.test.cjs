@@ -157,6 +157,23 @@ test('complaint status endpoint persists transitions, requires reasons, and reco
   assert.equal(savedState.complaints[0].statusHistory.length, 2);
   assert.equal(savedState.complaints[0].statusHistory[1].reason, 'اكتملت المعالجة');
 
+  const tableComplaintResponse = await request('/api/complaints', {
+    method: 'POST',
+    body: JSON.stringify({ summary: 'اختبار سجل جدول الشكاوى', province: 'دمشق', category: 'استفسار عام' })
+  });
+  assert.equal(tableComplaintResponse.status, 201);
+  const tableComplaint = (await tableComplaintResponse.json()).complaint;
+  const tableStart = await request('/api/complaints/' + tableComplaint.id + '/status', {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'in_progress' })
+  });
+  assert.equal(tableStart.status, 200);
+  const tableAwaitingReply = await request('/api/complaints/' + tableComplaint.id + '/status', {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'awaiting_reply' })
+  });
+  assert.equal(tableAwaitingReply.status, 200, 'the next transition should read the status saved in the complaints table');
+
   const auditResponse = await request('/api/audit');
   assert.equal(auditResponse.status, 200);
   const events = (await auditResponse.json()).events;
