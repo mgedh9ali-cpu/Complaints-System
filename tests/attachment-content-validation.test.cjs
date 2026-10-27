@@ -9,6 +9,38 @@ function file(originalname, mimetype, bytes) {
   return { originalname, mimetype, buffer, size: buffer.length };
 }
 
+function zipWithEntries(names) {
+  const localParts = [];
+  const centralParts = [];
+  let localOffset = 0;
+  for (const name of names) {
+    const nameBytes = Buffer.from(name, 'utf8');
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(nameBytes.length, 26);
+    localParts.push(local, nameBytes);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(localOffset, 42);
+    centralParts.push(central, nameBytes);
+    localOffset += local.length + nameBytes.length;
+  }
+  const centralOffset = localOffset;
+  const centralSize = centralParts.reduce((total, part) => total + part.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(names.length, 8);
+  end.writeUInt16LE(names.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(centralOffset, 16);
+  return Buffer.concat([...localParts, ...centralParts, end]);
+}
+
 test('attachment validation accepts a PDF whose content matches its extension and MIME type', () => {
   assert.equal(isAllowed(file('report.pdf', 'application/pdf', '%PDF-1.7\nexample')), true);
 });
@@ -24,8 +56,9 @@ test('attachment validation checks image signatures instead of trusting filename
   assert.equal(isAllowed(file('photo.png', 'image/png', 'not a png')), false);
 });
 
-test('attachment validation rejects generic ZIP payloads disguised as office documents', () => {
-  assert.equal(isAllowed(file('report.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'PK\\u0003\\u0004arbitrary zip')), false);
+test('attachment validation rejects a valid generic ZIP disguised as an Office document', () => {
+  const genericZip = zipWithEntries(['[Content_Types].xml', 'random.txt']);
+  assert.equal(isAllowed(file('report.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', genericZip)), false);
 });
 
 test('attachment validation rejects empty, inconsistent-size, and oversized payloads', () => {
