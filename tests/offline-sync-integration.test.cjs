@@ -133,7 +133,7 @@ test('two isolated local instances exchange data and stage only a trusted signed
     templates: [{ name: 'قالب اختبار', version: 1, text: 'نص تجريبي' }],
     settings: { slaDays: 7, slaApproved: false, provinces: [], entities: [], categories: [] }
   };
-  const saved = await request(source, '/api/state', { method: 'PUT', body: JSON.stringify(state) });
+  const saved = await request(source, '/api/state', { method: 'PUT', headers: { 'X-State-Revision': '0' }, body: JSON.stringify(state) });
   assert.equal(saved.status, 200, 'source instance should save the test state');
 
   const exportedResponse = await fetch(source.baseUrl + '/api/sync/export', {
