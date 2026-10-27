@@ -183,8 +183,8 @@ const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
 const { backupDatabase } = require('./scripts/backup-database');
 const multer = require('multer');
-const { saveAttachment, getAttachmentPath, deleteAttachment, MAX_FILE_SIZE, MAX_FILES_PER_COMPLAINT } = require('./lib/attachments');
-const { buildComplaintsWorkbook } = require('./lib/excel-export');
+const { saveAttachment, getAttachmentPath, deleteAttachment, listAttachmentsForComplaint, MAX_FILE_SIZE, MAX_FILES_PER_COMPLAINT } = require('./lib/attachments');
+const { buildComplaintsWorkbook, buildSingleComplaintWorkbook } = require('./lib/excel-export');
 const { createSyncPackage, validateSyncPackage, stageProgramUpdate, verifyProgramUpdate } = require('./lib/offline-sync');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES_PER_COMPLAINT } });
@@ -194,7 +194,7 @@ fs.mkdirSync(path.dirname(instanceIdPath), { recursive: true });
 if (!fs.existsSync(instanceIdPath)) fs.writeFileSync(instanceIdPath, crypto.randomUUID() + '\n', { flag: 'wx' });
 const sourceInstanceId = fs.readFileSync(instanceIdPath, 'utf8').trim();
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local', version: '0.5.0' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local', version: '0.5.1' }));
 
 app.get('/api/export/csv', requireAuth, requireRole('admin', 'staff', 'reviewer'), (req, res) => {
   const row = db.prepare('SELECT state_json FROM app_state WHERE id=1').get();
@@ -228,6 +228,32 @@ app.get('/api/export/xlsx', requireAuth, requireRole('admin', 'staff', 'reviewer
   } catch (err) { next(err); }
 });
 
+app.get('/api/export/xlsx/:id', requireAuth, requireRole('admin', 'staff', 'reviewer'), async (req, res, next) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!id || id.length > 100) return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
+    let complaint = null;
+    const row = db.prepare('SELECT state_json FROM app_state WHERE id=1').get();
+    if (row) {
+      const state = JSON.parse(row.state_json);
+      const list = Array.isArray(state.complaints) ? state.complaints : [];
+      complaint = list.find(c => c && c.id === id) || null;
+    }
+    if (!complaint) {
+      const crow = db.prepare('SELECT payload_json FROM complaints WHERE id = ?').get(id);
+      if (crow) complaint = { id, ...JSON.parse(crow.payload_json) };
+    }
+    if (!complaint) return res.status(404).json({ error: 'الشكوى غير موجودة.' });
+    const buffer = await buildSingleComplaintWorkbook(complaint, { generatedBy: req.user.username });
+    const filename = 'شكوى-' + id + '.xlsx';
+    audit(req.user.id, 'xlsx_export_single', 'export', id, { filename });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(filename));
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(buffer);
+  } catch (err) { next(err); }
+});
+
 app.post('/api/attachments/:complaintId', requireAuth, requireRole('admin', 'staff'), requireCsrf, upload.array('files', MAX_FILES_PER_COMPLAINT), (req, res) => {
   const complaintId = String(req.params.complaintId || '').trim();
   if (!complaintId || complaintId.length > 100) return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
@@ -241,6 +267,13 @@ app.post('/api/attachments/:complaintId', requireAuth, requireRole('admin', 'sta
     }
     res.status(201).json({ attachments: saved });
   } catch (err) { res.status(400).json({ error: err.message || 'فشل رفع الملف.' }); }
+});
+
+app.get('/api/attachments/by-complaint/:complaintId', requireAuth, (req, res) => {
+  const complaintId = String(req.params.complaintId || '').trim();
+  if (!complaintId || complaintId.length > 100) return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
+  const items = listAttachmentsForComplaint(complaintId);
+  res.json({ attachments: items });
 });
 
 app.get('/api/attachments/:storedName', requireAuth, (req, res) => {

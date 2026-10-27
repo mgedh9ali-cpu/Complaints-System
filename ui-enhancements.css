@@ -40,6 +40,65 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   padding: 0 10px;
   font-size: 12px;
 }
+
+/* Attachments */
+.attach-field { margin-top: 8px; }
+.attach-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px dashed var(--line, #c5d4cd);
+  border-radius: var(--ui-radius);
+  background: #f8fbf9;
+  font-size: 13px;
+}
+.attach-hint { display: block; margin-top: 6px; color: var(--muted, #5f736a); font-size: 12px; }
+.attach-preview, .attach-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e8f2ed;
+  color: #145b49;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #c5ddd2;
+  text-decoration: none;
+}
+.attach-chip.link:hover { background: #d4ebe1; }
+.attach-chip small { font-weight: 500; opacity: .75; }
+.attach-panel {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--line, #dfe7e2);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fbfdfc 0%, #f3f8f5 100%);
+}
+.attach-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.attach-panel-title { font-weight: 800; color: #145b49; }
+.attach-upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.attach-upload-row .attach-input { flex: 1; min-width: 180px; }
+
 html[data-theme="dark"] {
   color-scheme: dark;
   --ink: #e5ece8;
@@ -94,9 +153,14 @@ html[data-theme="dark"] .login-card p,
 html[data-theme="dark"] .login-card label { color: #d0ddd6; }
 html[data-theme="dark"] .login-card input { background: #1d3129; color: #f3f7f4; border-color: #496357; }
 html[data-theme="dark"] .ui-password-toggle { background: #243b31; color: #e5eee9; border-color: #496357; }
+html[data-theme="dark"] .attach-input { background: #1d3129; border-color: #496357; color: #e5eee9; }
+html[data-theme="dark"] .attach-panel { background: #182a24; border-color: #354941; }
+html[data-theme="dark"] .attach-chip { background: #243b31; color: #d2e5db; border-color: #3d5a4c; }
+
 @media (max-width: 720px) {
   .ui-tool-button { min-height: 34px; padding: 6px 8px; font-size: 11px; }
   .top-actions { gap: 6px; flex-wrap: wrap; }
+  .attach-upload-row { flex-direction: column; align-items: stretch; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; }

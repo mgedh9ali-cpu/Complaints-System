@@ -1,23 +1,19 @@
 /**
  * attachments-ui-bridge.js
  * يضيف حقل المرفقات إلى نموذج الشكوى وصفحة التفاصيل وقت التشغيل.
- * يُحمَّل بعد app.js
+ * يُحمَّل بعد app.js و ui-enhancements.js
  */
 (() => {
   'use strict';
 
   const $ = (s, r = document) => r.querySelector(s);
+  let pendingFiles = null;
 
   function notify(msg, kind) {
     if (typeof toast === 'function') toast(msg, kind);
     else if (window.__complaintsNotify) window.__complaintsNotify(msg, kind);
     else console.log(msg);
   }
-
-  // اعتراض فتح نموذج الشكوى الجديدة
-  const origNewComplaint = window.newComplaint;
-  // app.js uses function declarations inside IIFE so they are not on window.
-  // Instead we observe DOM for the form.
 
   const observer = new MutationObserver(() => {
     injectIntoNewForm();
@@ -31,66 +27,108 @@
     form.dataset.attachInjected = '1';
 
     const wrap = document.createElement('div');
-    wrap.className = 'form-field full';
+    wrap.className = 'form-field full attach-field';
     wrap.innerHTML = `
       <label for="cAttachments">مرفقات (اختياري)</label>
-      <input type="file" id="cAttachments" class="field" multiple
-        accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.txt,.csv"
-        style="padding:8px">
-      <span class="small-copy">PDF، صور، Word، Excel، نص — حتى 5 ملفات × 5MB</span>
+      <input type="file" id="cAttachments" class="field attach-input" multiple
+        accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.txt,.csv">
+      <span class="small-copy attach-hint">PDF، صور، Word، Excel، نص — حتى 5 ملفات × 5MB</span>
+      <div id="cAttachPreview" class="attach-preview" hidden></div>
     `;
     form.querySelector('.form-grid')?.appendChild(wrap);
 
-    // اعتراض زر الحفظ
+    const input = $('#cAttachments');
+    input?.addEventListener('change', () => {
+      pendingFiles = input.files && input.files.length ? input.files : null;
+      const box = $('#cAttachPreview');
+      if (!box) return;
+      if (!pendingFiles) { box.hidden = true; box.innerHTML = ''; return; }
+      box.hidden = false;
+      box.innerHTML = [...pendingFiles].map(f =>
+        `<span class="attach-chip">${escapeHtml(f.name)} <small>(${Math.round(f.size / 1024)} ك.ب)</small></span>`
+      ).join('');
+    });
+
     document.addEventListener('click', async function onSave(e) {
       const btn = e.target.closest('[data-action="save-complaint"]');
       if (!btn) return;
-      // انتظر قليلاً حتى ينشئ app.js الشكوى
-      setTimeout(async () => {
-        const input = $('#cAttachments');
-        if (!input || !input.files || !input.files.length) return;
-        if (!window.__uploadAttachments) return;
-        // أحدث شكوى في القائمة
-        // نعتمد على أن createComplaint يضيفها في البداية
-        // نبحث عن أحدث id
-        const rows = document.querySelectorAll('[data-id^="SY-"]');
-        // بديل: من local state غير متاح؛ نستخدم آخر رقم ظاهر في toast أو الجدول
-        const tableIds = [...document.querySelectorAll('.ticket-id, td')]
-          .map(el => el.textContent.trim())
-          .filter(t => /^SY-\d{4}-\d+$/.test(t));
-        const id = tableIds[0];
-        if (!id) return;
-        const saved = await window.__uploadAttachments(id, input.files);
+      const files = pendingFiles || ($('#cAttachments') && $('#cAttachments').files);
+      if (!files || !files.length || !window.__uploadAttachments) return;
+
+      // انتظر إنشاء الشكوى ثم ارفع
+      let attempts = 0;
+      const tryUpload = async () => {
+        attempts += 1;
+        const id = findNewestComplaintId();
+        if (!id) {
+          if (attempts < 8) return setTimeout(tryUpload, 400);
+          return;
+        }
+        const saved = await window.__uploadAttachments(id, files);
         if (saved && saved.length) {
           notify('تم رفع ' + saved.length + ' مرفق للشكوى ' + id);
+          pendingFiles = null;
+          if ($('#cAttachments')) $('#cAttachments').value = '';
+          const box = $('#cAttachPreview');
+          if (box) { box.hidden = true; box.innerHTML = ''; }
         }
-      }, 600);
+      };
+      setTimeout(tryUpload, 500);
     }, true);
   }
 
-  function injectIntoDetail() {
+  function findNewestComplaintId() {
+    const candidates = [];
+    document.querySelectorAll('.ticket-id, [data-id], td, .row-title, a').forEach(el => {
+      const t = (el.getAttribute('data-id') || el.textContent || '').trim();
+      if (/^(SY|CMP)-[\w-]+$/i.test(t)) candidates.push(t);
+    });
+    // Prefer SY-YYYY-... style from our API
+    const sy = candidates.find(c => /^SY-\d{4}-/i.test(c));
+    return sy || candidates[0] || null;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;' }[c]));
+  }
+
+  async function injectIntoDetail() {
     const sections = document.querySelectorAll('.detail-section');
     if (!sections.length) return;
-    if ($('#detailAttachInput')) return;
+    if ($('#detailAttachPanel')) return;
 
-    // أضف قسم المرفقات بعد قسم بيانات الشكوى
     const firstSection = sections[0];
-    if (!firstSection || firstSection.dataset.attachInjected) return;
-    firstSection.dataset.attachInjected = '1';
+    if (!firstSection) return;
+
+    const idEl = document.querySelector('.ticket-id');
+    const complaintId = idEl ? idEl.textContent.trim() : null;
 
     const box = document.createElement('div');
-    box.className = 'detail-field';
-    box.style.marginTop = '12px';
+    box.id = 'detailAttachPanel';
+    box.className = 'detail-field attach-panel';
     box.innerHTML = `
-      <span style="font-weight:700">المرفقات</span>
-      <div style="margin-top:6px">
-        <input type="file" id="detailAttachInput" multiple
-          accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.txt,.csv"
-          style="padding:6px;max-width:100%">
-        <button type="button" class="btn btn-sm" id="detailAttachBtn" style="margin-top:6px">رفع المرفقات</button>
+      <div class="attach-panel-head">
+        <span class="attach-panel-title">المرفقات</span>
+        <div class="attach-panel-actions">
+          <button type="button" class="btn btn-sm" id="detailExcelBtn" title="تصدير هذه الشكوى Excel">📊 Excel</button>
+        </div>
+      </div>
+      <div id="detailAttachList" class="attach-list"><span class="small-copy">جاري التحميل...</span></div>
+      <div class="attach-upload-row">
+        <input type="file" id="detailAttachInput" class="attach-input" multiple
+          accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.txt,.csv">
+        <button type="button" class="btn btn-sm btn-primary" id="detailAttachBtn">رفع المرفقات</button>
       </div>
     `;
     firstSection.appendChild(box);
+
+    if (complaintId) {
+      await refreshAttachmentList(complaintId);
+      $('#detailExcelBtn')?.addEventListener('click', () => exportSingle(complaintId));
+    } else {
+      const list = $('#detailAttachList');
+      if (list) list.innerHTML = '<span class="small-copy">تعذر تحديد رقم الشكوى.</span>';
+    }
 
     $('#detailAttachBtn')?.addEventListener('click', async () => {
       const input = $('#detailAttachInput');
@@ -98,27 +136,71 @@
         notify('اختر ملفاً واحداً على الأقل.', 'error');
         return;
       }
-      const idEl = document.querySelector('.ticket-id');
-      const id = idEl ? idEl.textContent.trim() : null;
+      const id = (document.querySelector('.ticket-id') || {}).textContent?.trim();
       if (!id || !window.__uploadAttachments) {
         notify('تعذر تحديد رقم الشكوى.', 'error');
         return;
       }
       const saved = await window.__uploadAttachments(id, input.files);
       if (saved && saved.length) {
-        notify('تم رفع ' + saved.length + ' مرفق.');
-        // عرض الروابط
-        const links = saved.map(a =>
-          `<a href="/api/attachments/${a.storedName}" target="_blank" style="color:#145b49;margin-left:8px">${a.originalName}</a>`
-        ).join(' · ');
-        const prev = box.querySelector('.att-links') || document.createElement('div');
-        prev.className = 'att-links';
-        prev.style.marginTop = '8px';
-        prev.innerHTML = (prev.innerHTML ? prev.innerHTML + ' · ' : '') + links;
-        box.appendChild(prev);
+        input.value = '';
+        await refreshAttachmentList(id);
       }
     });
   }
 
-  console.info('[attachments-ui-bridge] جاهز — حقل المرفقات سيظهر في نموذج الشكوى والتفاصيل.');
+  async function refreshAttachmentList(complaintId) {
+    const list = $('#detailAttachList');
+    if (!list) return;
+    try {
+      const res = await fetch('/api/attachments/by-complaint/' + encodeURIComponent(complaintId), {
+        credentials: 'same-origin'
+      });
+      if (!res.ok) {
+        list.innerHTML = '<span class="small-copy">لا توجد مرفقات أو تعذر التحميل.</span>';
+        return;
+      }
+      const data = await res.json();
+      const items = data.attachments || [];
+      if (!items.length) {
+        list.innerHTML = '<span class="small-copy">لا توجد مرفقات بعد.</span>';
+        return;
+      }
+      list.innerHTML = items.map(a => {
+        const name = a.originalName || a.storedName;
+        const size = a.size ? Math.round(a.size / 1024) + ' ك.ب' : '';
+        return `<a class="attach-chip link" href="/api/attachments/${encodeURIComponent(a.storedName)}" target="_blank" rel="noopener">${escapeHtml(name)} <small>${size}</small></a>`;
+      }).join('');
+    } catch {
+      list.innerHTML = '<span class="small-copy">تعذر تحميل قائمة المرفقات.</span>';
+    }
+  }
+
+  async function exportSingle(complaintId) {
+    try {
+      notify('جاري تصدير الشكوى...');
+      const res = await fetch('/api/export/xlsx/' + encodeURIComponent(complaintId), {
+        credentials: 'same-origin'
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'تعذر التصدير');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'شكوى-' + complaintId + '.xlsx';
+      link.hidden = true;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      notify('تم تصدير تفاصيل الشكوى Excel.');
+    } catch (err) {
+      notify(err.message || 'فشل التصدير', 'error');
+    }
+  }
+
+  console.info('[attachments-ui-bridge] جاهز — مرفقات + Excel لشكوى واحدة.');
 })();
