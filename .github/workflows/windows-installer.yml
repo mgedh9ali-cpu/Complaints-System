@@ -25,6 +25,7 @@ permissions:
 jobs:
   build-installer:
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@v4
