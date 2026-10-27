@@ -20,6 +20,7 @@ test('Windows installer bundles the runtime and app dependencies in one setup ex
   assert.match(installer, /PrivilegesRequired=lowest/);
   assert.match(installer, /autodesktop/);
   assert.match(installer, /autoprograms/);
+  assert.match(installer, /Flags: postinstall nowait skipifsilent/);
   assert.doesNotMatch(installer, /Source:.*\.env/i, 'installer must not package a real local environment file');
   assert.doesNotMatch(installer, /Source:.*complaints\.sqlite/i, 'installer must not package a database');
 });
