@@ -2,9 +2,10 @@ name: Node checks
 
 on:
   push:
-    branches: [main, local-sqlite-foundation]
+    branches: [main, local-sqlite-foundation, feat/windows-single-file-installer]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
