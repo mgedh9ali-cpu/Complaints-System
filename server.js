@@ -459,11 +459,96 @@ app.post('/api/complaints', requireAuth, requireRole('admin', 'staff'), requireC
 
 app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
   const allowed = ['new', 'in_progress', 'awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'];
-  if (!allowed.includes(req.body?.status)) return res.status(400).json({ error: 'حالة الشكوى غير صالحة.' });
-  audit(req.user.id, 'complaint_status_changed', 'complaint', req.params.id, {
-    to: req.body.status, source: 'status_endpoint'
+  const targetStatus = req.body?.status;
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+  if (!allowed.includes(targetStatus)) return res.status(400).json({ error: 'حالة الشكوى غير صالحة.' });
+  if (reason.length > 1000) return res.status(400).json({ error: 'سبب التغيير أطول من الحد المسموح.' });
+
+  const transitions = {
+    new: ['in_progress', 'cancelled'],
+    in_progress: ['awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'],
+    awaiting_reply: ['in_progress', 'awaiting_approval', 'closed', 'cancelled'],
+    awaiting_approval: ['in_progress', 'closed', 'cancelled'],
+    closed: ['in_progress'],
+    cancelled: []
+  };
+  const id = String(req.params.id || '').trim();
+  if (!id || id.length > 100) return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
+
+  const changeStatus = db.transaction(() => {
+    const stateRow = db.prepare('SELECT state_json, revision FROM app_state WHERE id=1').get();
+    let state = stateRow ? JSON.parse(stateRow.state_json) : null;
+    const stateComplaint = state && Array.isArray(state.complaints)
+      ? state.complaints.find(item => item && item.id === id)
+      : null;
+    const tableRow = db.prepare('SELECT payload_json FROM complaints WHERE id=?').get(id);
+    const tableComplaint = tableRow ? JSON.parse(tableRow.payload_json) : null;
+    if (!stateComplaint && !tableComplaint) return { error: 'not_found' };
+
+    const currentStatus = stateComplaint?.status ?? tableComplaint?.status;
+    if (!allowed.includes(currentStatus)) return { error: 'invalid_current_status' };
+    if (stateComplaint && tableComplaint && stateComplaint.status !== tableComplaint.status) {
+      return { error: 'source_conflict' };
+    }
+    if (currentStatus === targetStatus) return { error: 'same_status' };
+    if (!transitions[currentStatus]?.includes(targetStatus)) return { error: 'invalid_transition', currentStatus };
+    if ((targetStatus === 'closed' || targetStatus === 'cancelled' || currentStatus === 'closed') && !reason) {
+      return { error: 'reason_required' };
+    }
+
+    const now = new Date().toISOString();
+    const historyEntry = {
+      from: currentStatus,
+      to: targetStatus,
+      by: req.user.username,
+      at: now,
+      reason: reason || ''
+    };
+    const updateComplaint = complaint => {
+      const updated = { ...complaint, status: targetStatus, updated: now };
+      updated.statusHistory = [...(Array.isArray(complaint.statusHistory) ? complaint.statusHistory : []), historyEntry];
+      updated.timeline = [...(Array.isArray(complaint.timeline) ? complaint.timeline : []), {
+        event: 'تغيير حالة الشكوى',
+        by: req.user.username,
+        at: now,
+        detail: currentStatus + ' → ' + targetStatus + (reason ? ' — ' + reason : '')
+      }];
+      return updated;
+    };
+
+    if (stateComplaint) {
+      state.complaints = state.complaints.map(item => item && item.id === id ? updateComplaint(item) : item);
+      const nextRevision = (stateRow?.revision ?? 0) + 1;
+      db.prepare(`INSERT INTO app_state(id,state_json,updated_by,updated_at,revision)
+        VALUES(1,?,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET state_json=excluded.state_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at,revision=excluded.revision`)
+        .run(JSON.stringify(state), req.user.id, now, nextRevision);
+    }
+    if (tableComplaint) {
+      const updated = updateComplaint(tableComplaint);
+      db.prepare('UPDATE complaints SET payload_json=?, updated_at=? WHERE id=?')
+        .run(JSON.stringify(updated), now, id);
+    }
+    audit(req.user.id, 'complaint_status_changed', 'complaint', id, {
+      from: currentStatus, to: targetStatus, reason, source: 'status_endpoint'
+    });
+    return { complaintId: id, from: currentStatus, status: targetStatus, updatedAt: now };
   });
-  res.json({ ok: true, id: req.params.id, status: req.body.status });
+
+  let result;
+  try {
+    result = changeStatus.immediate();
+  } catch (error) {
+    console.error('Complaint status update failed:', error.message);
+    return res.status(500).json({ error: 'تعذر حفظ تغيير حالة الشكوى.' });
+  }
+  if (result.error === 'not_found') return res.status(404).json({ error: 'الشكوى غير موجودة.' });
+  if (result.error === 'invalid_current_status') return res.status(409).json({ error: 'حالة الشكوى الحالية غير صالحة؛ راجع السجل قبل التعديل.' });
+  if (result.error === 'source_conflict') return res.status(409).json({ error: 'يوجد تعارض بين مصادر بيانات الشكوى؛ لم يتم تغيير الحالة.' });
+  if (result.error === 'same_status') return res.status(409).json({ error: 'الشكوى تحمل هذه الحالة بالفعل.' });
+  if (result.error === 'invalid_transition') return res.status(409).json({ error: 'انتقال الحالة غير مسموح من ' + result.currentStatus + ' إلى ' + targetStatus + '.' });
+  if (result.error === 'reason_required') return res.status(400).json({ error: 'يجب إدخال سبب عند الإغلاق أو الإلغاء أو إعادة فتح شكوى مغلقة.' });
+  res.json({ ok: true, ...result });
 });
 
 app.get('/api/audit', requireAuth, requireRole('admin', 'reviewer'), (req, res) => {
