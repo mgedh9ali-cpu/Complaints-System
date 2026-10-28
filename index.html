@@ -42,7 +42,7 @@
         <div class="top-actions">
           <span class="env-chip"><span></span> تخزين محلي</span>
           <button class="icon-button notification-button" data-goto="notifications" aria-label="الإشعارات">♧<i id="topUnread"></i></button>
-          <div class="top-user"><span class="avatar small">م</span><span id="topUserName">غير مسجل</span><button class="btn btn-primary" id="databaseBackupButton" data-action="database-backup" type="button" hidden>نسخ احتياطي</button><button class="btn" id="csvExportButton" type="button" hidden>تصدير CSV</button><button class="btn" id="logoutButton" type="button" hidden>خروج</button></div>
+          <div class="top-user"><span class="avatar small">م</span><span id="topUserName">غير مسجل</span><button class="btn btn-primary" id="databaseBackupButton" data-action="database-backup" type="button" hidden>نسخ احتياطي</button><button class="btn" id="databaseBackupVerifyButton" data-action="database-backup-verify" type="button" hidden>فحص نسخة</button><input id="databaseBackupVerifyFile" type="file" accept=".sqlite,.db,application/vnd.sqlite3" hidden><button class="btn" id="csvExportButton" type="button" hidden>تصدير CSV</button><button class="btn" id="logoutButton" type="button" hidden>خروج</button></div>
         </div>
       </header>
       <section class="content" id="content" tabindex="-1"></section>
