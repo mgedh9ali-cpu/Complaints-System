@@ -47,6 +47,21 @@ test('local UI uses authenticated API and server-backed state rather than localS
 });
 
 
+test('backup verification upload is administrator-only and uses a bounded temporary restore check', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const ui = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  assert.ok(server.includes("app.post('/api/backup/verify', requireAuth, requireRole('admin'), express.raw("),
+    'only an authenticated administrator may verify uploaded backups');
+  assert.ok(server.includes("limit: '250mb'"), 'backup uploads must have a bounded size');
+  assert.ok(server.includes('await verifyRestore(uploadedPath)'), 'uploaded files must pass the isolated restore verifier');
+  assert.ok(server.includes("fs.rmSync(tempDir, { recursive: true, force: true })"),
+    'temporary uploaded and restored files must be removed');
+  assert.ok(ui.includes("verifyBackup.hidden=authenticatedUser?.role!=='admin'"),
+    'the verification action must be hidden from non-administrators');
+});
+
 test('complaint status updates require an administrative or staff role', () => {
   const fs = require('node:fs');
   const path = require('node:path');
@@ -125,7 +140,7 @@ test('state API persists complaint-change audit events in the same transaction',
   const fs = require('node:fs');
   const source = fs.readFileSync(require('node:path').join(__dirname, '..', 'server.js'), 'utf8');
   assert.ok(source.includes("const { diffComplaints } = require('./lib/complaint-state-diff')"));
-  assert.ok(source.includes('const complaintChanges=diffComplaints(previousState,state)'));
+  assert.ok(source.includes('const complaintChanges = diffComplaints(previousState, state);'));
   assert.ok(source.includes("audit(req.user.id,change.action,'complaint',change.id,change.details)"));
-  assert.ok(source.includes('complaintChangesLogged:complaintChanges.length'));
+  assert.ok(source.includes('complaintChangesLogged:result.complaintChanges.length'));
 });
