@@ -238,6 +238,11 @@ test('two isolated local instances exchange data and stage only a trusted signed
   assert.equal(staleWrite.status, 409, 'a stale state revision must not overwrite newer data');
   assert.equal(staleWrite.body.currentRevision, saved.body.revision);
 
+  const stateAfterStaleWrite = await request(source, '/api/state');
+  assert.equal(stateAfterStaleWrite.status, 200);
+  assert.deepEqual(stateAfterStaleWrite.body.state, state,
+    'rejected stale writes must leave the previously saved state unchanged');
+
   const exportedResponse = await fetch(source.baseUrl + '/api/sync/export', {
     headers: { cookie: source.cookie }
   });
