@@ -182,6 +182,7 @@ function requireRole(...roles) {
 const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
 const { backupDatabase } = require('./scripts/backup-database');
+const { verifyRestore } = require('./scripts/verify-database-restore');
 const multer = require('multer');
 const { saveAttachment, getAttachmentPath, deleteAttachment, listAttachmentsForComplaint, MAX_FILE_SIZE, MAX_FILES_PER_COMPLAINT } = require('./lib/attachments');
 const { buildComplaintsWorkbook, buildSingleComplaintWorkbook } = require('./lib/excel-export');
@@ -375,6 +376,32 @@ app.get('/api/backup/database', requireAuth, requireRole('admin'), async (req, r
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(destination, error => { fs.rmSync(backupDir, { recursive: true, force: true }); if (error && !res.headersSent) next(error); });
   } catch (error) { fs.rmSync(backupDir, { recursive: true, force: true }); next(error); }
+});
+
+app.post('/api/backup/verify', requireAuth, requireRole('admin'), express.raw({
+  type: 'application/vnd.sqlite3',
+  limit: '250mb'
+}), async (req, res) => {
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    return res.status(400).json({ error: 'اختر ملف SQLite غير فارغ للفحص.' });
+  }
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-backup-check-'));
+  const uploadedPath = path.join(tempDir, 'uploaded-backup.sqlite');
+  try {
+    fs.writeFileSync(uploadedPath, req.body, { flag: 'wx', mode: 0o600 });
+    const result = await verifyRestore(uploadedPath);
+    audit(req.user.id, 'database_backup_verified', 'database', null, {
+      format: 'sqlite', verified: true, counts: result.counts
+    });
+    res.json({ verified: true, counts: result.counts });
+  } catch (error) {
+    audit(req.user.id, 'database_backup_verification_failed', 'database', null, {
+      format: 'sqlite', verified: false
+    });
+    res.status(400).json({ error: 'تعذّر التحقق من ملف النسخة. تأكد أنه نسخة SQLite كاملة وسليمة من هذا النظام.' });
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 app.get('/api/state', requireAuth, (req, res) => {
