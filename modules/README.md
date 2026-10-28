@@ -1,22 +1,21 @@
-# Modules layout (Phase 1 foundation)
+# Modules layout
 
-This directory is the target structure for splitting the monolithic `server.js` / `app.js`.
+Logic is split out of the monolithic `server.js` into focused modules.
 
-| Module | Responsibility |
-|--------|----------------|
-| `auth/` | Login, logout, sessions, roles, user management |
-| `complaints/` | Create / update / status transitions / search |
-| `attachments/` | Upload, validate, download, delete |
-| `audit/` | Audit events + hash-chain integrity |
-| `reports/` | Excel, CSV, administrative stats |
-| `backup/` | Database backup & restore |
-| `settings/` | Provinces, entities, categories, SLA |
+| Module | Files | Responsibility |
+|--------|-------|----------------|
+| `auth/` | `middleware.js`, `service.js`, `routes.js` | Login, logout, CSRF, roles, users |
+| `complaints/` | `service.js`, `routes.js` | State, create complaint, status machine |
+| `attachments/` | *(planned)* | Upload, validate, download, delete |
+| `audit/` | *(planned)* | Audit events + hash chain |
+| `reports/` | *(planned)* | Excel, CSV, stats |
+| `backup/` | *(planned)* | Backup & restore |
+| `settings/` | *(planned)* | Provinces, entities, categories, SLA |
 
-Each module will eventually export:
+## Pattern
 
-- `service.js` — business logic (no Express)
-- `routes.js` — Express routers
-- `validators.js` — input validation (optional)
+- `service.js` — business logic, no Express
+- `routes.js` — Express `Router`, thin handlers
+- `middleware.js` / `validators.js` — shared guards
 
-**Phase 1 goal:** only scaffolding + documentation.  
-Logic still lives in `server.js` until Phase 2 migrates it safely behind tests.
+`server.js` owns: DB bootstrap, session, helmet, mounting routers, and remaining endpoints not yet extracted (attachments, sync, backup).

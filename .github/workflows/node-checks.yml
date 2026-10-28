@@ -2,7 +2,7 @@ name: Node checks
 
 on:
   push:
-    branches: [main, local-sqlite-foundation]
+    branches: [main, local-sqlite-foundation, 'chore/**', 'fix/**', 'feat/**']
   pull_request:
     branches: [main]
 

@@ -1,97 +1,50 @@
 # خطة تطوير نظام الشكاوى — من Prototype إلى نظام قابل للتوسع
 
-**الإصدار الحالي:** 0.5.2  
-**الفرع الأساسي لهذه المرحلة:** `chore/phase1-service-layer`
+**الإصدار الحالي:** 0.6.0  
+**الفرع:** `chore/phase2-modular-auth`
 
 ---
 
-## الرؤية
+## المرحلة 1 — الاستقرار ✅
 
-لا نضيف ميزات عشوائية. نبني على أربع ركائز:
+- [x] Logger موحّد + فحص مرفقات (magic bytes)
+- [x] طبقة service للشكاوى + آلة حالات
+- [x] إصلاح مسار تغيير الحالة
+- [x] مزامنة جدول complaints
+- [x] ربط logger في server
 
-1. **استقرار النظام**
-2. **تنظيم المشروع (Modular)**
-3. **أمان ومراقبة**
-4. **قابلية التطوير لاحقًا**
+## المرحلة 2 — تنظيم البنية (جارية)
 
----
+- [x] نقل المصادقة والمستخدمين إلى `modules/auth` (service + routes + middleware)
+- [x] نقل مسارات state/complaints/status إلى `modules/complaints/routes`
+- [x] إزالة تكرار requireAuth/requireRole/requireCsrf من server
+- [x] اختبارات وحدة للـ auth service + فحص الهيكل المعياري
+- [x] توسيع CI ليشمل فروع chore/fix/feat
+- [ ] استخراج attachments / reports / backup إلى modules
+- [ ] API versioning `/api/v1/...`
+- [ ] Developer Guide
 
-## المراحل
+## المرحلة 3 — الارتقاء الوظيفي
 
-### المرحلة 1 — الاستقرار (الحالية)
+- تقارير أدق، إشعارات، SLA، إحالات، قوائم قابلة للتخصيص
 
-- [x] توحيد مصدر البيانات (توثيق المشكلة + خطة الحل)
-- [x] إضافة logger موحد
-- [x] تحسين فحص المرفقات (magic bytes)
-- [x] هيكل modules/ الأولي
-- [x] طبقة service واحدة لقراءة/كتابة الشكاوى (`modules/complaints/service.js`)
-- [x] إصلاح endpoint تغيير الحالة ليحدّث قاعدة البيانات فعليًا
-- [x] ربط logger داخل `server.js`
-- [x] منع تجاوز آلة الحالات عبر PUT `/api/state`
-- [x] مزامنة جدول `complaints` عند الحفظ وتغيير الحالة
-- [ ] إزالة الدوال المكررة المتبقية
-- [ ] نقل مسارات المصادقة إلى `modules/auth`
-- [ ] تعزيز اختبارات التكامل الشاملة على CI
+## المرحلة 4 — الإنتاج
 
-### المرحلة 2 — تنظيم البنية
-
-- فصل واضح: routes / services / validators
-- نقل منطق server.js إلى modules/*
-- API versioning (`/api/v1/...`)
-- توثيق المطور (Developer Guide)
-
-### المرحلة 3 — الارتقاء الوظيفي
-
-- تقارير إدارية أدق
-- إشعارات متقدمة + SLA
-- إدارة إحالات
-- قوائم قابلة للتخصيص من الواجهة (محافظات، جهات، تصنيفات)
-- سجل تغييرات تفصيلي لكل شكوى
-
-### المرحلة 4 — الإنتاج
-
-- CI/CD كامل
-- مراقبة (health / metrics)
-- استراتيجية نسخ احتياطي موثقة ومختبرة
-- دعم متعدد المستخدمين/الصلاحيات بشكل أقوى
+- مراقبة health/metrics، استراتيجية نسخ احتياطي موثقة، صلاحيات أقوى
 
 ---
 
-## أهم 10 إجراءات تنفيذية سريعة
-
-| # | الإجراء | الحالة |
-|---|---------|--------|
-| 1 | توحيد مصدر البيانات (app_state ↔ complaints) | تم عبر service + مزامنة |
-| 2 | إصلاح تحديث الحالة في قاعدة البيانات | تم |
-| 3 | إزالة الدوال المكررة | جزئي |
-| 4 | اختبارات حقيقية للمسارات الحرجة | service unit tests |
-| 5 | تنظيم المشروع إلى modules | بدأ (complaints service) |
-| 6 | validation layer أقوى | موجود جزئيًا |
-| 7 | تحسين فحص المرفقات (MIME + محتوى) | تم |
-| 8 | logs موحدة | تم + مربوط في server |
-| 9 | backup verification + restore testing | موجود |
-| 10 | GitHub CI workflow | موجود |
-
----
-
-## هيكل modules المقترح
+## الهيكل الحالي
 
 ```
 modules/
-  auth/          # تسجيل الدخول، الجلسات، الصلاحيات، المستخدمون
-  complaints/    # إنشاء/تعديل/حالة/بحث  ← service.js جاهز
-  attachments/   # رفع، تحقق، حذف
-  audit/         # سجل التدقيق + hash chain
-  reports/       # Excel / CSV / إحصائيات
-  backup/        # نسخة احتياطية واسترجاع
-  settings/      # محافظات، جهات، تصنيفات، SLA
+  auth/
+    middleware.js   # requireAuth, requireRole, requireCsrf
+    service.js      # authenticate, createUser, setActive, bootstrap
+    routes.js       # /csrf, /auth/*, /users/*
+  complaints/
+    service.js      # readState, saveState, changeStatus
+    routes.js       # /state, /complaints, /complaints/:id/status
 ```
 
----
-
-## ملاحظات تقنية حالية مهمة
-
-- المصدر الأساسي للحالة: جدول `app_state` (عمود `state_json`).
-- جدول `complaints` يُزامَن كمرآة عند `saveState` و `changeStatus`.
-- تغيير الحالة يتم فقط عبر `PATCH /api/complaints/:id/status` (آلة حالات + `statusHistory`).
-- PUT `/api/state` يرفض انتقالات الحالة غير المسموحة (409).
+`server.js` يركّب الجلسة وقاعدة البيانات ويربط الـ routers، ويحتفظ مؤقتًا بمسارات المرفقات والمزامنة والنسخ الاحتياطي.
