@@ -140,6 +140,18 @@ test('two isolated local instances exchange data and stage only a trusted signed
   });
   assert.equal(saved.status, 200, 'source instance should save the test state');
 
+  assert.equal(saved.body.revision, 1, 'successful saves advance the state revision');
+  const staleWrite = await request(source, '/api/state', {
+    method: 'PUT',
+    headers: { 'X-State-Revision': '0' },
+    body: JSON.stringify({ ...state, notifications: [{ id: 2, title: 'stale', body: 'must not overwrite' }] })
+  });
+  assert.equal(staleWrite.status, 409, 'stale writes must be rejected');
+  const afterStaleWrite = await request(source, '/api/state');
+  assert.equal(afterStaleWrite.status, 200);
+  assert.deepEqual(afterStaleWrite.body.state, state,
+    'a rejected stale write must not change the previously saved state');
+
   const exportedResponse = await fetch(source.baseUrl + '/api/sync/export', {
     headers: { cookie: source.cookie }
   });
