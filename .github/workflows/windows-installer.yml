@@ -1,0 +1,57 @@
+name: Windows single-file installer
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'installer/**'
+      - 'start-installed-app.bat'
+      - 'scripts/open-browser-new-window.ps1'
+      - '.github/workflows/windows-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - name: Prepare bundled Node.js runtime
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path installer/payload | Out-Null
+          $nodePath = (Get-Command node.exe).Source
+          $nodeDirectory = Split-Path -Parent $nodePath
+          Copy-Item -LiteralPath $nodePath -Destination installer/payload/node.exe -Force
+          Get-ChildItem -LiteralPath $nodeDirectory -Filter '*.dll' -File -ErrorAction SilentlyContinue |
+            Copy-Item -Destination installer/payload -Force
+      - name: Locate Inno Setup compiler
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          )
+          $compiler = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (!$compiler) { choco install innosetup --yes --no-progress }
+          $compiler = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (!$compiler) { throw 'Inno Setup compiler could not be located.' }
+          "ISCC_PATH=$compiler" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "$env:ISCC_PATH" installer/ComplaintsSystem.iss
+          if (!(Test-Path dist/Shubat-Al-Shakawi-Setup.exe)) { throw 'Installer output is missing.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Shubat-Al-Shakawi-Windows-Installer
+          path: dist/Shubat-Al-Shakawi-Setup.exe
+          retention-days: 14
