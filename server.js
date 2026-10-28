@@ -1,15 +1,11 @@
 'use strict';
-/**
- * Boot loader: inflate zlib+base64 payload from server_parts into the live server.
- */
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const Module = require('node:module');
-
 const partsDir = path.join(__dirname, 'server_parts');
-const files = fs.readdirSync(partsDir).filter((f) => f.startsWith('b64_') && f.endsWith('.txt')).sort();
-if (!files.length) throw new Error('Missing server_parts/b64_*.txt payload.');
+const files = fs.readdirSync(partsDir).filter((f) => f.startsWith('chunk') && f.endsWith('.txt')).sort();
+if (!files.length) throw new Error('Missing server_parts/chunk*.txt payload.');
 const b64 = files.map((f) => fs.readFileSync(path.join(partsDir, f), 'utf8').trim()).join('');
 const code = zlib.inflateSync(Buffer.from(b64, 'base64')).toString('utf8');
 module.filename = path.join(__dirname, 'server.js');
