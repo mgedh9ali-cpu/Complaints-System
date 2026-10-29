@@ -1,0 +1,411 @@
+(() => {
+'use strict';
+const $ = (s, root=document) => root.querySelector(s);
+const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+const STORAGE_KEY = 'complaints-demo-v1';
+const DRAFT_KEY = 'complaints-draft-v1';
+const TODAY = new Date();
+const isoDaysAgo = n => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString(); };
+const seed = {
+  complaints: [
+    {id:'SY-2026-10452',name:'أحمد الحسن',phone:'0944 123 456',province:'دمشق',entity:'مديرية الخدمات العامة',category:'خدمات عامة',priority:'urgent',status:'new',owner:'مها العلي',created:isoDaysAgo(9),updated:isoDaysAgo(1),due:isoDaysAgo(2),summary:'تأخر معالجة طلب صيانة إنارة في الحي السكني.',details:'أفاد المشتكي بوجود عطل في الإنارة العامة منذ عدة أيام، ويطلب متابعة البلاغ.',notes:[],timeline:[{event:'تسجيل الشكوى',by:'مها العلي',at:isoDaysAgo(9),detail:'تم إنشاء السجل وإصدار الرقم المرجعي.'}],referrals:[],reply:null,confidentiality:'normal',survey:null},
+    {id:'SY-2026-10451',name:'سمر محمود',phone:'0933 222 111',province:'ريف دمشق',entity:'مديرية النقل',category:'نقل ومواصلات',priority:'high',status:'in_progress',owner:'خالد منصور',created:isoDaysAgo(6),updated:isoDaysAgo(2),due:isoDaysAgo(-2),summary:'استفسار عن إجراءات معاملة نقل ملكية.',details:'طلب توضيح الأوراق المطلوبة والمدة المتوقعة للمعاملة.',notes:[],timeline:[{event:'تسجيل الشكوى',by:'خالد منصور',at:isoDaysAgo(6),detail:'تم تسجيل الاستفسار.'},{event:'بدء المعالجة',by:'خالد منصور',at:isoDaysAgo(4),detail:'مراجعة المتطلبات.'}],referrals:[],reply:{status:'draft',author:'خالد منصور',text:'نرجو مراجعة مديرية النقل مع الوثائق المطلوبة.'},confidentiality:'normal',survey:null},
+    {id:'SY-2026-10450',name:'ليث درويش',phone:'0955 654 321',province:'حمص',entity:'مديرية الشؤون الاجتماعية',category:'شؤون اجتماعية',priority:'normal',status:'awaiting_reply',owner:'مها العلي',created:isoDaysAgo(14),updated:isoDaysAgo(5),due:isoDaysAgo(4),summary:'طلب متابعة معاملة دعم اجتماعي.',details:'يرغب بمعرفة حالة الطلب والوثائق الناقصة إن وجدت.',notes:[],timeline:[{event:'تسجيل الشكوى',by:'مها العلي',at:isoDaysAgo(14),detail:'تم التسجيل.'},{event:'إحالة إلى الجهة',by:'مها العلي',at:isoDaysAgo(10),detail:'إرسال طلب توضيح إلى الجهة.'}],referrals:[{entity:'مديرية الشؤون الاجتماعية',sent:isoDaysAgo(10),due:isoDaysAgo(3),status:'متأخرة',response:''}],reply:null,confidentiality:'normal',survey:null},
+    {id:'SY-2026-10449',name:'نور إبراهيم',phone:'0991 345 678',province:'اللاذقية',entity:'مديرية الخدمات العامة',category:'خدمات عامة',priority:'urgent',status:'awaiting_approval',owner:'سليم عمر',created:isoDaysAgo(4),updated:isoDaysAgo(1),due:isoDaysAgo(-3),summary:'شكوى حول تراكم النفايات في منطقة سكنية.',details:'تم توثيق مواقع تراكم النفايات وطلب المعالجة.',notes:[],timeline:[{event:'تسجيل الشكوى',by:'سليم عمر',at:isoDaysAgo(4),detail:'تم التسجيل.'}],referrals:[],reply:{status:'review',author:'سليم عمر',text:'نحيطكم علماً بأنه تمت إحالة الملاحظة إلى الجهة المختصة للمتابعة.'},confidentiality:'normal',survey:null},
+    {id:'SY-2026-10448',name:'مجهول تجريبي',phone:'',province:'حلب',entity:'مديرية التجارة الداخلية',category:'أسعار وأسواق',priority:'normal',status:'in_progress',owner:'خالد منصور',created:isoDaysAgo(3),updated:isoDaysAgo(1),due:isoDaysAgo(4),summary:'استفسار عن آلية تقديم بلاغ تجاري.',details:'سؤال تجريبي عن قناة تقديم البلاغ والوثائق المساندة.',notes:[],timeline:[{event:'تسجيل الشكوى',by:'خالد منصور',at:isoDaysAgo(3),detail:'تم التسجيل.'}],referrals:[],reply:null,confidentiality:'normal',survey:null},
+    {id:'SY-2026-10447',name:'رنا خليل',phone:'0945 987 654',province:'طرطوس',entity:'مديرية التربية',category:'تعليم',priority:'high',status:'closed',owner:'مها العلي',created:isoDaysAgo(21),updated:isoDaysAgo(3),due:isoDaysAgo(12),summary:'استفسار عن نقل قيد مدرسي.',details:'تم تقديم الإجابة بعد التحقق من المتطلبات.',notes:[],timeline:[{event:'تسجيل الشكوى',by:'مها العلي',at:isoDaysAgo(21),detail:'تم التسجيل.'},{event:'اعتماد الرد',by:'مدير تجريبي',at:isoDaysAgo(3),detail:'اعتماد الرد وإغلاق السجل بسبب اكتمال المعالجة.'}],referrals:[],reply:{status:'sent',author:'مها العلي',text:'يرجى مراجعة المدرسة المعنية مع الوثائق الثبوتية.'},confidentiality:'normal',survey:{resolved:'yes',asked:true}},
+    {id:'SY-2026-10446',name:'وسيم صالح',phone:'0988 333 222',province:'حماة',entity:'مديرية المياه',category:'مياه وصرف صحي',priority:'normal',status:'new',owner:'وسيم صالح',created:isoDaysAgo(1),updated:isoDaysAgo(1),due:isoDaysAgo(-6),summary:'بلاغ عن انقطاع المياه في شارع سكني.',details:'بلاغ أولي يحتاج إلى استكمال عنوان الموقع بدقة.',notes:[],timeline:[{event:'تسجيل الشكوى',by:'وسيم صالح',at:isoDaysAgo(1),detail:'تم إنشاء السجل.'}],referrals:[],reply:null,confidentiality:'normal',survey:null},
+    {id:'SY-2026-10445',name:'هدى عيسى',phone:'0932 765 432',province:'إدلب',entity:'مديرية الخدمات العامة',category:'خدمات عامة',priority:'normal',status:'in_progress',owner:'سليم عمر',created:isoDaysAgo(12),updated:isoDaysAgo(4),due:isoDaysAgo(5),summary:'متابعة شكوى عن حفريات في الطريق.',details:'تم طلب تحديث من الجهة المعنية.',notes:[],timeline:[{event:'تسجيل الشكوى',by:'سليم عمر',at:isoDaysAgo(12),detail:'تم التسجيل.'}],referrals:[{entity:'مديرية الخدمات العامة',sent:isoDaysAgo(7),due:isoDaysAgo(1),status:'بانتظار الرد',response:''}],reply:null,confidentiality:'normal',survey:null}
+  ],
+  notifications: [
+    {id:1,title:'شكوى عاجلة تجاوزت المهلة',body:'SY-2026-10452 · يلزم مراجعة المسؤول والمهلة.',date:isoDaysAgo(0),read:false},
+    {id:2,title:'رد بانتظار الاعتماد',body:'SY-2026-10449 · الرد أعدّه سليم عمر.',date:isoDaysAgo(0),read:false},
+    {id:3,title:'إحالة متأخرة',body:'SY-2026-10450 · لم يسجل رد الجهة حتى الآن.',date:isoDaysAgo(1),read:false},
+    {id:4,title:'استكمال بيانات مطلوب',body:'SY-2026-10446 · يرجى استكمال موقع البلاغ.',date:isoDaysAgo(1),read:false}
+  ],
+  templates:[
+    {name:'إفادة باستلام الشكوى',version:1,text:'تم استلام الشكوى رقم {{رقم_الشكوى}}، وستتم مراجعتها وإحالتها إلى الجهة المختصة عند الحاجة.'},
+    {name:'طلب استكمال معلومات',version:1,text:'يرجى استكمال المعلومات اللازمة للشكوى رقم {{رقم_الشكوى}} المتعلقة بـ {{التصنيف}}.'},
+    {name:'إشعار بإحالة',version:1,text:'نحيطكم علماً بأنه تمت إحالة الشكوى رقم {{رقم_الشكوى}} إلى {{الجهة}} للمتابعة.'}
+  ],
+  settings:{slaDays:7,slaApproved:false,categoryDescriptions:{},entityDescriptions:{},provinces:['دمشق','ريف دمشق','حلب','حمص','حماة','اللاذقية','طرطوس','إدلب','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'],entities:['مديرية الخدمات العامة','مديرية النقل','مديرية الشؤون الاجتماعية','مديرية التجارة الداخلية','مديرية التربية','مديرية المياه'],categories:['خدمات عامة','نقل ومواصلات','شؤون اجتماعية','أسعار وأسواق','تعليم','مياه وصرف صحي','استفسار عام'],priorities:[{value:'normal',label:'عادية'},{value:'high',label:'عالية'},{value:'urgent',label:'عاجلة'}]}
+};
+let db = cleanState(), page='dashboard', searchText='', statusFilter='all', priorityFilter='all', selectedIds=new Set(), currentId=null, toastTimer=null;
+let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), stateLoaded=false;
+let stateRevision=0, stateConflict=false;
+function cleanState(){const x=structuredClone(seed);x.complaints=[];x.notifications=[];return x;}
+function loadDb(){return cleanState();}
+async function api(url, options={}) {
+  const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+  if(response.status===204)return null;
+  const body=await response.json().catch(()=>({}));
+  if(!response.ok){const error=new Error(body.error||'تعذر تنفيذ الطلب.');error.status=response.status;throw error;}
+  return body;
+}
+function persist(){
+  if(!authenticatedUser||!stateLoaded||stateConflict)return;
+  clearTimeout(persistTimer);
+  const snapshot=JSON.stringify(db);
+  persistTimer=setTimeout(()=>{
+    persistQueue=persistQueue.then(async()=>{
+      if(stateConflict)return;
+      try{
+        const saved=await api('/api/state',{
+          method:'PUT',
+          headers:{'X-State-Revision':String(stateRevision)},
+          body:snapshot
+        });
+        stateRevision=saved.revision;
+      }catch(error){
+        if(error.status===409||error.status===428){
+          stateConflict=true;
+          toast(error.message+' لم تُحذف تعديلات هذه الصفحة؛ لا تُعد التحميل قبل حفظ ما تحتاج إليه.','error');
+        }else{
+          toast('لم يُحفظ التغيير في قاعدة البيانات: '+error.message,'error');
+        }
+      }
+    });
+  },250);
+}
+function updateSignedInUi(){
+  const name=authenticatedUser?.username||'غير مسجل';
+  ['#sideUserName','#topUserName'].forEach(sel=>{const el=$(sel);if(el)el.textContent=name;});
+  const role=authenticatedUser?.role||'';
+  const sideRole=$('#sideUserRole');if(sideRole)sideRole.textContent=({admin:'مدير النظام',staff:'موظف',reviewer:'مراجع'})[role]||role;
+  const logout=$('#logoutButton');if(logout)logout.hidden=!authenticatedUser;
+  const backup=$('#databaseBackupButton');if(backup)backup.hidden=authenticatedUser?.role!=='admin';
+  const note=$('.prototype-note');if(note)note.innerHTML='<span class="status-dot"></span> قاعدة بيانات محلية · تسجيل دخول مفعل';
+  const env=$('.env-chip');if(env)env.innerHTML='<span></span> تخزين محلي';
+}
+function showLogin(){
+  let style=$('#loginStyles');
+  if(!style){style=document.createElement('style');style.id='loginStyles';style.textContent=`
+  .login-overlay{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;background:rgba(9,30,26,.82);backdrop-filter:blur(5px)}
+  .login-card{width:min(100%,440px);background:#fff;border-radius:18px;padding:28px;box-shadow:0 24px 90px #0005;color:#17372f}
+  .login-card h1{font-size:24px;margin:0 0 8px}.login-card p{color:#64746f;font-size:13px;line-height:1.8;margin:0 0 20px}
+  .login-card label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}
+  .login-card input{width:100%;box-sizing:border-box;border:1px solid #cbd7d2;border-radius:9px;padding:12px;font:inherit;direction:ltr;text-align:left}
+  .login-card button{width:100%;border:0;border-radius:9px;padding:12px;margin-top:18px;background:#145b49;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+  .login-error{color:#a52626;background:#fff0f0;padding:10px;border-radius:8px;margin-top:12px;font-size:13px}
+  .login-note{font-size:11px!important;margin-top:16px!important}`;
+  document.head.append(style);}
+  let root=$('#loginOverlay');
+  if(!root){root=document.createElement('div');root.id='loginOverlay';root.className='login-overlay';root.innerHTML='<section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><h1 id="loginTitle">تسجيل الدخول</h1><p>أدخل بيانات المدير التي أنشأتها عند إعداد النظام على هذا اللابتوب.</p><form id="loginForm"><label for="loginUsername">اسم المستخدم</label><input id="loginUsername" name="username" autocomplete="username" required maxlength="100"><label for="loginPassword">كلمة المرور</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="200"><div id="loginError" class="login-error" role="alert" hidden></div><button type="submit">دخول إلى النظام</button></form><p class="login-note">إذا لم تُعد ملف .env بعد، راجع تعليمات التشغيل في README. لا توجد كلمة مرور افتراضية مخفية.</p></section>';document.body.append(root);
+    $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('#loginForm button');button.disabled=true;button.textContent='جارٍ التحقق…';const err=$('#loginError');err.hidden=true;try{
+      const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#loginUsername').value,password:$('#loginPassword').value})});
+      authenticatedUser=result.user;
+      const stored=await api('/api/state');
+      stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;
+      stateConflict=false;
+      if(stored.state&&Array.isArray(stored.state.complaints)){db=stored.state;}
+      else{
+        db=cleanState();
+        const saved=await api('/api/state',{
+          method:'PUT',
+          headers:{'X-State-Revision':String(stateRevision)},
+          body:JSON.stringify(db)
+        });
+        stateRevision=saved.revision;
+      }
+      stateLoaded=true;root.remove();updateSignedInUi();render();refreshManagedUsers();
+      toast('تم تسجيل الدخول وحُملت البيانات من قاعدة SQLite.');
+    }catch(ex){err.textContent=ex.message;err.hidden=false;}finally{button.disabled=false;button.textContent='دخول إلى النظام';}
+    });
+  }
+  root.hidden=false;$('#loginUsername')?.focus();
+}
+async function logout(){
+  clearTimeout(persistTimer);
+  await persistQueue;
+  if(stateConflict){
+    if(!confirm('هناك تعديلات لم تُحفظ بسبب تعارض مع نسخة أحدث. سيؤدي تسجيل الخروج إلى فقدان تعديلات هذه الصفحة. هل تريد المتابعة؟'))return;
+  }else if(authenticatedUser&&stateLoaded){
+    try{
+      const saved=await api('/api/state',{
+        method:'PUT',
+        headers:{'X-State-Revision':String(stateRevision)},
+        body:JSON.stringify(db)
+      });
+      stateRevision=saved.revision;
+    }catch(error){
+      if(error.status===409||error.status===428){
+        stateConflict=true;
+        if(!confirm(error.message+' سيؤدي تسجيل الخروج إلى فقدان تعديلات هذه الصفحة. هل تريد المتابعة؟'))return;
+      }else{
+        toast('تعذر حفظ التغييرات: '+error.message,'error');
+        return;
+      }
+    }
+  }
+  try{await api('/api/auth/logout',{method:'POST',body:'{}'});}
+  catch(error){toast('تعذر إنهاء الجلسة: '+error.message,'error');return;}
+  authenticatedUser=null;stateLoaded=false;stateRevision=0;stateConflict=false;db=cleanState();updateSignedInUi();showLogin();
+}
+function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function norm(s=''){return String(s).normalize('NFKD').replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/[ىئي]/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ء/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
+function phoneNorm(s=''){let n=String(s).replace(/[^\d+]/g,'');if(n.startsWith('+963'))n='0'+n.slice(4);if(n.startsWith('963'))n='0'+n.slice(3);return n;}
+function dateText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY',{day:'2-digit',month:'short',year:'numeric'}).format(d);}
+function timeText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(d);}
+function ageDays(c){return Math.max(0,Math.floor((Date.now()-new Date(c.created).getTime())/86400000));}
+function isLate(c){return db.settings.slaApproved && c.status!=='closed' && Date.now()>new Date(c.due).getTime();}
+function statusLabel(s){return ({new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
+function statusClass(s){return ({new:'new',in_progress:'progressing',awaiting_reply:'waiting',awaiting_approval:'waiting',closed:'closed',cancelled:'closed'})[s]||'closed';}
+function ensureManagedSettings(){if(!db.settings||typeof db.settings!=='object')db.settings={};for(const key of ['categories','entities','provinces'])if(!Array.isArray(db.settings[key]))db.settings[key]=[...seed.settings[key]];if(!Array.isArray(db.settings.priorities))db.settings.priorities=seed.settings.priorities.map(x=>({...x}));db.settings.categoryDescriptions ||= {};db.settings.entityDescriptions ||= {};}
+function priorityLabel(p){ensureManagedSettings();return ({urgent:'عاجلة',high:'عالية',normal:'عادية'})[p]||db.settings.priorities.find(x=>x.value===p)?.label||p;}
+function priorityClass(p){return ({urgent:'urgent',high:'high',normal:'normal'})[p]||'normal';}
+function pillStatus(s){return '<span class="pill '+statusClass(s)+'">'+esc(statusLabel(s))+'</span>';}
+function pillPriority(p){return '<span class="pill '+priorityClass(p)+'">'+esc(priorityLabel(p))+'</span>';}
+function logEvent(c,event,detail,by='مستخدم تجريبي'){c.timeline.unshift({event,detail,by,at:new Date().toISOString()});c.updated=new Date().toISOString();}
+function notify(title,body){db.notifications.unshift({id:Date.now(),title,body,date:new Date().toISOString(),read:false});persist();}
+function toast(msg,type=''){const r=$('#toastRegion');const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;r.append(el);setTimeout(()=>el.remove(),3500);}
+function countStatus(s){return db.complaints.filter(c=>c.status===s).length;}
+function pendingApprovals(){return db.complaints.filter(c=>c.reply&&['review','approval'].includes(c.reply.status));}
+function lateComplaints(){return db.complaints.filter(isLate);}
+function referralList(){return db.complaints.flatMap(c=>(c.referrals||[]).map((r,i)=>({...r,complaintId:c.id,complaintSummary:c.summary,owner:c.owner,refIndex:i})));}
+function pageTitle(){return ({dashboard:'لوحة المتابعة',complaints:'سجل الشكاوى والاستفسارات',referrals:'إدارة الإحالات',replies:'الردود والاعتماد',notifications:'مركز الإشعارات',reports:'التقارير التشغيلية',settings:'القوائم والإعدادات'})[page]||'لوحة المتابعة';}
+function navCounts(){$('#navComplaintsCount').textContent=db.complaints.length;$('#navReferralsCount').textContent=referralList().filter(r=>!r.response).length;$('#navNotificationsCount').textContent=db.notifications.filter(n=>!n.read).length;$('#topUnread').style.display=db.notifications.some(n=>!n.read)?'block':'none';}
+function heading(title,desc,actions=''){return '<div class="page-heading"><div><div class="eyebrow">شعبة الاستفسارات والشكاوى</div><h1>'+title+'</h1><p>'+desc+'</p></div><div class="heading-actions">'+actions+'</div></div>';}
+function btn(label,action,kind=''){return '<button class="btn '+kind+'" data-action="'+action+'">'+label+'</button>';}
+function complaintTable(rows,opts={}){if(!rows.length)return '<div class="empty-state">لا توجد سجلات تطابق البحث أو المرشحات الحالية.</div>';return '<div class="table-wrap"><table><thead><tr>'+(opts.select?'<th><input class="table-check" type="checkbox" aria-label="تحديد الكل" data-action="select-all"></th>':'')+'<th>رقم الشكوى</th><th>الموضوع / المشتكي</th><th>المحافظة</th><th>الحالة</th><th>الأولوية</th><th>المسؤول</th><th>مدة البقاء</th><th>الإجراء</th></tr></thead><tbody>'+rows.map(c=>'<tr>'+(opts.select?'<td><input class="table-check row-check" type="checkbox" aria-label="تحديد '+esc(c.id)+'" data-id="'+esc(c.id)+'" '+(selectedIds.has(c.id)?'checked':'')+'></td>':'')+'<td><span class="ticket-id">'+esc(c.id)+'</span><span class="row-sub">'+dateText(c.created)+'</span></td><td><button class="text-link row-title" data-action="detail" data-id="'+esc(c.id)+'">'+esc(c.summary)+'</button><span class="row-sub">'+esc(c.name||'غير محدد')+'</span></td><td>'+esc(c.province||'—')+'</td><td>'+pillStatus(c.status)+'</td><td>'+pillPriority(c.priority)+'</td><td>'+esc(c.owner||'غير مسند')+'</td><td><span class="age '+(isLate(c)?'late':ageDays(c)>5?'soon':'ok')+'">'+ageDays(c)+' يوم'+(isLate(c)?' · متأخرة':'')+'</span></td><td><div class="action-cell"><button data-action="detail" data-id="'+esc(c.id)+'" aria-label="فتح تفاصيل '+esc(c.id)+'">عرض</button></div></td></tr>').join('')+'</tbody></table></div>';}
+function dashboard(){const late=lateComplaints(),approvals=pendingApprovals(),open=db.complaints.filter(c=>!['closed','cancelled'].includes(c.status)),missing=db.complaints.filter(c=>!c.province||!c.summary||!c.owner);const urgentNoOwner=db.complaints.filter(c=>c.priority==='urgent'&&!c.owner&&c.status!=='closed');const recent=[...db.complaints].sort((a,b)=>new Date(b.created)-new Date(a.created)).slice(0,5);return heading('صباح العمل يبدأ من هنا','ملخص عملي لما يحتاج متابعة، مع فصل واضح بين الحالات والمهام المفتوحة.',btn('＋ تسجيل شكوى جديدة','new-complaint','btn-primary'))+
+'<div class="stats-grid"><div class="stat-card"><div class="stat-top"><span>إجمالي السجلات</span><span class="stat-icon">▤</span></div><div class="stat-number">'+db.complaints.length+'</div><div class="stat-foot">سجلات تجريبية محفوظة محليًا</div></div><div class="stat-card"><div class="stat-top"><span>قيد المعالجة</span><span class="stat-icon">◷</span></div><div class="stat-number">'+open.length+'</div><div class="stat-foot">غير مغلقة أو ملغاة</div></div><div class="stat-card"><div class="stat-top"><span>تحتاج إجراءً الآن</span><span class="stat-icon">!</span></div><div class="stat-number">'+(late.length+approvals.length+missing.length)+'</div><div class="stat-foot alert">'+late.length+' متأخرة · '+approvals.length+' بانتظار الاعتماد</div></div><div class="stat-card"><div class="stat-top"><span>الإحالات بلا رد</span><span class="stat-icon">↗</span></div><div class="stat-number">'+referralList().filter(r=>!r.response).length+'</div><div class="stat-foot">تحتاج متابعة مع الجهات</div></div></div>'+
+'<div class="work-grid"><section class="panel"><div class="panel-header"><div><h2>طابور العمل اليوم</h2><p>مهام عملية بدل الاكتفاء بالمؤشرات العامة</p></div><button class="text-link" data-goto="complaints">فتح السجل ←</button></div><div class="panel-body"><div class="task-list">'+
+'<div class="task-row"><div class="task-symbol red">!</div><div class="task-copy"><strong>شكاوى متجاوزة للمهلة</strong><small>'+(db.settings.slaApproved?'وفق المهلة المعتمدة':'تفعيل المؤشر ينتظر اعتماد المهلة')+'</small></div><span class="task-value">'+late.length+'</span><button class="btn btn-sm" data-action="filter-late">مراجعة</button></div>'+
+'<div class="task-row"><div class="task-symbol amber">✓</div><div class="task-copy"><strong>ردود تنتظر الاعتماد</strong><small>يجب أن يعتمدها مستخدم غير مُعدّ الرد</small></div><span class="task-value">'+approvals.length+'</span><button class="btn btn-sm" data-goto="replies">فتح</button></div>'+
+'<div class="task-row"><div class="task-symbol blue">↗</div><div class="task-copy"><strong>إحالات لم يصل ردها</strong><small>تابع الجهات المحال إليها</small></div><span class="task-value">'+referralList().filter(r=>!r.response).length+'</span><button class="btn btn-sm" data-goto="referrals">فتح</button></div>'+
+'<div class="task-row"><div class="task-symbol amber">≡</div><div class="task-copy"><strong>سجلات تحتاج استكمالًا</strong><small>نقص في الحقول الأساسية</small></div><span class="task-value">'+missing.length+'</span><button class="btn btn-sm" data-action="filter-missing">مراجعة</button></div></div></div></section>'+
+'<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+db.complaints.length+' سجلًا تجريبيًا</p></div></div><div class="panel-body"><div class="status-list">'+[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]].map(([label,n],i)=>'<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===3?'amber-fill':i===0?'red-fill':'')+'" style="width:'+Math.max(n?5:0,db.complaints.length?n/db.complaints.length*100:0)+'%"></span></div></div>').join('')+'</div></div></section></div>'+
+'<section class="panel table-panel"><div class="panel-header"><div><h2>أحدث الشكاوى</h2><p>افتح السجل للوصول إلى الإجراءات وسجل الأحداث</p></div><button class="text-link" data-goto="complaints">عرض جميع الشكاوى ←</button></div>'+complaintTable(recent)+'</section>';}
+function filters(){return '<div class="table-tools"><div class="search-box"><span>⌕</span><input class="field" id="complaintSearch" aria-label="بحث في الشكاوى" placeholder="ابحث بالرقم أو الاسم أو الهاتف أو النص..." value="'+esc(searchText)+'"></div><select class="select-field" id="statusFilter" aria-label="تصفية حسب الحالة"><option value="all">كل الحالات</option>'+['new','in_progress','awaiting_reply','awaiting_approval','closed','cancelled'].map(s=>'<option value="'+s+'" '+(statusFilter===s?'selected':'')+'>'+statusLabel(s)+'</option>').join('')+'</select><select class="select-field" id="priorityFilter" aria-label="تصفية حسب الأولوية"><option value="all">كل الأولويات</option>'+['urgent','high','normal'].map(p=>'<option value="'+p+'" '+(priorityFilter===p?'selected':'')+'>'+priorityLabel(p)+'</option>').join('')+'</select><button class="btn" data-action="clear-filters">مسح المرشحات</button></div>';}
+function filteredComplaints(){const q=norm(searchText);return db.complaints.filter(c=>(!q||norm([c.id,c.name,c.phone,c.province,c.entity,c.category,c.summary,c.details,c.owner].join(' ')).includes(q))&&(statusFilter==='all'||c.status===statusFilter)&&(priorityFilter==='all'||c.priority===priorityFilter));}
+function complaintsPage(){const rows=filteredComplaints();return heading('سجل الشكاوى والاستفسارات','ابحث بالعربية مع تجاهل التشكيل وتوحيد أشكال الألف والياء والتاء المربوطة. كل البيانات المعروضة وهمية.',btn('＋ تسجيل سريع','new-complaint','btn-primary')+btn('إجراءات جماعية','bulk-open'))+
+'<div class="filters-row" style="margin-bottom:13px"><button class="filter-chip '+(statusFilter==='all'?'active':'')+'" data-action="quick-filter" data-value="all">كل السجلات</button><button class="filter-chip" data-action="my-complaints">شكاواي (تجريبي)</button><button class="filter-chip" data-action="urgent-no-reply">عاجلة بلا رد</button><button class="filter-chip" data-goto="replies">تنتظر الاعتماد</button><button class="filter-chip" data-action="filter-late">متجاوزة المهلة</button></div>'+
+'<section class="panel table-panel">'+filters()+'<div id="bulkMount">'+(selectedIds.size?'<div class="bulk-bar"><span>تم تحديد '+selectedIds.size+' سجلًا</span><div class="footer-actions"><button class="btn btn-sm" data-action="bulk-assign">إسناد المسؤول</button><button class="btn btn-sm" data-action="bulk-priority">تغيير الأولوية</button><button class="btn btn-sm btn-quiet" data-action="clear-selection">إلغاء التحديد</button></div></div>':'')+'</div>'+complaintTable(rows,{select:true})+'<div class="table-footer"><span>عرض '+rows.length+' من '+db.complaints.length+' سجلًا</span><span>ترتيب تجريبي · لا يوجد اتصال بخادم</span></div></section>';}
+function referralsPage(){const list=referralList();return heading('إدارة الإحالات','تابع تاريخ الإرسال والجهة والموعد المتوقع للرد. التذكيرات في هذه النسخة تجريبية.',btn('＋ إحالة جديدة','new-referral','btn-primary'))+'<div class="mini-card-grid"><div class="mini-card"><small>إجمالي الإحالات</small><strong>'+list.length+'</strong></div><div class="mini-card"><small>بانتظار الرد</small><strong>'+list.filter(r=>!r.response).length+'</strong></div><div class="mini-card"><small>متأخرة وفق التاريخ المسجل</small><strong>'+list.filter(r=>!r.response&&new Date(r.due)<new Date()).length+'</strong></div></div><section class="panel table-panel"><div class="panel-header"><div><h2>سجل الإحالات</h2><p>تسجيل الرد أو متابعة الجهة من ملف الشكوى</p></div></div><div class="table-wrap"><table><thead><tr><th>رقم الشكوى</th><th>الجهة المحال إليها</th><th>تاريخ الإرسال</th><th>موعد الرد</th><th>الحالة</th><th>الملخص</th><th>إجراء</th></tr></thead><tbody>'+list.map(r=>'<tr><td><span class="ticket-id">'+esc(r.complaintId)+'</span></td><td>'+esc(r.entity)+'</td><td>'+dateText(r.sent)+'</td><td>'+dateText(r.due)+'</td><td>'+(r.response?'<span class="pill progressing">ورد الرد</span>':new Date(r.due)<new Date()?'<span class="pill urgent">متأخرة</span>':'<span class="pill waiting">بانتظار الرد</span>')+'</td><td>'+esc(r.complaintSummary)+'</td><td><button class="btn btn-sm" data-action="detail" data-id="'+esc(r.complaintId)+'">فتح الشكوى</button></td></tr>').join('')+'</tbody></table></div></section>';}
+function repliesPage(){const rows=db.complaints.filter(c=>c.reply);return heading('الردود والاعتماد','مسار الرد: مسودة ← مراجعة ← اعتماد من مستخدم آخر ← توثيق الإرسال.',btn('＋ إنشاء رد','new-reply','btn-primary'))+'<div class="risk-note">قاعدة تجريبية: لا يُسمح للمستخدم الذي أعدّ الرد باعتماده. هذه المحاكاة تستخدم اسمًا تجريبيًا ثابتًا ولا تمثل مصادقة حقيقية.</div><section class="panel table-panel"><div class="panel-header"><div><h2>ملفات الردود</h2><p>'+rows.length+' رد مرتبط بسجل شكوى</p></div></div><div class="table-wrap"><table><thead><tr><th>رقم الشكوى</th><th>الموضوع</th><th>معدّ الرد</th><th>الحالة</th><th>آخر تحديث</th><th>الإجراء</th></tr></thead><tbody>'+rows.map(c=>'<tr><td><span class="ticket-id">'+esc(c.id)+'</span></td><td>'+esc(c.summary)+'</td><td>'+esc(c.reply.author)+'</td><td>'+replyStatusPill(c.reply.status)+'</td><td>'+dateText(c.updated)+'</td><td><button class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'">فتح الرد</button></td></tr>').join('')+'</tbody></table></div></section>';}
+function replyStatusPill(s){const m={draft:['مسودة','new'],review:['مراجعة','waiting'],approval:['بانتظار الاعتماد','waiting'],approved:['معتمد','progressing'],sent:['تم توثيق الإرسال','closed']};const x=m[s]||[s,'closed'];return '<span class="pill '+x[1]+'">'+x[0]+'</span>';}
+function notificationsPage(){return heading('مركز الإشعارات','تنبيهات داخلية تجريبية للاستكمال والاعتماد والإحالات والمتأخرات.',btn('تحديد الكل كمقروء','read-all'))+'<section class="panel"><div class="panel-header"><h2>آخر التنبيهات</h2><span class="setting-value">'+db.notifications.filter(n=>!n.read).length+' غير مقروء</span></div><div class="panel-body"><div class="notice-list">'+db.notifications.map(n=>'<div class="notice-item"><div class="notice-mark '+(n.read?'read':'')+'">'+(n.read?'✓':'!')+'</div><div style="flex:1"><strong>'+esc(n.title)+'</strong><p>'+esc(n.body)+'</p><small>'+timeText(n.date)+'</small></div>'+(n.read?'':'<button class="btn btn-sm" data-action="read-notice" data-id="'+n.id+'">تمت القراءة</button>')+'</div>').join('')+'</div></div></section>';}
+function reportsPage(){const buckets=[db.complaints.filter(c=>ageDays(c)<7).length,db.complaints.filter(c=>ageDays(c)>=7&&ageDays(c)<=30).length,db.complaints.filter(c=>ageDays(c)>30).length];const prov=[...new Set(db.complaints.map(c=>c.province).filter(Boolean))].map(p=>[p,db.complaints.filter(c=>c.province===p).length]);const closed=db.complaints.filter(c=>c.status==='closed');const avgClose=closed.length?Math.round(closed.reduce((a,c)=>a+ageDays(c),0)/closed.length):0;return heading('التقارير التشغيلية','مؤشرات أولية من البيانات التجريبية. لا تُصدّر هذه التقارير كوثائق رسمية.',btn('طباعة / حفظ PDF','print-report')+btn('تصدير CSV تجريبي','export-csv'))+'<div class="mini-card-grid"><div class="mini-card"><small>أقل من 7 أيام</small><strong>'+buckets[0]+'</strong></div><div class="mini-card"><small>7 إلى 30 يومًا</small><strong>'+buckets[1]+'</strong></div><div class="mini-card"><small>أكثر من 30 يومًا</small><strong>'+buckets[2]+'</strong></div></div><div class="two-col"><section class="panel"><div class="panel-header"><div><h2>توزيع السجلات حسب مدة البقاء</h2><p>مؤشر حسب تاريخ الإنشاء</p></div></div><div class="panel-body"><div class="chart-bars">'+buckets.map((n,i)=>'<div class="chart-group"><div class="chart-bar '+(i===1?'alt':'')+'" title="'+n+'" style="height:'+Math.max(3,n/Math.max(1,...buckets)*100)+'%"></div></div>').join('')+'</div><div class="chart-labels"><span>أقل من 7 أيام</span><span>7–30 يومًا</span><span>أكثر من 30</span></div><div class="report-legend"><span><i class="legend-dot"></i>عدد السجلات</span><span><i class="legend-dot alt"></i>الشريحة الوسطى</span></div></div></section><section class="panel"><div class="panel-header"><div><h2>مقارنة المحافظات</h2><p>عدد السجلات التجريبية حسب المحافظة</p></div></div><div class="panel-body"><div class="status-list">'+prov.map(([p,n])=>'<div><div class="status-line"><span>'+esc(p)+'</span><span>'+n+'</span></div><div class="progress"><span style="width:'+Math.max(3,n/Math.max(1,...prov.map(x=>x[1]))*100)+'%"></span></div></div>').join('')+'</div></div></section></div><section class="panel" style="margin-top:16px"><div class="panel-header"><div><h2>ملاحظات حول جودة المؤشرات</h2><p>البيانات لا تمثل أداء جهة حكومية فعلية</p></div></div><div class="panel-body"><div class="setting-row"><div><strong>متوسط عمر السجلات المغلقة</strong><small>محسوب من السجلات المغلقة التجريبية فقط، وليس زمن المعالجة الرسمي.</small></div><span class="setting-value">'+avgClose+' يوم</span></div><div class="setting-row"><div><strong>متوسط زمن أول رد</strong><small>غير محسوب بدقة في النموذج الحالي لعدم اكتمال أحداث الرد في بيانات العينة.</small></div><span class="setting-value">غير متاح</span></div><div class="setting-row"><div><strong>تقارير مجدولة PDF / Excel</strong><small>تحتاج خدمة خادمية وجدولة وترويسة معتمدة قبل التشغيل.</small></div><span class="setting-value">غير مفعلة</span></div></div></section>';}
+function settingsPageBase(){
+  ensureManagedSettings();
+  const renderMasterList=(type)=>{
+    const items=db.settings[type]||[];
+    const labels={categories:'التصنيف',provinces:'المحافظة',entities:'الجهة المختصة',priorities:'الأولوية'};
+    const descriptionKey=type==='categories'?'categoryDescriptions':type==='entities'?'entityDescriptions':null;
+    const rows=items.map(item=>{const value=type==='priorities'?item.value:item,label=type==='priorities'?item.label:item,description=descriptionKey?(db.settings[descriptionKey][value]||'لا يوجد وصف'):'قيمة متاحة لنموذج الشكوى';return '<div class="setting-row"><div><strong>'+esc(label)+'</strong><small>'+esc(description)+'</small></div><div class="footer-actions"><button class="btn btn-sm" data-action="edit-setting" data-type="'+type+'" data-value="'+esc(value)+'">تعديل</button><button class="btn btn-sm btn-danger" data-action="delete-setting" data-type="'+type+'" data-value="'+esc(value)+'">حذف</button></div></div>';}).join('');
+    return '<div class="settings-list">'+(rows||'<p class="small-copy">لا توجد عناصر. أضف قيمة جديدة أو استعد القائمة الافتراضية.</p>')+'</div><button class="btn" style="margin-top:12px" data-action="add-setting" data-type="'+type+'">＋ إضافة '+labels[type]+'</button>';
+  };
+  return heading('القوائم والإعدادات','إدارة القيم ومهل المتابعة. القيم الافتراضية تجريبية ولا تمثل مهلًا رسمية.',btn('إضافة تصنيف','add-category'))+
+  '<section class="panel" style="margin-bottom:16px"><div class="panel-header"><div><h2>المزامنة اليدوية بين النسختين</h2><p>نقل يدوي فقط، دون اتصال بين الجهازين</p></div></div><div class="panel-body"><p>صدّر الملف وانقله يدويًا إلى الجهاز الآخر. الاستيراد يستبدل بيانات النسخة الحالية؛ احتفظ بنسخة احتياطية أولًا.</p><div class="footer-actions"><button class="btn btn-primary" data-action="sync-export">تصدير ملف المزامنة</button><button class="btn" data-action="sync-import">استيراد ملف مزامنة</button><input id="syncImportFile" type="file" accept="application/json,.json" hidden></div><p class="small-copy">يتضمن الملف حزمة تحديث البرنامج. تُفحص بصمات الملفات وتُحفظ للمراجعة؛ لا يُشغّل كود وارد تلقائيًا دون توقيع موثوق.</p></div></section>'+
+  '<div class="risk-note">المهل والتصعيد التلقائي معطلان حتى تعتمد الجهة المدة الرسمية. تعديل هذا الإعداد لا ينشئ تصعيدًا خادميًا.</div>'+
+  '<div class="two-col"><section class="panel"><div class="panel-header"><div><h2>مهلة المعالجة</h2><p>لا تعتمد قبل موافقة الجهة</p></div><span class="setting-value">'+(db.settings.slaApproved?'مفعلة تجريبيًا':'غير معتمدة')+'</span></div><div class="panel-body"><div class="form-field"><label for="slaDays">عدد الأيام</label><input class="field" id="slaDays" type="number" min="1" max="365" value="'+db.settings.slaDays+'"></div><label style="display:flex;gap:9px;align-items:center;margin-top:14px;font-size:11px"><input type="checkbox" id="slaApproved" '+(db.settings.slaApproved?'checked':'')+'> اعتماد المهلة للتجربة فقط</label><button class="btn btn-primary" style="margin-top:14px" data-action="save-sla">حفظ الإعداد</button><p class="small-copy">في التشغيل الفعلي يجب تسجيل هوية المعتمد ووقت الاعتماد وتاريخ سريان المهلة، مع مراجعة الاستثناءات الرسمية.</p></div></section>'+
+  '<section class="panel"><div class="panel-header"><div><h2>إدارة خيارات نموذج الشكوى</h2><p>تنعكس التغييرات على القوائم المنسدلة بعد الحفظ</p></div></div><div class="panel-body"><div class="footer-actions"><button class="btn btn-sm" data-action="clear-setting-type" data-type="categories">حذف كل التصنيفات</button><button class="btn btn-sm" data-action="clear-setting-type" data-type="provinces">حذف كل المحافظات</button><button class="btn btn-sm" data-action="clear-setting-type" data-type="entities">حذف كل الجهات</button><button class="btn btn-sm" data-action="clear-setting-type" data-type="priorities">حذف كل الأولويات</button><button class="btn btn-sm" data-action="restore-settings">استعادة كل القوائم</button></div><p class="small-copy">حذف خيار يؤثر في الشكاوى الجديدة فقط؛ لا تُحذف القيم المسجلة في الشكاوى السابقة.</p><div class="settings-section-title"><h3 class="subheading">التصنيفات</h3><button class="btn btn-sm" data-action="restore-settings" data-type="categories">استعادة الافتراضية</button></div>'+renderMasterList('categories')+'<div class="settings-section-title" style="margin-top:22px"><h3 class="subheading">المحافظات</h3><button class="btn btn-sm" data-action="restore-settings" data-type="provinces">استعادة الافتراضية</button></div>'+renderMasterList('provinces')+'<div class="settings-section-title" style="margin-top:22px"><h3 class="subheading">الجهات المختصة</h3><button class="btn btn-sm" data-action="restore-settings" data-type="entities">استعادة الافتراضية</button></div>'+renderMasterList('entities')+'<div class="settings-section-title" style="margin-top:22px"><h3 class="subheading">الأولويات</h3><button class="btn btn-sm" data-action="restore-settings" data-type="priorities">استعادة الافتراضية</button></div>'+renderMasterList('priorities')+'</div></section></div>'+
+  '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>حالة الجاهزية والقيود الأمنية</h2></div><div class="panel-body"><div class="settings-list">'+[['المصادقة الثنائية والجلسات','المصادقة الثنائية غير منفذة؛ الجلسات في ذاكرة الخادم وتنتهي عند إعادة تشغيله.','غير مكتمل'],['سلامة سجل التدقيق','السجل محفوظ في SQLite على الخادم، لكن من يملك ملف القاعدة يستطيع تعديله؛ ليس مقاومًا للتلاعب.','قابل للتعديل'],['السرية والوصول الطارئ','لا توجد ضوابط مكتملة للبيانات السرية أو الوصول الطارئ.','غير مكتمل'],['التشفير والنسخ الاحتياطي','تتوفر أدوات نسخ احتياطي وفحص استعادة؛ تشفير ملف قاعدة البيانات نفسه غير مهيأ.','جزئي'],['الذكاء الاصطناعي','معطل ولا توجد استدعاءات خارجية في هذه النسخة.','معطل']].map(([a,b,status])=>'<div class="setting-row"><div><strong>'+a+'</strong><small>'+b+'</small></div><span class="setting-value">'+status+'</span></div>').join('')+'</div></div></section>';
+}
+
+let managedUsers=[];
+function userManagementPanel(){
+  if(authenticatedUser?.role!=='admin')return '';
+  const roleLabels={admin:'مدير النظام',staff:'موظف',reviewer:'مراجع'};
+  return '<section class="panel" style="margin-top:16px"><div class="panel-header"><div><h2>إدارة الحسابات المحلية</h2><p>إنشاء حسابات موظفين ومراجعين وتعطيلها على هذا الجهاز</p></div><button class="btn btn-sm" data-action="refresh-local-users">تحديث القائمة</button></div><div class="panel-body"><form id="localUserForm" class="form-grid"><div class="form-field"><label for="newLocalUsername">اسم المستخدم</label><input class="field" id="newLocalUsername" required minlength="3" maxlength="64" autocomplete="off"></div><div class="form-field"><label for="newLocalPassword">كلمة مرور مؤقتة (12 محرفًا على الأقل)</label><input class="field" id="newLocalPassword" type="password" required minlength="12" maxlength="200" autocomplete="new-password"></div><div class="form-field"><label for="newLocalRole">الدور</label><select class="select-field" id="newLocalRole"><option value="staff">موظف</option><option value="reviewer">مراجع</option><option value="admin">مدير النظام</option></select></div><div class="form-field" style="align-self:end"><button class="btn btn-primary" type="button" data-action="create-local-user">إنشاء الحساب</button></div></form><div class="settings-list" style="margin-top:18px">'+(managedUsers.length?managedUsers.map(u=>'<div class="setting-row"><div><strong>'+esc(u.username)+'</strong><small>'+esc(roleLabels[u.role]||u.role)+' · '+(u.active?'نشط':'معطّل')+'</small></div>'+(u.id===authenticatedUser.id?'<span class="setting-value">حسابك الحالي</span>':'<button class="btn btn-sm" data-action="toggle-local-user" data-user-id="'+esc(u.id)+'" data-active="'+(u.active?'false':'true')+'">'+(u.active?'تعطيل':'تفعيل')+'</button>')+'</div>').join(''):'<p class="small-copy">اضغط «تحديث القائمة» لعرض الحسابات المسجلة.</p>')+'</div><p class="small-copy">لا تعرض الواجهة كلمات المرور أو بصماتها. لا يمكن تعطيل الحساب الحالي من الواجهة، كما يمنع الخادم تعطيل آخر مدير نشط.</p></div></section>';
+}
+function settingsPage(){return settingsPageBase()+userManagementPanel();}
+async function refreshManagedUsers(){
+  if(authenticatedUser?.role!=='admin')return;
+  try{const result=await api('/api/users');managedUsers=result.users||[];if(page==='settings')render();}
+  catch(error){toast(error.message,'error');}
+}
+function render(){const content=$('#content');const renderers={dashboard,complaints:complaintsPage,referrals:referralsPage,replies:repliesPage,notifications:notificationsPage,reports:reportsPage,settings:settingsPage};content.innerHTML=(renderers[page]||dashboard)();$('#pageCrumb').textContent=pageTitle();navCounts();$$('.nav-link').forEach(b=>b.classList.toggle('active',b.dataset.page===page));}
+function go(p){page=p;selectedIds.clear();$('#sidebar').classList.remove('open');$('#menuToggle').setAttribute('aria-expanded','false');render();$('#content').focus({preventScroll:true});}
+let modalOpener=null;
+function modalFocusables(dlg){return $$('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])',dlg).filter(el=>el.offsetParent!==null);}
+function modal(title,subtitle,body,footer='',wide=false){const root=$('#modalRoot');modalOpener=document.activeElement;root.innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal '+(wide?'wide':'')+'" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDescription" tabindex="-1"><header class="modal-header"><div><h2 id="modalTitle">'+title+'</h2><p id="modalDescription">'+subtitle+'</p></div><button class="modal-close" data-action="close-modal" aria-label="إغلاق النافذة">×</button></header><div class="modal-body">'+body+'</div>'+(footer?'<footer class="modal-footer">'+footer+'</footer>':'')+'</section></div>';root.dataset.open='true';const dlg=$('.modal',root);const items=modalFocusables(dlg);(items[0]||dlg).focus();}
+function closeModal(){const root=$('#modalRoot');root.innerHTML='';delete root.dataset.open;if(modalOpener&&document.contains(modalOpener))modalOpener.focus();modalOpener=null;}
+function field(label,name,value='',type='text',required=false,extra=''){return '<div class="form-field"><label for="'+name+'">'+label+(required?' <span class="danger-text">*</span>':'')+'</label><input class="field" id="'+name+'" name="'+name+'" type="'+type+'" value="'+esc(value)+'" '+(required?'required':'')+' '+extra+'></div>';}
+function selectField(label,name,items,value='',required=false){return '<div class="form-field"><label for="'+name+'">'+label+(required?' <span class="danger-text">*</span>':'')+'</label><select class="select-field" id="'+name+'" name="'+name+'" '+(required?'required':'')+'><option value="">اختر...</option>'+items.map(x=>'<option value="'+esc(x.value??x)+'" '+((x.value??x)===value?'selected':'')+'>'+esc(x.label??x)+'</option>').join('')+'</select></div>';}
+function newComplaint(){ensureManagedSettings();modal('تسجيل شكوى جديدة','نموذج سريع أثناء المكالمة · لا تستخدم بيانات حقيقية في هذه النسخة','<form id="newComplaintForm"><div class="risk-note">سيُنشأ رقم تجريبي عند الحفظ. المسودة التلقائية تعمل داخل هذه النافذة فقط ولا تُرسل إلى خادم.</div><div class="form-grid">'+field('اسم المشتكي','cName','','text',false,'autocomplete="off"')+field('رقم الهاتف','cPhone','','tel',false,'autocomplete="off"')+selectField('المحافظة','cProvince',db.settings.provinces,'',true)+selectField('التصنيف','cCategory',db.settings.categories,'',true)+selectField('الجهة المختصة','cEntity',db.settings.entities,'',false)+selectField('الأولوية','cPriority',db.settings.priorities,'normal',true)+field('المسؤول الرئيسي','cOwner','مستخدم تجريبي')+'<div class="form-field full"><label for="cSummary">موضوع الشكوى</label><input class="field" id="cSummary" required maxlength="180" placeholder="ملخص واضح ومختصر"></div><div class="form-field full"><label for="cDetails">التفاصيل</label><textarea class="textarea-field" id="cDetails" placeholder="ملخص ما ذكره المتصل وما يلزم متابعته"></textarea></div><div class="form-field full" id="duplicateMount"></div></div></form>','<span class="small-copy">الحقول المطلوبة: المحافظة، التصنيف، موضوع الشكوى، الأولوية.</span><div class="right-actions"><button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-complaint">حفظ الشكوى</button></div>');restoreComplaintDraft();}
+function saveComplaintDraft(){const form=$('#newComplaintForm');if(!form)return;const draft={};['cName','cPhone','cProvince','cCategory','cEntity','cPriority','cOwner','cSummary','cDetails'].forEach(id=>{const el=$('#'+id);if(el)draft[id]=el.value;});try{sessionStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}}
+function restoreComplaintDraft(){try{const draft=JSON.parse(sessionStorage.getItem(DRAFT_KEY)||'null');if(!draft)return;Object.entries(draft).forEach(([id,value])=>{const el=$('#'+id);if(el&&typeof value==='string')el.value=value;});duplicateCheck();}catch(e){}}
+function duplicateCheck(){const phone=phoneNorm($('#cPhone')?.value||''),text=norm($('#cSummary')?.value||'');const matches=db.complaints.filter(c=>(phone&&phone.length>=7&&phoneNorm(c.phone)===phone)||(text.length>=9&&norm(c.summary).includes(text)));const mount=$('#duplicateMount');if(!mount)return;mount.innerHTML=matches.length?'<div class="risk-note"><strong>احتمال تكرار:</strong> عُثر على '+matches.length+' سجل مشابه. راجع السجل قبل إنشاء شكوى جديدة.<div style="margin-top:8px">'+matches.slice(0,4).map(c=>'<button class="btn btn-sm" type="button" data-action="detail" data-id="'+esc(c.id)+'">'+esc(c.id)+' · '+esc(c.summary)+'</button>').join(' ')+'</div></div>':'';}
+function createComplaint(){const form=$('#newComplaintForm');if(!form.reportValidity())return;const name=$('#cName').value.trim(),phone=phoneNorm($('#cPhone').value),province=$('#cProvince').value,category=$('#cCategory').value,entity=$('#cEntity').value,priority=$('#cPriority').value,owner=$('#cOwner').value.trim(),summary=$('#cSummary').value.trim(),details=$('#cDetails').value.trim();const id='SY-'+new Date().getFullYear()+'-'+String(Math.max(10453,...db.complaints.map(c=>Number(c.id.split('-').at(-1))||0))+1).padStart(5,'0');const created=new Date().toISOString();const c={id,name,phone,province,entity,category,priority,status:'new',owner,created,updated:created,due:new Date(Date.now()+db.settings.slaDays*86400000).toISOString(),summary,details,notes:[],timeline:[],referrals:[],reply:null,confidentiality:'normal',survey:null};logEvent(c,'تسجيل الشكوى','تم إنشاء سجل تجريبي وإصدار الرقم المرجعي.');db.complaints.unshift(c);persist();try{sessionStorage.removeItem(DRAFT_KEY);}catch(e){}closeModal();page='complaints';render();toast('تم حفظ السجل التجريبي '+id);if(!details||!name||!phone)notify('استكمال بيانات مطلوب',id+' · بعض بيانات السجل غير مكتملة.');}
+function detailModal(id){ensureManagedSettings();const c=db.complaints.find(x=>x.id===id);if(!c)return;currentId=id;const timeline=c.timeline||[];const transitions={new:['in_progress','cancelled'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed'],awaiting_approval:['in_progress','closed'],closed:['in_progress'],cancelled:[]};const next=transitions[c.status]||[];const canClose=c.status==='in_progress'||c.status==='awaiting_reply'||c.status==='awaiting_approval';const replyHtml=c.reply?'<div class="detail-section"><h3>الرد الخارجي</h3><div class="detail-field"><span>الحالة</span><span>'+replyStatusPill(c.reply.status)+'</span></div><p style="font-size:11px;line-height:1.9">'+esc(c.reply.text)+'</p><div class="footer-actions">'+(c.reply.status==='draft'?'<button class="btn btn-sm" data-action="reply-review" data-id="'+esc(id)+'">إرسال للمراجعة</button>':'')+(c.reply.status==='review'||c.reply.status==='approval'?'<button class="btn btn-sm btn-primary" data-action="reply-approve" data-id="'+esc(id)+'">اعتماد الرد</button>':'')+(c.reply.status==='approved'?'<button class="btn btn-sm btn-primary" data-action="reply-sent" data-id="'+esc(id)+'">توثيق الإرسال</button>':'')+'</div></div>':'<div class="detail-section"><h3>الرد الخارجي</h3><p class="small-copy">لا يوجد رد مرتبط بعد.</p><button class="btn btn-sm" data-action="reply-create" data-id="'+esc(id)+'">صياغة رد</button></div>';const body='<div class="detail-top"><div><h3 class="detail-title">'+esc(c.summary)+'</h3><span class="ticket-id">'+esc(c.id)+'</span> &nbsp; '+pillStatus(c.status)+' &nbsp; '+pillPriority(c.priority)+'</div><button class="btn btn-sm" data-action="add-note" data-id="'+esc(id)+'">＋ ملاحظة داخلية</button></div><div class="detail-grid"><div><div class="detail-section"><h3>بيانات الشكوى</h3>'+[['اسم المشتكي',c.name||'غير مسجل'],['رقم الهاتف',c.phone||'غير مسجل'],['المحافظة',c.province],['التصنيف',c.category],['الجهة المختصة',c.entity||'لم تحدد'],['المسؤول الرئيسي',c.owner||'غير مسند'],['تاريخ التسجيل',dateText(c.created)],['مدة البقاء',ageDays(c)+' يوم'+(isLate(c)?' · متجاوزة المهلة':'')],['التفاصيل',c.details||'لا توجد تفاصيل']].map(([a,b])=>'<div class="detail-field"><span>'+a+'</span><span>'+esc(b)+'</span></div>').join('')+'</div>'+replyHtml+'<div class="detail-section"><h3>إضافة إحالة</h3><button class="btn btn-sm" data-action="referral-create" data-id="'+esc(id)+'">＋ إحالة إلى جهة</button> <button class="btn btn-sm" data-action="survey" data-id="'+esc(id)+'">تسجيل رأي المشتكي</button></div></div><div><div class="detail-section"><h3>إجراءات الحالة</h3><div class="form-field"><label for="detailStatus">الانتقال إلى حالة</label><select class="select-field" id="detailStatus"><option value="">اختر انتقالًا مسموحًا</option>'+next.map(s=>'<option value="'+s+'">'+statusLabel(s)+'</option>').join('')+'</select></div><div class="form-field" style="margin-top:10px"><label for="statusReason">سبب الانتقال (إلزامي للإغلاق/الإلغاء/إعادة الفتح)</label><textarea class="textarea-field" id="statusReason" placeholder="اكتب سببًا واضحًا عند الإغلاق أو إعادة الفتح"></textarea></div><button class="btn btn-primary" style="margin-top:10px" data-action="change-status" data-id="'+esc(id)+'">تطبيق الانتقال</button><div class="form-field" style="margin-top:16px"><label for="assignOwner">المسؤول الرئيسي</label><select class="select-field" id="assignOwner">'+['مها العلي','خالد منصور','سليم عمر','وسيم صالح','مستخدم تجريبي'].map(n=>'<option '+(c.owner===n?'selected':'')+'>'+n+'</option>').join('')+'</select></div><button class="btn" style="margin-top:9px" data-action="assign-owner" data-id="'+esc(id)+'">حفظ الإسناد</button><div class="form-field" style="margin-top:16px"><label for="detailPriority">الأولوية</label><select class="select-field" id="detailPriority">'+db.settings.priorities.map(p=>'<option value="'+esc(p.value)+'" '+(c.priority===p.value?'selected':'')+'>'+esc(p.label)+'</option>').join('')+(!db.settings.priorities.some(p=>p.value===c.priority)&&c.priority?'<option value="'+esc(c.priority)+'" selected>'+esc(priorityLabel(c.priority))+' (قيمة محفوظة قديمة)</option>':'')+'</select></div><button class="btn" style="margin-top:9px" data-action="change-priority" data-id="'+esc(id)+'">حفظ الأولوية</button></div><div class="detail-section"><h3>سجل الإجراءات التجريبي</h3><div class="timeline">'+timeline.map(t=>'<div class="timeline-item"><strong>'+esc(t.event)+'</strong><p>'+esc(t.detail||'')+'</p><small>'+esc(t.by||'')+' · '+timeText(t.at)+'</small></div>').join('')+'</div></div><div class="detail-section"><h3>الملاحظات الداخلية</h3>'+(c.notes||[]).map(n=>'<div class="notice-item"><div style="flex:1"><strong>'+esc(n.by)+'</strong><p>'+esc(n.text)+'</p><small>'+timeText(n.at)+'</small></div></div>').join('')||'<p class="small-copy">لا توجد ملاحظات داخلية.</p>'+'</div></div></div><div class="callout">مهم: سجل الأحداث في هذا النموذج محفوظ داخل المتصفح وقابل للتعديل تقنيًا؛ لا يُعد سجل تدقيق غير قابل للتلاعب.</div>';modal('تفاصيل الشكوى','إجراءات تجريبية · '+esc(c.id),body,'<button class="btn" data-action="close-modal">إغلاق</button>',true);}
+function changeStatus(id){const c=db.complaints.find(x=>x.id===id),next=$('#detailStatus')?.value,reason=$('#statusReason')?.value.trim();if(!c||!next)return toast('اختر حالة جديدة أولًا.','warn');const allowed={new:['in_progress','cancelled'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed'],awaiting_approval:['in_progress','closed'],closed:['in_progress'],cancelled:[]};if(!(allowed[c.status]||[]).includes(next))return toast('هذا الانتقال غير مسموح وفق آلة الحالات.','error');if((next==='closed'||next==='cancelled'||c.status==='closed')&&!reason)return toast('السبب إلزامي للإغلاق أو الإلغاء أو إعادة الفتح.','error');if(next==='closed'&&c.referrals.some(r=>!r.response)&&!reason)return toast('لا يمكن الإغلاق قبل استكمال الإحالات أو توثيق الاستثناء.','error');const before=statusLabel(c.status);c.status=next;logEvent(c,'تغيير الحالة',before+' ← '+statusLabel(next)+(reason?' · السبب: '+reason:''));if(next==='closed')notify('تم إغلاق سجل تجريبي',c.id+' · '+reason);persist();detailModal(id);render();toast('تم تحديث الحالة في النموذج التجريبي.');}
+function assignOwner(id){const c=db.complaints.find(x=>x.id===id),owner=$('#assignOwner')?.value;if(!c||!owner)return;c.owner=owner;logEvent(c,'تغيير المسؤول','تم إسناد السجل إلى '+owner+'.');persist();detailModal(id);render();toast('تم تحديث المسؤول.');}
+function changePriority(id){const c=db.complaints.find(x=>x.id===id),p=$('#detailPriority')?.value;if(!c||!p)return;const old=priorityLabel(c.priority);c.priority=p;logEvent(c,'تغيير الأولوية',old+' ← '+priorityLabel(p));persist();detailModal(id);render();toast('تم تحديث الأولوية.');}
+function addNote(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('إضافة ملاحظة داخلية','لن تُرسل هذه الملاحظة إلى المشتكي','<form id="noteForm"><div class="form-field"><label for="noteText">الملاحظة</label><textarea class="textarea-field" id="noteText" required placeholder="اكتب ملاحظة داخلية للفريق"></textarea></div><p class="small-copy">الإشارة إلى زميل (@) نصية فقط في النموذج الأولي، ولا توجد إشعارات موجهة فعلية.</p></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-note" data-id="'+esc(id)+'">حفظ الملاحظة</button>');}
+function saveNote(id){const c=db.complaints.find(x=>x.id===id),text=$('#noteText')?.value.trim();if(!c||!text)return toast('اكتب الملاحظة أولًا.','warn');c.notes.unshift({text,by:'مستخدم تجريبي',at:new Date().toISOString()});logEvent(c,'إضافة ملاحظة داخلية','تمت إضافة ملاحظة داخلية.');persist();detailModal(id);toast('تم حفظ الملاحظة التجريبية.');}
+function newReferral(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('إضافة إحالة','تسجيل الجهة وتاريخ الإرسال والموعد المتوقع للرد','<form id="referralForm"><div class="form-grid">'+selectField('الجهة المحال إليها','rEntity',db.settings.entities,'',true)+field('موعد الرد المتوقع','rDue',new Date(Date.now()+7*86400000).toISOString().slice(0,10),'date',true)+'<div class="form-field full"><label for="rNote">ملاحظات الإحالة</label><textarea class="textarea-field" id="rNote" placeholder="ملخص الطلب المرسل"></textarea></div></div></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-referral" data-id="'+esc(id)+'">حفظ الإحالة</button>');}
+function saveReferral(id){const c=db.complaints.find(x=>x.id===id);if(!c||!$('#rEntity').value||!$('#rDue').value)return toast('أكمل الجهة وموعد الرد.','warn');c.referrals.push({entity:$('#rEntity').value,sent:new Date().toISOString(),due:new Date($('#rDue').value+'T23:59:00').toISOString(),status:'بانتظار الرد',response:'',note:$('#rNote').value.trim()});if(c.status==='in_progress')c.status='awaiting_reply';logEvent(c,'إحالة إلى جهة','تم توثيق إحالة إلى '+$('#rEntity').value+'.');notify('إحالة جديدة',c.id+' · إحالة إلى '+$('#rEntity').value);persist();detailModal(id);toast('تم تسجيل الإحالة.');}
+function surveyModal(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('تسجيل رأي المشتكي','توثيق ما إذا أُخذ الرأي وهل عولجت الشكوى','<form id="surveyForm">'+selectField('هل عولجت الشكوى؟','surveyResolved',[{value:'yes',label:'نعم'},{value:'partly',label:'جزئيًا'},{value:'no',label:'لا'},{value:'unknown',label:'لم يحدد'}],c.survey?.resolved||'',true)+'<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:11px"><input type="checkbox" id="surveyAsked" '+(c.survey?.asked?'checked':'')+'> تم أخذ رأي المشتكي</label></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-survey" data-id="'+esc(id)+'">حفظ</button>');}
+function saveSurvey(id){const c=db.complaints.find(x=>x.id===id);if(!c||!$('#surveyResolved').value)return toast('حدد نتيجة المعالجة.','warn');c.survey={resolved:$('#surveyResolved').value,asked:$('#surveyAsked').checked,at:new Date().toISOString()};logEvent(c,'تسجيل استبيان الإغلاق','نتيجة المعالجة: '+$('#surveyResolved').selectedOptions[0].text+'؛ أخذ الرأي: '+(c.survey.asked?'نعم':'لا'));persist();detailModal(id);toast('تم توثيق رأي المشتكي.');}
+function replyEditor(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;const text=c.reply?.text||'';modal('صياغة رد خارجي','المسودة منفصلة عن الملاحظات الداخلية؛ يلزم اعتماد بشري قبل توثيق الإرسال','<form id="replyForm"><div class="form-grid">'+selectField('قالب الرد','replyTemplate',[{value:'',label:'بدون قالب'},...db.templates.map((t,i)=>({value:String(i),label:t.name+' · إصدار '+t.version}))],'')+'<div class="form-field"><label for="replyText">نص الرد</label><textarea class="textarea-field" id="replyText" required style="min-height:180px">'+esc(text)+'</textarea></div></div><p class="small-copy">المتغيرات المتاحة: {{رقم_الشكوى}}، {{الجهة}}، {{التصنيف}}. لا يوجد إرسال فعلي في هذه النسخة.</p></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-reply" data-id="'+esc(id)+'">حفظ المسودة</button>');}
+function saveReply(id){const c=db.complaints.find(x=>x.id===id),text=$('#replyText')?.value.trim();if(!c||!text)return toast('اكتب نص الرد.','warn');if(!c.reply)c.reply={status:'draft',author:'مستخدم تجريبي',text};else{c.reply.text=text;c.reply.status='draft';c.reply.author='مستخدم تجريبي';}logEvent(c,'حفظ مسودة رد','تم حفظ مسودة رد خارجي.');persist();detailModal(id);toast('تم حفظ المسودة.');}
+function replyAction(id,action){const c=db.complaints.find(x=>x.id===id);if(!c?.reply)return;if(action==='reply-review'){c.reply.status='review';logEvent(c,'إرسال الرد للمراجعة','أُرسلت المسودة إلى مرحلة المراجعة.');notify('رد بانتظار المراجعة',c.id+' · '+c.summary);}else if(action==='reply-approve'){if(c.reply.author==='مستخدم تجريبي')return toast('لا يمكن للمستخدم نفسه اعتماد الرد الذي أعدّه. استخدم حساب مراجع مختلفًا في النظام الفعلي.','error');c.reply.status='approved';logEvent(c,'اعتماد الرد','تم اعتماد الرد بواسطة مستخدم مختلف.');}else if(action==='reply-sent'){if(c.reply.status!=='approved')return toast('يجب اعتماد الرد قبل توثيق الإرسال.','error');c.reply.status='sent';logEvent(c,'توثيق إرسال الرد','تم توثيق الإرسال يدويًا؛ لا يوجد إرسال آلي.');}persist();detailModal(id);render();toast('تم تحديث مرحلة الرد تجريبيًا.');}
+function newReply(){const rows=db.complaints.filter(c=>!c.reply);if(!rows.length)return toast('كل السجلات لديها رد مرتبط.','warn');modal('إنشاء رد','اختر السجل المراد إعداد رد له','<div class="form-field"><label for="replyComplaint">الشكوى</label><select class="select-field" id="replyComplaint">'+rows.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.id+' · '+c.summary)+'</option>').join('')+'</select></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="reply-next">متابعة</button>');}
+function newReferralGlobal(){const rows=db.complaints.filter(c=>c.status!=='closed'&&c.status!=='cancelled');modal('إحالة جديدة','اختر الشكوى لبدء تسجيل الإحالة','<div class="form-field"><label for="refComplaint">الشكوى</label><select class="select-field" id="refComplaint">'+rows.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.id+' · '+c.summary)+'</option>').join('')+'</select></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="referral-next">متابعة</button>');}
+function bulkOpen(){if(!selectedIds.size)return toast('حدد سجلًا واحدًا على الأقل من الجدول.','warn');ensureManagedSettings();modal('إجراءات جماعية','ستُطبق العملية على '+selectedIds.size+' سجلات تجريبية','<div class="form-field"><label for="bulkType">نوع الإجراء</label><select class="select-field" id="bulkType"><option value="assign">تغيير المسؤول</option><option value="priority">تغيير الأولوية</option></select></div><div class="form-field" style="margin-top:12px"><label for="bulkValue">القيمة</label><select class="select-field" id="bulkValue"><option value="مها العلي">مها العلي</option><option value="خالد منصور">خالد منصور</option><option value="سليم عمر">سليم عمر</option><option value="وسيم صالح">وسيم صالح</option>'+db.settings.priorities.map(p=>'<option value="'+esc(p.value)+'">'+esc(p.label)+'</option>').join('')+'</select></div><div class="risk-note" style="margin-top:12px">سيظهر تأكيد إضافي قبل تطبيق الإجراء على السجلات المحددة.</div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-confirm">متابعة للتأكيد</button>');}
+const managedTypes=['categories','provinces','entities','priorities'];
+function validSettingType(type){return managedTypes.includes(type);}
+function settingDescriptionKey(type){return type==='categories'?'categoryDescriptions':type==='entities'?'entityDescriptions':null;}
+function settingEntries(type){ensureManagedSettings();return type==='priorities'?db.settings.priorities.map(x=>({value:x.value,label:x.label})):db.settings[type].map(x=>({value:x,label:x}));}
+function addSetting(type,value){
+  if(!validSettingType(type))return;ensureManagedSettings();const editing=typeof value==='string';value=value||'';
+  const entry=editing?settingEntries(type).find(x=>x.value===value):null;if(editing&&!entry)return toast('تعذر العثور على الخيار المطلوب.','error');
+  const key=settingDescriptionKey(type);if(key)db.settings[key] ||= {};
+  const title=(editing?'تعديل ':'إضافة ')+({categories:'تصنيف',provinces:'محافظة',entities:'جهة مختصة',priorities:'أولوية'})[type];
+  const label=entry?.label||'';const desc=key?(db.settings[key][value]||''):'';
+  modal(title,'تُحفظ القيم في قاعدة البيانات المحلية. حذف خيار لا يغيّر الشكاوى السابقة.','<form id="settingForm"><div class="form-field"><label for="settingValue">الاسم</label><input class="field" id="settingValue" required maxlength="100" value="'+esc(label)+'"></div>'+(key?'<div class="form-field" style="margin-top:12px"><label for="settingDescription">الوصف</label><textarea class="textarea-field" id="settingDescription" maxlength="500" placeholder="وصف اختياري">'+esc(desc)+'</textarea></div>':'')+'</form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-setting" data-type="'+type+'" data-mode="'+(editing?'edit':'create')+'" data-original="'+esc(value)+'">حفظ</button>');
+}
+function deleteSetting(type,value){
+  if(!validSettingType(type))return;ensureManagedSettings();const entries=settingEntries(type);if(!entries.some(x=>x.value===value))return;
+  const label=({categories:'التصنيف',provinces:'المحافظة',entities:'الجهة المختصة',priorities:'الأولوية'})[type];
+  if(!confirm('حذف «'+(entries.find(x=>x.value===value)?.label||value)+'» من قائمة '+label+'؟ ستبقى القيمة كما هي في الشكاوى السابقة.'))return;
+  if(type==='priorities')db.settings.priorities=db.settings.priorities.filter(x=>x.value!==value);else db.settings[type]=db.settings[type].filter(item=>item!==value);
+  const key=settingDescriptionKey(type);if(key)delete (db.settings[key] ||= {})[value];persist();render();toast('تم حذف الخيار من القائمة.');
+}
+function clearSettingType(type){
+  if(!validSettingType(type))return;ensureManagedSettings();const label=({categories:'التصنيفات',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'})[type];
+  if(!settingEntries(type).length)return toast('القائمة فارغة بالفعل.','warn');
+  if(!confirm('تأكيد حذف جميع '+label+' من خيارات الإدخال؟ لن تُحذف القيم المحفوظة في الشكاوى السابقة.'))return;
+  db.settings[type]=[];const key=settingDescriptionKey(type);if(key)db.settings[key]={};persist();render();toast('تم إفراغ القائمة.');
+}
+function restoreDefaultSettings(type='all'){
+  if(!['all',...managedTypes].includes(type))return;const labels={all:'كل القوائم',categories:'التصنيفات',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'};
+  if(!confirm('استعادة '+labels[type]+' الافتراضية؟ لن تتغير الشكاوى السابقة.'))return;
+  for(const key of managedTypes){if(type!=='all'&&type!==key)continue;db.settings[key]=key==='priorities'?seed.settings.priorities.map(x=>({...x})): [...seed.settings[key]];const descKey=settingDescriptionKey(key);if(descKey)db.settings[descKey]={};}
+  persist();render();toast('تمت استعادة '+labels[type]+' الافتراضية.');
+}
+function archiveSetting(type,value){
+  if(!validSettingType(type)||!db.settings[type].includes(value))return;
+  if(!confirm('أرشفة «'+value+'» من القيم المتاحة الجديدة؟ لن تتغير السجلات السابقة.'))return;
+  db.settings[type]=db.settings[type].filter(x=>x!==value);
+  (db.settings.archived ||= []).push({type,value,at:new Date().toISOString()});
+  persist();render();toast('أُرشفت القيمة؛ السجلات القديمة محفوظة.');
+}
+function archiveSetting(type,value){if(!confirm('أرشفة «'+value+'» من القيم المتاحة الجديدة؟ لن تتغير السجلات السابقة.'))return;db.settings[type]=db.settings[type].filter(x=>x!==value);(db.settings.archived ||= []).push({type,value,at:new Date().toISOString()});persist();render();toast('أُرشفت القيمة؛ السجلات القديمة محفوظة.');}
+function csvSafe(value){const text=String(value??'');return /^[\s\u0000-\u001f]*[=+\-@]/.test(text)?"'"+text:text;}
+function exportCsv(){const rows=filteredComplaints();const header=['رقم الشكوى','الموضوع','المحافظة','التصنيف','الحالة','الأولوية','المسؤول','تاريخ التسجيل'];const csv=[header,...rows.map(c=>[c.id,c.summary,c.province,c.category,statusLabel(c.status),priorityLabel(c.priority),c.owner,dateText(c.created)])].map(row=>row.map(v=>'"'+csvSafe(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='demo-complaints.csv';document.body.appendChild(a);a.click();a.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);toast('تم إنشاء ملف CSV تجريبي. تذكّر أنه غير رسمي.','warn');}
+document.addEventListener('click',e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return;}const goto=e.target.closest('[data-goto]');if(goto){go(goto.dataset.goto);return;}const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=el.dataset.id;
+switch(a){
+case 'database-backup':{
+  (async()=>{try{
+    el.disabled=true;el.textContent='جارٍ تجهيز النسخة…';
+    const response=await fetch('/api/backup/database',{credentials:'same-origin'});
+    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'تعذر إنشاء النسخة الاحتياطية.');}
+    const blob=await response.blob();if(!blob.size)throw new Error('الملف الناتج فارغ؛ لم تُنزّل نسخة احتياطية.');
+    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    const disposition=response.headers.get('Content-Disposition')||'';
+    const filename=disposition.match(/filename="?([^";]+)"?/i)?.[1]||('complaints-database-backup-'+new Date().toISOString().slice(0,10)+'.sqlite');
+    link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast('تم تنزيل نسخة احتياطية كاملة من قاعدة البيانات. احتفظ بها في مكان آمن.');
+  }catch(error){toast(error.message,'error');}finally{el.disabled=false;el.textContent='نسخ احتياطي';}})();break;}
+case 'sync-export':{
+  (async()=>{try{
+    const response=await fetch('/api/sync/export',{credentials:'same-origin'});
+    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'تعذر التصدير.');}
+    const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download='complaints-sync-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
+    toast('تم إنشاء ملف المزامنة؛ انقله يدويًا إلى النسخة الأخرى.');
+  }catch(error){toast(error.message,'error');}})();break;}
+case 'sync-import':$('#syncImportFile')?.click();break;
+case 'close-modal':closeModal();break;
+case 'backdrop-close':if(e.target===el)closeModal();break;
+case 'new-complaint':newComplaint();break;
+case 'save-complaint':createComplaint();break;
+case 'detail':closeModal();detailModal(id);break;
+case 'change-status':changeStatus(id);break;
+case 'assign-owner':assignOwner(id);break;
+case 'change-priority':changePriority(id);break;
+case 'add-note':addNote(id);break;
+case 'save-note':saveNote(id);break;
+case 'new-referral':newReferralGlobal();break;
+case 'referral-create':newReferral(id);break;
+case 'save-referral':saveReferral(id);break;
+case 'referral-next':{const v=$('#refComplaint')?.value;closeModal();if(v)newReferral(v);break;}
+case 'survey':surveyModal(id);break;
+case 'save-survey':saveSurvey(id);break;
+case 'new-reply':newReply();break;
+case 'reply-create':replyEditor(id);break;
+case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEditor(v);break;}
+case 'save-reply':saveReply(id);break;
+case 'reply-review':replyAction(id,a);render();break;
+case 'reply-approve':replyAction(id,a);render();break;
+case 'reply-sent':replyAction(id,a);render();break;
+case 'read-all':db.notifications.forEach(n=>n.read=true);persist();render();toast('تم تحديد الإشعارات كمقروءة.');break;
+case 'read-notice':{const n=db.notifications.find(n=>String(n.id)===String(id));if(n)n.read=true;persist();render();break;}
+case 'filter-late':statusFilter='all';searchText='';go('complaints');searchText='';const lateIds=lateComplaints().map(c=>c.id);$('#complaintSearch').value='';$$('tbody tr').forEach(tr=>{const t=tr.textContent;tr.style.display=lateIds.some(x=>t.includes(x))?'':'none';});toast('عُرضت السجلات المتأخرة في هذه الجلسة.');break;
+case 'filter-missing':go('complaints');toast('راجع الحقول الأساسية في تفاصيل السجلات.');break;
+case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';render();break;
+case 'quick-filter':statusFilter=el.dataset.value||'all';searchText='';render();break;
+case 'my-complaints':searchText='';statusFilter='all';render();$$('tbody tr').forEach(tr=>{tr.style.display=tr.textContent.includes('مستخدم تجريبي')?'':'none';});break;
+case 'urgent-no-reply':searchText='';statusFilter='all';priorityFilter='urgent';render();$$('tbody tr').forEach(tr=>{const rowId=tr.querySelector('.ticket-id')?.textContent;const c=db.complaints.find(x=>x.id===rowId);tr.style.display=c&&c.priority==='urgent'&&!c.reply?'':'none';});break;
+case 'bulk-open':bulkOpen();break;
+case 'bulk-assign':bulkOpen();if($('#bulkType')){$('#bulkType').value='assign';$('#bulkType').dispatchEvent(new Event('change',{bubbles:true}));}break;
+case 'bulk-priority':bulkOpen();if($('#bulkType')){$('#bulkType').value='priority';$('#bulkType').dispatchEvent(new Event('change',{bubbles:true}));}break;
+case 'clear-selection':selectedIds.clear();render();break;
+case 'select-all':{const checks=$$('.row-check');if(el.checked)checks.forEach(c=>selectedIds.add(c.dataset.id));else selectedIds.clear();render();break;}
+case 'bulk-confirm':{const type=$('#bulkType').value,value=$('#bulkValue').value;modal('تأكيد الإجراء الجماعي','مراجعة أخيرة قبل التطبيق','<div class="risk-note">سيتم تطبيق «'+esc(type==='assign'?'تغيير المسؤول':'تغيير الأولوية')+'» على '+selectedIds.size+' سجلات. هذه العملية لا يمكن التراجع عنها تلقائيًا في النموذج.</div><p style="font-size:12px">القيمة المحددة: <strong>'+esc(value)+'</strong></p>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-apply" data-type="'+type+'" data-value="'+esc(value)+'">تأكيد التطبيق</button>');break;}
+case 'bulk-apply':{const type=el.dataset.type,value=el.dataset.value;if(!confirm('تأكيد نهائي لتطبيق الإجراء على '+selectedIds.size+' سجلات؟'))return;for(const cid of selectedIds){const c=db.complaints.find(x=>x.id===cid);if(!c)continue;if(type==='assign'){c.owner=value;logEvent(c,'إسناد جماعي','تم إسناد السجل إلى '+value+'.');}else{c.priority=value;logEvent(c,'تغيير أولوية جماعي','تم تغيير الأولوية إلى '+priorityLabel(value)+'.');}}selectedIds.clear();persist();closeModal();render();toast('تم تطبيق الإجراء الجماعي تجريبيًا.');break;}
+case 'add-setting':addSetting(validSettingType(el.dataset.type)?el.dataset.type:'categories');break;
+case 'add-category':addSetting('categories');break;
+case 'add-entity':addSetting('entities');break;
+case 'edit-setting':addSetting(el.dataset.type,el.dataset.value);break;
+case 'delete-setting':deleteSetting(el.dataset.type,el.dataset.value);break;
+case 'clear-setting-type':clearSettingType(el.dataset.type);break;
+case 'restore-settings':restoreDefaultSettings(el.dataset.type||'all');break;
+case 'save-setting':{
+  const type=el.dataset.type,mode=el.dataset.mode||'create',value=$('#settingValue')?.value.trim(),description=$('#settingDescription')?.value.trim()||'';
+  if(!validSettingType(type))return toast('نوع القائمة غير صالح.','error');ensureManagedSettings();if(!value)return toast('أدخل الاسم أولًا.','warn');
+  const original=el.dataset.original||'',entries=settingEntries(type);
+  if(entries.some(item=>item.label.toLocaleLowerCase()===value.toLocaleLowerCase()&&!(mode==='edit'&&item.value===original)))return toast('هذا الاسم موجود بالفعل في القائمة.','warn');
+  if(type==='priorities'){
+    if(mode==='edit'){const entry=db.settings.priorities.find(x=>x.value===original);if(!entry)return toast('تعذر العثور على الأولوية.','error');entry.label=value;}
+    else db.settings.priorities.push({value:'custom-'+Date.now().toString(36),label:value});
+  }else{
+    const key=settingDescriptionKey(type);if(key)db.settings[key] ||= {};
+    if(mode==='edit'){const index=db.settings[type].indexOf(original);if(index<0)return toast('تعذر العثور على القيمة المراد تعديلها.','error');db.settings[type][index]=value;if(key)delete db.settings[key][original];}
+    else db.settings[type].push(value);
+    if(key){if(description)db.settings[key][value]=description;else delete db.settings[key][value];}
+  }
+  persist();closeModal();render();toast(mode==='edit'?'تم تعديل الخيار.':'تمت إضافة الخيار إلى القائمة.');break;
+}
+case 'archive-setting':archiveSetting(el.dataset.type,el.dataset.value);break;
+case 'save-sla':{const days=Number($('#slaDays').value);if(!Number.isInteger(days)||days<1||days>365)return toast('أدخل مدة بين يوم و365 يومًا.','warn');db.settings.slaDays=days;db.settings.slaApproved=$('#slaApproved').checked;persist();render();toast(db.settings.slaApproved?'فُعّلت المهلة في النموذج التجريبي فقط.':'حُفظت المدة دون تفعيل مؤشر التأخير.','warn');break;}
+case 'refresh-local-users':refreshManagedUsers();break;
+case 'create-local-user':{
+  (async()=>{const username=$('#newLocalUsername')?.value.trim(),password=$('#newLocalPassword')?.value,role=$('#newLocalRole')?.value;
+    if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');
+    try{const result=await api('/api/users',{method:'POST',body:JSON.stringify({username,password,role})});$('#localUserForm')?.reset();toast('تم إنشاء الحساب '+result.user.username+'.');await refreshManagedUsers();}
+    catch(error){toast(error.message,'error');}})();break;}
+case 'toggle-local-user':{
+  (async()=>{try{const active=el.dataset.active==='true';await api('/api/users/'+encodeURIComponent(el.dataset.userId)+'/active',{method:'PATCH',body:JSON.stringify({active})});toast(active?'تم تفعيل الحساب.':'تم تعطيل الحساب.');await refreshManagedUsers();}
+    catch(error){toast(error.message,'error');}})();break;}
+case 'export-csv':exportCsv();break;
+case 'print-report':window.print();break;
+}
+});
+document.addEventListener('input',e=>{if(e.target.id==='complaintSearch'){searchText=e.target.value;const pos=e.target.selectionStart;render();const input=$('#complaintSearch');input.focus();input.setSelectionRange(pos,pos);}if(['cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
+);
+document.addEventListener('change',e=>{if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?['مها العلي','خالد منصور','سليم عمر','وسيم صالح','مستخدم تجريبي']:['urgent','high','normal']).map(x=>'<option value="'+x+'">'+(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
+document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root.dataset.open&&e.key==='Tab'){const dlg=$('.modal',root);const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!dlg.contains(document.activeElement))){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dlg.contains(document.activeElement))){e.preventDefault();first.focus();}}if(e.key==='Escape'&&root.dataset.open){closeModal();return;}if(e.ctrlKey&&e.key.toLowerCase()==='k'){e.preventDefault();go('complaints');setTimeout(()=>$('#complaintSearch')?.focus(),0);}if(e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
+$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
+$('#syncImportFile')?.addEventListener('change',async event=>{
+  const file=event.target.files?.[0];if(!file)return;
+  try{
+    if(file.size>950*1024)throw new Error('حجم الملف يتجاوز الحد المسموح.');
+    const payload=JSON.parse(await file.text());
+    if(!confirm('سيستبدل الاستيراد بيانات الشكاوى الحالية. هل أخذت نسخة احتياطية وتريد المتابعة؟'))return;
+    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify(payload)});
+    const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;render();
+    toast(result.updateStaged
+      ? 'استوردت البيانات؛ حزمة البرنامج الموقعة محفوظة للمراجعة ولم تُطبّق تلقائيًا.'
+      : 'استوردت البيانات فقط؛ لم تُحفظ ملفات البرنامج لأن التوقيع الموثوق غير صالح أو غير موجود.',
+      'warn');
+  }catch(error){toast(error.message,'error');}finally{event.target.value='';}
+});
+$('#logoutButton')?.addEventListener('click',logout);
+updateSignedInUi();
+render();
+api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();render();refreshManagedUsers();}).catch(()=>{showLogin();});
+})();

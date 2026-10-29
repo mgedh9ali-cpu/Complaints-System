@@ -1,6 +1,6 @@
 {
   "name": "complaints-local-system",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "Local-first Arabic complaints system with modular architecture",
   "main": "server.js",
