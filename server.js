@@ -19,6 +19,12 @@ const { createRolesService } = require('./modules/roles/service');
 const { createRolesRouter } = require('./modules/roles/routes');
 const { createDashboardService } = require('./modules/dashboard/service');
 const { createDashboardRouter } = require('./modules/dashboard/routes');
+const { createAttachmentsService } = require('./modules/attachments/service');
+const { createAttachmentsRouter } = require('./modules/attachments/routes');
+const { createReportsService } = require('./modules/reports/service');
+const { createReportsRouter } = require('./modules/reports/routes');
+const { createSettingsService } = require('./modules/settings/service');
+const { createSettingsRouter } = require('./modules/settings/routes');
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
@@ -43,7 +49,7 @@ fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
-db.pragma('busy_timeout = 5000');
+db.pragma('busy_timeout = 5000);
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -131,6 +137,9 @@ const { requireAuth, requireRole, requireCsrf, ensureCsrfToken } = middleware;
 const rolesService = createRolesService();
 const complaintsService = createComplaintsService({ db, audit, logger });
 const dashboardService = createDashboardService({ complaintsService });
+const attachmentsService = createAttachmentsService();
+const reportsService = createReportsService({ complaintsService });
+const settingsService = createSettingsService({ complaintsService });
 
 app.disable('x-powered-by');
 app.use(helmet({
@@ -157,12 +166,6 @@ app.use(ensureCsrfToken);
 const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
 const { backupDatabase } = require('./scripts/backup-database');
-const multer = require('multer');
-const { saveAttachment, getAttachmentPath, deleteAttachment, MAX_FILE_SIZE, MAX_FILES_PER_COMPLAINT } = require('./lib/attachments');
-const { buildComplaintsWorkbook } = require('./lib/excel-export');
-const { createSyncPackage, validateSyncPackage, stageProgramUpdate, verifyProgramUpdate } = require('./lib/offline-sync');
-
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES_PER_COMPLAINT } });
 
 const instanceIdPath = path.resolve(process.env.INSTANCE_ID_PATH || './data/instance-id');
 fs.mkdirSync(path.dirname(instanceIdPath), { recursive: true });
@@ -177,65 +180,9 @@ app.use('/api', createComplaintsRouter({
   complaintsService, middleware, audit, logger, validComplaint, diffComplaints, db
 }));
 app.use('/api', createDashboardRouter({ dashboardService, middleware }));
-
-app.post('/api/attachments/:complaintId', requireAuth, requireRole('admin', 'staff'), requireCsrf, upload.array('files', MAX_FILES_PER_COMPLAINT), (req, res) => {
-  const complaintId = String(req.params.complaintId || '').trim();
-  if (!complaintId || complaintId.length > 100) return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
-  if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'لم يتم إرسال أي ملف.' });
-  try {
-    const saved = [];
-    for (const file of req.files) {
-      const meta = saveAttachment(complaintId, file);
-      saved.push(meta);
-      audit(req.user.id, 'attachment_uploaded', 'attachment', meta.id, { complaintId, originalName: meta.originalName, size: meta.size });
-    }
-    res.status(201).json({ attachments: saved });
-  } catch (err) { res.status(400).json({ error: err.message || 'فشل رفع الملف.' }); }
-});
-
-app.get('/api/attachments/:storedName', requireAuth, (req, res) => {
-  const storedName = path.basename(req.params.storedName || '');
-  const full = getAttachmentPath(storedName);
-  if (!full) return res.status(404).json({ error: 'الملف غير موجود.' });
-  res.download(full, storedName, (err) => { if (err && !res.headersSent) res.status(500).json({ error: 'تعذر تنزيل الملف.' }); });
-});
-
-app.delete('/api/attachments/:storedName', requireAuth, requireRole('admin', 'staff'), requireCsrf, (req, res) => {
-  const storedName = path.basename(req.params.storedName || '');
-  deleteAttachment(storedName);
-  audit(req.user.id, 'attachment_deleted', 'attachment', storedName, {});
-  res.status(204).end();
-});
-
-app.get('/api/export/csv', requireAuth, requireRole('admin', 'staff', 'reviewer'), (req, res) => {
-  const { state } = complaintsService.readState();
-  const complaints = Array.isArray(state.complaints) ? state.complaints : [];
-  const headers = ['id', 'name', 'phone', 'province', 'entity', 'category', 'priority', 'status', 'summary', 'created', 'updated', 'due', 'owner'];
-  const escapeCsv = (v) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const lines = [headers.join(',')];
-  for (const c of complaints) lines.push(headers.map(h => escapeCsv(c[h])).join(','));
-  const csv = '\uFEFF' + lines.join('\n');
-  const filename = 'complaints-export-' + new Date().toISOString().slice(0, 10) + '.csv';
-  audit(req.user.id, 'csv_export', 'export', filename, { count: complaints.length });
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '"');
-  res.setHeader('Cache-Control', 'no-store');
-  res.send(csv);
-});
-
-app.get('/api/export/xlsx', requireAuth, requireRole('admin', 'staff', 'reviewer'), async (req, res, next) => {
-  try {
-    const { state } = complaintsService.readState();
-    const complaints = Array.isArray(state.complaints) ? state.complaints : [];
-    const buffer = await buildComplaintsWorkbook(complaints, { title: 'تقرير الشكاوى', generatedBy: req.user.username });
-    const filename = 'تقرير-الشكاوى-' + new Date().toISOString().slice(0, 10) + '.xlsx';
-    audit(req.user.id, 'xlsx_export', 'export', filename, { count: complaints.length });
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(filename));
-    res.setHeader('Cache-Control', 'no-store');
-    res.send(buffer);
-  } catch (err) { next(err); }
-});
+app.use('/api', createAttachmentsRouter({ attachmentsService, middleware, audit }));
+app.use('/api', createReportsRouter({ reportsService, middleware, audit }));
+app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger }));
 
 app.get('/api/backup/database', requireAuth, requireRole('admin'), async (req, res, next) => {
   const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-database-backup-'));
