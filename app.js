@@ -1,6 +1,12 @@
 (() => {
   'use strict';
-  const partUrls = ['/app-b64-0.txt', '/app-b64-1.txt', '/app-b64-2.txt'];
+  const partUrls = [
+    '/app-b64-t00.txt','/app-b64-t01.txt','/app-b64-t02.txt','/app-b64-t03.txt',
+    '/app-b64-t04.txt','/app-b64-t05.txt','/app-b64-t06.txt','/app-b64-t07.txt',
+    '/app-b64-t08.txt','/app-b64-t09.txt','/app-b64-t10.txt','/app-b64-t11.txt',
+    '/app-b64-t12.txt','/app-b64-t13.txt','/app-b64-t14.txt','/app-b64-t15.txt',
+    '/app-b64-t16.txt'
+  ];
   (async () => {
     try {
       const parts = await Promise.all(partUrls.map(u => fetch(u, {credentials:'same-origin',cache:'no-cache'}).then(r => {
