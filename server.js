@@ -1324,6 +1324,20 @@ app.use("/api", (req, res) =>
   res.status(404).json({ error: "المسار غير موجود." }),
 );
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+app.get("/app.bundle.js", (req, res) => {
+  try {
+    const source = Array.from({ length: 9 }, (_, index) => {
+      const segment = `app-p${String(index + 1).padStart(2, "0")}.js`;
+      return fs.readFileSync(path.join(__dirname, segment), "utf8");
+    }).join("");
+    res.type("application/javascript");
+    res.setHeader("Cache-Control", "no-cache");
+    res.send(source);
+  } catch (error) {
+    console.error("UI bundle assembly failed:", error.message);
+    res.status(500).type("text/plain").send("تعذر تحميل واجهة النظام.");
+  }
+});
 app.get("/app.js", (req, res) => res.sendFile(path.join(__dirname, "app.js")));
 app.get("/attachments-ui-bridge.js", (req, res) =>
   res.sendFile(path.join(__dirname, "attachments-ui-bridge.js")),
