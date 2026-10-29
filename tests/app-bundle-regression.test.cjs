@@ -23,6 +23,8 @@ test("split UI segments assemble into valid JavaScript and are served without ev
   const assembled = segments.join("");
   assert.doesNotThrow(() => new vm.Script(assembled), "assembled UI must be valid JavaScript");
   assert.ok(assembled.includes("api('/api/state')"), "UI must load state from the authenticated server");
+  assert.ok(assembled.includes("fetch(url,{...options,credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})}})"),
+    "API helper must preserve JSON and CSRF headers when request options are supplied");
   assert.ok(assembled.includes("refreshManagedUsers()"), "UI must initialize managed-user controls");
   assert.ok(assembled.includes("function render("), "UI must contain its page renderer");
   assert.ok(loader.includes("script.src = '/app.bundle.js'"), "loader must request the assembled bundle");
