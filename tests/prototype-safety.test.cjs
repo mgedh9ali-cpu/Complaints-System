@@ -3,7 +3,11 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const test = require("node:test");
 
-const app = fs.readFileSync("app.js", "utf8");
+const root = require("node:path").resolve(__dirname, "..");
+const app = Array.from({ length: 9 }, (_, index) => {
+  const name = "app-p" + String(index + 1).padStart(2, "0") + ".js";
+  return fs.readFileSync(require("node:path").join(root, name), "utf8");
+}).join("");
 
 test("CSV sanitizer prefixes formula-leading values", () => {
   const definition = app
