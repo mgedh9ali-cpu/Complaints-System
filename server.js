@@ -59,7 +59,7 @@ fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
-db.pragma('busy_timeout = 5000');
+db.pragma('busy_timeout = 5000);
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -221,6 +221,21 @@ app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logge
 app.use('/api', createBackupRouter({ backupService, middleware, audit }));
 app.use('/api', createAuditRouter({ auditService, middleware }));
 app.use('/api', createSyncRouter({ syncService, middleware, auditService }));
+
+app.get("/app.bundle.js", (req, res) => {
+  try {
+    const source = Array.from({ length: 9 }, (_, index) => {
+      const segment = `app-p${String(index + 1).padStart(2, "0")}.js`;
+      return fs.readFileSync(path.join(__dirname, segment), "utf8");
+    }).join("");
+    res.type("application/javascript");
+    res.setHeader("Cache-Control", "no-cache");
+    res.send(source);
+  } catch (error) {
+    logger.error("UI bundle assembly failed", { message: error.message });
+    res.status(500).type("text/plain").send("تعذر تحميل واجهة النظام.");
+  }
+});
 
 app.use(express.static(path.resolve('.'), { index: 'index.html', extensions: ['html'] }));
 
