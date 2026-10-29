@@ -1,0 +1,22 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/node:22.10.0
+    steps:
+      - checkout
+      - run:
+          name: تثبيت الحزم
+          command: npm install --no-audit --no-fund
+      - run:
+          name: فحص النحو (Syntax Check)
+          command: npm run check
+      - run:
+          name: تشغيل الاختبارات الآلية
+          command: npm test
+
+workflows:
+  build-and-test:
+    jobs:
+      - test
