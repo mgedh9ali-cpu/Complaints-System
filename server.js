@@ -2,6 +2,7 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
+const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 const express = require('express');
 const helmet = require('helmet');
@@ -59,7 +60,7 @@ fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
-db.pragma('busy_timeout = 5000);
+db.pragma('busy_timeout = 5000');
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -222,18 +223,21 @@ app.use('/api', createBackupRouter({ backupService, middleware, audit }));
 app.use('/api', createAuditRouter({ auditService, middleware }));
 app.use('/api', createSyncRouter({ syncService, middleware, auditService }));
 
-app.get("/app.bundle.js", (req, res) => {
+app.get('/app.bundle.js', (req, res) => {
   try {
-    const source = Array.from({ length: 9 }, (_, index) => {
-      const segment = `app-p${String(index + 1).padStart(2, "0")}.js`;
-      return fs.readFileSync(path.join(__dirname, segment), "utf8");
-    }).join("");
-    res.type("application/javascript");
-    res.setHeader("Cache-Control", "no-cache");
+    const parts = [];
+    for (let index = 0; index <= 16; index += 1) {
+      const name = `app-b64-t${String(index).padStart(2, '0')}.txt`;
+      parts.push(fs.readFileSync(path.join(__dirname, name), 'utf8'));
+    }
+    const compressed = Buffer.from(parts.join('').replace(/\s+/g, ''), 'base64');
+    const source = zlib.gunzipSync(compressed).toString('utf8');
+    res.type('application/javascript');
+    res.setHeader('Cache-Control', 'no-cache');
     res.send(source);
   } catch (error) {
-    logger.error("UI bundle assembly failed", { message: error.message });
-    res.status(500).type("text/plain").send("تعذر تحميل واجهة النظام.");
+    logger.error('UI bundle assembly failed', { message: error.message });
+    res.status(500).type('text/plain').send('تعذر تحميل واجهة النظام.');
   }
 });
 
