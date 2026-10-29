@@ -2,7 +2,6 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
-const os = require('node:os');
 const crypto = require('node:crypto');
 const express = require('express');
 const helmet = require('helmet');
@@ -10,13 +9,14 @@ const session = require('express-session');
 const Database = require('better-sqlite3');
 const { hashAuditEvent } = require('./lib/audit-integrity');
 const { logger } = require('./lib/logger');
-const { createComplaintsService } = require('./modules/complaints/service');
-const { createComplaintsRouter } = require('./modules/complaints/routes');
+
 const { createAuthService } = require('./modules/auth/service');
 const { createAuthMiddleware } = require('./modules/auth/middleware');
 const { createAuthRouter } = require('./modules/auth/routes');
 const { createRolesService } = require('./modules/roles/service');
 const { createRolesRouter } = require('./modules/roles/routes');
+const { createComplaintsService } = require('./modules/complaints/service');
+const { createComplaintsRouter } = require('./modules/complaints/routes');
 const { createDashboardService } = require('./modules/dashboard/service');
 const { createDashboardRouter } = require('./modules/dashboard/routes');
 const { createAttachmentsService } = require('./modules/attachments/service');
@@ -25,6 +25,16 @@ const { createReportsService } = require('./modules/reports/service');
 const { createReportsRouter } = require('./modules/reports/routes');
 const { createSettingsService } = require('./modules/settings/service');
 const { createSettingsRouter } = require('./modules/settings/routes');
+const { createBackupService } = require('./modules/backup/service');
+const { createBackupRouter } = require('./modules/backup/routes');
+const { createAuditService } = require('./modules/audit/service');
+const { createAuditRouter } = require('./modules/audit/routes');
+const { createSyncService } = require('./modules/sync/service');
+const { createSyncRouter } = require('./modules/sync/routes');
+const { createHealthService } = require('./modules/health/service');
+const { createHealthRouter } = require('./modules/health/routes');
+
+const APP_VERSION = '0.7.0';
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
@@ -41,7 +51,7 @@ const adminPassword = requiredEnv('ADMIN_PASSWORD', 12);
 const databasePath = path.resolve(process.env.DATABASE_PATH || './data/complaints.sqlite');
 
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid TCP port');
-if (process.env.ALLOW_LAN === 'true' || (process.env.HOST && !['127.0.0.1','localhost'].includes(process.env.HOST))) {
+if (process.env.ALLOW_LAN === 'true' || (process.env.HOST && !['127.0.0.1', 'localhost'].includes(process.env.HOST))) {
   throw new Error('This offline build is loopback-only; remove HOST/ALLOW_LAN overrides.');
 }
 
@@ -49,7 +59,7 @@ fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
-db.pragma('busy_timeout = 5000);
+db.pragma('busy_timeout = 5000');
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -86,20 +96,24 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at DESC);
 `);
 
-const appStateColumns = new Set(db.prepare('PRAGMA table_info(app_state)').all().map(row => row.name));
+const appStateColumns = new Set(db.prepare('PRAGMA table_info(app_state)').all().map((row) => row.name));
 if (!appStateColumns.has('revision')) {
   db.exec('ALTER TABLE app_state ADD COLUMN revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1)');
 }
 
-const auditColumns = new Set(db.prepare('PRAGMA table_info(audit_events)').all().map(row => row.name));
+const auditColumns = new Set(db.prepare('PRAGMA table_info(audit_events)').all().map((row) => row.name));
 const auditChainNeedsMigration = !auditColumns.has('previous_hash') || !auditColumns.has('event_hash');
 if (!auditColumns.has('previous_hash')) db.exec('ALTER TABLE audit_events ADD COLUMN previous_hash TEXT');
 if (!auditColumns.has('event_hash')) db.exec('ALTER TABLE audit_events ADD COLUMN event_hash TEXT');
 if (auditChainNeedsMigration) {
   const migrateAuditChain = db.transaction(() => {
     let previousHash = null;
-    const rows = db.prepare(`SELECT rowid AS _rowid, id, actor_user_id, action, target_type, target_id,
-      details_json, created_at FROM audit_events ORDER BY rowid ASC`).all();
+    const rows = db
+      .prepare(
+        `SELECT rowid AS _rowid, id, actor_user_id, action, target_type, target_id,
+                details_json, created_at FROM audit_events ORDER BY rowid ASC`
+      )
+      .all();
     const update = db.prepare('UPDATE audit_events SET previous_hash = ?, event_hash = ? WHERE rowid = ?');
     for (const row of rows) {
       const eventHash = hashAuditEvent(row, previousHash);
@@ -110,29 +124,15 @@ if (auditChainNeedsMigration) {
   migrateAuditChain();
 }
 
-function persistAuditHeadHash(eventHash) {
-  try { fs.writeFileSync(path.resolve('./data/audit-head.hash'), eventHash + '\n'); }
-  catch (err) { logger.error('Failed to persist audit head hash', { error: err.message }); }
-}
-
-function audit(actorUserId, action, targetType, targetId = null, details = {}) {
-  const event = {
-    id: crypto.randomUUID(), actor_user_id: actorUserId || null, action,
-    target_type: targetType, target_id: targetId,
-    details_json: JSON.stringify(details), created_at: new Date().toISOString()
-  };
-  const previousHash = db.prepare('SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1').get()?.event_hash ?? null;
-  const eventHash = hashAuditEvent(event, previousHash);
-  db.prepare(`INSERT INTO audit_events (id, actor_user_id, action, target_type, target_id, details_json, created_at, previous_hash, event_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(event.id, event.actor_user_id, event.action, event.target_type, event.target_id, event.details_json, event.created_at, previousHash, eventHash);
-  persistAuditHeadHash(eventHash);
-}
+const auditService = createAuditService({ db, logger });
+const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
+  auditService.record(actorUserId, action, targetType, targetId, details);
 
 const authService = createAuthService({ db, audit, logger });
 authService.ensureBootstrapAdmin(adminUsername, adminPassword);
 
 const middleware = createAuthMiddleware({ db });
-const { requireAuth, requireRole, requireCsrf, ensureCsrfToken } = middleware;
+const { ensureCsrfToken } = middleware;
 
 const rolesService = createRolesService();
 const complaintsService = createComplaintsService({ db, audit, logger });
@@ -140,64 +140,87 @@ const dashboardService = createDashboardService({ complaintsService });
 const attachmentsService = createAttachmentsService();
 const reportsService = createReportsService({ complaintsService });
 const settingsService = createSettingsService({ complaintsService });
-
-app.disable('x-powered-by');
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:'], connectSrc: ["'self'"], objectSrc: ["'none'"],
-      baseUri: ["'self'"], formAction: ["'self'"], frameAncestors: ["'none'"]
-    }
-  }
-}));
-app.use(express.json({ limit: '1mb', strict: true }));
-
-const FileStore = require('session-file-store')(session);
-const sessionsDir = path.resolve('./data/sessions');
-fs.mkdirSync(sessionsDir, { recursive: true });
-app.use(session({
-  name: 'complaints.sid', secret: sessionSecret, resave: false, saveUninitialized: false,
-  store: new FileStore({ path: sessionsDir, ttl: 30 * 60, retries: 1, logFn: function() {} }),
-  cookie: { httpOnly: true, sameSite: 'strict', secure: process.env.COOKIE_SECURE === 'true', maxAge: 30 * 60 * 1000 }
-}));
-app.use(ensureCsrfToken);
-
-const { validComplaint } = require('./lib/validation');
-const { diffComplaints } = require('./lib/complaint-state-diff');
-const { backupDatabase } = require('./scripts/backup-database');
+const backupService = createBackupService({ databasePath });
+const healthService = createHealthService({ db, databasePath, version: APP_VERSION });
 
 const instanceIdPath = path.resolve(process.env.INSTANCE_ID_PATH || './data/instance-id');
 fs.mkdirSync(path.dirname(instanceIdPath), { recursive: true });
 if (!fs.existsSync(instanceIdPath)) fs.writeFileSync(instanceIdPath, crypto.randomUUID() + '\n', { flag: 'wx' });
 const sourceInstanceId = fs.readFileSync(instanceIdPath, 'utf8').trim();
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local', version: '0.6.0' }));
+const syncService = createSyncService({
+  complaintsService,
+  auditService,
+  db,
+  sourceInstanceId,
+  rootDir: path.resolve('.')
+});
 
+app.disable('x-powered-by');
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"]
+      }
+    }
+  })
+);
+app.use(express.json({ limit: '1mb', strict: true }));
+
+const FileStore = require('session-file-store')(session);
+const sessionsDir = path.resolve('./data/sessions');
+fs.mkdirSync(sessionsDir, { recursive: true });
+app.use(
+  session({
+    name: 'complaints.sid',
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    store: new FileStore({ path: sessionsDir, ttl: 30 * 60, retries: 1, logFn: function () {} }),
+    cookie: {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.COOKIE_SECURE === 'true',
+      maxAge: 30 * 60 * 1000
+    }
+  })
+);
+app.use(ensureCsrfToken);
+
+const { validComplaint } = require('./lib/validation');
+const { diffComplaints } = require('./lib/complaint-state-diff');
+
+app.use('/api', createHealthRouter({ healthService, middleware }));
 app.use('/api', createAuthRouter({ authService, middleware, audit }));
 app.use('/api', createRolesRouter({ rolesService, middleware }));
-app.use('/api', createComplaintsRouter({
-  complaintsService, middleware, audit, logger, validComplaint, diffComplaints, db
-}));
+app.use(
+  '/api',
+  createComplaintsRouter({
+    complaintsService,
+    middleware,
+    audit,
+    logger,
+    validComplaint,
+    diffComplaints,
+    db
+  })
+);
 app.use('/api', createDashboardRouter({ dashboardService, middleware }));
 app.use('/api', createAttachmentsRouter({ attachmentsService, middleware, audit }));
 app.use('/api', createReportsRouter({ reportsService, middleware, audit }));
 app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger }));
-
-app.get('/api/backup/database', requireAuth, requireRole('admin'), async (req, res, next) => {
-  const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-database-backup-'));
-  try {
-    const result = await backupDatabase({ databasePath, backupDir });
-    audit(req.user.id, 'database_backup', 'backup', path.basename(result.backupPath), {});
-    res.download(result.backupPath, path.basename(result.backupPath), (err) => {
-      try { fs.rmSync(backupDir, { recursive: true, force: true }); } catch (_) {}
-      if (err && !res.headersSent) res.status(500).json({ error: 'تعذر تنزيل النسخة الاحتياطية.' });
-    });
-  } catch (err) {
-    try { fs.rmSync(backupDir, { recursive: true, force: true }); } catch (_) {}
-    next(err);
-  }
-});
+app.use('/api', createBackupRouter({ backupService, middleware, audit }));
+app.use('/api', createAuditRouter({ auditService, middleware }));
+app.use('/api', createSyncRouter({ syncService, middleware, auditService }));
 
 app.use(express.static(path.resolve('.'), { index: 'index.html', extensions: ['html'] }));
 
@@ -208,6 +231,6 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(port, host, () => {
-  logger.info('server listening', { host, port, version: '0.6.0' });
-  console.log(`Complaints system listening on http://${host}:${port}`);
+  logger.info('server listening', { host, port, version: APP_VERSION });
+  console.log(`Complaints system listening on http://${host}:${port} (v${APP_VERSION})`);
 });
