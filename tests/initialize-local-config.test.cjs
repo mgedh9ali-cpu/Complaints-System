@@ -1,20 +1,24 @@
-'use strict';
+"use strict";
 
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const test = require('node:test');
-const { initializeLocalConfig } = require('../scripts/initialize-local-config');
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const test = require("node:test");
+const { initializeLocalConfig } = require("../scripts/initialize-local-config");
 
-test('first-run configuration creates strong local secrets and displays the initial password once', t => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-config-'));
+test("first-run configuration creates strong local secrets and displays the initial password once", (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "complaints-config-"),
+  );
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const envPath = path.join(directory, '.env');
+  const envPath = path.join(directory, ".env");
   const messages = [];
 
-  const result = initializeLocalConfig(envPath, message => messages.push(message));
-  const config = fs.readFileSync(envPath, 'utf8');
+  const result = initializeLocalConfig(envPath, (message) =>
+    messages.push(message),
+  );
+  const config = fs.readFileSync(envPath, "utf8");
 
   assert.equal(result.created, true);
   assert.match(config, /^SESSION_SECRET=[A-Za-z0-9_-]{64}$/m);
@@ -29,17 +33,22 @@ test('first-run configuration creates strong local secrets and displays the init
   assert.doesNotMatch(messages[0], /SESSION_SECRET=/);
 });
 
-test('first-run configuration never overwrites an existing .env file or reprints credentials', t => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-config-existing-'));
+test("first-run configuration never overwrites an existing .env file or reprints credentials", (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "complaints-config-existing-"),
+  );
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const envPath = path.join(directory, '.env');
-  const original = 'SESSION_SECRET=existing-secret-value\nADMIN_USERNAME=existing-admin\n';
-  fs.writeFileSync(envPath, original, 'utf8');
+  const envPath = path.join(directory, ".env");
+  const original =
+    "SESSION_SECRET=existing-secret-value\nADMIN_USERNAME=existing-admin\n";
+  fs.writeFileSync(envPath, original, "utf8");
   const messages = [];
 
-  const result = initializeLocalConfig(envPath, message => messages.push(message));
+  const result = initializeLocalConfig(envPath, (message) =>
+    messages.push(message),
+  );
 
   assert.equal(result.created, false);
-  assert.equal(fs.readFileSync(envPath, 'utf8'), original);
+  assert.equal(fs.readFileSync(envPath, "utf8"), original);
   assert.deepEqual(messages, []);
 });
