@@ -1,6 +1,6 @@
 # خطة تطوير نظام الشكاوى — من Prototype إلى نظام قابل للتوسع
 
-**الإصدار الحالي:** 0.6.0  
+**الإصدار الحالي:** 0.7.0  
 **الفرع:** main
 
 ---
@@ -17,17 +17,16 @@
 
 - [x] نقل المصادقة والمستخدمين إلى `modules/auth`
 - [x] نقل مسارات state/complaints/status إلى `modules/complaints`
-- [x] إزالة تكرار requireAuth من server
+- [x] استخراج attachments / reports / backup / audit / sync / health إلى modules
 - [x] اختبارات وحدة للـ auth + فحص الهيكل المعياري
-- [x] توسيع CI ليشمل فروع chore/fix/feat
-- [ ] استخراج attachments / reports / backup إلى modules
-- [ ] API versioning `/api/v1/...`
-- [ ] Developer Guide
+- [x] واجهة كاملة عبر أجزاء app-p01…p09 بدون eval (متوافقة مع CSP)
+- [x] Developer Guide
+- [ ] API versioning `/api/v1/...` (اختياري لاحقًا)
 
 ## المرحلة 3 — الارتقاء الوظيفي
 
-- تقارير أدق، إشعارات، SLA، إحالات
+- تقارير أدق، إشعارات، SLA، إحالات متقدمة
 
 ## المرحلة 4 — الإنتاج
 
-- مراقبة health/metrics، استراتيجية نسخ احتياطي موثقة
+- مراقبة health/metrics موسّعة، استراتيجية نسخ احتياطي موثقة ومختبرة
