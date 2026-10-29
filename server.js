@@ -15,6 +15,10 @@ const { createComplaintsRouter } = require('./modules/complaints/routes');
 const { createAuthService } = require('./modules/auth/service');
 const { createAuthMiddleware } = require('./modules/auth/middleware');
 const { createAuthRouter } = require('./modules/auth/routes');
+const { createRolesService } = require('./modules/roles/service');
+const { createRolesRouter } = require('./modules/roles/routes');
+const { createDashboardService } = require('./modules/dashboard/service');
+const { createDashboardRouter } = require('./modules/dashboard/routes');
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
@@ -124,6 +128,10 @@ authService.ensureBootstrapAdmin(adminUsername, adminPassword);
 const middleware = createAuthMiddleware({ db });
 const { requireAuth, requireRole, requireCsrf, ensureCsrfToken } = middleware;
 
+const rolesService = createRolesService();
+const complaintsService = createComplaintsService({ db, audit, logger });
+const dashboardService = createDashboardService({ complaintsService });
+
 app.disable('x-powered-by');
 app.use(helmet({
   contentSecurityPolicy: {
@@ -154,7 +162,6 @@ const { saveAttachment, getAttachmentPath, deleteAttachment, MAX_FILE_SIZE, MAX_
 const { buildComplaintsWorkbook } = require('./lib/excel-export');
 const { createSyncPackage, validateSyncPackage, stageProgramUpdate, verifyProgramUpdate } = require('./lib/offline-sync');
 
-const complaintsService = createComplaintsService({ db, audit, logger });
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES_PER_COMPLAINT } });
 
 const instanceIdPath = path.resolve(process.env.INSTANCE_ID_PATH || './data/instance-id');
@@ -165,9 +172,11 @@ const sourceInstanceId = fs.readFileSync(instanceIdPath, 'utf8').trim();
 app.get('/api/health', (req, res) => res.json({ status: 'ok', database: 'sqlite', mode: 'local', version: '0.6.0' }));
 
 app.use('/api', createAuthRouter({ authService, middleware, audit }));
+app.use('/api', createRolesRouter({ rolesService, middleware }));
 app.use('/api', createComplaintsRouter({
   complaintsService, middleware, audit, logger, validComplaint, diffComplaints, db
 }));
+app.use('/api', createDashboardRouter({ dashboardService, middleware }));
 
 app.post('/api/attachments/:complaintId', requireAuth, requireRole('admin', 'staff'), requireCsrf, upload.array('files', MAX_FILES_PER_COMPLAINT), (req, res) => {
   const complaintId = String(req.params.complaintId || '').trim();
