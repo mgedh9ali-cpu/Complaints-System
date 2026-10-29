@@ -226,10 +226,12 @@ app.use('/api', createSyncRouter({ syncService, middleware, auditService }));
 app.get('/app.bundle.js', (req, res) => {
   try {
     const parts = [];
-    for (let index = 0; index < 5; index += 1) {
-      const name = `app-ui-gz-${index}.txt`;
-      parts.push(fs.readFileSync(path.join(__dirname, name), 'utf8'));
+    for (let index = 0; ; index += 1) {
+      const full = path.join(__dirname, `app-ui-gz-${index}.txt`);
+      if (!fs.existsSync(full)) break;
+      parts.push(fs.readFileSync(full, 'utf8'));
     }
+    if (!parts.length) throw new Error('no UI chunks found');
     const compressed = Buffer.from(parts.join('').replace(/\s+/g, ''), 'base64');
     const source = zlib.gunzipSync(compressed).toString('utf8');
     res.type('application/javascript');

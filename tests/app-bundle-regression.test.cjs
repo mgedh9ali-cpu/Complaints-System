@@ -12,12 +12,12 @@ test("gzip UI chunks assemble into valid JavaScript without eval", () => {
   const loader = fs.readFileSync(path.join(root, "app.js"), "utf8");
   const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
   const parts = [];
-  for (let index = 0; index < 5; index += 1) {
-    const name = "app-ui-gz-" + index + ".txt";
-    const file = path.join(root, name);
-    assert.ok(fs.existsSync(file), "missing UI chunk: " + name);
+  for (let index = 0; ; index += 1) {
+    const file = path.join(root, "app-ui-gz-" + index + ".txt");
+    if (!fs.existsSync(file)) break;
     parts.push(fs.readFileSync(file, "utf8"));
   }
+  assert.ok(parts.length > 0, "missing app-ui-gz-*.txt chunks");
   const compressed = Buffer.from(parts.join("").replace(/\s+/g, ""), "base64");
   const assembled = zlib.gunzipSync(compressed).toString("utf8");
   assert.ok(assembled.length > 1000, "assembled UI too small");
