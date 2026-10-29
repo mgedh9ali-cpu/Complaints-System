@@ -36,7 +36,7 @@ let stateRevision=0, stateConflict=false;
 function cleanState(){const x=structuredClone(seed);x.complaints=[];x.notifications=[];return x;}
 function loadDb(){return cleanState();}
 async function api(url, options={}) {
-  const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+  const response=await fetch(url,{...options,credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})}});
   if(response.status===204)return null;
   const body=await response.json().catch(()=>({}));
   if(!response.ok){const error=new Error(body.error||'تعذر تنفيذ الطلب.');error.status=response.status;throw error;}
