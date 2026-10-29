@@ -4,8 +4,10 @@ Logic is split out of the monolithic `server.js` into focused modules.
 
 | Module | Files | Responsibility |
 |--------|-------|----------------|
-| `auth/` | `middleware.js`, `service.js`, `routes.js` | Login, logout, CSRF, roles, users |
+| `auth/` | `middleware.js`, `service.js`, `routes.js` | Login, logout, CSRF, users |
+| `roles/` | `service.js`, `routes.js` | Role catalogue + permission matrix |
 | `complaints/` | `service.js`, `routes.js` | State, create complaint, status machine |
+| `dashboard/` | `service.js`, `routes.js` | Aggregated dashboard summary |
 | `attachments/` | *(planned)* | Upload, validate, download, delete |
 | `audit/` | *(planned)* | Audit events + hash chain |
 | `reports/` | *(planned)* | Excel, CSV, stats |
