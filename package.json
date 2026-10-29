@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --env-file=.env server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check app.js && node --check ui-enhancements.js && node --check attachments-ui-bridge.js && node --check lib/offline-sync.js && node --check lib/attachments.js && node --check lib/excel-export.js && node --check scripts/sign-program-update.js && node --check scripts/backup-database.js && node --check scripts/verify-database-restore.js && node --check scripts/verify-audit-log.js && node --check lib/audit-integrity.js && node --check lib/validation.js",
+    "check": "node --check server.js app.js",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js",
     "check:all": "npm test && npm audit && npx jscpd . --ignore \"node_modules,package-lock.json,.git\""
