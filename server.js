@@ -2,7 +2,6 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
-const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 const express = require('express');
 const helmet = require('helmet');
@@ -225,13 +224,10 @@ app.use('/api', createSyncRouter({ syncService, middleware, auditService }));
 
 app.get('/app.bundle.js', (req, res) => {
   try {
-    const parts = [];
-    for (let index = 0; index <= 16; index += 1) {
-      const name = `app-b64-t${String(index).padStart(2, '0')}.txt`;
-      parts.push(fs.readFileSync(path.join(__dirname, name), 'utf8'));
-    }
-    const compressed = Buffer.from(parts.join('').replace(/\s+/g, ''), 'base64');
-    const source = zlib.gunzipSync(compressed).toString('utf8');
+    const source = Array.from({ length: 9 }, (_, index) => {
+      const segment = `app-p${String(index + 1).padStart(2, '0')}.js`;
+      return fs.readFileSync(path.join(__dirname, segment), 'utf8');
+    }).join('');
     res.type('application/javascript');
     res.setHeader('Cache-Control', 'no-cache');
     res.send(source);
