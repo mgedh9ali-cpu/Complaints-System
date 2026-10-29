@@ -8,16 +8,15 @@ Logic is split out of the monolithic `server.js` into focused modules.
 | `roles/` | `service.js`, `routes.js` | Role catalogue + permission matrix |
 | `complaints/` | `service.js`, `routes.js` | State, create complaint, status machine |
 | `dashboard/` | `service.js`, `routes.js` | Aggregated dashboard summary |
-| `attachments/` | *(planned)* | Upload, validate, download, delete |
+| `attachments/` | `service.js`, `routes.js` | Upload, list, download, delete |
+| `reports/` | `service.js`, `routes.js` | CSV + Excel exports |
+| `settings/` | `service.js`, `routes.js` | Provinces, entities, categories, SLA |
 | `audit/` | *(planned)* | Audit events + hash chain |
-| `reports/` | *(planned)* | Excel, CSV, stats |
 | `backup/` | *(planned)* | Backup & restore |
-| `settings/` | *(planned)* | Provinces, entities, categories, SLA |
 
 ## Pattern
 
 - `service.js` — business logic, no Express
 - `routes.js` — Express `Router`, thin handlers
-- `middleware.js` / `validators.js` — shared guards
 
-`server.js` owns: DB bootstrap, session, helmet, mounting routers, and remaining endpoints not yet extracted (attachments, sync, backup).
+`server.js` owns: DB bootstrap, session, helmet, mounting routers, and remaining endpoints (backup, offline-sync).
