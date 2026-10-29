@@ -130,10 +130,11 @@ test("complaint validation rejects prototype pollution keys", () => {
 
 test("local UI uses authenticated API and server-backed state rather than localStorage for records", () => {
   const fs = require("node:fs");
-  const ui = fs.readFileSync(
-    require("node:path").join(__dirname, "..", "app.js"),
-    "utf8",
-  );
+  const root = require("node:path").join(__dirname, "..");
+  const ui = Array.from({ length: 9 }, (_, index) => {
+    const name = "app-p" + String(index + 1).padStart(2, "0") + ".js";
+    return fs.readFileSync(require("node:path").join(root, name), "utf8");
+  }).join("");
   const server = fs.readFileSync(
     require("node:path").join(__dirname, "..", "server.js"),
     "utf8",
