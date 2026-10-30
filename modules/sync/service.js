@@ -9,6 +9,30 @@ const {
   verifyProgramUpdate
 } = require('../../lib/offline-sync');
 
+function findComplaintConflicts(localComplaints, incomingComplaints) {
+  const localById = new Map(
+    (localComplaints || []).filter((c) => c && c.id).map((c) => [c.id, c])
+  );
+  const conflicts = [];
+  for (const incoming of incomingComplaints || []) {
+    if (!incoming || !incoming.id) continue;
+    const local = localById.get(incoming.id);
+    if (!local) continue;
+    const localUpdated = local.updated || local.created || '';
+    const incomingUpdated = incoming.updated || incoming.created || '';
+    const localStatus = local.status || '';
+    const incomingStatus = incoming.status || '';
+    if (localUpdated !== incomingUpdated || localStatus !== incomingStatus) {
+      conflicts.push({
+        id: incoming.id,
+        local: { status: localStatus, updated: localUpdated },
+        incoming: { status: incomingStatus, updated: incomingUpdated }
+      });
+    }
+  }
+  return conflicts;
+}
+
 function createSyncService({
   complaintsService,
   auditService,
@@ -29,7 +53,7 @@ function createSyncService({
     return createSyncPackage(safeState, rootDir, sourceInstanceId);
   }
 
-  function importPackage({ payload, userId }) {
+  function importPackage({ payload, userId, forceReplace = false }) {
     const validation = validateSyncPackage(payload);
     if (!validation.ok) {
       return { ok: false, status: 400, error: validation.error };
@@ -45,6 +69,22 @@ function createSyncService({
       .get(payload.syncId);
     if (already) {
       return { ok: false, status: 409, error: 'سبق استيراد ملف المزامنة هذا.' };
+    }
+
+    const { state: localState } = complaintsService.readState();
+    const conflicts = findComplaintConflicts(
+      localState.complaints || [],
+      payload.state.complaints || []
+    );
+    if (conflicts.length > 0 && !forceReplace) {
+      return {
+        ok: false,
+        status: 409,
+        error:
+          'هناك تعارضات في شكاوى موجودة محلياً. راجع قائمة التعارضات أو أعد الاستيراد مع forceReplace=true بعد الموافقة.',
+        conflicts,
+        conflictCount: conflicts.length
+      };
     }
 
     const publicKeyPath = path.resolve(
@@ -88,7 +128,9 @@ function createSyncService({
         sourceInstanceId: payload.sourceInstanceId,
         complaintCount: payload.state.complaints.length,
         programUpdateStaged: Boolean(updateTrusted),
-        programUpdateSignatureVerified: Boolean(updateTrusted)
+        programUpdateSignatureVerified: Boolean(updateTrusted),
+        forceReplace: Boolean(forceReplace),
+        conflictCount: conflicts.length
       });
     })();
 
@@ -98,13 +140,14 @@ function createSyncService({
       complaintCount: payload.state.complaints.length,
       updateStaged: Boolean(updateTrusted),
       updatePath: pendingDir ? path.relative(process.cwd(), pendingDir) : null,
+      conflictsResolvedByForce: forceReplace ? conflicts.length : 0,
       warning: updateTrusted
         ? 'استوردت البيانات؛ حزمة البرنامج موقعة بمفتاح موثوق ومحفوظة للمراجعة، ولم تُشغّل تلقائيًا.'
         : 'استوردت البيانات فقط. لم تُحفظ ملفات البرنامج للتطبيق لأن التوقيع الرقمي الموثوق غير موجود أو غير صالح.'
     };
   }
 
-  return { exportPackage, importPackage };
+  return { exportPackage, importPackage, findComplaintConflicts };
 }
 
-module.exports = { createSyncService };
+module.exports = { createSyncService, findComplaintConflicts };

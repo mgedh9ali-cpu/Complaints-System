@@ -2,11 +2,12 @@
 
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
+const { revokeUserSessions } = require('../../lib/session-revoke');
 
 const ROLES = Object.freeze(['admin', 'staff', 'reviewer']);
 const USERNAME_RE = /^[\p{L}\p{N}._-]{3,64}$/u;
 
-function createAuthService({ db, audit, logger }) {
+function createAuthService({ db, audit, logger, sessionsDir }) {
   function findByUsername(username) {
     return db.prepare(
       'SELECT id, username, password_hash, role, active FROM users WHERE username = ?'
@@ -27,6 +28,16 @@ function createAuthService({ db, audit, logger }) {
     return db.prepare(
       'SELECT id, username, role, active, created_at AS createdAt FROM users ORDER BY created_at ASC'
     ).all();
+  }
+
+  function revokeSessions(userId, keepSessionId) {
+    if (!sessionsDir) return { revoked: 0 };
+    try {
+      return revokeUserSessions(sessionsDir, userId, { keepSessionId: keepSessionId || null });
+    } catch (err) {
+      if (logger) logger.warn('session revoke failed', { userId, error: err.message });
+      return { revoked: 0 };
+    }
   }
 
   function authenticate(username, password) {
@@ -90,19 +101,25 @@ function createAuthService({ db, audit, logger }) {
       }
     }
     db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, target.id);
+    let sessionsRevoked = 0;
+    if (active === false) {
+      sessionsRevoked = revokeSessions(target.id).revoked;
+    }
     if (typeof audit === 'function') {
       audit(actorId, active ? 'user_activated' : 'user_deactivated', 'user', target.id, {
         username: target.username,
-        role: target.role
+        role: target.role,
+        sessionsRevoked
       });
     }
     return {
       ok: true,
-      user: { id: target.id, username: target.username, role: target.role, active: active ? 1 : 0 }
+      user: { id: target.id, username: target.username, role: target.role, active: active ? 1 : 0 },
+      sessionsRevoked
     };
   }
 
-  function changePassword({ userId, currentPassword, newPassword }) {
+  function changePassword({ userId, currentPassword, newPassword, keepSessionId }) {
     if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
       return { ok: false, status: 400, error: 'أدخل كلمة المرور الحالية والجديدة.' };
     }
@@ -124,11 +141,12 @@ function createAuthService({ db, audit, logger }) {
     }
     const passwordHash = bcrypt.hashSync(newPassword, 12);
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, userId);
+    const sessionsRevoked = revokeSessions(userId, keepSessionId).revoked;
     if (typeof audit === 'function') {
-      audit(userId, 'password_changed', 'user', userId, {});
+      audit(userId, 'password_changed', 'user', userId, { sessionsRevoked });
     }
-    if (logger) logger.info('password changed', { userId });
-    return { ok: true };
+    if (logger) logger.info('password changed', { userId, sessionsRevoked });
+    return { ok: true, sessionsRevoked };
   }
 
   function ensureBootstrapAdmin(adminUsername, adminPassword) {
@@ -152,6 +170,7 @@ function createAuthService({ db, audit, logger }) {
     createUser,
     setActive,
     changePassword,
+    revokeSessions,
     ensureBootstrapAdmin
   };
 }
