@@ -44,6 +44,8 @@ function requiredEnv(name, minLength = 1) {
 }
 
 const app = express();
+
+
 const host = '127.0.0.1';
 const port = Number(process.env.PORT || 3000);
 const sessionSecret = requiredEnv('SESSION_SECRET', 32);
@@ -134,7 +136,7 @@ const audit = (actorUserId, action, targetType, targetId = null, details = {}) =
 const authService = createAuthService({ db, audit, logger, sessionsDir });
 authService.ensureBootstrapAdmin(adminUsername, adminPassword);
 
-const middleware = createAuthMiddleware({ db });
+const middleware = createAuthMiddleware({ db, audit });
 const { ensureCsrfToken } = middleware;
 
 const rolesService = createRolesService();
@@ -293,3 +295,19 @@ app.listen(port, host, () => {
   logger.info('server listening', { host, port, version: APP_VERSION });
   console.log(`Complaints system listening on http://${host}:${port} (v${APP_VERSION})`);
 });
+
+// version: '0.7.0'
+
+// app.put('/api/state', requireAuth, requireRole('admin','staff')
+
+// app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff')
+
+// SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1
+
+// previous_hash, event_hash
+
+// const complaintChanges=diffComplaints(previousState,state)
+
+// audit(req.user.id,change.action,'complaint',change.id,change.details)
+
+// complaintChangesLogged:complaintChanges.length

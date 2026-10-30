@@ -4,7 +4,7 @@
  * Shared auth / CSRF middleware used by all route modules.
  */
 
-function createAuthMiddleware({ db }) {
+function createAuthMiddleware({ db, audit }) {
   function requireAuth(req, res, next) {
     if (!req.session.user) return res.status(401).json({ error: 'يلزم تسجيل الدخول.' });
     const user = db.prepare('SELECT id, username, role, active FROM users WHERE id = ?').get(req.session.user.id);
@@ -18,6 +18,9 @@ function createAuthMiddleware({ db }) {
   function requireRole(...roles) {
     return (req, res, next) => {
       if (!req.user || !roles.includes(req.user.role)) {
+        if (typeof audit === "function") {
+          audit(req.user ? req.user.id : null, "access_denied", "endpoint", req.originalUrl || req.url, { requiredRoles: roles, role: req.user ? req.user.role : null });
+        }
         return res.status(403).json({ error: 'ليس لديك صلاحية لتنفيذ هذه العملية.' });
       }
       next();

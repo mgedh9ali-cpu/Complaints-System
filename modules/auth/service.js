@@ -70,6 +70,7 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
       db.prepare(
         'INSERT INTO users(id, username, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, 1, ?)'
       ).run(id, normalizedUsername, passwordHash, role, new Date().toISOString());
+    if (typeof audit === "function") audit(id, "bootstrap_admin", "user", id);
     } catch (error) {
       if (error && error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         return { ok: false, status: 409, error: 'اسم المستخدم مستخدم بالفعل.' };

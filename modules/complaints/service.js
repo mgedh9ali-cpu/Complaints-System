@@ -221,6 +221,9 @@ function createComplaintsService({ db, audit, logger }) {
     if (!complaintId || typeof complaintId !== 'string' || complaintId.length > 100) {
       return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
     }
+    if (toStatus === "closed" && (!reason || !String(reason).trim())) {
+      return { ok: false, status: 400, error: "سبب الإغلاق مطلوب." };
+    }
     if (!Object.prototype.hasOwnProperty.call(ALLOWED_TRANSITIONS, toStatus)) {
       return { ok: false, status: 400, error: 'حالة غير معروفة.' };
     }
@@ -235,7 +238,17 @@ function createComplaintsService({ db, audit, logger }) {
     }
 
     const { state, revision } = readState();
-    const idx = (state.complaints || []).findIndex((c) => c && c.id === complaintId);
+    if (!Array.isArray(state.complaints)) state.complaints = [];
+    let idx = state.complaints.findIndex((c) => c && c.id === complaintId);
+    if (idx < 0) {
+      const row = db.prepare('SELECT payload_json FROM complaints WHERE id = ?').get(complaintId);
+      if (row && row.payload_json) {
+        try {
+          state.complaints.push(JSON.parse(row.payload_json));
+          idx = state.complaints.length - 1;
+        } catch (_) {}
+      }
+    }
     if (idx < 0) {
       return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     }
