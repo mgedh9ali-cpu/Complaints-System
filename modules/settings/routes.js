@@ -2,16 +2,20 @@
 
 const express = require('express');
 
-function createSettingsRouter({ settingsService, middleware, audit, logger }) {
+function createSettingsRouter({ settingsService, middleware, audit, logger, rolesService }) {
   const router = express.Router();
-  const { requireAuth, requireRole, requireCsrf } = middleware;
+  const { requireAuth, requireCsrf } = middleware;
+  const requirePermission =
+    rolesService && typeof rolesService.requirePermission === 'function'
+      ? (action) => rolesService.requirePermission(action)
+      : () => (req, res, next) => next();
 
-  router.get('/settings', requireAuth, (req, res) => {
+  router.get('/settings', requireAuth, requirePermission('settings.read'), (req, res) => {
     const { settings, revision, updatedAt } = settingsService.getSettings();
     res.json({ settings, revision, updatedAt });
   });
 
-  router.put('/settings', requireAuth, requireRole('admin'), requireCsrf, (req, res) => {
+  router.put('/settings', requireAuth, requirePermission('settings.manage'), requireCsrf, (req, res) => {
     const revisionHeader = req.get('X-State-Revision');
     if (typeof revisionHeader !== 'string' || !/^(0|[1-9]\d*)$/.test(revisionHeader)) {
       return res.status(428).json({ error: 'رقم إصدار البيانات مطلوب. أعد تحميل الإعدادات قبل الحفظ.' });

@@ -28,8 +28,12 @@ const PERMISSIONS = Object.freeze({
   'export.xlsx': ['admin', 'staff', 'reviewer'],
   'backup.database': ['admin'],
   'settings.manage': ['admin'],
+  'settings.read': ['admin', 'staff', 'reviewer'],
   'dashboard.view': ['admin', 'staff', 'reviewer'],
-  'audit.read': ['admin']
+  'audit.read': ['admin', 'reviewer'],
+  'audit.verify': ['admin'],
+  'sync.export': ['admin', 'staff'],
+  'sync.import': ['admin']
 });
 
 function createRolesService() {

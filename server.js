@@ -50,6 +50,8 @@ const sessionSecret = requiredEnv('SESSION_SECRET', 32);
 const adminUsername = requiredEnv('ADMIN_USERNAME', 3);
 const adminPassword = requiredEnv('ADMIN_PASSWORD', 12);
 const databasePath = path.resolve(process.env.DATABASE_PATH || './data/complaints.sqlite');
+const sessionsDir = path.resolve('./data/sessions');
+fs.mkdirSync(sessionsDir, { recursive: true });
 
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid TCP port');
 if (process.env.ALLOW_LAN === 'true' || (process.env.HOST && !['127.0.0.1', 'localhost'].includes(process.env.HOST))) {
@@ -129,7 +131,7 @@ const auditService = createAuditService({ db, logger });
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
   auditService.record(actorUserId, action, targetType, targetId, details);
 
-const authService = createAuthService({ db, audit, logger });
+const authService = createAuthService({ db, audit, logger, sessionsDir });
 authService.ensureBootstrapAdmin(adminUsername, adminPassword);
 
 const middleware = createAuthMiddleware({ db });
@@ -178,8 +180,6 @@ app.use(
 app.use(express.json({ limit: '1mb', strict: true }));
 
 const FileStore = require('session-file-store')(session);
-const sessionsDir = path.resolve('./data/sessions');
-fs.mkdirSync(sessionsDir, { recursive: true });
 app.use(
   session({
     name: 'complaints.sid',
@@ -212,16 +212,26 @@ app.use(
     logger,
     validComplaint,
     diffComplaints,
-    db
+    db,
+    rolesService
   })
 );
-app.use('/api', createDashboardRouter({ dashboardService, middleware }));
-app.use('/api', createAttachmentsRouter({ attachmentsService, middleware, audit }));
-app.use('/api', createReportsRouter({ reportsService, middleware, audit }));
-app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger }));
-app.use('/api', createBackupRouter({ backupService, middleware, audit }));
-app.use('/api', createAuditRouter({ auditService, middleware }));
-app.use('/api', createSyncRouter({ syncService, middleware, auditService }));
+app.use('/api', createDashboardRouter({ dashboardService, middleware, rolesService }));
+app.use(
+  '/api',
+  createAttachmentsRouter({
+    attachmentsService,
+    middleware,
+    audit,
+    rolesService,
+    complaintsService
+  })
+);
+app.use('/api', createReportsRouter({ reportsService, middleware, audit, rolesService }));
+app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger, rolesService }));
+app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesService }));
+app.use('/api', createAuditRouter({ auditService, middleware, rolesService }));
+app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService }));
 
 app.get('/app.bundle.js', (req, res) => {
   try {

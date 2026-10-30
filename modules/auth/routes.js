@@ -55,6 +55,34 @@ function createAuthRouter({ authService, middleware, audit }) {
     res.json({ user: { id: req.user.id, username: req.user.username, role: req.user.role } });
   });
 
+  router.post('/auth/change-password', requireAuth, requireCsrf, (req, res, next) => {
+    const body = req.body || {};
+    const currentSid = req.sessionID || null;
+    const result = authService.changePassword({
+      userId: req.user.id,
+      currentPassword: body.currentPassword,
+      newPassword: body.newPassword,
+      keepSessionId: currentSid
+    });
+    if (!result.ok) {
+      return res.status(result.status || 400).json({ error: result.error || 'تعذر تغيير كلمة المرور.' });
+    }
+    req.session.regenerate((err) => {
+      if (err) return next(err);
+      req.session.user = { id: req.user.id };
+      const crypto = require('node:crypto');
+      req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+      req.session.save((saveErr) => {
+        if (saveErr) return next(saveErr);
+        res.json({
+          ok: true,
+          csrfToken: req.session.csrfToken,
+          sessionsRevoked: result.sessionsRevoked || 0
+        });
+      });
+    });
+  });
+
   router.get('/users', requireAuth, requireRole('admin'), (req, res) => {
     res.json({ users: authService.listUsers() });
   });
@@ -83,7 +111,7 @@ function createAuthRouter({ authService, middleware, audit }) {
     if (!result.ok) {
       return res.status(result.status || 400).json({ error: result.error || 'تعذر تحديث الحالة.' });
     }
-    res.json({ user: result.user });
+    res.json({ user: result.user, sessionsRevoked: result.sessionsRevoked || 0 });
   });
 
   return router;
