@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const ALLOWED_TRANSITIONS = Object.freeze({
   new: ['in_progress', 'cancelled'],
   in_progress: ['awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'],
@@ -141,6 +143,80 @@ function createComplaintsService({ db, audit, logger }) {
     };
   }
 
+  /**
+   * Create a complaint in both the complaints table and app_state (single transaction).
+   */
+  function createComplaint({ body, userId, username }) {
+    const id = 'SY-' + new Date().getFullYear() + '-' + crypto.randomUUID().slice(0, 8);
+    const now = new Date().toISOString();
+    const complaint = {
+      id,
+      name: body.name || '',
+      phone: body.phone || '',
+      province: body.province,
+      entity: body.entity || '',
+      category: body.category,
+      priority: body.priority || 'normal',
+      status: 'new',
+      owner: body.owner || username || null,
+      summary: body.summary,
+      details: body.details || '',
+      created: now,
+      updated: now,
+      due: new Date(Date.now() + 7 * 86400000).toISOString(),
+      notes: [],
+      timeline: [
+        {
+          event: 'تسجيل الشكوى',
+          by: username || 'system',
+          at: now,
+          detail: 'تم الإنشاء عبر API.'
+        }
+      ],
+      referrals: [],
+      reply: null,
+      confidentiality: 'normal',
+      survey: null,
+      attachments: [],
+      statusHistory: []
+    };
+
+    const { state, revision } = readState();
+    if ((state.complaints || []).some((c) => c && c.id === id)) {
+      return { ok: false, status: 409, error: 'تعارض في معرّف الشكوى. أعد المحاولة.' };
+    }
+
+    state.complaints = Array.isArray(state.complaints) ? state.complaints.slice() : [];
+    state.complaints.push(complaint);
+    const nextRevision = (Number(revision) || 0) + 1;
+    const stateJson = JSON.stringify(state);
+
+    const tx = db.transaction(() => {
+      db.prepare(
+        `INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)
+         VALUES (1, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           state_json = excluded.state_json,
+           updated_by = excluded.updated_by,
+           updated_at = excluded.updated_at,
+           revision = excluded.revision`
+      ).run(stateJson, userId, now, nextRevision);
+      syncComplaintRow(complaint, userId, now);
+    });
+    tx();
+
+    if (typeof audit === 'function') {
+      audit(userId, 'complaint_created', 'complaint', id, {
+        source: 'api',
+        status: 'new',
+        revision: nextRevision
+      });
+    }
+    if (logger) logger.info('complaint created', { complaintId: id, revision: nextRevision });
+
+    return { ok: true, complaint, revision: nextRevision };
+  }
+
   function changeStatus({ complaintId, toStatus, reason, userId, username }) {
     if (!complaintId || typeof complaintId !== 'string' || complaintId.length > 100) {
       return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
@@ -250,6 +326,7 @@ function createComplaintsService({ db, audit, logger }) {
   return {
     readState,
     saveState,
+    createComplaint,
     changeStatus,
     ALLOWED_TRANSITIONS,
     REASON_REQUIRED
