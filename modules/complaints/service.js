@@ -18,6 +18,9 @@ const STATUS_LABELS = Object.freeze({
   cancelled: 'ملغاة'
 });
 
+/** Terminal statuses that always require a non-empty reason. */
+const REASON_REQUIRED = Object.freeze(new Set(['closed', 'cancelled']));
+
 function emptyState() {
   return {
     complaints: [],
@@ -146,6 +149,15 @@ function createComplaintsService({ db, audit, logger }) {
       return { ok: false, status: 400, error: 'حالة غير معروفة.' };
     }
 
+    const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    if (REASON_REQUIRED.has(toStatus) && normalizedReason.length < 3) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'يجب ذكر سبب واضح (3 أحرف على الأقل) عند الإغلاق أو الإلغاء.'
+      };
+    }
+
     const { state, revision } = readState();
     const idx = (state.complaints || []).findIndex((c) => c && c.id === complaintId);
     if (idx < 0) {
@@ -182,14 +194,14 @@ function createComplaintsService({ db, audit, logger }) {
       to: toStatus,
       at: now,
       by: username || null,
-      reason: reason || null
+      reason: normalizedReason || null
     });
     if (!Array.isArray(complaint.timeline)) complaint.timeline = [];
     complaint.timeline.push({
       event: 'تغيير الحالة',
       by: username || 'system',
       at: now,
-      detail: `من ${STATUS_LABELS[fromStatus] || fromStatus} إلى ${STATUS_LABELS[toStatus] || toStatus}${reason ? ' — ' + reason : ''}`
+      detail: `من ${STATUS_LABELS[fromStatus] || fromStatus} إلى ${STATUS_LABELS[toStatus] || toStatus}${normalizedReason ? ' — ' + normalizedReason : ''}`
     });
 
     state.complaints[idx] = complaint;
@@ -214,7 +226,7 @@ function createComplaintsService({ db, audit, logger }) {
       audit(userId, 'complaint_status_changed', 'complaint', complaintId, {
         from: fromStatus,
         to: toStatus,
-        reason: reason || null,
+        reason: normalizedReason || null,
         revision: nextRevision
       });
     }
@@ -239,8 +251,9 @@ function createComplaintsService({ db, audit, logger }) {
     readState,
     saveState,
     changeStatus,
-    ALLOWED_TRANSITIONS
+    ALLOWED_TRANSITIONS,
+    REASON_REQUIRED
   };
 }
 
-module.exports = { createComplaintsService, ALLOWED_TRANSITIONS };
+module.exports = { createComplaintsService, ALLOWED_TRANSITIONS, REASON_REQUIRED };

@@ -55,6 +55,29 @@ function createAuthRouter({ authService, middleware, audit }) {
     res.json({ user: { id: req.user.id, username: req.user.username, role: req.user.role } });
   });
 
+  router.post('/auth/change-password', requireAuth, requireCsrf, (req, res, next) => {
+    const body = req.body || {};
+    const result = authService.changePassword({
+      userId: req.user.id,
+      currentPassword: body.currentPassword,
+      newPassword: body.newPassword
+    });
+    if (!result.ok) {
+      return res.status(result.status || 400).json({ error: result.error || 'تعذر تغيير كلمة المرور.' });
+    }
+    // Regenerate session after password change (invalidates old session id)
+    req.session.regenerate((err) => {
+      if (err) return next(err);
+      req.session.user = { id: req.user.id };
+      const crypto = require('node:crypto');
+      req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+      req.session.save((saveErr) => {
+        if (saveErr) return next(saveErr);
+        res.json({ ok: true, csrfToken: req.session.csrfToken });
+      });
+    });
+  });
+
   router.get('/users', requireAuth, requireRole('admin'), (req, res) => {
     res.json({ users: authService.listUsers() });
   });

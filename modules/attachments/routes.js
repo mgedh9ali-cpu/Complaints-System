@@ -4,9 +4,13 @@ const express = require('express');
 const path = require('node:path');
 const multer = require('multer');
 
-function createAttachmentsRouter({ attachmentsService, middleware, audit }) {
+function createAttachmentsRouter({ attachmentsService, middleware, audit, rolesService }) {
   const router = express.Router();
-  const { requireAuth, requireRole, requireCsrf } = middleware;
+  const { requireAuth, requireCsrf } = middleware;
+  const requirePermission =
+    rolesService && typeof rolesService.requirePermission === 'function'
+      ? (action) => rolesService.requirePermission(action)
+      : () => (req, res, next) => next();
 
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -19,7 +23,7 @@ function createAttachmentsRouter({ attachmentsService, middleware, audit }) {
   router.post(
     '/attachments/:complaintId',
     requireAuth,
-    requireRole('admin', 'staff'),
+    requirePermission('attachments.upload'),
     requireCsrf,
     upload.array('files', attachmentsService.MAX_FILES_PER_COMPLAINT),
     (req, res) => {
@@ -50,31 +54,47 @@ function createAttachmentsRouter({ attachmentsService, middleware, audit }) {
     }
   );
 
-  router.get('/attachments/by-complaint/:complaintId', requireAuth, (req, res) => {
-    const complaintId = String(req.params.complaintId || '').trim();
-    if (!complaintId || complaintId.length > 100) {
-      return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
+  router.get(
+    '/attachments/by-complaint/:complaintId',
+    requireAuth,
+    requirePermission('attachments.read'),
+    (req, res) => {
+      const complaintId = String(req.params.complaintId || '').trim();
+      if (!complaintId || complaintId.length > 100) {
+        return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
+      }
+      const items = attachmentsService.listByComplaint(complaintId);
+      res.json({ attachments: items });
     }
-    const items = attachmentsService.listByComplaint(complaintId);
-    res.json({ attachments: items });
-  });
+  );
 
-  router.get('/attachments/:storedName', requireAuth, (req, res) => {
-    const storedName = path.basename(req.params.storedName || '');
-    const full = attachmentsService.getPath(storedName);
-    if (!full) return res.status(404).json({ error: 'الملف غير موجود.' });
-    res.download(full, storedName, (err) => {
-      if (err && !res.headersSent) res.status(500).json({ error: 'تعذر تنزيل الملف.' });
-    });
-  });
+  router.get(
+    '/attachments/:storedName',
+    requireAuth,
+    requirePermission('attachments.read'),
+    (req, res) => {
+      const storedName = path.basename(req.params.storedName || '');
+      if (!storedName || storedName.length > 200) {
+        return res.status(400).json({ error: 'اسم الملف غير صالح.' });
+      }
+      const full = attachmentsService.getPath(storedName);
+      if (!full) return res.status(404).json({ error: 'الملف غير موجود.' });
+      res.download(full, storedName, (err) => {
+        if (err && !res.headersSent) res.status(500).json({ error: 'تعذر تنزيل الملف.' });
+      });
+    }
+  );
 
   router.delete(
     '/attachments/:storedName',
     requireAuth,
-    requireRole('admin', 'staff'),
+    requirePermission('attachments.delete'),
     requireCsrf,
     (req, res) => {
       const storedName = path.basename(req.params.storedName || '');
+      if (!storedName || storedName.length > 200) {
+        return res.status(400).json({ error: 'اسم الملف غير صالح.' });
+      }
       attachmentsService.remove(storedName);
       if (typeof audit === 'function') {
         audit(req.user.id, 'attachment_deleted', 'attachment', storedName, {});

@@ -17,6 +17,12 @@ function createAuthService({ db, audit, logger }) {
     return db.prepare('SELECT id, username, role, active FROM users WHERE id = ?').get(id);
   }
 
+  function findByIdWithHash(id) {
+    return db.prepare(
+      'SELECT id, username, password_hash, role, active FROM users WHERE id = ?'
+    ).get(id);
+  }
+
   function listUsers() {
     return db.prepare(
       'SELECT id, username, role, active, created_at AS createdAt FROM users ORDER BY created_at ASC'
@@ -96,6 +102,35 @@ function createAuthService({ db, audit, logger }) {
     };
   }
 
+  function changePassword({ userId, currentPassword, newPassword }) {
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+      return { ok: false, status: 400, error: 'أدخل كلمة المرور الحالية والجديدة.' };
+    }
+    if (newPassword.length < 12 || newPassword.length > 200) {
+      return { ok: false, status: 400, error: 'كلمة المرور الجديدة يجب أن تكون بين 12 و 200 حرفاً.' };
+    }
+    if (currentPassword === newPassword) {
+      return { ok: false, status: 400, error: 'كلمة المرور الجديدة يجب أن تختلف عن الحالية.' };
+    }
+    const user = findByIdWithHash(userId);
+    if (!user || user.active !== 1) {
+      return { ok: false, status: 401, error: 'الحساب غير موجود أو غير فعال.' };
+    }
+    if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
+      if (typeof audit === 'function') {
+        audit(userId, 'password_change_failed', 'user', userId, {});
+      }
+      return { ok: false, status: 401, error: 'كلمة المرور الحالية غير صحيحة.' };
+    }
+    const passwordHash = bcrypt.hashSync(newPassword, 12);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, userId);
+    if (typeof audit === 'function') {
+      audit(userId, 'password_changed', 'user', userId, {});
+    }
+    if (logger) logger.info('password changed', { userId });
+    return { ok: true };
+  }
+
   function ensureBootstrapAdmin(adminUsername, adminPassword) {
     const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
     if (userCount > 0) return null;
@@ -116,6 +151,7 @@ function createAuthService({ db, audit, logger }) {
     authenticate,
     createUser,
     setActive,
+    changePassword,
     ensureBootstrapAdmin
   };
 }
