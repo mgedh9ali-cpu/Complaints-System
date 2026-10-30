@@ -212,16 +212,17 @@ app.use(
     logger,
     validComplaint,
     diffComplaints,
-    db
+    db,
+    rolesService
   })
 );
-app.use('/api', createDashboardRouter({ dashboardService, middleware }));
+app.use('/api', createDashboardRouter({ dashboardService, middleware, rolesService }));
 app.use('/api', createAttachmentsRouter({ attachmentsService, middleware, audit, rolesService }));
-app.use('/api', createReportsRouter({ reportsService, middleware, audit }));
-app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger }));
-app.use('/api', createBackupRouter({ backupService, middleware, audit }));
-app.use('/api', createAuditRouter({ auditService, middleware }));
-app.use('/api', createSyncRouter({ syncService, middleware, auditService }));
+app.use('/api', createReportsRouter({ reportsService, middleware, audit, rolesService }));
+app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger, rolesService }));
+app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesService }));
+app.use('/api', createAuditRouter({ auditService, middleware, rolesService }));
+app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService }));
 
 app.get('/app.bundle.js', (req, res) => {
   try {
