@@ -216,7 +216,7 @@ app.use(
   })
 );
 app.use('/api', createDashboardRouter({ dashboardService, middleware }));
-app.use('/api', createAttachmentsRouter({ attachmentsService, middleware, audit }));
+app.use('/api', createAttachmentsRouter({ attachmentsService, middleware, audit, rolesService }));
 app.use('/api', createReportsRouter({ reportsService, middleware, audit }));
 app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger }));
 app.use('/api', createBackupRouter({ backupService, middleware, audit }));
