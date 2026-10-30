@@ -1,15 +1,17 @@
 {
   "name": "complaints-local-system",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": true,
-  "description": "Local-first Arabic complaints system with modular architecture",
-  "main": "server.js",
+  "description": "Local-first Arabic complaints system with modular architecture and optional desktop shell",
+  "main": "desktop/main.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
+    "start:desktop": "electron .",
     "test": "node --test",
-    "check": "node --check server.js && node --check app.js && node --check lib/logger.js && node --check lib/file-magic.js && node --check lib/session-revoke.js && node --check lib/attachments.js && node --check lib/audit-integrity.js && node --check lib/offline-sync.js && node --check modules/complaints/service.js && node --check modules/complaints/routes.js && node --check modules/auth/service.js && node --check modules/auth/routes.js && node --check modules/auth/middleware.js && node --check modules/roles/service.js && node --check modules/attachments/routes.js && node --check modules/reports/service.js && node --check modules/reports/routes.js && node --check modules/backup/service.js && node --check modules/audit/service.js && node --check modules/sync/service.js && node --check modules/sync/routes.js && node --check modules/health/service.js",
+    "check": "node --check server.js && node --check app.js && node --check desktop/main.js && node --check lib/logger.js && node --check lib/file-magic.js && node --check lib/session-revoke.js && node --check lib/attachments.js && node --check lib/audit-integrity.js && node --check lib/offline-sync.js && node --check modules/complaints/service.js && node --check modules/complaints/routes.js && node --check modules/auth/service.js && node --check modules/auth/routes.js && node --check modules/auth/middleware.js && node --check modules/roles/service.js && node --check modules/attachments/routes.js && node --check modules/reports/service.js && node --check modules/reports/routes.js && node --check modules/backup/service.js && node --check modules/audit/service.js && node --check modules/sync/service.js && node --check modules/sync/routes.js && node --check modules/health/service.js",
     "verify-audit": "node scripts/verify-audit-log.js",
-    "backup": "node scripts/backup-database.js"
+    "backup": "node scripts/backup-database.js",
+    "dist:win": "electron-builder --win portable --x64"
   },
   "engines": {
     "node": ">=20.6"
@@ -24,5 +26,47 @@
     "helmet": "^8.1.0",
     "multer": "^1.4.5-lts.1",
     "session-file-store": "^1.5.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "local.complaints.system",
+    "productName": "نظام الشكاوى",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "desktop/**/*",
+      "server.js",
+      "app.js",
+      "app.full.js",
+      "app-p*.js",
+      "index.html",
+      "styles.css",
+      "lib/**/*",
+      "modules/**/*",
+      "scripts/**/*",
+      "package.json",
+      "node_modules/**/*",
+      "!data/**/*",
+      "!dist-desktop/**/*"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "complaints-system-${version}-portable.${ext}"
+    },
+    "portable": {
+      "artifactName": "complaints-system-${version}-portable.exe"
+    }
   }
 }
