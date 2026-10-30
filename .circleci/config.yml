@@ -7,8 +7,13 @@ jobs:
     steps:
       - checkout
       - run:
+          name: أدوات البناء الأصلية
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y build-essential python3
+      - run:
           name: تثبيت الحزم
-          command: npm install --no-audit --no-fund
+          command: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
       - run:
           name: فحص النحو (Syntax Check)
           command: npm run check
