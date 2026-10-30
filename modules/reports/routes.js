@@ -2,11 +2,15 @@
 
 const express = require('express');
 
-function createReportsRouter({ reportsService, middleware, audit }) {
+function createReportsRouter({ reportsService, middleware, audit, rolesService }) {
   const router = express.Router();
-  const { requireAuth, requireRole } = middleware;
+  const { requireAuth } = middleware;
+  const requirePermission =
+    rolesService && typeof rolesService.requirePermission === 'function'
+      ? (action) => rolesService.requirePermission(action)
+      : () => (req, res, next) => next();
 
-  router.get('/export/csv', requireAuth, requireRole('admin', 'staff', 'reviewer'), (req, res) => {
+  router.get('/export/csv', requireAuth, requirePermission('export.csv'), (req, res) => {
     const { buffer, filename, count } = reportsService.buildCsv();
     if (typeof audit === 'function') {
       audit(req.user.id, 'csv_export', 'export', filename, { count });
@@ -17,7 +21,7 @@ function createReportsRouter({ reportsService, middleware, audit }) {
     res.send(buffer);
   });
 
-  router.get('/export/xlsx', requireAuth, requireRole('admin', 'staff', 'reviewer'), async (req, res, next) => {
+  router.get('/export/xlsx', requireAuth, requirePermission('export.xlsx'), async (req, res, next) => {
     try {
       const { buffer, filename, count } = await reportsService.buildXlsx(req.user.username);
       if (typeof audit === 'function') {
@@ -38,7 +42,7 @@ function createReportsRouter({ reportsService, middleware, audit }) {
     }
   });
 
-  router.get('/export/xlsx/:id', requireAuth, requireRole('admin', 'staff', 'reviewer'), async (req, res, next) => {
+  router.get('/export/xlsx/:id', requireAuth, requirePermission('export.xlsx'), async (req, res, next) => {
     try {
       const id = String(req.params.id || '').trim();
       if (!id || id.length > 100) {

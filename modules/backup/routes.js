@@ -2,11 +2,15 @@
 
 const express = require('express');
 
-function createBackupRouter({ backupService, middleware, audit }) {
+function createBackupRouter({ backupService, middleware, audit, rolesService }) {
   const router = express.Router();
-  const { requireAuth, requireRole } = middleware;
+  const { requireAuth } = middleware;
+  const requirePermission =
+    rolesService && typeof rolesService.requirePermission === 'function'
+      ? (action) => rolesService.requirePermission(action)
+      : () => (req, res, next) => next();
 
-  router.get('/backup/database', requireAuth, requireRole('admin'), async (req, res, next) => {
+  router.get('/backup/database', requireAuth, requirePermission('backup.database'), async (req, res, next) => {
     let backupDir = null;
     try {
       const result = await backupService.createVerifiedBackup();

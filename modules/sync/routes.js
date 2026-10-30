@@ -2,11 +2,15 @@
 
 const express = require('express');
 
-function createSyncRouter({ syncService, middleware, auditService }) {
+function createSyncRouter({ syncService, middleware, auditService, rolesService }) {
   const router = express.Router();
-  const { requireAuth, requireRole, requireCsrf } = middleware;
+  const { requireAuth, requireCsrf } = middleware;
+  const requirePermission =
+    rolesService && typeof rolesService.requirePermission === 'function'
+      ? (action) => rolesService.requirePermission(action)
+      : () => (req, res, next) => next();
 
-  router.get('/sync/export', requireAuth, requireRole('admin', 'staff'), (req, res) => {
+  router.get('/sync/export', requireAuth, requirePermission('sync.export'), (req, res) => {
     const bundle = syncService.exportPackage();
     if (auditService) {
       auditService.record(req.user.id, 'sync_exported', 'sync', bundle.syncId, {
@@ -21,7 +25,7 @@ function createSyncRouter({ syncService, middleware, auditService }) {
     res.send(JSON.stringify(bundle));
   });
 
-  router.post('/sync/import', requireAuth, requireRole('admin'), requireCsrf, (req, res) => {
+  router.post('/sync/import', requireAuth, requirePermission('sync.import'), requireCsrf, (req, res) => {
     try {
       const result = syncService.importPackage({
         payload: req.body,
