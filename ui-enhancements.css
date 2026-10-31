@@ -1,5 +1,4 @@
 /* Thmanyah + motion + refined surfaces */
-@import url("./thmanyah-fonts.css");
 
 :root {
   --ui-font: "Thmanyah Sans", "Tahoma", "Segoe UI", Arial, sans-serif;
@@ -192,4 +191,43 @@ html[data-theme="dark"] .pill.draft {
     animation: none !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Institutional Arabic interface refinements: local, accessible and responsive. */
+:root {
+  --ui-radius: 12px;
+  --ui-glow: 0 3px 16px rgba(16, 47, 41, 0.065);
+}
+html { text-rendering: optimizeLegibility; }
+body { line-height: 1.65; }
+.content { padding-block: clamp(18px, 2.4vw, 32px); }
+.page-heading h1 { line-height: 1.45; }
+.page-heading p, .panel-header p { line-height: 1.8; }
+.panel, .stat-card, .mini-card, .login-card { box-shadow: var(--ui-glow); }
+.stat-card:hover, .mini-card:hover { transform: none; box-shadow: 0 5px 20px rgba(16, 47, 41, 0.09); }
+.nav-link { font-size: 14px; line-height: 1.55; }
+.nav-link:hover { transform: none; }
+.btn, .ui-tool-button { min-height: 42px; font-size: 13px; }
+.field, .select-field, .textarea-field { font-size: 14px; min-height: 44px; }
+th { font-size: 12px; }
+td { font-size: 12px; line-height: 1.65; }
+.table-wrap { scrollbar-width: thin; }
+.table-wrap:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+.modal { max-width: calc(100vw - 24px); }
+@media (max-width: 768px) {
+  .content { padding: 18px 14px 28px; }
+  .topbar { padding-inline: 14px; }
+  .page-heading { flex-wrap: wrap; }
+  .heading-actions { width: 100%; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .work-grid, .two-col, .detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .table-tools { align-items: stretch; }
+  .search-box { min-width: 100%; }
+}
+@media (max-width: 420px) {
+  .stats-grid, .mini-card-grid, .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .modal-header, .modal-body, .modal-footer { padding-inline: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
