@@ -5,7 +5,7 @@ const express = require('express');
 /**
  * Public (unauthenticated) routes — intentionally minimal and non-sensitive.
  */
-function createPublicRouter({ complaintsService }) {
+function createPublicRouter({ complaintsService, db }) {
   const router = express.Router();
 
   const STATUS_LABELS = {
@@ -17,20 +17,27 @@ function createPublicRouter({ complaintsService }) {
     cancelled: 'ملغاة'
   };
 
+  function findComplaint(id) {
+    const { state } = complaintsService.readState();
+    let complaint = (state.complaints || []).find((c) => c && c.id === id);
+    if (complaint) return complaint;
+    if (!db) return null;
+    try {
+      const row = db.prepare('SELECT payload_json FROM complaints WHERE id = ?').get(id);
+      if (row && row.payload_json) return JSON.parse(row.payload_json);
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
   router.get('/public/track/:id', (req, res) => {
     const id = String(req.params.id || '').trim();
     if (!id || id.length > 100 || !/^SY-\d{4}-[0-9a-f-]{8}$/i.test(id)) {
       return res.status(400).json({ error: 'رقم المرجع غير صالح.' });
     }
 
-    const { state } = complaintsService.readState();
-    let complaint = (state.complaints || []).find((c) => c && c.id === id);
-    if (!complaint) {
-      // Dual-read from normalized table if present
-      try {
-        const Database = null;
-      } catch (_) {}
-    }
+    const complaint = findComplaint(id);
     if (!complaint) {
       return res.status(404).json({ error: 'لا توجد شكوى بهذا الرقم.' });
     }
@@ -44,7 +51,6 @@ function createPublicRouter({ complaintsService }) {
       priority: complaint.priority || null,
       created: complaint.created || null,
       updated: complaint.updated || null,
-      // لا نعيد الاسم أو الهاتف أو التفاصيل النصية الكاملة للخصوصية
       hasReply: Boolean(complaint.reply),
       closed: status === 'closed' || status === 'cancelled'
     });
