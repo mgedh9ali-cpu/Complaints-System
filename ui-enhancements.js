@@ -275,13 +275,52 @@
     }
   }
 
+  // Non-destructive enhancements for dynamically rendered complaint tables and forms.
+  function enhanceWorkspace() {
+    document.querySelectorAll('.table-wrap').forEach((wrap) => {
+      if (!wrap.hasAttribute('tabindex')) wrap.tabIndex = 0;
+      if (!wrap.hasAttribute('role')) wrap.setAttribute('role', 'region');
+      if (!wrap.hasAttribute('aria-label')) wrap.setAttribute('aria-label', 'جدول قابل للتمرير أفقياً');
+    });
+    document.querySelectorAll('table').forEach((table) => {
+      if (!table.querySelector('thead')) return;
+      const heads = Array.from(table.querySelectorAll('thead th'));
+      heads.forEach((head) => { if (!head.hasAttribute('scope')) head.setAttribute('scope', 'col'); });
+      table.querySelectorAll('tbody tr').forEach((row) => {
+        Array.from(row.children).forEach((cell, index) => {
+          if (cell.tagName !== 'TD' || cell.hasAttribute('data-label')) return;
+          const heading = heads[index]?.textContent?.trim();
+          if (heading) cell.setAttribute('data-label', heading);
+        });
+      });
+    });
+    document.querySelectorAll('input, select, textarea').forEach((field) => {
+      if (field.hasAttribute('aria-label') || field.hasAttribute('aria-labelledby')) return;
+      if (field.labels && field.labels.length) return;
+      const label = field.closest('.form-field')?.querySelector('label');
+      const name = label?.textContent?.trim();
+      if (name) field.setAttribute('aria-label', name);
+    });
+    document.querySelectorAll('.modal').forEach((modal) => {
+      if (modal.hasAttribute('aria-label') || modal.hasAttribute('aria-labelledby')) return;
+      const heading = modal.querySelector('.modal-header h2, h2');
+      if (!heading) return;
+      if (!heading.id) heading.id = 'ui-modal-title-' + Math.random().toString(36).slice(2, 10);
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-labelledby', heading.id);
+    });
+  }
+
   function start() {
     addTools();
     fetchCsrf();
     enhanceActionCells();
+    enhanceWorkspace();
     const observer = new MutationObserver(() => {
       addTools();
       enhanceActionCells();
+      enhanceWorkspace();
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }
