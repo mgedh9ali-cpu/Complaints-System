@@ -33,6 +33,7 @@ const { createSyncService } = require('./modules/sync/service');
 const { createSyncRouter } = require('./modules/sync/routes');
 const { createHealthService } = require('./modules/health/service');
 const { createHealthRouter } = require('./modules/health/routes');
+const { createPublicRouter } = require('./modules/public/routes');
 
 const APP_VERSION = '0.7.2';
 
@@ -201,6 +202,7 @@ const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
 
 app.use('/api', createHealthRouter({ healthService, middleware }));
+app.use('/api', createPublicRouter({ complaintsService, db }));
 app.use('/api', createAuthRouter({ authService, middleware, audit }));
 app.use('/api', createRolesRouter({ rolesService, middleware }));
 app.use(
@@ -233,7 +235,6 @@ app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesServ
 app.use('/api', createAuditRouter({ auditService, middleware, rolesService }));
 app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService }));
 
-// Readable UI sources only: app.full.js, then sequential app-p01.js...
 app.get('/app.bundle.js', (req, res) => {
   try {
     const fullPath = path.join(__dirname, 'app.full.js');
