@@ -1,6 +1,8 @@
 'use strict';
 
 const express = require('express');
+const { submitSurvey } = require('./survey');
+const { notifyComplaintCreated, notifyStatusChanged } = require('../../lib/mail');
 
 function createComplaintsRouter({
   complaintsService,
@@ -136,6 +138,7 @@ function createComplaintsRouter({
       if (!result.ok) {
         return res.status(result.status || 400).json({ error: result.error || 'تعذر إنشاء الشكوى.' });
       }
+      notifyComplaintCreated(result.complaint, logger).catch(() => {});
       res.status(201).json({ complaint: result.complaint, revision: result.revision });
     }
   );
@@ -146,6 +149,7 @@ function createComplaintsRouter({
     requirePermission('complaints.status'),
     requireCsrf,
     (req, res) => {
+      const fromHint = req.body?.from;
       const result = complaintsService.changeStatus({
         complaintId: req.params.id,
         toStatus: req.body?.status,
@@ -156,6 +160,11 @@ function createComplaintsRouter({
       if (!result.ok) {
         return res.status(result.status || 400).json({ error: result.error || 'تعذر تغيير الحالة.' });
       }
+      if (!result.unchanged) {
+        const hist = result.complaint.statusHistory || [];
+        const last = hist[hist.length - 1];
+        notifyStatusChanged(result.complaint, last?.from || fromHint || '', logger).catch(() => {});
+      }
       res.json({
         ok: true,
         id: req.params.id,
@@ -164,6 +173,29 @@ function createComplaintsRouter({
         statusHistory: result.complaint.statusHistory || [],
         unchanged: Boolean(result.unchanged)
       });
+    }
+  );
+
+  router.post(
+    '/complaints/:id/survey',
+    requireAuth,
+    requirePermission('complaints.status'),
+    requireCsrf,
+    (req, res) => {
+      const result = submitSurvey({
+        db,
+        complaintsService,
+        complaintId: req.params.id,
+        rating: req.body?.rating,
+        comment: req.body?.comment,
+        actorLabel: req.user.username,
+        userId: req.user.id,
+        audit
+      });
+      if (!result.ok) {
+        return res.status(result.status || 400).json({ error: result.error });
+      }
+      res.json({ ok: true, survey: result.survey, revision: result.revision });
     }
   );
 

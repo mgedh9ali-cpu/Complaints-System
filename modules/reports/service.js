@@ -1,6 +1,7 @@
 'use strict';
 
 const { buildComplaintsWorkbook, buildSingleComplaintWorkbook } = require('../../lib/excel-export');
+const { buildSimplePdf } = require('../../lib/simple-pdf');
 
 const CSV_HEADERS = [
   'id', 'name', 'phone', 'province', 'entity', 'category',
@@ -155,6 +156,36 @@ function createReportsService({ complaintsService }) {
     };
   }
 
+  function buildSinglePdf(id, generatedBy) {
+    const complaint = findComplaint(id);
+    if (!complaint) return null;
+    const lines = [
+      'المعرّف: ' + complaint.id,
+      'الحالة: ' + (STATUS_LABELS[complaint.status] || complaint.status || ''),
+      'التصنيف: ' + (complaint.category || '-'),
+      'الأولوية: ' + (complaint.priority || '-'),
+      'المحافظة: ' + (complaint.province || '-'),
+      'الجهة: ' + (complaint.entity || '-'),
+      'المسؤول: ' + (complaint.owner || '-'),
+      'الإنشاء: ' + (complaint.created || '-'),
+      'التحديث: ' + (complaint.updated || '-'),
+      'الاستحقاق: ' + (complaint.due || '-'),
+      'الملخص: ' + (complaint.summary || '-'),
+      'التفاصيل: ' + String(complaint.details || '-').slice(0, 500),
+      'مُصدر التقرير: ' + (generatedBy || 'system'),
+      'وقت الإصدار: ' + new Date().toISOString()
+    ];
+    if (complaint.survey && complaint.survey.rating) {
+      lines.push('تقييم الخدمة: ' + complaint.survey.rating + '/5');
+    }
+    const buffer = buildSimplePdf(lines, 'تقرير شكوى — ' + complaint.id);
+    return {
+      buffer,
+      filename: 'complaint-' + id + '.pdf',
+      complaint
+    };
+  }
+
   return {
     listComplaints,
     findComplaint,
@@ -162,7 +193,8 @@ function createReportsService({ complaintsService }) {
     buildSummaryReport,
     buildCsv,
     buildXlsx,
-    buildSingleXlsx
+    buildSingleXlsx,
+    buildSinglePdf
   };
 }
 

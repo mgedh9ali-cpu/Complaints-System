@@ -1,10 +1,8 @@
 'use strict';
 
 const express = require('express');
+const { submitSurvey } = require('../complaints/survey');
 
-/**
- * Public (unauthenticated) routes — intentionally minimal and non-sensitive.
- */
 function createPublicRouter({ complaintsService, db }) {
   const router = express.Router();
 
@@ -36,12 +34,10 @@ function createPublicRouter({ complaintsService, db }) {
     if (!id || id.length > 100 || !/^SY-\d{4}-[0-9a-f-]{8}$/i.test(id)) {
       return res.status(400).json({ error: 'رقم المرجع غير صالح.' });
     }
-
     const complaint = findComplaint(id);
     if (!complaint) {
       return res.status(404).json({ error: 'لا توجد شكوى بهذا الرقم.' });
     }
-
     const status = complaint.status || 'new';
     res.json({
       id: complaint.id,
@@ -52,8 +48,26 @@ function createPublicRouter({ complaintsService, db }) {
       created: complaint.created || null,
       updated: complaint.updated || null,
       hasReply: Boolean(complaint.reply),
-      closed: status === 'closed' || status === 'cancelled'
+      closed: status === 'closed' || status === 'cancelled',
+      hasSurvey: Boolean(complaint.survey && complaint.survey.rating)
     });
+  });
+
+  router.post('/public/survey/:id', (req, res) => {
+    const result = submitSurvey({
+      db,
+      complaintsService,
+      complaintId: req.params.id,
+      rating: req.body?.rating,
+      comment: req.body?.comment,
+      actorLabel: 'public',
+      userId: null,
+      audit: null
+    });
+    if (!result.ok) {
+      return res.status(result.status || 400).json({ error: result.error });
+    }
+    res.json({ ok: true, survey: result.survey });
   });
 
   return router;
