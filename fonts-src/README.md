@@ -1,14 +1,24 @@
 # مصادر خط ثمانية (Thmanyah Sans)
 
-توضع هنا ملفات `*.woff2.b64` (أو أجزاء `*.pN.b64` + `*.parts`).
+الواجهة مربوطة بخط **Thmanyah Sans** عبر:
+- `thmanyah-fonts.css`
+- `ui-enhancements.css` (`--ui-font`)
+- `index.html`
+- `server.js` → `ensureThmanyahFonts()` عند الإقلاع + خدمة `/fonts`
 
-عند تشغيل الخادم أو `npm run fonts` يُعاد بناء الملفات الثنائية في مجلد `fonts/`:
+## إعادة البناء
 
 ```bash
 npm run fonts
 ```
 
-الملفات الناتجة:
-- `fonts/thmanyahsans-Regular.woff2`
-- `fonts/thmanyahsans-Medium.woff2`
-- `fonts/thmanyahsans-Bold.woff2`
+أو تلقائياً عند `postinstall` / تشغيل الخادم.
+
+الملفات المصدرية: أجزاء base64 `*.pN.b64` + ملف `*.parts`.
+
+الناتج في `fonts/`:
+- `thmanyahsans-Regular.woff2`
+- `thmanyahsans-Medium.woff2`
+- `thmanyahsans-Bold.woff2`
+
+> ملاحظة: رفع الأجزاء الثنائية يتم على دفعات بسبب حدود حجم ملفات GitHub API.
