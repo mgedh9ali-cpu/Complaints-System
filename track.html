@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>تتبع الشكوى | رقم مرجعي</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body { margin: 0; background: #0f172a; color: #f8fafc; font-family: Tahoma, Arial, sans-serif; }
+      .wrap { max-width: 520px; margin: 40px auto; padding: 24px; background: #1e293b; border-radius: 12px; }
+      h1 { font-size: 1.25rem; margin: 0 0 8px; }
+      p.hint { color: #94a3b8; font-size: 0.9rem; }
+      label { display: block; margin: 12px 0 6px; }
+      input, textarea, select, button {
+        width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px;
+        border: 1px solid #334155; background: #0f172a; color: #f8fafc;
+      }
+      button { cursor: pointer; background: #0d9488; border: none; font-weight: bold; margin-top: 12px; }
+      button.secondary { background: #334155; }
+      .card { margin-top: 16px; padding: 14px; background: #0f172a; border-radius: 8px; line-height: 1.7; }
+      .err { color: #fca5a5; }
+      .ok { color: #6ee7b7; }
+      a.home { color: #38bdf8; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>تتبع الشكوى برقم المرجع</h1>
+      <p class="hint">أدخل الرقم بالشكل <code>SY-2026-xxxxxxxx</code>. لا تُعرض بيانات شخصية.</p>
+      <label for="refId">رقم المرجع</label>
+      <input id="refId" autocomplete="off" placeholder="SY-2026-…" />
+      <button type="button" id="trackBtn">استعلام</button>
+      <div id="result" class="card" hidden></div>
+      <div id="surveyBox" class="card" hidden>
+        <strong>تقييم الخدمة (بعد الإغلاق)</strong>
+        <label for="rating">التقييم</label>
+        <select id="rating">
+          <option value="5">5 — ممتاز</option>
+          <option value="4">4</option>
+          <option value="3">3</option>
+          <option value="2">2</option>
+          <option value="1">1 — ضعيف</option>
+        </select>
+        <label for="comment">ملاحظة (اختياري)</label>
+        <textarea id="comment" rows="3" maxlength="1000"></textarea>
+        <button type="button" id="surveyBtn">إرسال التقييم</button>
+      </div>
+      <p class="hint" style="margin-top:20px">
+        <a class="home" href="/">العودة للنظام</a>
+      </p>
+    </div>
+    <script>
+      const result = document.getElementById('result');
+      const surveyBox = document.getElementById('surveyBox');
+      let currentId = null;
+
+      async function track() {
+        const id = document.getElementById('refId').value.trim();
+        result.hidden = false;
+        surveyBox.hidden = true;
+        currentId = null;
+        result.innerHTML = 'جاري الاستعلام…';
+        try {
+          const res = await fetch('/api/public/track/' + encodeURIComponent(id));
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            result.innerHTML = '<span class="err">' + (data.error || 'تعذر الاستعلام') + '</span>';
+            return;
+          }
+          currentId = data.id;
+          result.innerHTML =
+            '<div><strong>' + data.id + '</strong></div>' +
+            '<div>الحالة: ' + (data.statusLabel || data.status) + '</div>' +
+            '<div>التصنيف: ' + (data.category || '—') + '</div>' +
+            '<div>الأولوية: ' + (data.priority || '—') + '</div>' +
+            '<div>أُنشئت: ' + (data.created || '—') + '</div>' +
+            '<div>آخر تحديث: ' + (data.updated || '—') + '</div>' +
+            '<div>يوجد رد: ' + (data.hasReply ? 'نعم' : 'لا') + '</div>';
+          if (data.closed) surveyBox.hidden = false;
+        } catch (e) {
+          result.innerHTML = '<span class="err">تعذر الاتصال بالخادم المحلي.</span>';
+        }
+      }
+
+      document.getElementById('trackBtn').addEventListener('click', track);
+      document.getElementById('refId').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') track();
+      });
+
+      document.getElementById('surveyBtn').addEventListener('click', async () => {
+        if (!currentId) return;
+        const rating = document.getElementById('rating').value;
+        const comment = document.getElementById('comment').value;
+        try {
+          const res = await fetch('/api/public/survey/' + encodeURIComponent(currentId), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating: Number(rating), comment })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            result.innerHTML += '<p class="err">' + (data.error || 'فشل التقييم') + '</p>';
+            return;
+          }
+          surveyBox.hidden = true;
+          result.innerHTML += '<p class="ok">تم تسجيل التقييم، شكراً لك.</p>';
+        } catch (e) {
+          result.innerHTML += '<p class="err">تعذر إرسال التقييم.</p>';
+        }
+      });
+
+      const params = new URLSearchParams(location.search);
+      if (params.get('id')) {
+        document.getElementById('refId').value = params.get('id');
+        track();
+      }
+    </script>
+  </body>
+</html>
