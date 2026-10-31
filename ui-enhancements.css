@@ -231,3 +231,35 @@ td { font-size: 12px; line-height: 1.65; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* Complaint registry: clear status, readable density and touch-friendly controls. */
+.table-panel { border-radius: var(--ui-radius); }
+.table-tools { gap: 10px; padding: 16px; }
+.table-tools .field, .table-tools .select-field { min-height: 44px; }
+.table-wrap { max-width: 100%; overscroll-behavior-inline: contain; }
+.table-wrap table { min-width: 650px; }
+.table-wrap thead th { position: sticky; top: 0; z-index: 1; background: #f5f8f6; }
+.table-wrap tbody tr { transition: background-color 140ms ease; }
+.table-wrap tbody tr:focus-within { background: #eef5f0; }
+.table-wrap td { padding-block: 14px; }
+.ticket-id { font-size: 12px; font-variant-numeric: tabular-nums; }
+.pill { min-height: 28px; padding-inline: 10px; font-size: 12px; }
+.pill.urgent, .age.late { font-weight: 700; }
+.row-actions { gap: 8px; }
+.row-actions .btn-sm { min-height: 38px; padding: 7px 12px; font-size: 12px; }
+.form-field { gap: 8px; }
+.form-field label { font-size: 13px; }
+.form-grid { gap: 18px; }
+.modal-body { line-height: 1.75; }
+.modal-footer { position: sticky; bottom: 0; background: var(--paper, #fff); z-index: 2; }
+button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity: 0.6; }
+@media (max-width: 768px) {
+  .table-panel { min-width: 0; }
+  .table-wrap { border-top: 1px solid var(--line); }
+  .table-tools > .field, .table-tools > .select-field { flex: 1 1 150px; min-width: 0; }
+  .modal { max-height: calc(100dvh - 20px); }
+  .modal-footer .right-actions { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-wrap tbody tr { transition: none; }
+}
