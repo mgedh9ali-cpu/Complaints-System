@@ -1,33 +1,40 @@
 # شعبة الاستفسارات والشكاوى
 
-نظام عربي **محلي** لإدارة الشكاوى — SQLite، جلسات محفوظة، مرفقات، تقارير Excel، ومزامنة يدوية بملف.
+نظام عربي **محلي** لإدارة الشكاوى والاستفسارات — يعمل على الجهاز نفسه عبر Node.js وSQLite، مع واجهة ويب وغلاف سطح مكتب Electron.
 
-**الإصدار: 0.7.2**
+**الإصدار: 0.7.4**
 
 [![Node](https://img.shields.io/badge/node-%3E%3D20.6-brightgreen)](https://nodejs.org)
-[![License](https://img.shields.io/badge/license-private-lightgrey)](#)
 
 > تحذير: لا تُدخل بيانات مواطنين حقيقية قبل مراجعة أمنية. انظر [SECURITY.md](SECURITY.md).
 
-## التشغيل السريع
+## ماذا يفعل النظام؟
 
-### سطح مكتب (Windows)
+- تسجيل الشكاوى ودورة حياتها (مسودة → جديدة → معالجة → إغلاق)
+- مستخدمون وأدوار: `admin` / `staff` / `reviewer`
+- مرفقات مع فحص المحتوى
+- تقارير CSV / Excel / PDF لشكوى واحدة
+- نسخ احتياطي لقاعدة البيانات
+- مزامنة يدوية بملف مع كشف تعارضات
+- سجل تدقيق بسلسلة hash
+
+## التشغيل
 
 ```bash
 npm install
-start-desktop.bat
-```
-
-أو: `npm run start:desktop`
-
-### متصفح
-
-```bash
-npm install
+cp .env.example .env   # عدّل SESSION_SECRET وكلمة مرور المدير
 npm start
 ```
 
-ثم افتح http://127.0.0.1:3000 — أو استخدم `start-windows.bat`.
+ثم افتح: **http://127.0.0.1:3000**
+
+### سطح مكتب
+
+```bash
+npm run start:desktop
+```
+
+أو على Windows: `start-desktop.bat` / `start-windows.bat`
 
 ### بناء محمول
 
@@ -37,60 +44,71 @@ npm run dist:win
 
 المخرج في `dist-desktop/`.
 
-### متغيرات البيئة
+### متغيرات `.env` الأساسية
 
-انسخ `.env.example` إلى `.env` أو دع أول تشغيل ينشئه تلقائياً.
-
-```
+```env
 SESSION_SECRET=...          # 32 حرفاً على الأقل
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=...
-AUTO_BACKUP_HOURS=6
+ADMIN_PASSWORD=...          # 12 حرفاً على الأقل
+HOST=127.0.0.1
+PORT=3000
+DATABASE_PATH=./data/complaints.sqlite
 ```
 
-## بنية المشروع
+## البنية
 
-| المسار | الوظيفة |
-|--------|----------|
-| `server.js` | نقطة دخول Express + SQLite |
-| `modules/` | وحدات: auth، complaints، attachments، reports، backup، audit، sync، … |
-| `lib/` | أدوات مشتركة (logger، validation، offline-sync، …) |
-| `app.full.js` | واجهة المستخدم الكاملة (مصدر مقروء) |
-| `app.js` | محمّل خفيف يطلب `/app.bundle.js` |
-| `desktop/` | غلاف Electron لنافذة سطح المكتب |
-| `tests/` | اختبارات Node مدمجة |
-| `scripts/` | إعداد محلي، نسخ احتياطي، تحقق تدقيق |
-| `docs/` | وثائق التطوير والقبول |
+```text
+.
+├── desktop/          غلاف Electron
+├── docs/             وثائق
+├── lib/              أدوات مشتركة
+├── modules/          وحدات API
+│   ├── auth/
+│   ├── roles/
+│   ├── complaints/   إنشاء، تعديل، حذف، مسودة، حالات
+│   ├── dashboard/
+│   ├── attachments/
+│   ├── reports/      CSV / Excel / PDF
+│   ├── settings/
+│   ├── backup/
+│   ├── audit/
+│   ├── sync/
+│   └── health/
+├── scripts/
+├── tests/
+├── fonts/            خط Thmanyah Sans (إن وُجد)
+├── server.js
+├── app.js / app.full.js
+├── index.html
+├── styles.css / ui-enhancements.css
+└── package.json
+```
 
-واجهة المستخدم تُقدَّم من **`app.full.js`** (مع احتياطي `app-p01.js`…). لم تعد تُستخدم أجزاء Base64/Gzip المجزّأة.
+التفاصيل: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## واجهة API (ملخص)
-
-كل المسارات تحت `/api` وتتطلب جلسة حيث يُشار لذلك.
 
 | المجموعة | أمثلة |
 |----------|--------|
 | صحة | `GET /api/health` |
-| مصادقة | `POST /api/auth/login`، تغيير كلمة المرور، خروج |
-| شكاوى | إنشاء/تحديث/تغيير حالة |
-| مرفقات | رفع/تنزيل/حذف |
-| تقارير | `GET /api/export/csv`، `/api/export/xlsx`، ملخص |
-| مزامنة | `GET /api/sync/export`، `POST /api/sync/import` |
-| نسخ احتياطي وتدقيق | مسارات تحت backup و audit |
-
-التفاصيل في الكود داخل `modules/*/routes.js`.
+| مصادقة | تسجيل دخول، خروج، تغيير كلمة المرور |
+| شكاوى | `POST /api/complaints`، `PATCH /api/complaints/:id`، `DELETE /api/complaints/:id`، تغيير الحالة |
+| مرفقات | رفع / تنزيل / حذف |
+| تقارير | CSV، XLSX، `GET /api/export/pdf/:id` |
+| مزامنة / نسخ / تدقيق | تحت `/api/sync`، `/api/backup`، `/api/audit` |
 
 ## الميزات
 
 | الميزة | الحالة |
 |--------|--------|
-| نافذة سطح مكتب (Electron) | ✅ |
-| صلاحيات دقيقة + CSRF | ✅ |
-| مرفقات مع فحص المحتوى | ✅ |
-| تقارير CSV / Excel | ✅ |
-| مزامنة يدوية + تعارضات | ✅ |
-| سجل تدقيق متسلسل | ✅ |
-| أدوار admin / staff / reviewer | ✅ |
+| سطح مكتب Electron | ✅ |
+| مسودة / تعديل / حذف شكوى | ✅ |
+| صلاحيات + CSRF | ✅ |
+| مرفقات + فحص محتوى | ✅ |
+| CSV / Excel / PDF | ✅ |
+| مزامنة يدوية | ✅ |
+| تدقيق متسلسل | ✅ |
+| خط Thmanyah | ✅ (ضع ملفات woff2 في `fonts/`) |
 
 ## الاختبار
 
@@ -99,6 +117,7 @@ npm test
 npm run check
 ```
 
-## الأمان
+## المساهمة والأمان
 
-انظر [SECURITY.md](SECURITY.md). النظام يستمع على `127.0.0.1` فقط.
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md) — الاستماع على `127.0.0.1` فقط

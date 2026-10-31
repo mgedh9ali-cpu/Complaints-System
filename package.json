@@ -1,6 +1,6 @@
 {
   "name": "complaints-local-system",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "private": true,
   "description": "Local-first Arabic complaints system with modular architecture and optional desktop shell",
   "main": "desktop/main.js",
@@ -8,7 +8,7 @@
     "start": "node --env-file=.env server.js",
     "start:desktop": "electron .",
     "test": "node --test",
-    "check": "node --check server.js && node --check app.js && node --check desktop/main.js && node --check lib/logger.js && node --check lib/file-magic.js && node --check lib/session-revoke.js && node --check lib/attachments.js && node --check lib/audit-integrity.js && node --check lib/offline-sync.js && node --check lib/simple-pdf.js && node --check lib/mail.js && node --check modules/complaints/service.js && node --check modules/complaints/routes.js && node --check modules/complaints/survey.js && node --check modules/auth/service.js && node --check modules/auth/routes.js && node --check modules/auth/middleware.js && node --check modules/roles/service.js && node --check modules/attachments/routes.js && node --check modules/reports/service.js && node --check modules/reports/routes.js && node --check modules/backup/service.js && node --check modules/audit/service.js && node --check modules/sync/service.js && node --check modules/sync/routes.js && node --check modules/health/service.js && node --check modules/public/routes.js",
+    "check": "node --check server.js && node --check app.js && node --check desktop/main.js && node --check lib/logger.js && node --check lib/file-magic.js && node --check lib/session-revoke.js && node --check lib/attachments.js && node --check lib/audit-integrity.js && node --check lib/offline-sync.js && node --check lib/simple-pdf.js && node --check modules/complaints/service.js && node --check modules/complaints/routes.js && node --check modules/auth/service.js && node --check modules/auth/routes.js && node --check modules/auth/middleware.js && node --check modules/roles/service.js && node --check modules/attachments/routes.js && node --check modules/reports/service.js && node --check modules/reports/routes.js && node --check modules/backup/service.js && node --check modules/audit/service.js && node --check modules/sync/service.js && node --check modules/sync/routes.js && node --check modules/health/service.js",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js",
     "dist:win": "electron-builder --win portable --x64"
@@ -25,7 +25,6 @@
     "express-session": "^1.18.1",
     "helmet": "^8.1.0",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.16",
     "session-file-store": "^1.5.0"
   },
   "devDependencies": {
@@ -45,8 +44,12 @@
       "app.full.js",
       "app-p*.js",
       "index.html",
-      "track.html",
       "styles.css",
+      "ui-enhancements.css",
+      "ui-enhancements.js",
+      "thmanyah-fonts.css",
+      "fonts/**/*",
+      "attachments-ui-bridge.js",
       "lib/**/*",
       "modules/**/*",
       "scripts/**/*",
