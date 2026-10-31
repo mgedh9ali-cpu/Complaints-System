@@ -4,16 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#123b32" />
-    <meta
-      name="description"
-      content="نظام إدارة الشكاوى المحلي - يعمل دون اتصال"
-    />
+    <meta name="description" content="نظام إدارة الشكاوى المحلي - يعمل دون اتصال" />
     <link rel="manifest" href="/manifest.json" />
-    <link
-      rel="apple-touch-icon"
-      href="data:image/svg+xml,%3Csvg viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%23145b49'/%3E%3Cpath d='M96 32L160 56v52c0 40-28 64-64 80-36-16-64-40-64-80V56L96 32z' fill='none' stroke='%23d4af37' stroke-width='8'/%3E%3C/svg%3E"
-    />
     <title>شعبة الاستفسارات والشكاوى | تشغيل محلي</title>
+    <link rel="stylesheet" href="thmanyah-fonts.css" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="ui-enhancements.css" />
   </head>
@@ -23,138 +17,68 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 48 48">
-              <path
-                d="M24 4 42 12v13c0 10-7 16-18 20C13 41 6 35 6 25V12L24 4Z"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-              />
-              <path
-                d="M15 20h18M15 26h18M18 14h12"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-              />
+              <path d="M24 4 42 12v13c0 10-7 16-18 20C13 41 6 35 6 25V12L24 4Z" fill="none" stroke="currentColor" stroke-width="2.5" />
+              <path d="M15 20h18M15 26h18M18 14h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
             </svg>
           </div>
           <div>
-            <strong>شعبة الاستفسارات<br />والشكاوى</strong
-            ><small>لوحة إدارة داخلية</small>
+            <strong>شعبة الاستفسارات<br />والشكاوى</strong>
+            <small>لوحة إدارة داخلية</small>
           </div>
         </div>
         <div class="prototype-note">
           <span class="status-dot"></span> قاعدة بيانات محلية · تسجيل دخول مطلوب
         </div>
         <nav class="main-nav" aria-label="التنقل الرئيسي">
-          <button class="nav-link active" data-page="dashboard">
-            <span class="nav-icon">▦</span> لوحة المتابعة
-          </button>
-          <button class="nav-link" data-page="complaints">
-            <span class="nav-icon">▤</span> سجل الشكاوى
-            <span class="nav-count" id="navComplaintsCount">0</span>
-          </button>
-          <button class="nav-link" data-page="referrals">
-            <span class="nav-icon">↗</span> الإحالات
-            <span class="nav-count" id="navReferralsCount">0</span>
-          </button>
-          <button class="nav-link" data-page="replies">
-            <span class="nav-icon">✉</span> الردود والاعتماد
-          </button>
-          <button class="nav-link" data-page="notifications">
-            <span class="nav-icon">◉</span> الإشعارات
-            <span class="nav-count" id="navNotificationsCount">0</span>
-          </button>
+          <button class="nav-link active" data-page="dashboard"><span class="nav-icon">▦</span> لوحة المتابعة</button>
+          <button class="nav-link" data-page="complaints"><span class="nav-icon">▤</span> سجل الشكاوى <span class="nav-count" id="navComplaintsCount">0</span></button>
+          <button class="nav-link" data-page="referrals"><span class="nav-icon">↗</span> الإحالات <span class="nav-count" id="navReferralsCount">0</span></button>
+          <button class="nav-link" data-page="replies"><span class="nav-icon">✉</span> الردود والاعتماد</button>
+          <button class="nav-link" data-page="notifications"><span class="nav-icon">◉</span> الإشعارات <span class="nav-count" id="navNotificationsCount">0</span></button>
           <div class="nav-separator"></div>
-          <button class="nav-link" data-page="reports">
-            <span class="nav-icon">▥</span> التقارير
-          </button>
-          <button class="nav-link" data-page="settings">
-            <span class="nav-icon">⚙</span> القوائم والإعدادات
-          </button>
+          <button class="nav-link" data-page="reports"><span class="nav-icon">▥</span> التقارير</button>
+          <button class="nav-link" data-page="settings"><span class="nav-icon">⚙</span> القوائم والإعدادات</button>
         </nav>
         <div class="sidebar-bottom">
           <div class="user-card">
             <div class="avatar">م</div>
             <div>
-              <strong id="sideUserName">غير مسجل</strong
-              ><small id="sideUserRole">يلزم تسجيل الدخول</small>
+              <strong id="sideUserName">غير مسجل</strong>
+              <small id="sideUserRole">يلزم تسجيل الدخول</small>
             </div>
             <span class="demo-badge">محلي</span>
           </div>
-          <div class="side-foot">
-            لا تُدخل بيانات مواطنين حقيقية.<br />هذا النموذج لا يوفّر حماية
-            إنتاجية.
-          </div>
+          <div class="side-foot">لا تُدخل بيانات مواطنين حقيقية.<br />هذا النموذج لا يوفّر حماية إنتاجية.</div>
         </div>
       </aside>
-
       <main class="main-area">
         <header class="topbar">
-          <button
-            class="icon-button menu-toggle"
-            id="menuToggle"
-            aria-label="فتح القائمة"
-            aria-expanded="false"
-          >
-            ☰
-          </button>
+          <button class="icon-button menu-toggle" id="menuToggle" aria-label="فتح القائمة" aria-expanded="false">☰</button>
           <div class="breadcrumbs">
-            <span>نظام إدارة الشكاوى</span><span class="crumb-sep">/</span
-            ><strong id="pageCrumb">لوحة المتابعة</strong>
+            <span>نظام إدارة الشكاوى</span><span class="crumb-sep">/</span><strong id="pageCrumb">لوحة المتابعة</strong>
           </div>
           <div class="top-actions">
             <span class="env-chip"><span></span> تخزين محلي</span>
-            <button
-              class="icon-button notification-button"
-              data-goto="notifications"
-              aria-label="الإشعارات"
-            >
-              ♧<i id="topUnread"></i>
-            </button>
+            <button class="icon-button notification-button" data-goto="notifications" aria-label="الإشعارات">♧<i id="topUnread"></i></button>
             <div class="top-user">
-              <span class="avatar small">م</span
-              ><span id="topUserName">غير مسجل</span
-              ><button
-                class="btn btn-primary"
-                id="databaseBackupButton"
-                data-action="database-backup"
-                type="button"
-                hidden
-              >
-                نسخ احتياطي</button
-              ><button class="btn" id="csvExportButton" type="button" hidden>
-                تصدير CSV</button
-              ><button class="btn" id="logoutButton" type="button" hidden>
-                خروج
-              </button>
+              <span class="avatar small">م</span><span id="topUserName">غير مسجل</span>
+              <button class="btn btn-primary" id="databaseBackupButton" data-action="database-backup" type="button" hidden>نسخ احتياطي</button>
+              <button class="btn" id="csvExportButton" type="button" hidden>تصدير CSV</button>
+              <button class="btn" id="logoutButton" type="button" hidden>خروج</button>
             </div>
           </div>
         </header>
         <section class="content" id="content" tabindex="-1"></section>
         <footer class="page-footer">
-          <span>شعبة الاستفسارات والشكاوى</span
-          ><span>الإصدار 0.7.2 · يعمل محلياً</span>
+          <span>شعبة الاستفسارات والشكاوى</span>
+          <span>الإصدار 0.7.4 · يعمل محلياً</span>
         </footer>
       </main>
     </div>
     <div id="modalRoot"></div>
-    <div
-      class="toast-region"
-      id="toastRegion"
-      aria-live="polite"
-      aria-atomic="true"
-    ></div>
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
     <script src="app.js"></script>
     <script src="ui-enhancements.js"></script>
     <script src="attachments-ui-bridge.js"></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker
-            .register("/sw.js")
-            .catch((err) => console.warn("SW registration failed:", err));
-        });
-      }
-    </script>
   </body>
 </html>
