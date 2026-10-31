@@ -1,8 +1,9 @@
 'use strict';
 
 /**
- * Electron desktop shell for the local complaints system.
- * Spawns the existing Express server (system Node) and opens a native window.
+ * Electron desktop shell — single window app.
+ * Application files come from the install/portable package.
+ * User data (database, sessions, .env) lives in OS userData so updates never wipe complaints.
  */
 
 const path = require('node:path');
@@ -11,7 +12,6 @@ const net = require('node:net');
 const { spawn } = require('node:child_process');
 const { app, BrowserWindow, dialog, shell } = require('electron');
 
-const ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.PORT || 3000);
 const HOST = '127.0.0.1';
 const APP_URL = `http://${HOST}:${PORT}`;
@@ -19,22 +19,47 @@ const APP_URL = `http://${HOST}:${PORT}`;
 let serverProcess = null;
 let mainWindow = null;
 
-function ensureEnvFile() {
-  const envPath = path.join(ROOT, '.env');
+function appRoot() {
+  if (app.isPackaged) {
+    // electron-builder: extraResources / files land next to app.asar or in resources/app
+    return path.join(process.resourcesPath, 'app');
+  }
+  return path.resolve(__dirname, '..');
+}
+
+function userDataDir() {
+  return app.getPath('userData');
+}
+
+function ensureUserDataLayout() {
+  const base = userDataDir();
+  const dataDir = path.join(base, 'data');
+  const sessionsDir = path.join(dataDir, 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  return {
+    base,
+    dataDir,
+    sessionsDir,
+    databasePath: path.join(dataDir, 'complaints.sqlite'),
+    instanceIdPath: path.join(dataDir, 'instance-id'),
+    envPath: path.join(base, '.env')
+  };
+}
+
+function ensureEnvFile(envPath) {
   if (fs.existsSync(envPath)) return;
+  const root = appRoot();
   try {
-    const { initializeLocalConfig } = require(path.join(ROOT, 'scripts', 'initialize-local-config.js'));
-    const result = initializeLocalConfig(envPath, (msg) => {
-      // Show credentials once in a dialog after window is ready if created
-      ensureEnvFile._bootstrapMessage = msg;
-    });
+    const { initializeLocalConfig } = require(path.join(root, 'scripts', 'initialize-local-config.js'));
+    const result = initializeLocalConfig(envPath, () => {});
     if (result.created && result.adminPassword) {
       ensureEnvFile._bootstrapMessage =
         'تم إنشاء حساب المدير الأول.\n\n' +
         'اسم المستخدم: admin\n' +
         'كلمة المرور: ' +
         result.adminPassword +
-        '\n\nاحفظها الآن؛ لن تظهر مرة أخرى.';
+        '\n\nاحفظها الآن؛ لن تظهر مرة أخرى.\n\n' +
+        'البيانات تُحفظ في مجلد منفصل عن ملف التطبيق فلا تضيع عند التحديث.';
     }
   } catch (err) {
     throw new Error('تعذر إنشاء ملف الإعدادات المحلي: ' + err.message);
@@ -66,27 +91,28 @@ function waitForServer(timeoutMs = 60000) {
   });
 }
 
-function startServer() {
+function startServer(paths) {
+  const root = appRoot();
   const nodeBin = process.env.COMPLAINTS_NODE || 'node';
-  const args = ['--env-file=.env', 'server.js'];
+  const args = ['--env-file=' + paths.envPath, path.join(root, 'server.js')];
   serverProcess = spawn(nodeBin, args, {
-    cwd: ROOT,
+    cwd: root,
     env: {
       ...process.env,
       HOST: '127.0.0.1',
       PORT: String(PORT),
-      ELECTRON_RUN: '1'
+      ELECTRON_RUN: '1',
+      DATABASE_PATH: paths.databasePath,
+      INSTANCE_ID_PATH: paths.instanceIdPath,
+      // sessions path is resolved in server relative to cwd; override via env if supported later
+      COMPLAINTS_USER_DATA: paths.base
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
   });
 
-  serverProcess.stdout.on('data', (buf) => {
-    process.stdout.write(buf);
-  });
-  serverProcess.stderr.on('data', (buf) => {
-    process.stderr.write(buf);
-  });
+  serverProcess.stdout.on('data', (buf) => process.stdout.write(buf));
+  serverProcess.stderr.on('data', (buf) => process.stderr.write(buf));
   serverProcess.on('exit', (code, signal) => {
     serverProcess = null;
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -103,9 +129,7 @@ function stopServer() {
   if (!serverProcess) return;
   try {
     if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(serverProcess.pid), '/f', '/t'], {
-        windowsHide: true
-      });
+      spawn('taskkill', ['/pid', String(serverProcess.pid), '/f', '/t'], { windowsHide: true });
     } else {
       serverProcess.kill('SIGTERM');
     }
@@ -132,15 +156,12 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(APP_URL)) {
-      return { action: 'allow' };
-    }
+    if (url.startsWith(APP_URL)) return { action: 'allow' };
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
   mainWindow.loadURL(APP_URL);
-
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -169,13 +190,15 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     try {
-      if (!fs.existsSync(path.join(ROOT, 'node_modules', 'express', 'package.json'))) {
+      const root = appRoot();
+      const paths = ensureUserDataLayout();
+      if (!fs.existsSync(path.join(root, 'node_modules', 'express', 'package.json'))) {
         throw new Error(
-          'الحزم غير مثبتة. نفّذ npm install داخل مجلد المشروع ثم أعد المحاولة.'
+          'الحزم غير مثبتة داخل حزمة التطبيق. أعد بناء النسخة المحمولة (npm run dist:win).'
         );
       }
-      ensureEnvFile();
-      startServer();
+      ensureEnvFile(paths.envPath);
+      startServer(paths);
       await waitForServer();
       createWindow();
     } catch (err) {
