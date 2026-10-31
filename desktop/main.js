@@ -1,38 +1,33 @@
 'use strict';
 
 /**
- * Electron desktop shell — single window app.
- * Application files come from the install/portable package.
- * User data (database, sessions, .env) lives in OS userData so updates never wipe complaints.
+ * Self-contained desktop shell.
+ * Uses Electron's embedded Node to run Express in-process — no system Node.js required.
+ * User data (SQLite, sessions, .env) lives under app.getPath('userData').
  */
 
 const path = require('node:path');
 const fs = require('node:fs');
 const net = require('node:net');
-const { spawn } = require('node:child_process');
 const { app, BrowserWindow, dialog, shell } = require('electron');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = '127.0.0.1';
 const APP_URL = `http://${HOST}:${PORT}`;
 
-let serverProcess = null;
 let mainWindow = null;
+let serverBooted = false;
 
 function appRoot() {
   if (app.isPackaged) {
-    // electron-builder: extraResources / files land next to app.asar or in resources/app
-    return path.join(process.resourcesPath, 'app');
+    // With asar: app.getAppPath() points at app.asar (or unpacked app folder)
+    return app.getAppPath();
   }
   return path.resolve(__dirname, '..');
 }
 
-function userDataDir() {
-  return app.getPath('userData');
-}
-
 function ensureUserDataLayout() {
-  const base = userDataDir();
+  const base = app.getPath('userData');
   const dataDir = path.join(base, 'data');
   const sessionsDir = path.join(dataDir, 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
@@ -46,9 +41,28 @@ function ensureUserDataLayout() {
   };
 }
 
-function ensureEnvFile(envPath) {
+function loadEnvFile(envPath) {
+  if (!fs.existsSync(envPath)) return;
+  const text = fs.readFileSync(envPath, 'utf8');
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (!(key in process.env)) process.env[key] = val;
+  }
+}
+
+function ensureEnvFile(envPath, root) {
   if (fs.existsSync(envPath)) return;
-  const root = appRoot();
   try {
     const { initializeLocalConfig } = require(path.join(root, 'scripts', 'initialize-local-config.js'));
     const result = initializeLocalConfig(envPath, () => {});
@@ -59,7 +73,7 @@ function ensureEnvFile(envPath) {
         'كلمة المرور: ' +
         result.adminPassword +
         '\n\nاحفظها الآن؛ لن تظهر مرة أخرى.\n\n' +
-        'البيانات تُحفظ في مجلد منفصل عن ملف التطبيق فلا تضيع عند التحديث.';
+        'البيانات تُحفظ خارج ملف التطبيق ولا تُمسح عند التحديث.';
     }
   } catch (err) {
     throw new Error('تعذر إنشاء ملف الإعدادات المحلي: ' + err.message);
@@ -77,7 +91,7 @@ function waitForServer(timeoutMs = 60000) {
           reject(new Error('الخادم المحلي لم يصبح جاهزاً خلال المهلة.'));
           return;
         }
-        setTimeout(tryOnce, 300);
+        setTimeout(tryOnce, 250);
       };
       socket.setTimeout(800);
       socket.once('error', onFail);
@@ -91,52 +105,22 @@ function waitForServer(timeoutMs = 60000) {
   });
 }
 
-function startServer(paths) {
-  const root = appRoot();
-  const nodeBin = process.env.COMPLAINTS_NODE || 'node';
-  const args = ['--env-file=' + paths.envPath, path.join(root, 'server.js')];
-  serverProcess = spawn(nodeBin, args, {
-    cwd: root,
-    env: {
-      ...process.env,
-      HOST: '127.0.0.1',
-      PORT: String(PORT),
-      ELECTRON_RUN: '1',
-      DATABASE_PATH: paths.databasePath,
-      INSTANCE_ID_PATH: paths.instanceIdPath,
-      // sessions path is resolved in server relative to cwd; override via env if supported later
-      COMPLAINTS_USER_DATA: paths.base
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true
-  });
+function bootServerInProcess(paths, root) {
+  if (serverBooted) return;
+  process.chdir(root);
+  loadEnvFile(paths.envPath);
+  // Always force data paths into userData (never store DB inside the portable exe)
+  process.env.HOST = HOST;
+  process.env.PORT = String(PORT);
+  process.env.DATABASE_PATH = paths.databasePath;
+  process.env.INSTANCE_ID_PATH = paths.instanceIdPath;
+  process.env.SESSIONS_DIR = paths.sessionsDir;
+  process.env.ELECTRON_RUN = '1';
+  process.env.COOKIE_SECURE = process.env.COOKIE_SECURE || 'false';
 
-  serverProcess.stdout.on('data', (buf) => process.stdout.write(buf));
-  serverProcess.stderr.on('data', (buf) => process.stderr.write(buf));
-  serverProcess.on('exit', (code, signal) => {
-    serverProcess = null;
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      dialog.showErrorBox(
-        'توقف الخادم المحلي',
-        'توقف خادم النظام (رمز ' + String(code ?? signal) + '). سيتم إغلاق النافذة.'
-      );
-      app.quit();
-    }
-  });
-}
-
-function stopServer() {
-  if (!serverProcess) return;
-  try {
-    if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(serverProcess.pid), '/f', '/t'], { windowsHide: true });
-    } else {
-      serverProcess.kill('SIGTERM');
-    }
-  } catch {
-    /* ignore */
-  }
-  serverProcess = null;
+  // Starts Express via Electron's embedded Node — no system `node` binary
+  require(path.join(root, 'server.js'));
+  serverBooted = true;
 }
 
 function createWindow() {
@@ -192,28 +176,20 @@ if (!gotLock) {
     try {
       const root = appRoot();
       const paths = ensureUserDataLayout();
-      if (!fs.existsSync(path.join(root, 'node_modules', 'express', 'package.json'))) {
-        throw new Error(
-          'الحزم غير مثبتة داخل حزمة التطبيق. أعد بناء النسخة المحمولة (npm run dist:win).'
-        );
-      }
-      ensureEnvFile(paths.envPath);
-      startServer(paths);
+      ensureEnvFile(paths.envPath, root);
+      bootServerInProcess(paths, root);
       await waitForServer();
       createWindow();
     } catch (err) {
-      dialog.showErrorBox('تعذر تشغيل التطبيق', err.message || String(err));
-      stopServer();
+      dialog.showErrorBox(
+        'تعذر تشغيل التطبيق',
+        (err && err.message) || String(err)
+      );
       app.quit();
     }
   });
 
   app.on('window-all-closed', () => {
-    stopServer();
     app.quit();
-  });
-
-  app.on('before-quit', () => {
-    stopServer();
   });
 }
