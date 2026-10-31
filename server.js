@@ -10,6 +10,7 @@ const { openDatabase } = require('./config/db');
 const { createSessionMiddleware } = require('./config/session');
 const { createHelmetMiddleware } = require('./config/security');
 const { logger } = require('./lib/logger');
+const { lockDownDir, lockDownFile, lockDownDataTree } = require('./lib/data-protection');
 
 const { createAuthService } = require('./modules/auth/service');
 const { createAuthMiddleware } = require('./modules/auth/middleware');
@@ -39,7 +40,13 @@ const { diffComplaints } = require('./lib/complaint-state-diff');
 
 const env = loadEnv();
 const app = express();
+
+const dataRoot = path.dirname(path.resolve(env.databasePath));
+lockDownDataTree(dataRoot);
+lockDownDir(env.sessionsDir);
+
 const db = openDatabase(env.databasePath);
+lockDownFile(env.databasePath);
 
 const auditService = createAuditService({ db, logger });
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
@@ -62,7 +69,10 @@ const dashboardService = createDashboardService({ complaintsService });
 const attachmentsService = createAttachmentsService();
 const reportsService = createReportsService({ complaintsService });
 const settingsService = createSettingsService({ complaintsService });
-const backupService = createBackupService({ databasePath: env.databasePath });
+const backupService = createBackupService({
+  databasePath: env.databasePath,
+  sessionSecret: env.sessionSecret
+});
 const healthService = createHealthService({
   db,
   databasePath: env.databasePath,
@@ -71,8 +81,12 @@ const healthService = createHealthService({
 
 fs.mkdirSync(path.dirname(env.instanceIdPath), { recursive: true });
 if (!fs.existsSync(env.instanceIdPath)) {
-  fs.writeFileSync(env.instanceIdPath, crypto.randomUUID() + '\n', { flag: 'wx' });
+  fs.writeFileSync(env.instanceIdPath, crypto.randomUUID() + '\n', {
+    flag: 'wx',
+    mode: 0o600
+  });
 }
+lockDownFile(env.instanceIdPath);
 const sourceInstanceId = fs.readFileSync(env.instanceIdPath, 'utf8').trim();
 
 const syncService = createSyncService({
@@ -94,6 +108,26 @@ app.use(
   })
 );
 app.use(ensureCsrfToken);
+
+// Block any attempt to fetch sensitive paths even if a static route is added later
+app.use((req, res, next) => {
+  const p = (req.path || '').toLowerCase();
+  if (
+    p.includes('/data/') ||
+    p.startsWith('/data') ||
+    p.includes('.sqlite') ||
+    p.includes('.env') ||
+    p.includes('/sessions') ||
+    p.includes('node_modules') ||
+    p.includes('/modules/') ||
+    p.includes('/config/') ||
+    p.includes('/scripts/') ||
+    p.endsWith('.md')
+  ) {
+    return res.status(404).end();
+  }
+  next();
+});
 
 app.use('/api', createHealthRouter({ healthService, middleware }));
 app.use('/api', createAuthRouter({ authService, middleware, audit }));
@@ -128,13 +162,10 @@ app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesServ
 app.use('/api', createAuditRouter({ auditService, middleware, rolesService }));
 app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService }));
 
-/** Single readable UI source only — no fragmented pNN / gz / b64 assembly. */
 app.get('/app.bundle.js', (req, res) => {
   try {
     const fullPath = path.join(__dirname, 'app.full.js');
-    if (!fs.existsSync(fullPath)) {
-      throw new Error('app.full.js missing');
-    }
+    if (!fs.existsSync(fullPath)) throw new Error('app.full.js missing');
     const fullContent = fs.readFileSync(fullPath, 'utf8');
     if (
       fullContent.length < 10000 ||
@@ -144,7 +175,7 @@ app.get('/app.bundle.js', (req, res) => {
       throw new Error('app.full.js incomplete or corrupt');
     }
     res.type('application/javascript');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-store');
     res.send(fullContent);
   } catch (error) {
     logger.error('UI bundle load failed', { message: error.message });
@@ -152,7 +183,36 @@ app.get('/app.bundle.js', (req, res) => {
   }
 });
 
-app.use(express.static(path.resolve('.'), { index: 'index.html', extensions: ['html'] }));
+/** Public UI assets only — never the whole project tree (prevents leaking .env / sqlite). */
+const PUBLIC_FILES = {
+  '/': 'index.html',
+  '/index.html': 'index.html',
+  '/styles.css': 'styles.css',
+  '/ui-enhancements.css': 'ui-enhancements.css',
+  '/ui-enhancements.js': 'ui-enhancements.js',
+  '/thmanyah-fonts.css': 'thmanyah-fonts.css',
+  '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',
+  '/app.js': 'app.js',
+  '/manifest.json': 'manifest.json',
+  '/sw.js': 'sw.js'
+};
+
+app.get(Object.keys(PUBLIC_FILES), (req, res, next) => {
+  const rel = PUBLIC_FILES[req.path];
+  if (!rel) return next();
+  const full = path.join(__dirname, rel);
+  if (!fs.existsSync(full)) return res.status(404).end();
+  res.sendFile(full);
+});
+
+app.use(
+  '/fonts',
+  express.static(path.join(__dirname, 'fonts'), {
+    dotfiles: 'deny',
+    index: false,
+    fallthrough: false
+  })
+);
 
 app.use((err, req, res, next) => {
   logger.requestError(err, req);
@@ -160,6 +220,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'خطأ داخلي في الخادم.' });
 });
 
+env.version = '0.7.7';
 app.listen(env.port, env.host, () => {
   logger.info('server listening', { host: env.host, port: env.port, version: env.version });
   console.log(

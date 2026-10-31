@@ -4,13 +4,27 @@ const fs = require('node:fs');
 const path = require('node:path');
 const Database = require('better-sqlite3');
 const { hashAuditEvent } = require('../lib/audit-integrity');
+const { lockDownDir, lockDownFile, lockDownDataTree } = require('../lib/data-protection');
 
 function openDatabase(databasePath) {
-  fs.mkdirSync(path.dirname(databasePath), { recursive: true });
-  const db = new Database(databasePath);
+  const abs = path.resolve(databasePath);
+  const dataRoot = path.dirname(abs);
+  lockDownDir(dataRoot);
+  const db = new Database(abs);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
+  // Overwrite deleted content on disk (best-effort local privacy)
+  try {
+    db.pragma('secure_delete = ON');
+  } catch {
+    /* older SQLite builds may ignore */
+  }
+  try {
+    db.pragma('temp_store = MEMORY');
+  } catch {
+    /* ignore */
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -51,7 +65,9 @@ function openDatabase(databasePath) {
     db.prepare('PRAGMA table_info(app_state)').all().map((row) => row.name)
   );
   if (!appStateColumns.has('revision')) {
-    db.exec('ALTER TABLE app_state ADD COLUMN revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1)');
+    db.exec(
+      'ALTER TABLE app_state ADD COLUMN revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1)'
+    );
   }
 
   const auditColumns = new Set(
@@ -86,6 +102,8 @@ function openDatabase(databasePath) {
     migrate();
   }
 
+  lockDownFile(abs);
+  lockDownDataTree(dataRoot);
   return db;
 }
 
