@@ -39,7 +39,7 @@
     "directories": {
       "output": "dist-desktop"
     },
-    "asar": true,
+    "asar": false,
     "asarUnpack": [
       "**/*.node",
       "**/better-sqlite3/**/*",

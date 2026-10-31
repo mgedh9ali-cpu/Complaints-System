@@ -37,7 +37,7 @@ jobs:
         run: npm audit --audit-level=high || true
 
       - name: Build portable EXE
-        run: npx electron-builder --win --dir -c.asar=false
+        run: npx electron-builder --win --dir 
 
       - name: Upload portable application
         uses: actions/upload-artifact@v4
