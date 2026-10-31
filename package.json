@@ -1,14 +1,14 @@
 {
   "name": "complaints-local-system",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "private": true,
-  "description": "Local-first Arabic complaints system — portable desktop EXE embeds Node via Electron",
+  "description": "Local-first Arabic complaints system for private office use",
   "main": "desktop/main.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
     "start:desktop": "electron .",
     "test": "node --test",
-    "check": "node --check server.js && node --check app.js && node --check desktop/main.js && node --check config/env.js && node --check config/db.js && node --check config/session.js && node --check config/security.js && node --check lib/logger.js && node --check lib/validation.js && node --check lib/file-magic.js && node --check lib/session-revoke.js && node --check lib/attachments.js && node --check lib/audit-integrity.js && node --check lib/offline-sync.js && node --check lib/simple-pdf.js && node --check modules/complaints/service.js && node --check modules/complaints/routes.js && node --check modules/auth/service.js && node --check modules/auth/routes.js && node --check modules/auth/middleware.js && node --check modules/roles/service.js && node --check modules/attachments/routes.js && node --check modules/reports/service.js && node --check modules/reports/routes.js && node --check modules/backup/service.js && node --check modules/audit/service.js && node --check modules/sync/service.js && node --check modules/sync/routes.js && node --check modules/health/service.js",
+    "check": "node --check server.js && node --check app.js && node --check desktop/main.js && node --check config/env.js && node --check config/db.js && node --check config/session.js && node --check config/security.js && node --check lib/logger.js && node --check lib/validation.js && node --check lib/data-protection.js && node --check lib/file-magic.js && node --check lib/session-revoke.js && node --check lib/attachments.js && node --check lib/audit-integrity.js && node --check lib/offline-sync.js && node --check lib/simple-pdf.js && node --check modules/complaints/service.js && node --check modules/complaints/routes.js && node --check modules/auth/service.js && node --check modules/auth/routes.js && node --check modules/auth/middleware.js && node --check modules/roles/service.js && node --check modules/attachments/routes.js && node --check modules/reports/service.js && node --check modules/reports/routes.js && node --check modules/backup/service.js && node --check modules/audit/service.js && node --check modules/sync/service.js && node --check modules/sync/routes.js && node --check modules/health/service.js",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js",
     "dist:win": "electron-builder --win portable --x64",
