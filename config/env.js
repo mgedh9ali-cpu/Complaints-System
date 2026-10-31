@@ -23,15 +23,20 @@ function loadEnv() {
     throw new Error('This offline build is loopback-only; remove HOST/ALLOW_LAN overrides.');
   }
 
+  const databasePath = path.resolve(process.env.DATABASE_PATH || './data/complaints.sqlite');
+  const dataDir = path.dirname(databasePath);
+
   return {
     host,
     port,
     sessionSecret: requiredEnv('SESSION_SECRET', 32),
     adminUsername: requiredEnv('ADMIN_USERNAME', 3),
     adminPassword: requiredEnv('ADMIN_PASSWORD', 12),
-    databasePath: path.resolve(process.env.DATABASE_PATH || './data/complaints.sqlite'),
-    sessionsDir: path.resolve('./data/sessions'),
-    instanceIdPath: path.resolve(process.env.INSTANCE_ID_PATH || './data/instance-id'),
+    databasePath,
+    sessionsDir: path.resolve(process.env.SESSIONS_DIR || path.join(dataDir, 'sessions')),
+    instanceIdPath: path.resolve(
+      process.env.INSTANCE_ID_PATH || path.join(dataDir, 'instance-id')
+    ),
     cookieSecure: process.env.COOKIE_SECURE === 'true',
     version: '0.7.5'
   };
