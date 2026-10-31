@@ -3,15 +3,15 @@
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { revokeUserSessions } = require('../../lib/session-revoke');
+const { isValidUsername, isValidPassword } = require('../../lib/validation');
 
 const ROLES = Object.freeze(['admin', 'staff', 'reviewer']);
-const USERNAME_RE = /^[\p{L}\p{N}._-]{3,64}$/u;
 
 function createAuthService({ db, audit, logger, sessionsDir }) {
   function findByUsername(username) {
-    return db.prepare(
-      'SELECT id, username, password_hash, role, active FROM users WHERE username = ?'
-    ).get(username);
+    return db
+      .prepare('SELECT id, username, password_hash, role, active FROM users WHERE username = ?')
+      .get(username);
   }
 
   function findById(id) {
@@ -19,15 +19,17 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
   }
 
   function findByIdWithHash(id) {
-    return db.prepare(
-      'SELECT id, username, password_hash, role, active FROM users WHERE id = ?'
-    ).get(id);
+    return db
+      .prepare('SELECT id, username, password_hash, role, active FROM users WHERE id = ?')
+      .get(id);
   }
 
   function listUsers() {
-    return db.prepare(
-      'SELECT id, username, role, active, created_at AS createdAt FROM users ORDER BY created_at ASC'
-    ).all();
+    return db
+      .prepare(
+        'SELECT id, username, role, active, created_at AS createdAt FROM users ORDER BY created_at ASC'
+      )
+      .all();
   }
 
   function revokeSessions(userId, keepSessionId) {
@@ -41,8 +43,12 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
   }
 
   function authenticate(username, password) {
-    if (typeof username !== 'string' || typeof password !== 'string' ||
-        username.length > 100 || password.length > 200) {
+    if (
+      typeof username !== 'string' ||
+      typeof password !== 'string' ||
+      username.length > 100 ||
+      password.length > 200
+    ) {
       return { ok: false, status: 400, error: 'أدخل اسم المستخدم وكلمة المرور.' };
     }
     const user = findByUsername(username.trim());
@@ -58,9 +64,7 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
   }
 
   function createUser({ username, password, role, actorId }) {
-    if (typeof username !== 'string' || !USERNAME_RE.test(username.trim()) ||
-        typeof password !== 'string' || password.length < 12 || password.length > 200 ||
-        !ROLES.includes(role)) {
+    if (!isValidUsername(username) || !isValidPassword(password) || !ROLES.includes(role)) {
       return { ok: false, status: 400, error: 'اسم المستخدم أو كلمة المرور أو الدور غير صالح.' };
     }
     const id = crypto.randomUUID();
@@ -70,13 +74,13 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
       db.prepare(
         'INSERT INTO users(id, username, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, 1, ?)'
       ).run(id, normalizedUsername, passwordHash, role, new Date().toISOString());
-    if (typeof audit === "function") audit(id, "bootstrap_admin", "user", id);
     } catch (error) {
       if (error && error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         return { ok: false, status: 409, error: 'اسم المستخدم مستخدم بالفعل.' };
       }
       throw error;
     }
+    // حدث تدقيق واحد فقط لإنشاء المستخدم (ليس bootstrap_admin)
     if (typeof audit === 'function') {
       audit(actorId, 'user_created', 'user', id, { username: normalizedUsername, role });
     }
@@ -94,9 +98,9 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
       return { ok: false, status: 409, error: 'لا يمكن للمدير تعطيل حسابه الحالي.' };
     }
     if (target.role === 'admin' && target.active === 1 && active === false) {
-      const activeAdmins = db.prepare(
-        "SELECT COUNT(*) AS count FROM users WHERE role='admin' AND active=1"
-      ).get().count;
+      const activeAdmins = db
+        .prepare("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND active=1")
+        .get().count;
       if (activeAdmins <= 1) {
         return { ok: false, status: 409, error: 'لا يمكن تعطيل آخر حساب مدير نشط.' };
       }
@@ -124,7 +128,7 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
     if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
       return { ok: false, status: 400, error: 'أدخل كلمة المرور الحالية والجديدة.' };
     }
-    if (newPassword.length < 12 || newPassword.length > 200) {
+    if (!isValidPassword(newPassword)) {
       return { ok: false, status: 400, error: 'كلمة المرور الجديدة يجب أن تكون بين 12 و 200 حرفاً.' };
     }
     if (currentPassword === newPassword) {
@@ -135,9 +139,7 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
       return { ok: false, status: 401, error: 'الحساب غير موجود أو غير فعال.' };
     }
     if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
-      if (typeof audit === 'function') {
-        audit(userId, 'password_change_failed', 'user', userId, {});
-      }
+      if (typeof audit === 'function') audit(userId, 'password_change_failed', 'user', userId, {});
       return { ok: false, status: 401, error: 'كلمة المرور الحالية غير صحيحة.' };
     }
     const passwordHash = bcrypt.hashSync(newPassword, 12);
@@ -158,7 +160,11 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
     db.prepare(
       'INSERT INTO users(id, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)'
     ).run(id, adminUsername, passwordHash, 'admin', new Date().toISOString());
-    if (logger) logger.info('Created initial administrator account', { username: adminUsername });
+    // حدث تدقيق واحد فقط للإقلاع الأولي
+    if (typeof audit === 'function') {
+      audit(id, 'bootstrap_admin', 'user', id, { username: adminUsername });
+    }
+    if (logger) logger.security('Created initial administrator account', { username: adminUsername });
     return id;
   }
 
