@@ -312,15 +312,56 @@
     });
   }
 
+  function enhanceRegistry() {
+    const search = $('#complaintSearch');
+    if (!search) return;
+    search.setAttribute('autocomplete', 'off');
+    search.setAttribute('aria-keyshortcuts', 'Control+k');
+    const tools = search.closest('.table-tools');
+    if (!tools) return;
+    if (!tools.querySelector('#uiRegistryHint')) {
+      const hint = document.createElement('span');
+      hint.id = 'uiRegistryHint';
+      hint.className = 'ui-registry-hint';
+      hint.textContent = 'بحث مباشر · Ctrl + K';
+      tools.append(hint);
+    }
+    if (!tools.querySelector('#uiClearSearch')) {
+      const clear = document.createElement('button');
+      clear.id = 'uiClearSearch';
+      clear.type = 'button';
+      clear.className = 'btn btn-sm ui-clear-search';
+      clear.textContent = 'مسح البحث';
+      clear.setAttribute('aria-label', 'مسح نص البحث');
+      clear.addEventListener('click', () => {
+        const current = $('#complaintSearch');
+        if (!current) return;
+        current.value = '';
+        current.dispatchEvent(new Event('input', { bubbles: true }));
+        $('#complaintSearch')?.focus();
+      });
+      tools.append(clear);
+    }
+    const clear = tools.querySelector('#uiClearSearch');
+    if (clear) clear.hidden = !search.value;
+    const footer = document.querySelector('.table-panel .table-footer');
+    if (footer && !footer.hasAttribute('aria-live')) {
+      footer.setAttribute('aria-live', 'polite');
+      footer.setAttribute('aria-atomic', 'true');
+    }
+  }
+
   function start() {
     addTools();
     fetchCsrf();
     enhanceActionCells();
     enhanceWorkspace();
+    enhanceRegistry();
     const observer = new MutationObserver(() => {
       addTools();
       enhanceActionCells();
       enhanceWorkspace();
+      enhanceRegistry();
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }
