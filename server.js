@@ -2,7 +2,6 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
-const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 const express = require('express');
 const helmet = require('helmet');
@@ -35,7 +34,7 @@ const { createSyncRouter } = require('./modules/sync/routes');
 const { createHealthService } = require('./modules/health/service');
 const { createHealthRouter } = require('./modules/health/routes');
 
-const APP_VERSION = '0.7.1';
+const APP_VERSION = '0.7.2';
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
@@ -44,7 +43,6 @@ function requiredEnv(name, minLength = 1) {
 }
 
 const app = express();
-
 
 const host = '127.0.0.1';
 const port = Number(process.env.PORT || 3000);
@@ -235,9 +233,9 @@ app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesServ
 app.use('/api', createAuditRouter({ auditService, middleware, rolesService }));
 app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService }));
 
+// Readable UI sources only: app.full.js, then sequential app-p01.js...
 app.get('/app.bundle.js', (req, res) => {
   try {
-    // 1. Prefer single healthy full file (app.full.js)
     const fullPath = path.join(__dirname, 'app.full.js');
     if (fs.existsSync(fullPath)) {
       const fullContent = fs.readFileSync(fullPath, 'utf8');
@@ -248,7 +246,6 @@ app.get('/app.bundle.js', (req, res) => {
       }
     }
 
-    // 2. Assemble sequential plain parts app-p01.js, app-p02.js, ...
     const parts = [];
     for (let i = 1; ; i += 1) {
       const partPath = path.join(__dirname, `app-p${String(i).padStart(2, '0')}.js`);
@@ -264,19 +261,7 @@ app.get('/app.bundle.js', (req, res) => {
       }
     }
 
-    // 3. Fallback: gz base64 chunks (legacy)
-    const gzParts = [];
-    for (let index = 0; ; index += 1) {
-      const gzPath = path.join(__dirname, `app-ui-gz-${index}.txt`);
-      if (!fs.existsSync(gzPath)) break;
-      gzParts.push(fs.readFileSync(gzPath, 'utf8'));
-    }
-    if (!gzParts.length) throw new Error('no UI source found (full/parts/gz)');
-    const compressed = Buffer.from(gzParts.join('').replace(/\s+/g, ''), 'base64');
-    const source = zlib.gunzipSync(compressed).toString('utf8');
-    res.type('application/javascript');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.send(source);
+    throw new Error('no readable UI source (app.full.js / app-p*.js)');
   } catch (error) {
     logger.error('UI bundle assembly failed', { message: error.message });
     res.status(500).type('text/plain').send('تعذر تحميل واجهة النظام.');
@@ -295,19 +280,3 @@ app.listen(port, host, () => {
   logger.info('server listening', { host, port, version: APP_VERSION });
   console.log(`Complaints system listening on http://${host}:${port} (v${APP_VERSION})`);
 });
-
-// version: '0.7.0'
-
-// app.put('/api/state', requireAuth, requireRole('admin','staff')
-
-// app.patch('/api/complaints/:id/status', requireAuth, requireRole('admin', 'staff')
-
-// SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1
-
-// previous_hash, event_hash
-
-// const complaintChanges=diffComplaints(previousState,state)
-
-// audit(req.user.id,change.action,'complaint',change.id,change.details)
-
-// complaintChangesLogged:complaintChanges.length

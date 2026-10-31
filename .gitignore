@@ -7,4 +7,14 @@ data/
 *.sqlite3
 *.db
 npm-debug.log*
+yarn-error.log*
 .DS_Store
+Thumbs.db
+dist-desktop/
+dist/
+*.log
+coverage/
+.vscode/
+.idea/
+*.pem
+!*.pem.example
