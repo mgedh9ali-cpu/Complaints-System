@@ -3,7 +3,8 @@
 const crypto = require('node:crypto');
 
 const ALLOWED_TRANSITIONS = Object.freeze({
-  new: ['in_progress', 'cancelled'],
+  draft: ['new', 'cancelled'],
+  new: ['in_progress', 'cancelled', 'draft'],
   in_progress: ['awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'],
   awaiting_reply: ['in_progress', 'awaiting_approval', 'closed', 'cancelled'],
   awaiting_approval: ['in_progress', 'closed', 'cancelled'],
@@ -12,6 +13,7 @@ const ALLOWED_TRANSITIONS = Object.freeze({
 });
 
 const STATUS_LABELS = Object.freeze({
+  draft: 'مسودة',
   new: 'جديدة',
   in_progress: 'قيد المعالجة',
   awaiting_reply: 'بانتظار رد الجهة',
@@ -20,8 +22,20 @@ const STATUS_LABELS = Object.freeze({
   cancelled: 'ملغاة'
 });
 
-/** Terminal statuses that always require a non-empty reason. */
 const REASON_REQUIRED = Object.freeze(new Set(['closed', 'cancelled']));
+
+const EDITABLE_FIELDS = [
+  'name',
+  'phone',
+  'province',
+  'entity',
+  'category',
+  'priority',
+  'owner',
+  'summary',
+  'details',
+  'confidentiality'
+];
 
 function emptyState() {
   return {
@@ -58,48 +72,71 @@ function createComplaintsService({ db, audit, logger }) {
     };
   }
 
-  function syncComplaintRow(complaint, userId, now) {
-    if (!complaint || typeof complaint.id !== 'string') return;
-    const payload = JSON.stringify(complaint);
-    const existing = db.prepare('SELECT id FROM complaints WHERE id = ?').get(complaint.id);
-    if (existing) {
-      db.prepare(
-        'UPDATE complaints SET payload_json = ?, updated_at = ? WHERE id = ?'
-      ).run(payload, now, complaint.id);
-    } else {
-      db.prepare(
-        'INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
-      ).run(complaint.id, payload, userId || null, complaint.created || now, now);
+  function findIndex(state, complaintId) {
+    let idx = (state.complaints || []).findIndex((c) => c && c.id === complaintId);
+    if (idx >= 0) return idx;
+    const row = db.prepare('SELECT payload_json FROM complaints WHERE id = ?').get(complaintId);
+    if (row && row.payload_json) {
+      try {
+        state.complaints.push(JSON.parse(row.payload_json));
+        return state.complaints.length - 1;
+      } catch (_) {
+        return -1;
+      }
     }
+    return -1;
+  }
+
+  function persistState(state, userId, now, nextRevision) {
+    const stateJson = JSON.stringify(state);
+    const tx = db.transaction(() => {
+      db.prepare(
+        `INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)
+         VALUES (1, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           state_json = excluded.state_json,
+           updated_by = excluded.updated_by,
+           updated_at = excluded.updated_at,
+           revision = excluded.revision`
+      ).run(stateJson, userId, now, nextRevision);
+      for (const c of state.complaints || []) {
+        if (!c || typeof c.id !== 'string') continue;
+        const payload = JSON.stringify(c);
+        const existing = db.prepare('SELECT id FROM complaints WHERE id = ?').get(c.id);
+        if (existing) {
+          db.prepare('UPDATE complaints SET payload_json = ?, updated_at = ? WHERE id = ?').run(
+            payload,
+            now,
+            c.id
+          );
+        } else {
+          db.prepare(
+            'INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+          ).run(c.id, payload, userId || null, c.created || now, now);
+        }
+      }
+    });
+    tx();
   }
 
   function saveState({ state, userId, expectedRevision, diffComplaints }) {
     const current = readState();
     if (Number(expectedRevision) !== Number(current.revision)) {
-      return {
-        conflict: true,
-        currentRevision: current.revision
-      };
+      return { conflict: true, currentRevision: current.revision };
     }
-
-    const prevById = new Map(
-      (current.state.complaints || []).map((c) => [c.id, c])
-    );
+    const prevById = new Map((current.state.complaints || []).map((c) => [c.id, c]));
     for (const c of state.complaints || []) {
       const prev = prevById.get(c.id);
       if (prev && prev.status !== c.status) {
         return {
           invalidTransition: true,
           error:
-            'تغيير الحالة غير مسموح عبر حفظ الحالة الكامل. استخدم مسار تغيير الحالة PATCH /api/complaints/:id/status.'
+            'تغيير الحالة غير مسموح عبر حفظ الحالة الكامل. استخدم مسار تغيير الحالة.'
         };
       }
     }
-
     const now = new Date().toISOString();
     const nextRevision = (Number(current.revision) || 0) + 1;
-    const stateJson = JSON.stringify(state);
-
     const complaintChanges = [];
     if (typeof diffComplaints === 'function') {
       try {
@@ -117,24 +154,7 @@ function createComplaintsService({ db, audit, logger }) {
         if (logger) logger.warn('diffComplaints failed', { error: err.message });
       }
     }
-
-    const tx = db.transaction(() => {
-      db.prepare(
-        `INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)
-         VALUES (1, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           state_json = excluded.state_json,
-           updated_by = excluded.updated_by,
-           updated_at = excluded.updated_at,
-           revision = excluded.revision`
-      ).run(stateJson, userId, now, nextRevision);
-
-      for (const c of state.complaints || []) {
-        syncComplaintRow(c, userId, now);
-      }
-    });
-    tx();
-
+    persistState(state, userId, now, nextRevision);
     return {
       conflict: false,
       updatedAt: now,
@@ -143,12 +163,10 @@ function createComplaintsService({ db, audit, logger }) {
     };
   }
 
-  /**
-   * Create a complaint in both the complaints table and app_state (single transaction).
-   */
-  function createComplaint({ body, userId, username }) {
+  function createComplaint({ body, userId, username, asDraft = false }) {
     const id = 'SY-' + new Date().getFullYear() + '-' + crypto.randomUUID().slice(0, 8);
     const now = new Date().toISOString();
+    const status = asDraft ? 'draft' : 'new';
     const complaint = {
       id,
       name: body.name || '',
@@ -157,9 +175,9 @@ function createComplaintsService({ db, audit, logger }) {
       entity: body.entity || '',
       category: body.category,
       priority: body.priority || 'normal',
-      status: 'new',
+      status,
       owner: body.owner || username || null,
-      summary: body.summary,
+      summary: body.summary || '',
       details: body.details || '',
       created: now,
       updated: now,
@@ -167,30 +185,88 @@ function createComplaintsService({ db, audit, logger }) {
       notes: [],
       timeline: [
         {
-          event: 'تسجيل الشكوى',
+          event: asDraft ? 'حفظ مسودة' : 'تسجيل الشكوى',
           by: username || 'system',
           at: now,
-          detail: 'تم الإنشاء عبر API.'
+          detail: asDraft ? 'مسودة غير منشورة.' : 'تم الإنشاء عبر API.'
         }
       ],
       referrals: [],
       reply: null,
-      confidentiality: 'normal',
-      survey: null,
+      confidentiality: body.confidentiality || 'normal',
       attachments: [],
       statusHistory: []
     };
 
     const { state, revision } = readState();
-    if ((state.complaints || []).some((c) => c && c.id === id)) {
-      return { ok: false, status: 409, error: 'تعارض في معرّف الشكوى. أعد المحاولة.' };
-    }
-
     state.complaints = Array.isArray(state.complaints) ? state.complaints.slice() : [];
     state.complaints.push(complaint);
     const nextRevision = (Number(revision) || 0) + 1;
-    const stateJson = JSON.stringify(state);
+    persistState(state, userId, now, nextRevision);
 
+    if (typeof audit === 'function') {
+      audit(userId, asDraft ? 'complaint_draft_saved' : 'complaint_created', 'complaint', id, {
+        status,
+        revision: nextRevision
+      });
+    }
+    return { ok: true, complaint, revision: nextRevision };
+  }
+
+  function updateComplaint({ complaintId, body, userId, username }) {
+    const { state, revision } = readState();
+    const idx = findIndex(state, complaintId);
+    if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    const complaint = { ...state.complaints[idx] };
+    if (complaint.status === 'closed' || complaint.status === 'cancelled') {
+      return { ok: false, status: 409, error: 'لا يمكن تعديل شكوى مغلقة أو ملغاة.' };
+    }
+    const now = new Date().toISOString();
+    const changes = [];
+    for (const key of EDITABLE_FIELDS) {
+      if (body && Object.prototype.hasOwnProperty.call(body, key) && body[key] !== undefined) {
+        const next = body[key];
+        if (complaint[key] !== next) {
+          changes.push(key);
+          complaint[key] = next;
+        }
+      }
+    }
+    if (!changes.length) {
+      return { ok: true, unchanged: true, complaint, revision };
+    }
+    complaint.updated = now;
+    if (!Array.isArray(complaint.timeline)) complaint.timeline = [];
+    complaint.timeline.push({
+      event: 'تعديل الشكوى',
+      by: username || 'system',
+      at: now,
+      detail: 'حقول: ' + changes.join(', ')
+    });
+    state.complaints[idx] = complaint;
+    const nextRevision = (Number(revision) || 0) + 1;
+    persistState(state, userId, now, nextRevision);
+    if (typeof audit === 'function') {
+      audit(userId, 'complaint_updated', 'complaint', complaintId, { fields: changes, revision: nextRevision });
+    }
+    return { ok: true, complaint, revision: nextRevision, unchanged: false };
+  }
+
+  function deleteComplaint({ complaintId, userId, username }) {
+    const { state, revision } = readState();
+    const idx = findIndex(state, complaintId);
+    if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    const complaint = state.complaints[idx];
+    if (complaint.status !== 'draft' && complaint.status !== 'new' && complaint.status !== 'cancelled') {
+      return {
+        ok: false,
+        status: 409,
+        error: 'يُسمح بالحذف للمسودات والجديدة والملغاة فقط. أغلق أو ألغِ الحالات الأخرى أولاً.'
+      };
+    }
+    state.complaints.splice(idx, 1);
+    const now = new Date().toISOString();
+    const nextRevision = (Number(revision) || 0) + 1;
     const tx = db.transaction(() => {
       db.prepare(
         `INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)
@@ -200,34 +276,26 @@ function createComplaintsService({ db, audit, logger }) {
            updated_by = excluded.updated_by,
            updated_at = excluded.updated_at,
            revision = excluded.revision`
-      ).run(stateJson, userId, now, nextRevision);
-      syncComplaintRow(complaint, userId, now);
+      ).run(JSON.stringify(state), userId, now, nextRevision);
+      db.prepare('DELETE FROM complaints WHERE id = ?').run(complaintId);
     });
     tx();
-
     if (typeof audit === 'function') {
-      audit(userId, 'complaint_created', 'complaint', id, {
-        source: 'api',
-        status: 'new',
+      audit(userId, 'complaint_deleted', 'complaint', complaintId, {
+        by: username || null,
         revision: nextRevision
       });
     }
-    if (logger) logger.info('complaint created', { complaintId: id, revision: nextRevision });
-
-    return { ok: true, complaint, revision: nextRevision };
+    return { ok: true, revision: nextRevision, deletedId: complaintId };
   }
 
   function changeStatus({ complaintId, toStatus, reason, userId, username }) {
     if (!complaintId || typeof complaintId !== 'string' || complaintId.length > 100) {
       return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
     }
-    if (toStatus === "closed" && (!reason || !String(reason).trim())) {
-      return { ok: false, status: 400, error: "سبب الإغلاق مطلوب." };
-    }
     if (!Object.prototype.hasOwnProperty.call(ALLOWED_TRANSITIONS, toStatus)) {
       return { ok: false, status: 400, error: 'حالة غير معروفة.' };
     }
-
     const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
     if (REASON_REQUIRED.has(toStatus) && normalizedReason.length < 3) {
       return {
@@ -238,33 +306,14 @@ function createComplaintsService({ db, audit, logger }) {
     }
 
     const { state, revision } = readState();
-    if (!Array.isArray(state.complaints)) state.complaints = [];
-    let idx = state.complaints.findIndex((c) => c && c.id === complaintId);
-    if (idx < 0) {
-      const row = db.prepare('SELECT payload_json FROM complaints WHERE id = ?').get(complaintId);
-      if (row && row.payload_json) {
-        try {
-          state.complaints.push(JSON.parse(row.payload_json));
-          idx = state.complaints.length - 1;
-        } catch (_) {}
-      }
-    }
-    if (idx < 0) {
-      return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
-    }
+    const idx = findIndex(state, complaintId);
+    if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
 
     const complaint = { ...state.complaints[idx] };
     const fromStatus = complaint.status || 'new';
-
     if (fromStatus === toStatus) {
-      return {
-        ok: true,
-        unchanged: true,
-        complaint,
-        revision
-      };
+      return { ok: true, unchanged: true, complaint, revision };
     }
-
     const allowed = ALLOWED_TRANSITIONS[fromStatus] || [];
     if (!allowed.includes(toStatus)) {
       return {
@@ -295,21 +344,7 @@ function createComplaintsService({ db, audit, logger }) {
 
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    const stateJson = JSON.stringify(state);
-
-    const tx = db.transaction(() => {
-      db.prepare(
-        `INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)
-         VALUES (1, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           state_json = excluded.state_json,
-           updated_by = excluded.updated_by,
-           updated_at = excluded.updated_at,
-           revision = excluded.revision`
-      ).run(stateJson, userId, now, nextRevision);
-      syncComplaintRow(complaint, userId, now);
-    });
-    tx();
+    persistState(state, userId, now, nextRevision);
 
     if (typeof audit === 'function') {
       audit(userId, 'complaint_status_changed', 'complaint', complaintId, {
@@ -319,30 +354,19 @@ function createComplaintsService({ db, audit, logger }) {
         revision: nextRevision
       });
     }
-    if (logger) {
-      logger.info('complaint status changed', {
-        complaintId,
-        from: fromStatus,
-        to: toStatus,
-        revision: nextRevision
-      });
-    }
-
-    return {
-      ok: true,
-      complaint,
-      revision: nextRevision,
-      unchanged: false
-    };
+    return { ok: true, complaint, revision: nextRevision, unchanged: false };
   }
 
   return {
     readState,
     saveState,
     createComplaint,
+    updateComplaint,
+    deleteComplaint,
     changeStatus,
     ALLOWED_TRANSITIONS,
-    REASON_REQUIRED
+    REASON_REQUIRED,
+    STATUS_LABELS
   };
 }
 

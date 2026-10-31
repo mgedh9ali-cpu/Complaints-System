@@ -1,10 +1,5 @@
 'use strict';
 
-/**
- * Central role + permission definitions.
- * Used by auth middleware and any module that needs capability checks.
- */
-
 const ROLES = Object.freeze(['admin', 'staff', 'reviewer']);
 
 const ROLE_LABELS = Object.freeze({
@@ -13,12 +8,12 @@ const ROLE_LABELS = Object.freeze({
   reviewer: 'مراجع'
 });
 
-/** Actions that endpoints / UI can check against a role. */
 const PERMISSIONS = Object.freeze({
   'users.manage': ['admin'],
   'users.list': ['admin'],
   'complaints.create': ['admin', 'staff'],
   'complaints.update': ['admin', 'staff'],
+  'complaints.delete': ['admin', 'staff'],
   'complaints.status': ['admin', 'staff'],
   'complaints.read': ['admin', 'staff', 'reviewer'],
   'attachments.upload': ['admin', 'staff'],
@@ -41,9 +36,7 @@ function createRolesService() {
     return ROLES.map((id) => ({
       id,
       label: ROLE_LABELS[id] || id,
-      permissions: Object.keys(PERMISSIONS).filter((action) =>
-        PERMISSIONS[action].includes(id)
-      )
+      permissions: Object.keys(PERMISSIONS).filter((action) => PERMISSIONS[action].includes(id))
     }));
   }
 
@@ -52,9 +45,7 @@ function createRolesService() {
     return {
       id: roleId,
       label: ROLE_LABELS[roleId] || roleId,
-      permissions: Object.keys(PERMISSIONS).filter((action) =>
-        PERMISSIONS[action].includes(roleId)
-      )
+      permissions: Object.keys(PERMISSIONS).filter((action) => PERMISSIONS[action].includes(roleId))
     };
   }
 
