@@ -71,7 +71,7 @@ const reportsService = createReportsService({ complaintsService });
 const settingsService = createSettingsService({ complaintsService });
 const backupService = createBackupService({
   databasePath: env.databasePath,
-  sessionSecret: env.sessionSecret
+  sessionSecret: env.backupSecret || env.sessionSecret
 });
 const healthService = createHealthService({
   db,
@@ -109,7 +109,6 @@ app.use(
 );
 app.use(ensureCsrfToken);
 
-// Block any attempt to fetch sensitive paths even if a static route is added later
 app.use((req, res, next) => {
   const p = (req.path || '').toLowerCase();
   if (
@@ -183,7 +182,6 @@ app.get('/app.bundle.js', (req, res) => {
   }
 });
 
-/** Public UI assets only — never the whole project tree (prevents leaking .env / sqlite). */
 const PUBLIC_FILES = {
   '/': 'index.html',
   '/index.html': 'index.html',
@@ -220,7 +218,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'خطأ داخلي في الخادم.' });
 });
 
-env.version = '0.7.7';
 app.listen(env.port, env.host, () => {
   logger.info('server listening', { host: env.host, port: env.port, version: env.version });
   console.log(
