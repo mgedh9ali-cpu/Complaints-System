@@ -263,3 +263,12 @@ button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity:
 @media (prefers-reduced-motion: reduce) {
   .table-wrap tbody tr { transition: none; }
 }
+
+/* Registry search assistance */
+.ui-registry-hint { font-size: 12px; color: var(--muted); white-space: nowrap; align-self: center; }
+.ui-clear-search[hidden] { display: none !important; }
+.ui-clear-search { white-space: nowrap; }
+@media (max-width: 768px) {
+  .ui-registry-hint { order: 3; }
+  .ui-clear-search { order: 2; }
+}
