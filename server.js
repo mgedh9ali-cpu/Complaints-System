@@ -33,9 +33,8 @@ const { createSyncService } = require('./modules/sync/service');
 const { createSyncRouter } = require('./modules/sync/routes');
 const { createHealthService } = require('./modules/health/service');
 const { createHealthRouter } = require('./modules/health/routes');
-const { createPublicRouter } = require('./modules/public/routes');
 
-const APP_VERSION = '0.7.2';
+const APP_VERSION = '0.7.4';
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
@@ -44,7 +43,6 @@ function requiredEnv(name, minLength = 1) {
 }
 
 const app = express();
-
 const host = '127.0.0.1';
 const port = Number(process.env.PORT || 3000);
 const sessionSecret = requiredEnv('SESSION_SECRET', 32);
@@ -202,7 +200,6 @@ const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
 
 app.use('/api', createHealthRouter({ healthService, middleware }));
-app.use('/api', createPublicRouter({ complaintsService, db }));
 app.use('/api', createAuthRouter({ authService, middleware, audit }));
 app.use('/api', createRolesRouter({ rolesService, middleware }));
 app.use(
@@ -246,7 +243,6 @@ app.get('/app.bundle.js', (req, res) => {
         return res.send(fullContent);
       }
     }
-
     const parts = [];
     for (let i = 1; ; i += 1) {
       const partPath = path.join(__dirname, `app-p${String(i).padStart(2, '0')}.js`);
@@ -261,7 +257,6 @@ app.get('/app.bundle.js', (req, res) => {
         return res.send(source);
       }
     }
-
     throw new Error('no readable UI source (app.full.js / app-p*.js)');
   } catch (error) {
     logger.error('UI bundle assembly failed', { message: error.message });
