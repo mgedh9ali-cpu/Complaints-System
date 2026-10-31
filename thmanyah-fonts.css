@@ -1,8 +1,33 @@
-/* Thmanyah Sans — files under /fonts after first server start */
+/* Thmanyah Sans — Arabic UI typeface */
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
-  font-weight: 100 900;
+  font-weight: 400;
   font-display: swap;
   src: url("/fonts/thmanyahsans-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/thmanyahsans-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/thmanyahsans-Bold.woff2") format("woff2");
+}
+
+/* Common aliases */
+@font-face {
+  font-family: "Thmanyah Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/thmanyahsans-Medium.woff2") format("woff2");
 }
