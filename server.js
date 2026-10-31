@@ -11,6 +11,18 @@ const { createSessionMiddleware } = require('./config/session');
 const { createHelmetMiddleware } = require('./config/security');
 const { logger } = require('./lib/logger');
 const { lockDownDir, lockDownFile, lockDownDataTree } = require('./lib/data-protection');
+const { ensureThmanyahFonts } = require('./scripts/ensure-thmanyah-font');
+
+try {
+  const fontResult = ensureThmanyahFonts(path.resolve(__dirname));
+  if (fontResult.written) {
+    logger.info('Thmanyah fonts materialized', fontResult);
+  }
+} catch (err) {
+  try {
+    logger.warn('Thmanyah font ensure failed', { message: err.message });
+  } catch (_) {}
+}
 
 const { createAuthService } = require('./modules/auth/service');
 const { createAuthMiddleware } = require('./modules/auth/middleware');
