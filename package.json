@@ -21,6 +21,7 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.10.0",
+    "call-bind-apply-helpers": "^1.0.2",
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
@@ -48,27 +49,9 @@
     ],
     "npmRebuild": true,
     "files": [
-      "desktop/**/*",
-      "server.js",
-      "config/**/*",
-      "app.js",
-      "app.full.js",
-      "index.html",
-      "styles.css",
-      "ui-enhancements.css",
-      "ui-enhancements.js",
-      "thmanyah-fonts.css",
-      "fonts/**/*",
-      "fonts-src/**/*",
-      "attachments-ui-bridge.js",
-      "lib/**/*",
-      "modules/**/*",
-      "scripts/**/*",
-      "package.json",
-      "!data/**/*",
-      "!dist-desktop/**/*",
+      "**/*",
       "!tests/**/*",
-      "!**/*.md"
+      "!.github/**/*"
     ],
     "win": {
       "target": [
@@ -83,6 +66,7 @@
     },
     "portable": {
       "artifactName": "complaints-system-${version}-portable.exe"
-    }
+    },
+    "includeSubNodeModules": true
   }
 }
