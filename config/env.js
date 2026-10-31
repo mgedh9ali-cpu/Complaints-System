@@ -38,7 +38,7 @@ function loadEnv() {
       process.env.INSTANCE_ID_PATH || path.join(dataDir, 'instance-id')
     ),
     cookieSecure: process.env.COOKIE_SECURE === 'true',
-    version: '0.7.5'
+    version: '0.7.7'
   };
 }
 
