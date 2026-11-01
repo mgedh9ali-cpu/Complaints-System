@@ -319,6 +319,19 @@
     }
     backdrop.addEventListener('click', () => closeMenu(true));
     const accountMenu = $('#accountMenu');
+    const desktopAccountHost = $('.top-user');
+    const mobileAccountHost = $('.sidebar-bottom');
+    function placeAccountMenu() {
+      if (!accountMenu || !desktopAccountHost || !mobileAccountHost) return;
+      const destination = window.matchMedia('(max-width: 680px)').matches
+        ? mobileAccountHost : desktopAccountHost;
+      if (accountMenu.parentElement !== destination) {
+        accountMenu.open = false;
+        destination.append(accountMenu);
+      }
+    }
+    placeAccountMenu();
+    window.addEventListener('resize', placeAccountMenu);
     document.addEventListener('click', (event) => {
       if (accountMenu?.open && !accountMenu.contains(event.target)) accountMenu.open = false;
       if (accountMenu?.open && event.target.closest('#accountMenu button')) accountMenu.open = false;
