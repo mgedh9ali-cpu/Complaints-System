@@ -154,7 +154,8 @@ app.use(
     middleware,
     audit,
     rolesService,
-    complaintsService
+    complaintsService,
+    db
   })
 );
 app.use('/api', createReportsRouter({ reportsService, middleware, audit, rolesService }));
