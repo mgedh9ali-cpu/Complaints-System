@@ -46,8 +46,16 @@ function createAuditService({ db, logger, databasePath }) {
       previousHash,
       eventHash
     );
-    persistHeadHash(eventHash);
+    // An outer SQLite transaction may still roll back. Publish the sidecar
+    // hash only after that transaction commits, never during an open transaction.
+    if (!db.inTransaction) persistHeadHash(eventHash);
     return { id: event.id, eventHash, previousHash };
+  }
+
+  function syncHead() {
+    if (db.inTransaction) throw new Error('Audit head cannot be synchronized before commit.');
+    const row = db.prepare('SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1').get();
+    if (row?.event_hash) persistHeadHash(row.event_hash);
   }
 
   function listEvents({ limit = 500 } = {}) {
@@ -119,7 +127,7 @@ function createAuditService({ db, logger, databasePath }) {
     return { ok: true, checked, chainTip: previousHash };
   }
 
-  return { record, listEvents, verifyChain };
+  return { record, syncHead, listEvents, verifyChain };
 }
 
 module.exports = { createAuditService };
