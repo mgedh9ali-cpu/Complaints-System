@@ -5,8 +5,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { hashAuditEvent } = require('../../lib/audit-integrity');
 
-function createAuditService({ db, logger }) {
-  const headPath = path.resolve('./data/audit-head.hash');
+function createAuditService({ db, logger, databasePath }) {
+  const dbPath = databasePath || process.env.DATABASE_PATH || './data/complaints.sqlite';
+  const headPath = path.join(path.dirname(path.resolve(dbPath)), 'audit-head.hash');
 
   function persistHeadHash(eventHash) {
     try {
