@@ -11,6 +11,9 @@ test('PERMISSIONS matrix denies staff from admin-only actions', () => {
   assert.equal(svc.can('staff', 'settings.manage'), false);
   assert.equal(svc.can('staff', 'sync.import'), false);
   assert.equal(svc.can('staff', 'audit.verify'), false);
+  assert.equal(svc.can('staff', 'attachments.delete'), false);
+  assert.equal(svc.can('reviewer', 'attachments.delete'), false);
+  assert.equal(svc.can('admin', 'attachments.delete'), true);
 });
 
 test('PERMISSIONS matrix allows expected staff and reviewer actions', () => {
@@ -69,4 +72,36 @@ test('every permission action lists only known roles', () => {
       assert.ok(known.has(role), `${action} has unknown role ${role}`);
     }
   }
+});
+
+
+test('attachment removal requires manager permission before the route handler', () => {
+  const svc = createRolesService();
+  const guard = svc.requirePermission('attachments.delete');
+  for (const role of ['staff', 'reviewer']) {
+    let status = null;
+    let nextCalled = false;
+    guard({ user: { id: 'limited-user', role } }, {
+      status(code) { status = code; return this; },
+      json() { return this; }
+    }, () => { nextCalled = true; });
+    assert.equal(status, 403, role);
+    assert.equal(nextCalled, false, role);
+  }
+  let adminAllowed = false;
+  guard({ user: { id: 'admin-user', role: 'admin' } }, {}, () => {
+    adminAllowed = true;
+  });
+  assert.equal(adminAllowed, true);
+});
+
+test('attachment removal endpoint retains CSRF and documented reason validation', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'modules', 'attachments', 'routes.js'), 'utf8');
+  const block = src.slice(src.indexOf("router.delete(\\n"));
+  assert.match(block, /requirePermission\('attachments.delete'\)/);
+  assert.match(block, /requireCsrf/);
+  assert.match(block, /reason.length < 3 \|\| reason.length > 500/);
+  assert.match(block, /attachment_deleted/);
 });
