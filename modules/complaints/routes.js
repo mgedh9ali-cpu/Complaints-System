@@ -68,9 +68,7 @@ function createComplaintsRouter({
       if (result.invalidTransition) {
         return res.status(409).json({ error: result.error || 'تغيير الحالة غير مسموح.' });
       }
-      for (const change of result.complaintChanges || []) {
-        audit(req.user.id, change.action, 'complaint', change.id, change.details);
-      }
+      // Events are recorded atomically inside complaintsService.saveState.
       res.json({
         saved: true,
         updatedAt: result.updatedAt,
