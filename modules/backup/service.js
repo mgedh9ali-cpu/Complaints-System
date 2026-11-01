@@ -5,6 +5,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { backupDatabase } = require('../../scripts/backup-database');
 const { encryptBuffer, lockDownFile } = require('../../lib/data-protection');
+const { createEncryptedBundle, verifyEncryptedBundle } = require('../../lib/full-backup');
 
 function createBackupService({ databasePath, sessionSecret }) {
   async function createVerifiedBackup({ encrypt = true } = {}) {
@@ -59,6 +60,26 @@ function createBackupService({ databasePath, sessionSecret }) {
     }
   }
 
+  async function createCompleteBackup() {
+    if (!sessionSecret) throw new Error('Full backups require a protected backup secret.');
+    const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-full-backup-'));
+    try {
+      const result = await createEncryptedBundle({
+        databasePath, secret: sessionSecret, backupDir
+      });
+      const verified = await verifyEncryptedBundle({
+        bundlePath: result.destination, secret: sessionSecret
+      });
+      if (!verified.verified || verified.attachmentCount !== result.attachmentCount) {
+        throw new Error('Complete backup verification failed.');
+      }
+      return { ...result, verified: true };
+    } catch (error) {
+      fs.rmSync(backupDir, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
   function cleanupBackupDir(backupDir) {
     try {
       fs.rmSync(backupDir, { recursive: true, force: true });
@@ -67,7 +88,7 @@ function createBackupService({ databasePath, sessionSecret }) {
     }
   }
 
-  return { createVerifiedBackup, cleanupBackupDir };
+  return { createVerifiedBackup, createCompleteBackup, cleanupBackupDir };
 }
 
 module.exports = { createBackupService };
