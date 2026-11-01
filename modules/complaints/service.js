@@ -118,14 +118,14 @@ function createComplaintsService({ db, audit, logger }) {
       // The complaint records and their immutable audit trail commit as one SQLite transaction.
       for (const event of auditEvents) {
         if (typeof audit === 'function') {
-          audit(userId, event.action, 'complaint', event.id, event.details || {});
+          audit(userId, event.action, event.targetType || 'complaint', event.id ?? null, event.details || {});
         }
       }
     });
     tx();
   }
 
-  function saveState({ state, userId, expectedRevision, diffComplaints }) {
+  function saveState({ state, userId, expectedRevision, diffComplaints, auditEvents = [] }) {
     const current = readState();
     if (Number(expectedRevision) !== Number(current.revision)) {
       return { conflict: true, currentRevision: current.revision };
@@ -258,7 +258,7 @@ function createComplaintsService({ db, audit, logger }) {
         if (logger) logger.warn('diffComplaints failed', { error: err.message });
       }
     }
-    persistState(state, userId, now, nextRevision, complaintChanges);
+    persistState(state, userId, now, nextRevision, [...complaintChanges, ...auditEvents]);
     return {
       conflict: false,
       updatedAt: now,
