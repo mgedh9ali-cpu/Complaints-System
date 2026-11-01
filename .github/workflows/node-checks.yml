@@ -17,6 +17,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential python3
-      - run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+      - name: Install dependencies without Electron ABI rebuild
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build SQLite module for Node.js
+        run: npm rebuild better-sqlite3 --build-from-source
       - run: npm run check
       - run: npm test
