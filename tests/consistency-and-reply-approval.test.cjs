@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { openDatabase } = require('../config/db');
 const { createComplaintsService } = require('../modules/complaints/service');
+const { createAuditService } = require('../modules/audit/service');
 const { createSyncService } = require('../modules/sync/service');
 const { createSyncPackage } = require('../lib/offline-sync');
 
@@ -206,4 +207,44 @@ test('referral and status stay unchanged if any audit event fails', t => {
   assert.equal(after.state.complaints[0].status, 'in_progress');
   assert.equal((after.state.complaints[0].referrals || []).length, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM complaints').get().n, 1);
+});
+
+
+test('rolled back referral does not publish an invalid audit sidecar hash', t => {
+  const { db, dir } = fixture(t);
+  const auditService = createAuditService({
+    db, logger: null, databasePath: path.join(dir, 'test.sqlite')
+  });
+  let calls = 0;
+  const audit = (...args) => {
+    calls += 1;
+    if (calls === 4) throw new Error('reject second referral audit event');
+    return auditService.record(...args);
+  };
+  audit.syncHead = () => auditService.syncHead();
+  const service = createComplaintsService({ db, audit, logger: null });
+  const created = service.createComplaint({
+    body: { province: 'دمشق', category: 'خدمات', summary: 'اختبار بصمة التدقيق' },
+    userId: 'staff-id', username: 'author'
+  });
+  const started = service.changeStatus({
+    complaintId: created.complaint.id,
+    toStatus: 'in_progress',
+    userId: 'staff-id', username: 'author'
+  });
+  assert.equal(started.ok, true);
+  const head = path.join(dir, 'audit-head.hash');
+  const headBefore = fs.readFileSync(head, 'utf8');
+  assert.throws(() => service.addReferral({
+    complaintId: created.complaint.id,
+    entity: 'مديرية الخدمات',
+    due: '2026-11-10T23:59:00.000Z',
+    userId: 'staff-id', username: 'author'
+  }), /reject second referral audit event/);
+  assert.equal(fs.readFileSync(head, 'utf8'), headBefore);
+  assert.equal(auditService.verifyChain().ok, true);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM audit_events').get().n, 2);
+  const after = service.readState().state.complaints[0];
+  assert.equal(after.status, 'in_progress');
+  assert.equal(after.referrals.length, 0);
 });
