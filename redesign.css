@@ -387,3 +387,34 @@ html[data-theme="dark"] .sla-ring[data-level="late"] { --c:#f29a90; }
   .sidebar-bottom .account-menu-panel { position:static; width:100%; margin-top:8px; box-shadow:none; border-color:var(--line); background:var(--paper); }
   .table-panel .sla-cell { justify-content:flex-end; }
 }
+
+
+/* Dedicated sign-in view: remove the blurred application shell while signed out. */
+body:has(#loginOverlay:not([hidden])) .app-shell { visibility:hidden; }
+.login-overlay { background:linear-gradient(125deg,#0b211b,#194a3e) !important; backdrop-filter:none !important; }
+.login-card {
+  display:grid !important; grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  width:min(880px,calc(100vw - 32px)) !important; max-width:880px !important;
+  min-height:465px; padding:0 !important; overflow:hidden; border-radius:20px !important;
+  background:#fff !important; color:#17372f !important;
+}
+.login-brand { display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:14px; padding:44px; background:linear-gradient(145deg,#0f2e28,#23604d); color:#f5f4e9; }
+.login-brand svg { color:#e3c77e; flex:none; }
+.login-brand h2 { margin:6px 0 0; color:#fff; font-size:23px; line-height:1.6; }
+.login-brand p { color:#dae9dc !important; font-size:14px; margin:0 !important; }
+.login-brand small { color:#cddfd5; font-size:12px; }
+.login-fields { display:flex; flex-direction:column; justify-content:center; min-width:0; padding:38px; }
+.login-fields h1 { font-size:25px !important; color:#14382d; }
+.login-fields p { color:#50665b; }
+.login-fields input { background:#fff; color:#17372f; }
+.login-fields button[type="submit"] { min-height:46px; }
+@media(max-width:680px) {
+  .login-overlay { padding:14px !important; }
+  .login-card { display:block !important; width:min(440px,100%) !important; min-height:0; max-height:calc(100dvh - 28px); overflow-y:auto; }
+  .login-brand { padding:22px 28px; gap:7px; }
+  .login-brand svg { width:38px; height:38px; }
+  .login-brand h2 { font-size:17px; margin:0; }
+  .login-brand p { font-size:11px !important; }
+  .login-brand small { display:none; }
+  .login-fields { padding:23px; }
+}
