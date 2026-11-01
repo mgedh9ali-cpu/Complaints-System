@@ -397,14 +397,14 @@ switch(a){
 case 'database-backup':{
   (async()=>{try{
     el.disabled=true;el.textContent='جارٍ تجهيز النسخة…';
-    const response=await fetch('/api/backup/database',{credentials:'same-origin'});
+    const response=await fetch('/api/backup/complete',{credentials:'same-origin'});
     if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'تعذر إنشاء النسخة الاحتياطية.');}
     const blob=await response.blob();if(!blob.size)throw new Error('الملف الناتج فارغ؛ لم تُنزّل نسخة احتياطية.');
     const url=URL.createObjectURL(blob),link=document.createElement('a');
     const disposition=response.headers.get('Content-Disposition')||'';
-    const filename=disposition.match(/filename="?([^";]+)"?/i)?.[1]||('complaints-database-backup-'+new Date().toISOString().slice(0,10)+'.sqlite');
+    const filename=disposition.match(/filename="?([^";]+)"?/i)?.[1]||('complaints-complete-'+new Date().toISOString().slice(0,10)+'.csb');
     link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
-    toast('تم تنزيل نسخة احتياطية كاملة من قاعدة البيانات. احتفظ بها في مكان آمن.');
+    toast('تم تنزيل نسخة مشفّرة تشمل قاعدة البيانات والمرفقات. احتفظ بملف الإعدادات وسر النسخ الاحتياطي بعيداً عن النسخة.');
   }catch(error){toast(error.message,'error');}finally{el.disabled=false;el.textContent='نسخ احتياطي';}})();break;}
 case 'sync-export':{
   (async()=>{try{
