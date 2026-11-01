@@ -155,7 +155,7 @@
       let id = idCell?.getAttribute('data-id') || idCell?.textContent?.trim();
       if (!id || !/^SY-/i.test(id)) {
         const text = row.innerText || '';
-        const m = text.match(/SY-\d{4}-[0-9a-f-]{8}/i);
+        const m = text.match(/SY-\d{4}-(?:\d{4,8}|[0-9a-f-]{8})/i);
         id = m ? m[0] : null;
       }
       if (!id) return;
@@ -202,7 +202,7 @@
   }
 
   function addTools() {
-    const host = $('.top-actions');
+    const host = $('.account-menu-panel') || $('.top-actions');
     if (!host) return;
     if (!$('#themeToggle')) {
       const theme = document.createElement('button');
@@ -318,7 +318,13 @@
       if (restoreFocus) toggle.focus();
     }
     backdrop.addEventListener('click', () => closeMenu(true));
+    const accountMenu = $('#accountMenu');
+    document.addEventListener('click', (event) => {
+      if (accountMenu?.open && !accountMenu.contains(event.target)) accountMenu.open = false;
+      if (accountMenu?.open && event.target.closest('#accountMenu button')) accountMenu.open = false;
+    });
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && accountMenu?.open) { accountMenu.open = false; accountMenu.querySelector('summary')?.focus(); }
       if (event.key === 'Escape' && sidebar.classList.contains('open')) {
         event.preventDefault();
         closeMenu(true);
