@@ -1,8 +1,8 @@
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function norm(s=''){return String(s).normalize('NFKD').replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/[ىئي]/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ء/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
 function phoneNorm(s=''){let n=String(s).replace(/[^\d+]/g,'');if(n.startsWith('+963'))n='0'+n.slice(4);if(n.startsWith('963'))n='0'+n.slice(3);return n;}
-function dateText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY',{day:'2-digit',month:'short',year:'numeric'}).format(d);}
-function timeText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(d);}
+function dateText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{day:'2-digit',month:'short',year:'numeric'}).format(d);}
+function timeText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(d);}
 function ageDays(c){return Math.max(0,Math.floor((Date.now()-new Date(c.created).getTime())/86400000));}
 function isLate(c){return db.settings.slaApproved && c.status!=='closed' && Date.now()>new Date(c.due).getTime();}
 function statusLabel(s){return ({new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
