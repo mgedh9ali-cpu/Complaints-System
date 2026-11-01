@@ -51,6 +51,7 @@ lockDownFile(env.databasePath);
 const auditService = createAuditService({ db, logger, databasePath: env.databasePath });
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
   auditService.record(actorUserId, action, targetType, targetId, details);
+audit.syncHead = () => auditService.syncHead();
 
 const authService = createAuthService({
   db,
