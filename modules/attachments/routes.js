@@ -124,6 +124,10 @@ function createAttachmentsRouter({
     requirePermission('attachments.delete'),
     requireCsrf,
     (req, res) => {
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+      if (reason.length < 3 || reason.length > 500) {
+        return res.status(400).json({ error: 'يجب إدخال سبب الحذف (من 3 إلى 500 حرف).' });
+      }
       const parsed = parseStoredAttachmentName(req.params.storedName);
       if (!parsed) {
         return res.status(400).json({ error: 'اسم الملف غير صالح أو لا يرتبط بشكوى.' });
@@ -134,7 +138,8 @@ function createAttachmentsRouter({
       attachmentsService.remove(parsed.storedName);
       if (typeof audit === 'function') {
         audit(req.user.id, 'attachment_deleted', 'attachment', parsed.storedName, {
-          complaintId: parsed.complaintId
+          complaintId: parsed.complaintId,
+          reason
         });
       }
       res.status(204).end();
