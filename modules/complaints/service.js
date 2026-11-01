@@ -151,6 +151,52 @@ function createComplaintsService({ db, audit, logger }) {
           error: 'تغيير الحالة غير مسموح عبر حفظ الحالة الكامل. استخدم مسار تغيير الحالة.'
         };
       }
+      // The state endpoint can update working notes and assignments, but it is not
+      // authorized to mint official complaint numbers or rewrite their history.
+      // An initial local import through the legacy empty-state bootstrap remains
+      // supported for compatibility; subsequent creation uses POST /complaints.
+      if (!prev && current.revision > 0) {
+        return {
+          invalidTransition: true,
+          error: 'إنشاء شكوى عبر حفظ الحالة غير مسموح؛ استخدم مسار تسجيل الشكاوى.'
+        };
+      }
+      if (prev) {
+        if (prev.created !== c.created) {
+          return {
+            invalidTransition: true,
+            error: 'تاريخ إنشاء الشكوى ثابت ولا يمكن تعديله.'
+          };
+        }
+        if (JSON.stringify(prev.statusHistory || []) !==
+            JSON.stringify(c.statusHistory || [])) {
+          return {
+            invalidTransition: true,
+            error: 'سجل انتقالات الحالة لا يُعدّل عبر حفظ الحالة الكامل.'
+          };
+        }
+        if (['closed', 'cancelled'].includes(prev.status) &&
+            JSON.stringify(prev) !== JSON.stringify(c)) {
+          return {
+            invalidTransition: true,
+            error: 'لا يمكن تعديل شكوى مغلقة أو ملغاة عبر حفظ الحالة.'
+          };
+        }
+        if (prev.reply && ['approved', 'sent'].includes(prev.reply.status)) {
+          const before = prev.reply;
+          const after = c.reply;
+          const allowedStatus = before.status === 'approved'
+            ? ['approved', 'sent']
+            : ['sent'];
+          if (!after || !allowedStatus.includes(after.status) ||
+              before.author !== after.author || before.text !== after.text) {
+            return {
+              invalidTransition: true,
+              error: 'لا يجوز تغيير نص الرد المعتمد أو مؤلفه أو إرجاع مرحلته.'
+            };
+          }
+        }
+      }
       const beforeReply = prev?.reply;
       const afterReply = c?.reply;
       const beforeStatus = beforeReply?.status || null;
