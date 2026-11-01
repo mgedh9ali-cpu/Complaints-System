@@ -48,7 +48,7 @@ test('offline import replaces app_state and indexed complaint rows together', t 
     complaintsService: service, auditService: { record() {} },
     db, sourceInstanceId: 'device-receiver', rootDir: sourceRoot
   });
-  const result = sync.importPackage({ payload, userId: 'admin-id' });
+  const result = sync.importPackage({ payload, userId: 'admin-id', forceReplace: true });
   assert.equal(result.ok, true);
   assert.deepEqual(service.readState().state.complaints.map(c => c.id), ['SY-2026-NEW']);
   assert.deepEqual(
@@ -78,4 +78,24 @@ test('reply approval requires a different manager and an existing review', t => 
   assert.equal(allowed.conflict, false);
   assert.equal(allowed.invalidTransition, undefined);
   assert.equal(service.readState().state.complaints[0].reply.status, 'approved');
+});
+
+
+test('offline import refuses to remove a local complaint without explicit forceReplace', t => {
+  const { db, service } = fixture(t);
+  const seeded = service.saveState({
+    state: stateFor('SY-2026-KEEP'), userId: 'admin-id', expectedRevision: 0
+  });
+  assert.equal(seeded.conflict, false);
+  const incoming = stateFor('SY-2026-OTHER');
+  const payload = createSyncPackage(incoming, path.resolve(__dirname, '..'), 'other-device');
+  const sync = createSyncService({
+    complaintsService: service, auditService: { record() {} },
+    db, sourceInstanceId: 'receiver-device', rootDir: path.resolve(__dirname, '..')
+  });
+  const result = sync.importPackage({ payload, userId: 'admin-id' });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 409);
+  assert.equal(result.conflicts[0].kind, 'missing_from_incoming');
+  assert.deepEqual(service.readState().state.complaints.map(c => c.id), ['SY-2026-KEEP']);
 });
