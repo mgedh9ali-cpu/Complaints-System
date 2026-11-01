@@ -100,7 +100,9 @@ test(
 );
 
 test("server configures a restrictive same-origin Content Security Policy", () => {
-  const source = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  assert.match(server, /createHelmetMiddleware\(\)/, "server must install Helmet middleware");
+  const source = fs.readFileSync(path.join(root, "config/security.js"), "utf8");
   assert.match(source, /contentSecurityPolicy:\s*\{/);
   assert.match(source, /defaultSrc:\s*\[["']'self'["']\]/);
   assert.match(source, /scriptSrc:\s*\[["']'self'["']\]/);
