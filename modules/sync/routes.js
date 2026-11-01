@@ -5,10 +5,10 @@ const express = require('express');
 function createSyncRouter({ syncService, middleware, auditService, rolesService }) {
   const router = express.Router();
   const { requireAuth, requireCsrf } = middleware;
-  const requirePermission =
-    rolesService && typeof rolesService.requirePermission === 'function'
-      ? (action) => rolesService.requirePermission(action)
-      : () => (req, res, next) => next();
+  if (!rolesService || typeof rolesService.requirePermission !== 'function') {
+    throw new Error('Role enforcement service is required for protected routes.');
+  }
+  const requirePermission = (action) => rolesService.requirePermission(action);
 
   router.get('/sync/export', requireAuth, requirePermission('sync.export'), (req, res) => {
     const bundle = syncService.exportPackage();
