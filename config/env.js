@@ -1,10 +1,11 @@
 'use strict';
 
 const path = require('node:path');
+const { version } = require('../package.json');
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
-  if (!value || value.length < minLength) {
+  if (!value || value.length < minLength || /^replace[-_ ]with\b/i.test(value.trim()) || /^change[-_ ]me\b/i.test(value.trim())) {
     throw new Error(`Missing or too-short environment variable: ${name}`);
   }
   return value;
@@ -26,6 +27,8 @@ function loadEnv() {
   const databasePath = path.resolve(process.env.DATABASE_PATH || './data/complaints.sqlite');
   const dataDir = path.dirname(databasePath);
 
+  if (process.env.BACKUP_SECRET) requiredEnv('BACKUP_SECRET', 32);
+
   return {
     host,
     port,
@@ -39,7 +42,7 @@ function loadEnv() {
     ),
     cookieSecure: process.env.COOKIE_SECURE === 'true',
     backupSecret: process.env.BACKUP_SECRET || requiredEnv('SESSION_SECRET', 32),
-    version: '0.7.8'
+    version
   };
 }
 
