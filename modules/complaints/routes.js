@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const { validComplaintDraft } = require('../../lib/validation');
 
 function createComplaintsRouter({
   complaintsService,
@@ -86,14 +87,17 @@ function createComplaintsRouter({
     (req, res) => {
       const body = req.body || {};
       const asDraft = body.asDraft === true || body.status === 'draft';
-      if (!asDraft && !validComplaint(body)) {
-        return res.status(400).json({ error: 'بيانات الشكوى غير صالحة.' });
+      if (asDraft ? !validComplaintDraft(body) : !validComplaint(body)) {
+        return res.status(400).json({ error: 'بيانات الشكوى أو المسودة غير صالحة.' });
       }
-      if (asDraft && !(body.summary || body.details || body.category)) {
-        return res.status(400).json({ error: 'المسودة تحتاج ملخصاً أو تصنيفاً على الأقل.' });
-      }
+      const prepared = asDraft ? {
+        ...body,
+        summary: body.summary?.trim() || 'مسودة بانتظار الاستكمال',
+        province: body.province?.trim() || 'غير محددة',
+        category: body.category?.trim() || 'غير مصنفة'
+      } : body;
       const result = complaintsService.createComplaint({
-        body,
+        body: prepared,
         userId: req.user.id,
         username: req.user.username,
         asDraft
@@ -111,9 +115,19 @@ function createComplaintsRouter({
     requirePermission('complaints.update'),
     requireCsrf,
     (req, res) => {
+      const incoming = req.body;
+      if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+        return res.status(400).json({ error: 'بنية تعديل الشكوى غير صالحة.' });
+      }
+      const current = complaintsService.readState().state.complaints.find(
+        item => item && item.id === req.params.id
+      );
+      if (current && !validComplaint({ ...current, ...incoming })) {
+        return res.status(400).json({ error: 'حقول تعديل الشكوى غير صالحة.' });
+      }
       const result = complaintsService.updateComplaint({
         complaintId: req.params.id,
-        body: req.body || {},
+        body: incoming,
         userId: req.user.id,
         username: req.user.username
       });
