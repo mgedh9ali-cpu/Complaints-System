@@ -53,11 +53,20 @@ function createSettingsService({ complaintsService }) {
       state: nextState,
       userId,
       expectedRevision,
-      diffComplaints: () => []
+      diffComplaints: () => [],
+      auditEvents: [{
+        action: 'settings_updated',
+        targetType: 'settings',
+        id: null,
+        details: { slaDays: normalized.slaDays, slaApproved: normalized.slaApproved }
+      }]
     });
 
     if (result.conflict) {
       return { ok: false, conflict: true, currentRevision: result.currentRevision };
+    }
+    if (result.invalidTransition) {
+      return { ok: false, invalidTransition: true, error: result.error };
     }
     return {
       ok: true,
