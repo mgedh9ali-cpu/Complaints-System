@@ -288,7 +288,61 @@ function changePriority(id){const c=db.complaints.find(x=>x.id===id),p=$('#detai
 function addNote(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('إضافة ملاحظة داخلية','لن تُرسل هذه الملاحظة إلى المشتكي','<form id="noteForm"><div class="form-field"><label for="noteText">الملاحظة</label><textarea class="textarea-field" id="noteText" required placeholder="اكتب ملاحظة داخلية للفريق"></textarea></div><p class="small-copy">الإشارة إلى زميل (@) نصية فقط في النموذج الأولي، ولا توجد إشعارات موجهة فعلية.</p></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-note" data-id="'+esc(id)+'">حفظ الملاحظة</button>');}
 function saveNote(id){const c=db.complaints.find(x=>x.id===id),text=$('#noteText')?.value.trim();if(!c||!text)return toast('اكتب الملاحظة أولًا.','warn');c.notes.unshift({text,by:(authenticatedUser?.username||'النظام'),at:new Date().toISOString()});logEvent(c,'إضافة ملاحظة داخلية','تمت إضافة ملاحظة داخلية.');persist();detailModal(id);toast('تم حفظ الملاحظة.');}
 function newReferral(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('إضافة إحالة','تسجيل الجهة وتاريخ الإرسال والموعد المتوقع للرد','<form id="referralForm"><div class="form-grid">'+selectField('الجهة المحال إليها','rEntity',db.settings.entities,'',true)+field('موعد الرد المتوقع','rDue',new Date(Date.now()+7*86400000).toISOString().slice(0,10),'date',true)+'<div class="form-field full"><label for="rNote">ملاحظات الإحالة</label><textarea class="textarea-field" id="rNote" placeholder="ملخص الطلب المرسل"></textarea></div></div></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-referral" data-id="'+esc(id)+'">حفظ الإحالة</button>');}
-function saveReferral(id){const c=db.complaints.find(x=>x.id===id);if(!c||!$('#rEntity').value||!$('#rDue').value)return toast('أكمل الجهة وموعد الرد.','warn');c.referrals.push({entity:$('#rEntity').value,sent:new Date().toISOString(),due:new Date($('#rDue').value+'T23:59:00').toISOString(),status:'بانتظار الرد',response:'',note:$('#rNote').value.trim()});if(c.status==='in_progress')c.status='awaiting_reply';logEvent(c,'إحالة إلى جهة','تم توثيق إحالة إلى '+$('#rEntity').value+'.');notify('إحالة جديدة',c.id+' · إحالة إلى '+$('#rEntity').value);persist();detailModal(id);toast('تم تسجيل الإحالة.');}
+async function saveReferral(id){
+  const c=db.complaints.find(x=>x.id===id);
+  const entity=$('#rEntity')?.value, dueValue=$('#rDue')?.value, note=$('#rNote')?.value.trim()||'';
+  if(!c||!entity||!dueValue)return toast('أكمل الجهة وموعد الرد.','warn');
+  const saveButton=$('[data-action="save-referral"]');
+  if(saveButton)saveButton.disabled=true;
+  try{
+    const hadPendingSave=Boolean(persistTimer);
+    if(persistTimer){clearTimeout(persistTimer);persistTimer=null;}
+    await persistQueue;
+    if(hadPendingSave){
+      const saved=await api('/api/state',{
+        method:'PUT',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify(db)
+      });
+      stateRevision=saved.revision;
+    }
+    if(c.status==='in_progress'){
+      await api('/api/complaints/'+encodeURIComponent(id)+'/status',{
+        method:'PATCH',
+        body:JSON.stringify({status:'awaiting_reply',reason:'إحالة إلى '+entity})
+      });
+    }
+    const stored=await api('/api/state');
+    db=stored.state||cleanState();
+    stateRevision=stored.revision;
+    const current=db.complaints.find(x=>x.id===id);
+    if(!current)throw new Error('الشكوى غير موجودة في بيانات الخادم.');
+    current.referrals ||= [];
+    current.referrals.push({
+      entity,
+      sent:new Date().toISOString(),
+      due:new Date(dueValue+'T23:59:00').toISOString(),
+      status:'بانتظار الرد',
+      response:'',
+      note
+    });
+    logEvent(current,'إحالة إلى جهة','تم توثيق إحالة إلى '+entity+'.');
+    notify('إحالة جديدة',id+' · إحالة إلى '+entity);
+    const saved=await api('/api/state',{
+      method:'PUT',
+      headers:{'X-State-Revision':String(stateRevision)},
+      body:JSON.stringify(db)
+    });
+    stateRevision=saved.revision;
+    detailModal(id);render();toast('تم تسجيل الإحالة وحفظها على الخادم.');
+  }catch(error){
+    try{
+      const stored=await api('/api/state');
+      db=stored.state||cleanState();
+      stateRevision=stored.revision;
+      render();
+    }catch(_) {}
+    toast('تعذر حفظ الإحالة: '+error.message,'error');
+  }finally{if(saveButton)saveButton.disabled=false;}
+}
 function surveyModal(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('تسجيل رأي المشتكي','توثيق ما إذا أُخذ الرأي وهل عولجت الشكوى','<form id="surveyForm">'+selectField('هل عولجت الشكوى؟','surveyResolved',[{value:'yes',label:'نعم'},{value:'partly',label:'جزئيًا'},{value:'no',label:'لا'},{value:'unknown',label:'لم يحدد'}],c.survey?.resolved||'',true)+'<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:11px"><input type="checkbox" id="surveyAsked" '+(c.survey?.asked?'checked':'')+'> تم أخذ رأي المشتكي</label></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-survey" data-id="'+esc(id)+'">حفظ</button>');}
 function saveSurvey(id){const c=db.complaints.find(x=>x.id===id);if(!c||!$('#surveyResolved').value)return toast('حدد نتيجة المعالجة.','warn');c.survey={resolved:$('#surveyResolved').value,asked:$('#surveyAsked').checked,at:new Date().toISOString()};logEvent(c,'تسجيل استبيان الإغلاق','نتيجة المعالجة: '+$('#surveyResolved').selectedOptions[0].text+'؛ أخذ الرأي: '+(c.survey.asked?'نعم':'لا'));persist();detailModal(id);toast('تم توثيق رأي المشتكي.');}
 function replyEditor(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;const text=c.reply?.text||'';modal('صياغة رد خارجي','المسودة منفصلة عن الملاحظات الداخلية؛ يلزم اعتماد بشري قبل توثيق الإرسال','<form id="replyForm"><div class="form-grid">'+selectField('قالب الرد','replyTemplate',[{value:'',label:'بدون قالب'},...db.templates.map((t,i)=>({value:String(i),label:t.name+' · إصدار '+t.version}))],'')+'<div class="form-field"><label for="replyText">نص الرد</label><textarea class="textarea-field" id="replyText" required style="min-height:180px">'+esc(text)+'</textarea></div></div><p class="small-copy">المتغيرات المتاحة: {{رقم_الشكوى}}، {{الجهة}}، {{التصنيف}}. بعد الاعتماد يمكن توثيق الإرسال من ملف الشكوى.</p></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-reply" data-id="'+esc(id)+'">حفظ المسودة</button>');}
