@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { validComplaint } = require("../lib/validation");
+const { validComplaint, validComplaintDraft } = require("../lib/validation");
 
 test("validComplaint accepts a minimal well-formed complaint", () => {
   assert.equal(
@@ -50,8 +50,24 @@ test("validComplaint rejects prototype pollution payloads", () => {
 
 test("validComplaint rejects invalid priority and status", () => {
   const base = { summary: "s", province: "p", category: "c" };
-  assert.equal(validComplaint({ ...base, priority: "low" }), false);
+  assert.equal(validComplaint({ ...base, priority: "low" }), true);
   assert.equal(validComplaint({ ...base, priority: "normal" }), true);
   assert.equal(validComplaint({ ...base, status: "done" }), false);
   assert.equal(validComplaint({ ...base, status: "new" }), true);
+});
+
+
+test('draft validation accepts incomplete but well-typed information', () => {
+  assert.equal(validComplaintDraft({ details: 'وصف أولي للشكوى', asDraft: true }), true);
+  assert.equal(validComplaintDraft({ category: 'خدمات', summary: '' }), true);
+  assert.equal(validComplaintDraft({ summary: 42, details: 'نص' }), false);
+  assert.equal(validComplaintDraft({ summary: '', details: '', category: '' }), false);
+});
+
+test('complaint validation rejects malformed ownership and oversized classifications', () => {
+  const base = { summary: 'طلب', province: 'دمشق', category: 'خدمات' };
+  assert.equal(validComplaint({ ...base, owner: { role: 'admin' } }), false);
+  assert.equal(validComplaint({ ...base, province: 'x'.repeat(121) }), false);
+  assert.equal(validComplaint({ ...base, category: 'x'.repeat(121) }), false);
+  assert.equal(validComplaint({ ...base, priority: 'low' }), true);
 });
