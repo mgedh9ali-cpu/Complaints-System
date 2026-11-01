@@ -4,7 +4,7 @@ function phoneNorm(s=''){let n=String(s).replace(/[^\d+]/g,'');if(n.startsWith('
 function dateText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{day:'2-digit',month:'short',year:'numeric'}).format(d);}
 function timeText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(d);}
 function ageDays(c){return Math.max(0,Math.floor((Date.now()-new Date(c.created).getTime())/86400000));}
-function isLate(c){return db.settings.slaApproved && c.status!=='closed' && Date.now()>new Date(c.due).getTime();}
+function isLate(c){return db.settings.slaApproved && !['closed','cancelled','draft'].includes(c.status) && Number.isFinite(new Date(c.due).getTime()) && Date.now()>new Date(c.due).getTime();}
 function statusLabel(s){return ({new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
 function statusClass(s){return ({new:'new',in_progress:'progressing',awaiting_reply:'waiting',awaiting_approval:'waiting',closed:'closed',cancelled:'closed'})[s]||'closed';}
 function ensureManagedSettings(){if(!db.settings||typeof db.settings!=='object')db.settings={};for(const key of ['categories','entities','provinces'])if(!Array.isArray(db.settings[key]))db.settings[key]=[...seed.settings[key]];if(!Array.isArray(db.settings.priorities))db.settings.priorities=seed.settings.priorities.map(x=>({...x}));db.settings.categoryDescriptions ||= {};db.settings.entityDescriptions ||= {};}
