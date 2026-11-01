@@ -20,7 +20,10 @@ jobs:
         cache: 'npm'
 
     - name: Install Dependencies
-      run: npm ci
+      run: npm ci --ignore-scripts --no-audit --no-fund
+
+    - name: Build SQLite native module for Node.js
+      run: npm rebuild better-sqlite3 --build-from-source
 
     - name: Run Tests
       run: npm test
