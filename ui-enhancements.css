@@ -1,7 +1,7 @@
 /* Thmanyah + motion + refined surfaces */
 
 :root {
-  --ui-font: "Thmanyah Sans", "Tahoma", "Segoe UI", Arial, sans-serif;
+  --ui-font: "Thmanyah Sans", "ThmanyahSans", "Tahoma", "Segoe UI", Arial, sans-serif;
   --ui-radius: 14px;
   --ui-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --ui-glow: 0 10px 40px rgba(16, 47, 41, 0.12);

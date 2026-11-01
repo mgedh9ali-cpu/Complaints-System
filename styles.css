@@ -23,7 +23,7 @@
   box-sizing: border-box;
 }
 html {
-  font-family: Tahoma, Arial, sans-serif;
+  font-family: "Thmanyah Sans", "ThmanyahSans", Tahoma, "Segoe UI", Arial, sans-serif;
   background: var(--bg);
   color: var(--ink);
   font-size: 14px;

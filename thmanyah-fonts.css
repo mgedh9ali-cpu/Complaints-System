@@ -1,33 +1,30 @@
-/* Thmanyah Sans — Arabic UI typeface */
+/* Thmanyah Sans is intentionally loaded only from a licensed local installation.
+ * Its license forbids distributing raw font files through a public repository
+ * or serving them as independently downloadable files.
+ * Install original Thmanyah Sans OTF files on Windows from font.thmanyah.com.
+ */
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/thmanyahsans-Regular.woff2") format("woff2");
+  src: local("Thmanyah Sans Regular"),
+       local("ThmanyahSans-Regular"),
+       local("Thmanyah Sans");
 }
-
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url("/fonts/thmanyahsans-Medium.woff2") format("woff2");
+  src: local("Thmanyah Sans Medium"),
+       local("ThmanyahSans-Medium");
 }
-
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url("/fonts/thmanyahsans-Bold.woff2") format("woff2");
-}
-
-/* Common aliases */
-@font-face {
-  font-family: "Thmanyah Sans";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/thmanyahsans-Medium.woff2") format("woff2");
+  src: local("Thmanyah Sans Bold"),
+       local("ThmanyahSans-Bold");
 }

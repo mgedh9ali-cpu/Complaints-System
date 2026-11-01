@@ -12,19 +12,6 @@ const { createHelmetMiddleware } = require('./config/security');
 const { requireLocalHost } = require('./lib/local-origin');
 const { logger } = require('./lib/logger');
 const { lockDownDir, lockDownFile, lockDownDataTree } = require('./lib/data-protection');
-const { ensureThmanyahFonts } = require('./scripts/ensure-thmanyah-font');
-
-try {
-  const fontResult = ensureThmanyahFonts(path.resolve(__dirname));
-  if (fontResult.written) {
-    logger.info('Thmanyah fonts materialized', fontResult);
-  }
-} catch (err) {
-  try {
-    logger.warn('Thmanyah font ensure failed', { message: err.message });
-  } catch (_) {}
-}
-
 const { createAuthService } = require('./modules/auth/service');
 const { createAuthMiddleware } = require('./modules/auth/middleware');
 const { createAuthRouter } = require('./modules/auth/routes');
@@ -218,14 +205,6 @@ app.get(Object.keys(PUBLIC_FILES), (req, res, next) => {
   res.sendFile(full);
 });
 
-app.use(
-  '/fonts',
-  express.static(path.join(__dirname, 'fonts'), {
-    dotfiles: 'deny',
-    index: false,
-    fallthrough: false
-  })
-);
 
 app.use((err, req, res, next) => {
   logger.requestError(err, req);

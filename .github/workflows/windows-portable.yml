@@ -42,9 +42,6 @@ jobs:
       - name: Build SQLite for Node.js tests
         run: npm rebuild better-sqlite3
 
-      - name: Prepare local UI fonts
-        run: npm run fonts
-
       - name: Syntax checks
         run: npm run check
 
