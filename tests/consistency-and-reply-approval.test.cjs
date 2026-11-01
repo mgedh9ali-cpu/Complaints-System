@@ -156,3 +156,54 @@ test('audit callback executes while the SQLite complaint transaction is open', t
   assert.equal(result.ok, true);
   assert.equal(auditedInTransaction, true);
 });
+
+
+test('referral and status transition are stored together', t => {
+  const { service } = fixture(t);
+  const original = stateFor('SY-2026-REFERRAL');
+  original.complaints[0].status = 'in_progress';
+  const initialized = service.saveState({
+    state: original, userId: 'admin-id', expectedRevision: 0
+  });
+  assert.equal(initialized.conflict, false);
+  const result = service.addReferral({
+    complaintId: 'SY-2026-REFERRAL',
+    entity: 'مديرية الخدمات',
+    due: '2026-11-10T23:59:00.000Z',
+    note: 'مراجعة المستندات',
+    userId: 'staff-id',
+    username: 'author'
+  });
+  assert.equal(result.ok, true);
+  const saved = service.readState();
+  assert.equal(saved.revision, initialized.revision + 1);
+  assert.equal(saved.state.complaints[0].status, 'awaiting_reply');
+  assert.equal(saved.state.complaints[0].referrals.length, 1);
+  assert.equal(saved.state.complaints[0].statusHistory.length, 1);
+  assert.equal(saved.state.complaints[0].referrals[0].entity, 'مديرية الخدمات');
+});
+
+test('referral and status stay unchanged if any audit event fails', t => {
+  let audits = 0;
+  const { service, db } = fixture(t, () => {
+    audits += 1;
+    if (audits === 2) throw new Error('audit entry rejected');
+  });
+  const original = stateFor('SY-2026-REFERRAL-ROLLBACK');
+  original.complaints[0].status = 'in_progress';
+  const initial = service.saveState({ state: original, userId: 'admin-id', expectedRevision: 0 });
+  assert.equal(initial.conflict, false);
+  assert.throws(() => service.addReferral({
+    complaintId: 'SY-2026-REFERRAL-ROLLBACK',
+    entity: 'مديرية الخدمات',
+    due: '2026-11-10T23:59:00.000Z',
+    note: '',
+    userId: 'staff-id',
+    username: 'author'
+  }), /audit entry rejected/);
+  const after = service.readState();
+  assert.equal(after.revision, initial.revision);
+  assert.equal(after.state.complaints[0].status, 'in_progress');
+  assert.equal((after.state.complaints[0].referrals || []).length, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM complaints').get().n, 1);
+});
