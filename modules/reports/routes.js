@@ -16,10 +16,10 @@ function readFilters(query) {
 function createReportsRouter({ reportsService, middleware, audit, rolesService }) {
   const router = express.Router();
   const { requireAuth } = middleware;
-  const requirePermission =
-    rolesService && typeof rolesService.requirePermission === 'function'
-      ? (action) => rolesService.requirePermission(action)
-      : () => (req, res, next) => next();
+  if (!rolesService || typeof rolesService.requirePermission !== 'function') {
+    throw new Error('Role enforcement service is required for protected routes.');
+  }
+  const requirePermission = (action) => rolesService.requirePermission(action);
 
   router.get('/export/summary', requireAuth, requirePermission('export.csv'), (req, res) => {
     const filters = readFilters(req.query);
