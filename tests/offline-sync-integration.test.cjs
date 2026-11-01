@@ -199,9 +199,14 @@ test(
         categories: [],
       },
     };
+    const created = await request(source, '/api/complaints', {
+      method:'POST', body:JSON.stringify(state.complaints[0])
+    });
+    assert.equal(created.status, 201);
+    state.complaints = [created.body.complaint];
     const saved = await request(source, "/api/state", {
       method: "PUT",
-      headers: { "X-State-Revision": "0" },
+      headers: { "X-State-Revision": "1" },
       body: JSON.stringify(state),
     });
     assert.equal(

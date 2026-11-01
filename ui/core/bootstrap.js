@@ -32,6 +32,16 @@ const seed = {
 };
 let db = cleanState(), page='dashboard', searchText='', statusFilter='all', priorityFilter='all', quickView='all', selectedIds=new Set(), currentId=null, toastTimer=null;
 let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), stateLoaded=false;
+let assignees=[];
+function uiCan(action){
+ if(!authenticatedUser)return false;
+ if(Array.isArray(authenticatedUser.permissions))return authenticatedUser.permissions.includes(action);
+ if(authenticatedUser.role==='admin')return true;
+ const shared=['complaints.read','attachments.read','export.csv','export.xlsx','dashboard.view','settings.read'];
+ const staff=['complaints.create','complaints.update','complaints.status','complaints.assign','attachments.upload','replies.draft','replies.send','approvals.request','sync.export'];
+ return shared.includes(action)||(authenticatedUser.role==='staff'?staff.includes(action):action==='audit.read');
+}
+async function refreshAssignees(){try{assignees=(await api('/api/assignees')).users||[];}catch(_){assignees=[];}}
 let stateRevision=0, stateConflict=false;
 function cleanState(){const x=structuredClone(seed);x.complaints=[];x.notifications=[];return x;}
 function loadDb(){return cleanState();}
@@ -50,6 +60,7 @@ async function getWriteCsrf(){
 async function api(url,options={}){
   const method=String(options.method||'GET').toUpperCase();
   const headers={'Content-Type':'application/json',...(options.headers||{})};
+  if(method==='PATCH'&&url.startsWith('/api/complaints/'))headers['X-State-Revision']=String(stateRevision);
   if(!['GET','HEAD'].includes(method)&&url!=='/api/auth/login'){
     headers['X-CSRF-Token']=await getWriteCsrf();
   }
@@ -63,6 +74,7 @@ async function api(url,options={}){
     throw error;
   }
   if(url==='/api/auth/login'||url==='/api/auth/logout')csrfTokenCache=null;
+  if(url==='/api/auth/change-password')csrfTokenCache=body.csrfToken||null;
   return body;
 }
 async function persistUiNow(){
@@ -111,7 +123,7 @@ function updateSignedInUi(){
   const sideRole=$('#sideUserRole');if(sideRole)sideRole.textContent=({admin:'مدير النظام',staff:'موظف',reviewer:'مراجع'})[role]||role;
   const logout=$('#logoutButton');if(logout)logout.hidden=!authenticatedUser;
   const backup=$('#databaseBackupButton');if(backup)backup.hidden=authenticatedUser?.role!=='admin';
-  const headerCreate=$('#headerCreateButton');if(headerCreate)headerCreate.hidden=!authenticatedUser||!['admin','staff'].includes(role);
+  const headerCreate=$('#headerCreateButton');if(headerCreate)headerCreate.hidden=!uiCan('complaints.create');
   document.body.dataset.signedIn=authenticatedUser?'true':'false';
   const note=$('.prototype-note');if(note)note.innerHTML='<span class="status-dot"></span> قاعدة بيانات محلية · تسجيل دخول مفعل';
   const env=$('.env-chip');if(env)env.innerHTML='<span></span> تخزين محلي';
@@ -129,9 +141,9 @@ function showLogin(){
   .login-note{font-size:11px!important;margin-top:16px!important}`;
   document.head.append(style);}
   let root=$('#loginOverlay');
-  if(!root){root=document.createElement('div');root.id='loginOverlay';root.className='login-overlay';root.innerHTML='<section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><div class="login-brand"><svg viewBox="0 0 48 48" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><path d="M24 4 42 12v13c0 10-7 16-18 20C13 41 6 35 6 25V12L24 4Z"/><path d="M15 20h18M15 26h18M18 14h12" stroke-linecap="round"/></svg><h2>شعبة الاستفسارات والشكاوى</h2><p>بوابة العمل الإداري المحلية</p><small>دخول آمن للحسابات المصرّح لها</small></div><div class="login-fields"><h1 id="loginTitle">تسجيل الدخول</h1><p>أدخل اسم المستخدم وكلمة المرور الخاصة بحسابك.</p><form id="loginForm"><label for="loginUsername">اسم المستخدم</label><input id="loginUsername" name="username" autocomplete="username" required maxlength="100"><label for="loginPassword">كلمة المرور</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="200"><div id="loginError" class="login-error" role="alert" hidden></div><button type="submit">دخول إلى النظام</button></form><p class="login-note">في حال تعذر الدخول، راجع مسؤول النظام.</p></div></section>';document.body.append(root);
+  if(!root){root=document.createElement('div');root.id='loginOverlay';root.className='login-overlay';root.innerHTML='<section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><div class="login-brand"><svg viewBox="0 0 48 48" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><path d="M24 4 42 12v13c0 10-7 16-18 20C13 41 6 35 6 25V12L24 4Z"/><path d="M15 20h18M15 26h18M18 14h12" stroke-linecap="round"/></svg><h2>شعبة الاستفسارات والشكاوى</h2><p>بوابة العمل الإداري المحلية</p><small>دخول آمن للحسابات المصرّح لها</small></div><div class="login-fields"><h1 id="loginTitle">تسجيل الدخول</h1><p>أدخل اسم المستخدم وكلمة المرور الخاصة بحسابك.</p><form id="loginForm"><label for="loginUsername">اسم المستخدم</label><input id="loginUsername" name="username" autocomplete="username" required maxlength="100"><label for="loginPassword">كلمة المرور</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="200"><label for="loginOtp">رمز التحقق الثنائي أو الاسترداد (للحسابات المفعّلة)</label><input id="loginOtp" name="code" autocomplete="one-time-code" maxlength="40"><div id="loginError" class="login-error" role="alert" hidden></div><button type="submit">دخول إلى النظام</button></form><p class="login-note">في حال تعذر الدخول، راجع مسؤول النظام.</p></div></section>';document.body.append(root);
     $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('#loginForm button');button.disabled=true;button.textContent='جارٍ التحقق…';const err=$('#loginError');err.hidden=true;try{
-      const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#loginUsername').value,password:$('#loginPassword').value})});
+      const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#loginUsername').value,password:$('#loginPassword').value,code:$('#loginOtp')?.value.trim()})});
       authenticatedUser=result.user;
       const stored=await api('/api/state');
       stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;
@@ -146,7 +158,7 @@ function showLogin(){
         });
         stateRevision=saved.revision;
       }
-      stateLoaded=true;root.remove();updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();
+      stateLoaded=true;root.remove();updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();refreshAssignees();refreshApprovals();
       toast('مرحباً '+(authenticatedUser?.name||authenticatedUser?.username||'بك')+'، تم تسجيل الدخول بنجاح.');
     }catch(ex){err.textContent=ex.message;err.hidden=false;}finally{button.disabled=false;button.textContent='دخول إلى النظام';}
     });
@@ -158,7 +170,7 @@ async function logout(){
   await persistQueue;
   if(stateConflict){
     if(!confirm('هناك تعديلات لم تُحفظ بسبب تعارض مع نسخة أحدث. سيؤدي تسجيل الخروج إلى فقدان تعديلات هذه الصفحة. هل تريد المتابعة؟'))return;
-  }else if(authenticatedUser&&stateLoaded){
+  }else if(authenticatedUser&&stateLoaded&&uiCan('complaints.update')){
     try{
       const saved=await api('/api/state',{
         method:'PUT',

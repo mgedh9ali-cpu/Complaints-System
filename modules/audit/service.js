@@ -4,29 +4,45 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { hashAuditEvent } = require('../../lib/audit-integrity');
+const { storageFor } = require('../../lib/storage-codec');
+const { verifyAuditRows } = require('../../lib/audit-integrity');
 
 function createAuditService({ db, logger, databasePath }) {
   const dbPath = databasePath || process.env.DATABASE_PATH || './data/complaints.sqlite';
   const headPath = path.join(path.dirname(path.resolve(dbPath)), 'audit-head.hash');
+  const storage = storageFor(db);
+  db.exec(`CREATE TABLE IF NOT EXISTS audit_head_pending (
+    id INTEGER PRIMARY KEY CHECK(id=1), previous_hash TEXT, next_hash TEXT NOT NULL
+  )`);
 
   function persistHeadHash(eventHash) {
+    const temporary = headPath + '.' + crypto.randomUUID() + '.tmp';
     try {
-      fs.writeFileSync(headPath, eventHash + '\n');
+      const descriptor = fs.openSync(temporary, 'wx', 0o600);
+      try { fs.writeFileSync(descriptor, eventHash + '\n'); fs.fsyncSync(descriptor); }
+      finally { fs.closeSync(descriptor); }
+      fs.renameSync(temporary, headPath);
     } catch (err) {
       if (logger) logger.error('Failed to persist audit head hash', { error: err.message });
+      fs.rmSync(temporary, { force: true });
+      throw err;
     }
   }
 
   function record(actorUserId, action, targetType, targetId = null, details = {}) {
+    const nested = db.inTransaction;
+    let result;
+    const write = () => {
     const event = {
       id: crypto.randomUUID(),
       actor_user_id: actorUserId || null,
       action,
       target_type: targetType,
       target_id: targetId,
-      details_json: JSON.stringify(details),
+      details_json: null,
       created_at: new Date().toISOString()
     };
+    event.details_json = storage.encodeJson(details, 'audit:' + event.id);
     const previousHash =
       db.prepare('SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1').get()
         ?.event_hash ?? null;
@@ -46,16 +62,27 @@ function createAuditService({ db, logger, databasePath }) {
       previousHash,
       eventHash
     );
-    // An outer SQLite transaction may still roll back. Publish the sidecar
-    // hash only after that transaction commits, never during an open transaction.
-    if (!db.inTransaction) persistHeadHash(eventHash);
-    return { id: event.id, eventHash, previousHash };
+    db.prepare(`INSERT INTO audit_head_pending(id,previous_hash,next_hash) VALUES(1,?,?)
+      ON CONFLICT(id) DO UPDATE SET next_hash=excluded.next_hash`).run(previousHash,eventHash);
+    result = { id: event.id, eventHash, previousHash };
+    };
+    if (nested) write(); else { db.transaction(write)(); syncHead(); }
+    return result;
   }
 
   function syncHead() {
     if (db.inTransaction) throw new Error('Audit head cannot be synchronized before commit.');
     const row = db.prepare('SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1').get();
-    if (row?.event_hash) persistHeadHash(row.event_hash);
+    const pending = db.prepare('SELECT * FROM audit_head_pending WHERE id=1').get();
+    if (pending && pending.next_hash !== row?.event_hash) throw new Error('Pending audit head does not match the committed chain.');
+    let existing = null;
+    try { existing = fs.readFileSync(headPath,'utf8').trim(); } catch (_) {}
+    if (pending && existing && ![pending.previous_hash,pending.next_hash].includes(existing)) throw new Error('Audit head changed outside the committed transaction.');
+    if (!pending && existing && existing !== row?.event_hash) throw new Error('Audit head does not match the committed chain.');
+    if (row?.event_hash) {
+      persistHeadHash(row.event_hash);
+      db.prepare('DELETE FROM audit_head_pending WHERE id=1').run();
+    }
   }
 
   function listEvents({ limit = 500 } = {}) {
@@ -72,7 +99,7 @@ function createAuditService({ db, logger, databasePath }) {
       action: row.action,
       targetType: row.target_type,
       targetId: row.target_id,
-      details: JSON.parse(row.details_json),
+      details: storage.decodeJson(row.details_json, 'audit:' + row.id),
       createdAt: row.created_at,
       previousHash: row.previous_hash,
       eventHash: row.event_hash
@@ -115,7 +142,7 @@ function createAuditService({ db, logger, databasePath }) {
     try {
       headFile = fs.readFileSync(headPath, 'utf8').trim();
     } catch (_) {}
-    if (previousHash && headFile && headFile !== previousHash) {
+    if (previousHash && headFile !== previousHash) {
       return {
         ok: false,
         checked,
@@ -127,6 +154,15 @@ function createAuditService({ db, logger, databasePath }) {
     return { ok: true, checked, chainTip: previousHash };
   }
 
+  const pending = db.prepare('SELECT * FROM audit_head_pending WHERE id=1').get();
+  if (pending) {
+    const rows = db.prepare('SELECT * FROM audit_events ORDER BY rowid').all();
+    const verification = verifyAuditRows(rows);
+    if (!verification.valid || verification.headHash !== pending.next_hash) throw new Error('Cannot recover an invalid pending audit chain.');
+    syncHead();
+    record(null,'audit_head_recovered','system',null,{previousHead:pending.previous_hash,committedHead:pending.next_hash});
+    logger?.warn('Recovered committed audit head after interrupted publication');
+  }
   return { record, syncHead, listEvents, verifyChain };
 }
 

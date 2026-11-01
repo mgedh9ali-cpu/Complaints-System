@@ -116,6 +116,7 @@ function bootServerInProcess(paths, root) {
   process.env.DATABASE_PATH = paths.databasePath;
   process.env.INSTANCE_ID_PATH = paths.instanceIdPath;
   process.env.SESSIONS_DIR = paths.sessionsDir;
+  process.env.UPDATE_PUBLIC_KEY_PATH = path.resolve(paths.base, process.env.UPDATE_PUBLIC_KEY_PATH || './data/trusted-update-public.pem');
   process.env.ELECTRON_RUN = '1';
   process.env.COOKIE_SECURE = process.env.COOKIE_SECURE || 'false';
 

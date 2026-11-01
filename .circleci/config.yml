@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   test:
     docker:
-      - image: cimg/node:20.19.5
+      - image: cimg/node:24.22.1
     resource_class: medium
     steps:
       - checkout
@@ -33,6 +33,9 @@ jobs:
             mkdir -p /tmp/complaints-ci
             set -o pipefail
             npm test 2>&1 | tee /tmp/complaints-ci/test.log
+      - run:
+          name: Audit high and critical dependency findings
+          command: npm audit --audit-level=high
       - store_artifacts:
           path: /tmp/complaints-ci
           destination: diagnostic-logs

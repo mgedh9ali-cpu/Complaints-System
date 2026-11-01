@@ -186,8 +186,9 @@ test('referral and status transition are stored together', t => {
 });
 
 test('referral and status stay unchanged if any audit event fails', t => {
-  let audits = 0;
+  let audits = 0, testingReferral = false;
   const { service, db } = fixture(t, () => {
+    if (!testingReferral) return;
     audits += 1;
     if (audits === 2) throw new Error('audit entry rejected');
   });
@@ -195,6 +196,7 @@ test('referral and status stay unchanged if any audit event fails', t => {
   original.complaints[0].status = 'in_progress';
   const initial = service.saveState({ state: original, userId: 'admin-id', expectedRevision: 0 });
   assert.equal(initial.conflict, false);
+  testingReferral = true;
   assert.throws(() => service.addReferral({
     complaintId: 'SY-2026-REFERRAL-ROLLBACK',
     entity: 'مديرية الخدمات',
@@ -257,11 +259,12 @@ test('settings changes commit with their audit event or roll back together', t =
   const audit = () => { calls += 1; throw new Error('audit failed'); };
   const service = createComplaintsService({ db, audit, logger: null });
   const settings = createSettingsService({ complaintsService: service });
+  const initialSettings = structuredClone(service.readState().state.settings);
   assert.throws(() => settings.updateSettings({
     settings: { slaDays: 30, slaApproved: true },
     userId: 'admin-id', expectedRevision: 0
   }), /audit failed/);
   assert.equal(calls, 1);
   assert.equal(service.readState().revision, 0);
-  assert.deepEqual(service.readState().state.settings, {});
+  assert.deepEqual(service.readState().state.settings, initialSettings);
 });

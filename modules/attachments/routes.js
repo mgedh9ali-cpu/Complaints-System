@@ -63,6 +63,10 @@ function createAttachmentsRouter({
       if (!complaintExists(complaintId)) {
         return res.status(404).json({ error: 'الشكوى غير موجودة.' });
       }
+      const complaint = complaintsService?.readState().state.complaints.find(c => c.id === complaintId);
+      if (complaint && (complaint.archivedAt || ['closed','cancelled'].includes(complaint.status))) {
+        return res.status(409).json({ error: 'لا يمكن رفع مرفقات إلى شكوى مغلقة أو مؤرشفة.' });
+      }
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: 'لم يتم إرسال أي ملف.' });
       }
@@ -72,6 +76,7 @@ function createAttachmentsRouter({
         saved = saveAttachmentBatch({ attachmentsService, complaintId, files: req.files });
         const recordUploads = () => {
           for (const meta of saved) {
+            attachmentsService.record?.(meta, complaintId);
             if (typeof audit === 'function') {
               audit(req.user.id, 'attachment_uploaded', 'attachment', meta.id, {
                 complaintId, originalName: meta.originalName, size: meta.size
@@ -143,9 +148,9 @@ function createAttachmentsRouter({
           complaintId: parsed.complaintId
         });
       }
-      res.download(full, parsed.storedName, (err) => {
-        if (err && !res.headersSent) res.status(500).json({ error: 'تعذر تنزيل الملف.' });
-      });
+      const bytes = attachmentsService.read(parsed.storedName);
+      if (!bytes) return res.status(404).json({ error: 'الملف غير موجود.' });
+      res.attachment(attachmentsService.metadata?.(parsed.storedName)?.originalName || parsed.storedName).send(bytes);
     }
   );
 
@@ -166,14 +171,8 @@ function createAttachmentsRouter({
       if (!complaintExists(parsed.complaintId)) {
         return res.status(404).json({ error: 'الشكوى المرتبطة بالملف غير موجودة.' });
       }
-      attachmentsService.remove(parsed.storedName);
-      if (typeof audit === 'function') {
-        audit(req.user.id, 'attachment_deleted', 'attachment', parsed.storedName, {
-          complaintId: parsed.complaintId,
-          reason
-        });
-      }
-      res.status(204).end();
+      // attachment_deleted is recorded by the separate two-person approval transaction.
+      res.status(409).json({ error: 'قدّم طلب حذف من مسار الموافقات؛ يلزم قرار مدير مختلف عن مقدم الطلب.' });
     }
   );
 

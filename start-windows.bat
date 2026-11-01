@@ -11,14 +11,14 @@ echo.
 where node >nul 2>nul
 if errorlevel 1 (
   echo ERROR: Node.js is not installed.
-  echo Install Node.js 20.6 or newer using an approved installer, then retry.
+  echo Install Node.js 22.0 or newer using an approved installer, then retry.
   pause
   exit /b 1
 )
 
-node -e "const v=process.versions.node.split('.').map(Number); if(v[0]<20||(v[0]===20&&v[1]<6)) process.exit(1)"
+node -e "const v=process.versions.node.split('.').map(Number); if(v[0]<22) process.exit(1)"
 if errorlevel 1 (
-  echo ERROR: Node.js 20.6 or newer is required.
+  echo ERROR: Node.js 22.0 or newer is required.
   node --version
   pause
   exit /b 1

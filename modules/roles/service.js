@@ -16,6 +16,14 @@ const PERMISSIONS = Object.freeze({
   'complaints.delete': ['admin'],
   'complaints.status': ['admin', 'staff'],
   'complaints.read': ['admin', 'staff', 'reviewer'],
+  'complaints.assign': ['admin', 'staff'],
+  'complaints.reopen': ['admin'],
+  'complaints.closeException': ['admin'],
+  'replies.draft': ['admin', 'staff'],
+  'replies.approve': ['admin'],
+  'replies.send': ['admin', 'staff'],
+  'approvals.request': ['admin', 'staff'],
+  'approvals.decide': ['admin'],
   'attachments.upload': ['admin', 'staff'],
   // Permanent removal is restricted to the manager until a separate approval workflow exists.
   'attachments.delete': ['admin'],
@@ -32,7 +40,20 @@ const PERMISSIONS = Object.freeze({
   'sync.import': ['admin']
 });
 
-function createRolesService() {
+// Administrative powers cannot be delegated by a permission override.
+const CUSTOMIZABLE = Object.freeze([
+  'complaints.create', 'complaints.update', 'complaints.status', 'complaints.read',
+  'complaints.assign', 'complaints.reopen', 'complaints.closeException',
+  'attachments.upload', 'attachments.read', 'export.csv', 'export.xlsx',
+  'replies.draft', 'replies.approve', 'replies.send', 'approvals.request',
+  'dashboard.view', 'audit.read', 'sync.export'
+]);
+
+function createRolesService({ db } = {}) {
+  if (db) db.exec(`CREATE TABLE IF NOT EXISTS user_permissions (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    overrides_json TEXT NOT NULL CHECK(json_valid(overrides_json))
+  )`);
   function listRoles() {
     return ROLES.map((id) => ({
       id,
@@ -50,15 +71,21 @@ function createRolesService() {
     };
   }
 
-  function can(role, action) {
+  function can(subject, action) {
+    const role = typeof subject === 'string' ? subject : subject?.role;
     if (typeof role !== 'string' || typeof action !== 'string') return false;
+    if (role !== 'admin' && subject?.id && db && CUSTOMIZABLE.includes(action)) {
+      const row = db.prepare('SELECT overrides_json FROM user_permissions WHERE user_id=?').get(subject.id);
+      const overrides = row ? JSON.parse(row.overrides_json) : {};
+      if (typeof overrides[action] === 'boolean') return overrides[action];
+    }
     const allowed = PERMISSIONS[action];
     return Array.isArray(allowed) && allowed.includes(role);
   }
 
   function requirePermission(action) {
     return (req, res, next) => {
-      if (!req.user || !can(req.user.role, action)) {
+      if (!req.user || !can(req.user, action)) {
         return res.status(403).json({ error: 'ليس لديك صلاحية لتنفيذ هذه العملية.' });
       }
       next();
@@ -69,11 +96,13 @@ function createRolesService() {
     ROLES,
     ROLE_LABELS,
     PERMISSIONS,
+    CUSTOMIZABLE,
     listRoles,
     getRole,
     can,
+    effectivePermissions: (user) => Object.keys(PERMISSIONS).filter(action => can(user, action)),
     requirePermission
   };
 }
 
-module.exports = { createRolesService, ROLES, ROLE_LABELS, PERMISSIONS };
+module.exports = { createRolesService, ROLES, ROLE_LABELS, PERMISSIONS, CUSTOMIZABLE };

@@ -1,4 +1,6 @@
-# دليل إصدار Windows المحلي — 0.7.8
+# دليل إصدار Windows المحلي — 1.0.0-rc.1
+
+> المرجع الأحدث للمفاتيح والترحيل: [STORAGE_AND_RECOVERY.md](STORAGE_AND_RECOVERY.md). راجع [قرار الجاهزية](RELEASE_READINESS_2026-11-01.md) قبل التشغيل الرسمي.
 
 ## ما الذي يمكن إطلاقه حالياً؟
 
@@ -8,7 +10,7 @@
 
 1. افتح [GitHub Actions](https://github.com/mgedh9ali-cpu/Complaints-System/actions/workflows/windows-portable.yml).
 2. افتح آخر تشغيل ناجح **Build Windows Portable** لالتزام `main` المطلوب؛ لا تعتمد تشغيلات قديمة أو حمراء.
-3. افتح قسم **Artifacts** ونزّل `complaints-system-windows-portable` واستخرج الأرشيف؛ يجب أن يحتوي الملف `complaints-system-0.7.8-portable.exe`.
+3. افتح قسم **Artifacts** ونزّل `complaints-system-windows-portable` واستخرج الأرشيف؛ يجب أن يحتوي الملف `complaints-system-1.0.0-rc.1-portable.exe`.
 4. شغّل EXE على جهاز Windows مخصص ومحدّث، بحساب Windows محدود الصلاحيات. لا يتطلب تثبيت Node.js على جهاز تشغيل النسخة المحمولة.
 5. في أول تشغيل، احفظ كلمة مرور المدير المؤقتة في مكان آمن، ثم غيّرها من النظام. امنع مشاركة الجهاز والحساب مع غير المخولين.
 
