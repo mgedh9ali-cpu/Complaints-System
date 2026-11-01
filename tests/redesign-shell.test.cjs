@@ -49,3 +49,14 @@ test('mobile navigation closes from backdrop and Escape without changing complai
  assert.match(js,/document\.body\.dataset\.signedIn === 'true'/);
  assert.match(css,/\.sidebar\.open \+ \.nav-backdrop/);
 });
+
+test('navigation updates all items and complaint detail uses a full page, not a modal',()=>{
+ const nav=read('ui/core/navigation.js'),page=read('ui/pages/detail.js');
+ assert.ok(nav.includes("$$('.nav-link').forEach"));
+ assert.match(nav,/complaintDetailPage/);
+ assert.match(nav,/restoreUiRoute/);
+ assert.match(page,/data-complaint-id/);
+ assert.match(page,/complaint-page-tabs/);
+ assert.match(page,/history\.pushState/);
+ assert.doesNotMatch(page,/modal\('تفاصيل الشكوى'/);
+});

@@ -223,3 +223,6 @@ html[data-theme="dark"] .field, html[data-theme="dark"] .select-field, html[data
 @media(max-width:1000px){.complaint-page-content .detail-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:620px){.complaint-page-header{display:block}.complaint-page-heading{padding-top:16px}.complaint-page-tabs{position:static;overflow-x:auto;flex-wrap:nowrap}.complaint-page-tabs button{white-space:nowrap}}
 @media print{.complaint-page-tabs,.complaint-page-header button,.topbar,.sidebar,.workspace-shortcuts{display:none!important}.complaint-page-content{border:0;padding:0}}
+
+.complaint-page:not(.can-approve) [data-action="reply-approve"] { display:none !important; }
+.complaint-page.readonly #detailAttachInput, .complaint-page.readonly #detailAttachBtn { display:none !important; }

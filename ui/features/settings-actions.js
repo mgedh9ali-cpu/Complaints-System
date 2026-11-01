@@ -36,6 +36,5 @@ function archiveSetting(type,value){
   (db.settings.archived ||= []).push({type,value,at:new Date().toISOString()});
   persist();render();toast('أُرشفت القيمة؛ السجلات القديمة محفوظة.');
 }
-function archiveSetting(type,value){if(!confirm('أرشفة «'+value+'» من القيم المتاحة الجديدة؟ لن تتغير السجلات السابقة.'))return;db.settings[type]=db.settings[type].filter(x=>x!==value);(db.settings.archived ||= []).push({type,value,at:new Date().toISOString()});persist();render();toast('أُرشفت القيمة؛ السجلات القديمة محفوظة.');}
 function csvSafe(value){const text=String(value??'');return /^[\s\u0000-\u001f]*[=+\-@]/.test(text)?"'"+text:text;}
 function exportCsv(){const rows=filteredComplaints();const header=['رقم الشكوى','الموضوع','المحافظة','التصنيف','الحالة','الأولوية','المسؤول','تاريخ التسجيل'];const csv=[header,...rows.map(c=>[c.id,c.summary,c.province,c.category,statusLabel(c.status),priorityLabel(c.priority),c.owner,dateText(c.created)])].map(row=>row.map(v=>'"'+csvSafe(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='complaints.csv';document.body.appendChild(a);a.click();a.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);toast('تم إنشاء ملف CSV من السجلات المعروضة.','warn');}

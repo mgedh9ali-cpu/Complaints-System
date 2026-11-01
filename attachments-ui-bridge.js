@@ -89,7 +89,7 @@
     const firstSection = document.querySelector('#complaint-summary') || sections[0];
     if (!firstSection) return;
 
-    const idEl = document.querySelector(".ticket-id");
+    const idEl = document.querySelector(".complaint-page .ticket-id") || document.querySelector(".ticket-id");
     const complaintId = idEl ? idEl.textContent.trim() : null;
 
     const box = document.createElement("div");
@@ -130,7 +130,7 @@
         return;
       }
       const id = (
-        document.querySelector(".ticket-id") || {}
+        document.querySelector(".complaint-page .ticket-id") || document.querySelector(".ticket-id") || {}
       ).textContent?.trim();
       if (!id || !window.__uploadAttachments) {
         notify("تعذر تحديد رقم الشكوى.", "error");
