@@ -5,10 +5,10 @@ const express = require('express');
 function createDashboardRouter({ dashboardService, middleware, rolesService }) {
   const router = express.Router();
   const { requireAuth } = middleware;
-  const requirePermission =
-    rolesService && typeof rolesService.requirePermission === 'function'
-      ? (action) => rolesService.requirePermission(action)
-      : () => (req, res, next) => next();
+  if (!rolesService || typeof rolesService.requirePermission !== 'function') {
+    throw new Error('Role enforcement service is required for protected routes.');
+  }
+  const requirePermission = (action) => rolesService.requirePermission(action);
 
   router.get('/dashboard/summary', requireAuth, requirePermission('dashboard.view'), (req, res) => {
     const recentLimit = req.query.recent ? Number(req.query.recent) : undefined;
