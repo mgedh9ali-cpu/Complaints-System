@@ -10,7 +10,7 @@
     panel.style.cssText =
       'padding:16px;background:#8f2929;color:#fff;font-family:Tahoma,sans-serif;margin:12px;border-radius:8px';
     panel.textContent =
-      'تعذر تحميل واجهة النظام. تحقق من ملفات الواجهة (app.full.js / app-p*.js) ثم أعد تشغيل النظام.';
+      'تعذر تحميل واجهة النظام. تحقق من ملفات الواجهة (ملفات ui/*) ثم أعد تشغيل النظام.';
     document.body.prepend(panel);
   };
   document.head.append(script);

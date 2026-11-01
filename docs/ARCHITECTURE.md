@@ -35,6 +35,8 @@
 │   └── health/       فحص الحالة
 ├── scripts/          أدوات مساعدة
 ├── tests/            اختبارات Node
+├── ui/               مصادر واجهة موزعة (15 ملفًا)
+├── lib/ui-bundle.js  تجميع المصادر الآمن
 ├── app.js            محمّل الواجهة
 ├── server.js         الخادم + SQLite + الجلسات + الـ routers
 ├── index.html        نقطة دخول الواجهة
@@ -45,7 +47,7 @@
 
 ## كيف يتكامل؟
 
-`server.js` يهيئ SQLite والجلسات وCSRF، ثم يربط كل وحدة تحت `/api` عبر routers في `modules/*`. كل وحدة تعتمد على `service.js` لمنطقها. الواجهة تُحمَّل من `app.full.js` (أو أجزاء `app-pNN.js` احتياطاً) عبر `/app.bundle.js`.
+`server.js` يهيئ SQLite والجلسات وCSRF، ثم يربط كل وحدة تحت `/api` عبر routers في `modules/*`. كل وحدة تعتمد على `service.js` لمنطقها. الواجهة تُحمَّل من 15 مصدرًا داخل `ui/` عبر دالة `assembleUiBundle()` ثم `/app.bundle.js`. لا يُقدَّم مسار `ui/` مباشرةً ولا تُستخدم `eval`. صفحة ملف الشكوى منفصلة ضمن واجهة SPA (الرابط المحلي `#complaint/:id`).
 
 ## التشغيل
 

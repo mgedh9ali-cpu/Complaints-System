@@ -124,7 +124,7 @@ test('live server never serves database or source code without authentication', 
   for (const target of ['/data/complaints.sqlite', '/data/complaints.sqlite-wal',
     '/server.js', '/package.json', '/lib/validation.js', '/config/env.js',
     '/modules/auth/service.js', '/.git/config', '/.git/HEAD',
-    '/app.full.js', '/fonts-src/README.md']) {
+    '/app.full.js', '/fonts-src/README.md', '/ui/core/bootstrap.js', '/ui/pages/detail.js', '/lib/ui-bundle.js']) {
     const response = await fetch(url + target);
     assert.equal(response.status, 404, target + ' must not be publicly exposed');
   }

@@ -19,7 +19,7 @@
 - [x] نقل مسارات state/complaints/status إلى `modules/complaints`
 - [x] استخراج attachments / reports / backup / audit / sync / health إلى modules
 - [x] اختبارات وحدة للـ auth + فحص الهيكل المعياري
-- [x] واجهة كاملة عبر أجزاء app-p01…p09 بدون eval (متوافقة مع CSP)
+- [x] واجهة كاملة عبر 15 مصدراً منظماً في `ui/` بدون eval (متوافقة مع CSP، في فرع #57)
 - [x] Developer Guide
 - [ ] API versioning `/api/v1/...` (اختياري لاحقًا)
 
