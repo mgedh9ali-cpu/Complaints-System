@@ -87,7 +87,7 @@ function createComplaintsService({ db, audit, logger }) {
     return -1;
   }
 
-  function persistState(state, userId, now, nextRevision) {
+  function persistState(state, userId, now, nextRevision, auditEvents = []) {
     const stateJson = JSON.stringify(state);
     const tx = db.transaction(() => {
       db.prepare(
@@ -113,6 +113,12 @@ function createComplaintsService({ db, audit, logger }) {
           db.prepare(
             'INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
           ).run(c.id, payload, userId || null, c.created || now, now);
+        }
+      }
+      // The complaint records and their immutable audit trail commit as one SQLite transaction.
+      for (const event of auditEvents) {
+        if (typeof audit === 'function') {
+          audit(userId, event.action, 'complaint', event.id, event.details || {});
         }
       }
     });
@@ -143,6 +149,10 @@ function createComplaintsService({ db, audit, logger }) {
       };
     }
     const actor = db.prepare('SELECT username, role FROM users WHERE id = ?').get(userId);
+    if (current.revision > 0 && actor?.role !== 'admin' &&
+        JSON.stringify(current.state.settings) !== JSON.stringify(state.settings)) {
+      return { invalidTransition: true, error: 'إعدادات النظام لا يغيّرها إلا المدير.' };
+    }
     for (const c of state.complaints || []) {
       const prev = prevById.get(c.id);
       if (prev && prev.status !== c.status) {
@@ -201,6 +211,12 @@ function createComplaintsService({ db, audit, logger }) {
       const afterReply = c?.reply;
       const beforeStatus = beforeReply?.status || null;
       const afterStatus = afterReply?.status || null;
+      if (!beforeReply && afterReply && afterReply.author !== actor?.username) {
+        return { invalidTransition: true, error: 'يجب أن يكون معد الرد هو المستخدم الذي أنشأه.' };
+      }
+      if (beforeReply && afterReply && beforeReply.author !== afterReply.author) {
+        return { invalidTransition: true, error: 'لا يمكن تغيير هوية معد الرد.' };
+      }
       if (afterStatus === 'approved' && beforeStatus !== 'approved') {
         if (!actor || actor.role !== 'admin' || !beforeReply ||
             !['review', 'approval'].includes(beforeStatus) ||
@@ -242,7 +258,7 @@ function createComplaintsService({ db, audit, logger }) {
         if (logger) logger.warn('diffComplaints failed', { error: err.message });
       }
     }
-    persistState(state, userId, now, nextRevision);
+    persistState(state, userId, now, nextRevision, complaintChanges);
     return {
       conflict: false,
       updatedAt: now,
@@ -290,14 +306,11 @@ function createComplaintsService({ db, audit, logger }) {
     state.complaints = Array.isArray(state.complaints) ? state.complaints.slice() : [];
     state.complaints.push(complaint);
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision);
-
-    if (typeof audit === 'function') {
-      audit(userId, asDraft ? 'complaint_draft_saved' : 'complaint_created', 'complaint', id, {
-        status,
-        revision: nextRevision
-      });
-    }
+    persistState(state, userId, now, nextRevision, [{
+      action: asDraft ? 'complaint_draft_saved' : 'complaint_created',
+      id,
+      details: { status, revision: nextRevision }
+    }]);
     return { ok: true, complaint, revision: nextRevision };
   }
 
@@ -333,10 +346,11 @@ function createComplaintsService({ db, audit, logger }) {
     });
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision);
-    if (typeof audit === 'function') {
-      audit(userId, 'complaint_updated', 'complaint', complaintId, { fields: changes, revision: nextRevision });
-    }
+    persistState(state, userId, now, nextRevision, [{
+      action: 'complaint_updated',
+      id: complaintId,
+      details: { fields: changes, revision: nextRevision }
+    }]);
     return { ok: true, complaint, revision: nextRevision, unchanged: false };
   }
 
@@ -366,14 +380,14 @@ function createComplaintsService({ db, audit, logger }) {
            revision = excluded.revision`
       ).run(JSON.stringify(state), userId, now, nextRevision);
       db.prepare('DELETE FROM complaints WHERE id = ?').run(complaintId);
+      if (typeof audit === 'function') {
+        audit(userId, 'complaint_deleted', 'complaint', complaintId, {
+          by: username || null,
+          revision: nextRevision
+        });
+      }
     });
     tx();
-    if (typeof audit === 'function') {
-      audit(userId, 'complaint_deleted', 'complaint', complaintId, {
-        by: username || null,
-        revision: nextRevision
-      });
-    }
     return { ok: true, revision: nextRevision, deletedId: complaintId };
   }
 
@@ -432,16 +446,16 @@ function createComplaintsService({ db, audit, logger }) {
 
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision);
-
-    if (typeof audit === 'function') {
-      audit(userId, 'complaint_status_changed', 'complaint', complaintId, {
+    persistState(state, userId, now, nextRevision, [{
+      action: 'complaint_status_changed',
+      id: complaintId,
+      details: {
         from: fromStatus,
         to: toStatus,
         reason: normalizedReason || null,
         revision: nextRevision
-      });
-    }
+      }
+    }]);
     return { ok: true, complaint, revision: nextRevision, unchanged: false };
   }
 
