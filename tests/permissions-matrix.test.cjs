@@ -99,7 +99,7 @@ test('attachment removal endpoint retains CSRF and documented reason validation'
   const fs = require('node:fs');
   const path = require('node:path');
   const src = fs.readFileSync(path.join(__dirname, '..', 'modules', 'attachments', 'routes.js'), 'utf8');
-  const block = src.slice(src.indexOf("router.delete(\\n"));
+  const block = src.slice(src.indexOf('router.delete('));
   assert.match(block, /requirePermission\('attachments.delete'\)/);
   assert.match(block, /requireCsrf/);
   assert.match(block, /reason.length < 3 \|\| reason.length > 500/);
