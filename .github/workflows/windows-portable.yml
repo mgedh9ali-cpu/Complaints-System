@@ -25,24 +25,36 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build SQLite for Node.js tests
+        run: npm rebuild better-sqlite3 --build-from-source
+
+      - name: Prepare local UI fonts
+        run: npm run fonts
 
       - name: Syntax checks
         run: npm run check
 
       - name: Run tests
-        run: npm test || true
+        run: npm test
 
       - name: Security audit
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
+
+      - name: Install Electron runtime
+        run: npm rebuild electron
+
+      - name: Rebuild native SQLite for Electron
+        run: npx electron-builder install-app-deps
 
       - name: Build portable EXE
-        run: npx electron-builder --win --dir 
+        run: npm run dist:win
 
       - name: Upload portable application
         uses: actions/upload-artifact@v4
         with:
           name: complaints-system-windows-portable
-          path: dist-desktop/win-unpacked
+          path: dist-desktop/*-portable.exe
           if-no-files-found: error
           retention-days: 14
