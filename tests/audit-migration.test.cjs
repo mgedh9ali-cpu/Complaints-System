@@ -235,7 +235,10 @@ test(
       created_at, previous_hash, event_hash FROM audit_events ORDER BY rowid ASC`,
         )
         .all();
-      assert.ok(rows.length >= initialEventCount + 4, 'subsequent actions must be audited');
+      assert.equal(rows.length, initialEventCount + 3,
+        'creating a reviewer, creating a complaint, and changing its status must record exactly three events');
+      assert.ok(rows.some(row => row.action === 'user_created'));
+      assert.ok(rows.some(row => row.action === 'complaint_created'));
       assert.equal(verifyAuditRows(rows).valid, true);
       assert.ok(rows.some((row) => row.action === "complaint_status_changed"));
     } finally {
