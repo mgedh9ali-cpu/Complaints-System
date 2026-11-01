@@ -188,6 +188,7 @@ const PUBLIC_FILES = {
   '/index.html': 'index.html',
   '/styles.css': 'styles.css',
   '/ui-enhancements.css': 'ui-enhancements.css',
+  '/redesign.css': 'redesign.css',
   '/ui-enhancements.js': 'ui-enhancements.js',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',
   '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',

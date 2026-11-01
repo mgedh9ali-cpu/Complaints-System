@@ -1,0 +1,41 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname,'..');
+const read = p => fs.readFileSync(path.join(root,p),'utf8');
+
+test('redesigned navigation preserves all working destinations and real action handlers', () => {
+  const html = read('index.html'), app=read('app.full.js');
+  const keys=['dashboard','complaints','referrals','replies','notifications','reports','settings'];
+  for(const key of keys){
+    assert.match(html,new RegExp('data-page="'+key+'"'));
+    assert.match(app,new RegExp('(?:^|[,\\{])'+key+'(?:[:,]|,)', 'm'));
+  }
+  for(const a of ['my-complaints','filter-missing','filter-late','new-complaint']){
+    assert.ok(html.includes('data-action="'+a+'"'));
+    assert.ok(app.includes("case '"+a+"'"));
+  }
+  for(const id of ['sidebar','menuToggle','content','pageCrumb','navComplaintsCount','navReferralsCount','navNotificationsCount','topUnread','modalRoot','sideUserName','topUserName','headerCreateButton']){
+    assert.ok(html.includes('id="'+id+'"'),id+' missing');
+  }
+});
+test('registration control is role-bound and not shown before login',()=>{
+ const app=read('app.full.js'),html=read('index.html');
+ assert.match(html, /id="headerCreateButton"[^>]*hidden/);
+ assert.match(app, /headerCreate\.hidden=!authenticatedUser\|\|!\['admin','staff'\]\.includes\(role\)/);
+ assert.match(app, /aria-current/);
+});
+test('new visual system is served locally and respects right-to-left and reduced motion',()=>{
+ const css=read('redesign.css'),server=read('server.js'),sw=read('sw.js'),html=read('index.html');
+ assert.match(html, /lang="ar" dir="rtl"/);
+ assert.match(html, /href="redesign\.css"/);
+ assert.match(server, /'\/redesign\.css': 'redesign\.css'/);
+ assert.match(sw, /'\/redesign\.css'/);
+ assert.match(css,/prefers-reduced-motion/);
+ assert.match(css,/html\[data-theme="dark"\]/);
+ assert.match(css,/\.nav-group-label/);
+ assert.doesNotMatch(css,/https?:\/\//);
+});
