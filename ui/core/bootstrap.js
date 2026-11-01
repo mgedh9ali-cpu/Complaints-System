@@ -65,6 +65,20 @@ async function api(url,options={}){
   if(url==='/api/auth/login'||url==='/api/auth/logout')csrfTokenCache=null;
   return body;
 }
+async function persistUiNow(){
+ if(!authenticatedUser||!stateLoaded||stateConflict){
+  throw new Error('جلسة الحفظ غير متاحة أو يوجد تعارض لم يُحل.');
+ }
+ if(persistTimer){clearTimeout(persistTimer);persistTimer=null;}
+ await persistQueue;
+ const result=await api('/api/state',{
+  method:'PUT',
+  headers:{'X-State-Revision':String(stateRevision)},
+  body:JSON.stringify(db)
+ });
+ stateRevision=result.revision;
+ return result;
+}
 function persist(){
   if(!authenticatedUser||!stateLoaded||stateConflict)return;
   clearTimeout(persistTimer);

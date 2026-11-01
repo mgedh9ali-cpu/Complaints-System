@@ -48,9 +48,9 @@ case 'new-reply':newReply();break;
 case 'reply-create':replyEditor(id);break;
 case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEditor(v);break;}
 case 'save-reply':saveReply(id);break;
-case 'reply-review':replyAction(id,a);render();break;
-case 'reply-approve':replyAction(id,a);render();break;
-case 'reply-sent':replyAction(id,a);render();break;
+case 'reply-review':replyAction(id,a);break;
+case 'reply-approve':replyAction(id,a);break;
+case 'reply-sent':replyAction(id,a);break;
 case 'read-all':db.notifications.forEach(n=>n.read=true);persist();render();toast('تم تحديد الإشعارات كمقروءة.');break;
 case 'read-notice':{const n=db.notifications.find(n=>String(n.id)===String(id));if(n)n.read=true;persist();render();break;}
 case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';searchText='';go('complaints');break;
