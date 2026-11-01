@@ -1,18 +1,29 @@
 'use strict';
 
 const express = require('express');
+const crypto = require('node:crypto');
 const { rateLimit } = require('express-rate-limit');
 
 function createAuthRouter({ authService, middleware, audit }) {
   const router = express.Router();
   const { requireAuth, requireRole, requireCsrf } = middleware;
 
+  // Local connections share one loopback IP. Avoid locking all staff out
+  // when a single account has repeated incorrect credentials.
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    message: { error: 'تم تجاوز عدد محاولات الدخول. حاول لاحقًا.' }
+    skipSuccessfulRequests: true,
+    keyGenerator: (req) => {
+      const username = typeof req.body?.username === 'string'
+        ? req.body.username.trim().toLowerCase().slice(0, 100)
+        : '';
+      const digest = crypto.createHash('sha256').update(username).digest('hex');
+      return String(req.ip || 'loopback') + ':' + digest;
+    },
+    message: { error: 'تم تجاوز عدد محاولات الدخول لهذا الحساب. حاول لاحقًا.' }
   });
 
   router.get('/csrf', requireAuth, (req, res) => {
