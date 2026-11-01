@@ -1,79 +1,54 @@
-/* Service Worker - Complaints System PWA
-   Caches static assets for offline use. API calls still require the local server.
-*/
-const CACHE_NAME = "complaints-v0.4.0";
-const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-  "/app.js",
-  "/styles.css",
-  "/ui-enhancements.css",
-  "/ui-enhancements.js",
-  "/manifest.json",
-];
+'use strict';
 
-self.addEventListener("install", (event) => {
+/**
+ * Offline cache covers only public static UI assets.
+ * HTML, API responses, user data and the live app bundle remain network-only.
+ * The local Express process is required for the complaints system to operate.
+ */
+const CACHE_NAME = 'complaints-ui-v0.7.8';
+const STATIC_ASSETS = new Set([
+  '/app.js',
+  '/styles.css',
+  '/thmanyah-fonts.css',
+  '/ui-enhancements.css',
+  '/ui-enhancements.js',
+  '/attachments-ui-bridge.js'
+]);
+
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting()),
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll([...STATIC_ASSETS]))
+      .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
-        ),
-      )
-      .then(() => self.clients.claim()),
+    caches.keys()
+      .then(keys => Promise.all(keys
+        .filter(key => key.startsWith('complaints-') && key !== CACHE_NAME)
+        .map(key => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-
-  // Never cache API or auth requests
-  if (url.pathname.startsWith("/api/")) {
-    return;
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || !STATIC_ASSETS.has(url.pathname)) {
+    return; // All API, login, navigation, dynamic bundle and attachments bypass SW.
   }
-
-  // Network-first for HTML, cache-first for static assets
-  if (event.request.mode === "navigate" || url.pathname.endsWith(".html")) {
-    event.respondWith(
-      fetch(event.request)
-        .then((res) => {
-          const clone = res.clone();
-          caches
-            .open(CACHE_NAME)
-            .then((cache) => cache.put(event.request, clone));
-          return res;
-        })
-        .catch(() =>
-          caches
-            .match(event.request)
-            .then((r) => r || caches.match("/index.html")),
-        ),
-    );
-    return;
-  }
-
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((res) => {
-        if (res.ok && event.request.method === "GET") {
-          const clone = res.clone();
-          caches
-            .open(CACHE_NAME)
-            .then((cache) => cache.put(event.request, clone));
+    fetch(request)
+      .then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(request, clone)));
         }
-        return res;
-      });
-    }),
+        return response;
+      })
+      .catch(async () => (await caches.match(request)) || Response.error())
   );
 });
