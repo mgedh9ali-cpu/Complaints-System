@@ -37,11 +37,21 @@ function createFakeBrowser(role='admin'){
   updated:'2026-11-01T00:00:00Z',due:'2026-11-09T00:00:00Z',
   notes:[],timeline:[],referrals:[],reply:null
  }],notifications:[],templates:[],settings:{slaDays:7,slaApproved:false}};
- const fetch=async url=>({
-  ok:true,status:200,
-  json:async()=>url==='/api/auth/me'?{user:{id:'u1',username:role,role}}:
-   url==='/api/state'?{state,revision:1}:{users:[]}
- });
+ let revision=1;
+ const calls=[];
+ const fetch=async (url,options={})=>{
+  calls.push({url,method:options.method||'GET',headers:options.headers||{}});
+  let response;
+  if(url==='/api/auth/me')response={user:{id:'u1',username:role,role}};
+  else if(url==='/api/state')response={state,revision};
+  else if(url==='/api/csrf')response={csrfToken:'token-from-session'};
+  else if(url.includes('/status')&&options.method==='PATCH'){
+   state.complaints[0].status=JSON.parse(options.body).status;
+   revision+=1;
+   response={ok:true,revision};
+  }else response={users:[]};
+  return {ok:true,status:200,json:async()=>response};
+ };
  const context={
   document,window,history,location,fetch,
   sessionStorage:{getItem(){return null},setItem(){},removeItem(){}},
@@ -58,7 +68,7 @@ function createFakeBrowser(role='admin'){
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click};
+ return {node,events,windowEvents,location,historyEntries,click,calls};
 }
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
@@ -89,4 +99,29 @@ test('reviewer complaint page is marked readonly and URL restoration works',asyn
  ui.location.hash='#complaints';
  ui.windowEvents.get('popstate')();
  assert.match(ui.node('#content').innerHTML,/سجل الشكاوى والاستفسارات/);
+});
+
+test('status change uses authenticated CSRF-protected API and refreshes authoritative page',async()=>{
+ const ui=createFakeBrowser();
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('detail','SY-2026-10001');
+ ui.node('#detailStatus').value='in_progress';
+ ui.node('#statusReason').value='باشرت المعالجة';
+ ui.click('change-status','SY-2026-10001');
+ for(let i=0;i<40;i++)await Promise.resolve();
+ const request=ui.calls.find(x=>x.url.includes('/status')&&x.method==='PATCH');
+ assert.ok(request,'status change must use the status API');
+ assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
+ assert.match(ui.node('#content').innerHTML,/قيد المعالجة/);
+ assert.equal(ui.location.hash,'#complaint/SY-2026-10001');
+});
+
+test('reviewer cannot call state transition endpoint from UI',async()=>{
+ const ui=createFakeBrowser('reviewer');
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('detail','SY-2026-10001');
+ ui.node('#detailStatus').value='in_progress';
+ ui.click('change-status','SY-2026-10001');
+ for(let i=0;i<15;i++)await Promise.resolve();
+ assert.equal(ui.calls.filter(x=>x.url.includes('/status')).length,0);
 });
