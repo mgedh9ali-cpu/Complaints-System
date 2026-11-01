@@ -451,3 +451,27 @@ html[data-theme="dark"] .report-rank-item .progress > span { background:#3fa386;
   .daily-fill,.report-rank-item .progress > span { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
   .report-rank-list { max-height:none; overflow:visible; }
 }
+
+
+/* Internal response approval: visually distinctive, explicitly not a legal seal. */
+@keyframes approval-stamp-in {
+  from { transform:scale(1.25) rotate(-11deg); opacity:0; }
+  to { transform:scale(1) rotate(-5deg); opacity:1; }
+}
+.approval-stamp {
+  display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; min-width:174px; max-width:100%;
+  margin:10px 0 19px; padding:12px 17px; border:3px double #236c54;
+  border-radius:10px; color:#205c48; background:#edf7f1;
+  text-align:center; transform:rotate(-5deg); animation:approval-stamp-in .22s cubic-bezier(.2,.9,.3,1.2) both;
+}
+.approval-stamp strong { font-size:16px; line-height:1.5; }
+.approval-stamp span { font-size:11px; font-weight:600; }
+.approval-stamp small { font-size:10px; line-height:1.5; color:inherit; }
+html[data-theme="dark"] .approval-stamp { background:#153e30; border-color:#79c6a1; color:#d8ffec; }
+@media(prefers-reduced-motion:reduce) {
+  .approval-stamp { animation:none; }
+}
+@media print {
+  .approval-stamp { animation:none; background:#fff !important; color:#205c48 !important; border-color:#236c54 !important; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+}
