@@ -351,7 +351,35 @@
     }
   }
 
+  function wireShell() {
+    const toggle = $('#menuToggle');
+    const sidebar = $('#sidebar');
+    const backdrop = $('#navBackdrop');
+    if (!toggle || !sidebar || !backdrop) return;
+    function closeMenu(restoreFocus = false) {
+      if (!sidebar.classList.contains('open')) return;
+      sidebar.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) toggle.focus();
+    }
+    backdrop.addEventListener('click', () => closeMenu(true));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && sidebar.classList.contains('open')) {
+        event.preventDefault();
+        closeMenu(true);
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k' &&
+          document.body.dataset.signedIn === 'true') {
+        event.preventDefault();
+        const complaintPage = document.querySelector('[data-page="complaints"]');
+        if (complaintPage) complaintPage.click();
+        document.querySelector('#complaintSearch')?.focus();
+      }
+    });
+  }
+
   function start() {
+    wireShell();
     addTools();
     fetchCsrf();
     enhanceActionCells();

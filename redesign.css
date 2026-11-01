@@ -183,3 +183,14 @@ html[data-theme="dark"] .field, html[data-theme="dark"] .select-field, html[data
 @media (prefers-reduced-motion:reduce) {
   .modal, .nav-link, .nav-quick, .btn, .ui-tool-button { animation:none !important; transition:none !important; }
 }
+
+/* Responsive navigation backdrop: not interactive while the sidebar is closed. */
+.nav-backdrop { display:none; }
+@media (max-width:900px) {
+  .nav-backdrop {
+    position:fixed; inset:0; z-index:29;
+    border:0; padding:0; background:rgba(10,31,37,.56);
+    cursor:pointer; width:100%; height:100dvh;
+  }
+  .sidebar.open + .nav-backdrop { display:block; }
+}

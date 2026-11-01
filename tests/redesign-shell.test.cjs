@@ -39,3 +39,13 @@ test('new visual system is served locally and respects right-to-left and reduced
  assert.match(css,/\.nav-group-label/);
  assert.doesNotMatch(css,/https?:\/\//);
 });
+
+test('mobile navigation closes from backdrop and Escape without changing complaint actions',()=>{
+ const html=read('index.html'), js=read('ui-enhancements.js'), css=read('redesign.css');
+ assert.match(html,/id="navBackdrop"/);
+ assert.match(js,/function wireShell\(\)/);
+ assert.match(js,/closeMenu\(true\)/);
+ assert.match(js,/event\.key === 'Escape'/);
+ assert.match(js,/document\.body\.dataset\.signedIn === 'true'/);
+ assert.match(css,/\.sidebar\.open \+ \.nav-backdrop/);
+});
