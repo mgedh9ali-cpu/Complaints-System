@@ -79,3 +79,18 @@ test('new interface formats dates with consistent Latin digits and keeps server 
   const { validateUiBundle } = require('../lib/ui-bundle');
   assert.equal(validateUiBundle().files, 15);
 });
+
+
+test('cancelled, closed and draft complaints are never reported as overdue', () => {
+  const context = { db: { settings: { slaApproved: true } } };
+  const script = read('ui/core/format.js');
+  const overdue = status => vm.runInNewContext(
+    script + '\nisLate({ status: ' + JSON.stringify(status) +
+    ', due: "2000-01-01T00:00:00.000Z" });',
+    context
+  );
+  assert.equal(overdue('cancelled'), false);
+  assert.equal(overdue('closed'), false);
+  assert.equal(overdue('draft'), false);
+  assert.equal(overdue('in_progress'), true);
+});
