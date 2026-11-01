@@ -3,23 +3,37 @@ version: 2.1
 jobs:
   test:
     docker:
-      - image: cimg/node:22.10.0
+      - image: cimg/node:20.19.5
+    resource_class: medium
     steps:
       - checkout
       - run:
-          name: أدوات البناء الأصلية
+          name: Install native compilation tools
           command: |
             sudo apt-get update
             sudo apt-get install -y build-essential python3
       - run:
-          name: تثبيت الحزم
-          command: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+          name: Deterministic Node.js dependencies (no Electron postinstall)
+          command: npm ci --ignore-scripts --no-audit --no-fund
       - run:
-          name: فحص النحو (Syntax Check)
-          command: npm run check
+          name: Build SQLite native dependency for Node.js
+          command: npm rebuild better-sqlite3 --build-from-source
       - run:
-          name: تشغيل الاختبارات الآلية
-          command: npm test
+          name: Check code and assembled UI
+          command: |
+            mkdir -p /tmp/complaints-ci
+            set -o pipefail
+            npm run check 2>&1 | tee /tmp/complaints-ci/check.log
+      - run:
+          name: Test server, security, state and UI
+          command: |
+            mkdir -p /tmp/complaints-ci
+            set -o pipefail
+            npm test 2>&1 | tee /tmp/complaints-ci/test.log
+      - store_artifacts:
+          path: /tmp/complaints-ci
+          destination: diagnostic-logs
+          when: always
 
 workflows:
   build-and-test:
