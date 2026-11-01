@@ -13,6 +13,9 @@ function findComplaintConflicts(localComplaints, incomingComplaints) {
   const localById = new Map(
     (localComplaints || []).filter((c) => c && c.id).map((c) => [c.id, c])
   );
+  const incomingIds = new Set(
+    (incomingComplaints || []).filter((c) => c && c.id).map((c) => c.id)
+  );
   const conflicts = [];
   for (const incoming of incomingComplaints || []) {
     if (!incoming || !incoming.id) continue;
@@ -22,13 +25,24 @@ function findComplaintConflicts(localComplaints, incomingComplaints) {
     const incomingUpdated = incoming.updated || incoming.created || '';
     const localStatus = local.status || '';
     const incomingStatus = incoming.status || '';
-    if (localUpdated !== incomingUpdated || localStatus !== incomingStatus) {
+    if (localUpdated !== incomingUpdated || localStatus !== incomingStatus ||
+        JSON.stringify(local) !== JSON.stringify(incoming)) {
       conflicts.push({
         id: incoming.id,
         local: { status: localStatus, updated: localUpdated },
         incoming: { status: incomingStatus, updated: incomingUpdated }
       });
     }
+  }
+  // An imported snapshot must not erase locally recorded complaints silently.
+  for (const [id, local] of localById) {
+    if (incomingIds.has(id)) continue;
+    conflicts.push({
+      id,
+      kind: 'missing_from_incoming',
+      local: { status: local.status || '', updated: local.updated || local.created || '' },
+      incoming: null
+    });
   }
   return conflicts;
 }
