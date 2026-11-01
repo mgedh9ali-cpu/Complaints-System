@@ -206,7 +206,8 @@ const PUBLIC_FILES = {
   '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',
   '/app.js': 'app.js',
   '/manifest.json': 'manifest.json',
-  '/sw.js': 'sw.js'
+  '/sw.js': 'sw.js',
+  '/sw-register.js': 'sw-register.js'
 };
 
 app.get(Object.keys(PUBLIC_FILES), (req, res, next) => {
