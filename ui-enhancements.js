@@ -43,28 +43,8 @@
     headers: () => (csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
   };
 
-  // Patch fetch so app.full.js PUT /api/state and other writes send CSRF
+  // Each write client provides its own X-CSRF-Token; no global fetch monkey-patching.
   const nativeFetch = window.fetch.bind(window);
-  window.fetch = async function patchedFetch(input, init) {
-    const opts = init ? { ...init } : {};
-    const method = String(opts.method || 'GET').toUpperCase();
-    let url = typeof input === 'string' ? input : input && input.url;
-    if (
-      url &&
-      String(url).indexOf('/api/') !== -1 &&
-      method !== 'GET' &&
-      method !== 'HEAD'
-    ) {
-      if (!csrfToken) await fetchCsrf();
-      const headers = new Headers(opts.headers || (input && input.headers) || {});
-      if (csrfToken && !headers.has('X-CSRF-Token')) {
-        headers.set('X-CSRF-Token', csrfToken);
-      }
-      opts.headers = headers;
-      if (!opts.credentials) opts.credentials = 'same-origin';
-    }
-    return nativeFetch(input, opts);
-  };
 
   window.__uploadAttachments = async function (complaintId, fileList) {
     if (!complaintId || !fileList || fileList.length === 0) {
@@ -129,31 +109,6 @@
       });
     }
   };
-
-  // Intercept status changes so UI uses server machine (not local-only persist)
-  document.addEventListener(
-    'click',
-    async (ev) => {
-      const btn = ev.target.closest('[data-action="change-status"]');
-      if (!btn) return;
-      const id =
-        btn.getAttribute('data-id') ||
-        document.querySelector('.ticket-id')?.textContent?.trim();
-      const next = document.querySelector('#detailStatus')?.value;
-      const reason = document.querySelector('#statusReason')?.value?.trim() || '';
-      if (!id || !next) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      try {
-        await window.__complaintActions.setStatus(id, next, reason);
-        notify('تم تحديث الحالة على الخادم');
-        setTimeout(() => location.reload(), 500);
-      } catch (err) {
-        notify(err.message || 'تعذر تغيير الحالة', 'error');
-      }
-    },
-    true
-  );
 
   function applyTheme(theme, announce = false) {
     const selected = theme === 'dark' ? 'dark' : 'light';

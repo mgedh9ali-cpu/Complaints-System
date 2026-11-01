@@ -1,4 +1,48 @@
-function changeStatus(id){const c=db.complaints.find(x=>x.id===id),next=$('#detailStatus')?.value,reason=$('#statusReason')?.value.trim();if(!c||!next)return toast('اختر حالة جديدة أولًا.','warn');const allowed={new:['in_progress','cancelled'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed'],awaiting_approval:['in_progress','closed'],closed:['in_progress'],cancelled:[]};if(!(allowed[c.status]||[]).includes(next))return toast('هذا الانتقال غير مسموح وفق آلة الحالات.','error');if((next==='closed'||next==='cancelled'||c.status==='closed')&&!reason)return toast('السبب إلزامي للإغلاق أو الإلغاء أو إعادة الفتح.','error');if(next==='closed'&&c.referrals.some(r=>!r.response)&&!reason)return toast('لا يمكن الإغلاق قبل استكمال الإحالات أو توثيق الاستثناء.','error');const before=statusLabel(c.status);c.status=next;logEvent(c,'تغيير الحالة',before+' ← '+statusLabel(next)+(reason?' · السبب: '+reason:''));if(next==='closed')notify('تم إغلاق السجل',c.id+' · '+reason);persist();detailModal(id);render();toast('تم تحديث حالة الشكوى.');}
+async function changeStatus(id){
+  const c=db.complaints.find(x=>x.id===id);
+  const next=$('#detailStatus')?.value;
+  const reason=$('#statusReason')?.value.trim()||'';
+  if(!c||!next)return toast('اختر حالة جديدة أولًا.','warn');
+  const allowed={
+    draft:['new','cancelled'],
+    new:['in_progress','cancelled','draft'],
+    in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],
+    awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],
+    awaiting_approval:['in_progress','closed','cancelled'],
+    closed:[],cancelled:[]
+  };
+  if(!(allowed[c.status]||[]).includes(next))return toast('انتقال الحالة غير مسموح.','error');
+  if(['closed','cancelled'].includes(next)&&reason.length<3)
+    return toast('يلزم توثيق سبب واضح للإغلاق أو الإلغاء.','error');
+  if(!authenticatedUser||authenticatedUser.role==='reviewer')
+    return toast('ليس لديك صلاحية تغيير الحالة.','error');
+  const button=$('[data-action="change-status"]');
+  if(button)button.disabled=true;
+  try{
+    const pending=Boolean(persistTimer);
+    if(persistTimer){clearTimeout(persistTimer);persistTimer=null;}
+    await persistQueue;
+    if(pending){
+      const saved=await api('/api/state',{
+        method:'PUT',headers:{'X-State-Revision':String(stateRevision)},
+        body:JSON.stringify(db)
+      });
+      stateRevision=saved.revision;
+    }
+    await api('/api/complaints/'+encodeURIComponent(id)+'/status',{
+      method:'PATCH',body:JSON.stringify({status:next,reason})
+    });
+    const authoritative=await api('/api/state');
+    db=authoritative.state||cleanState();
+    stateRevision=Number(authoritative.revision)||0;
+    stateConflict=false;stateLoaded=true;
+    detailModal(id);
+    toast('تم تحديث الحالة في قاعدة البيانات.');
+  }catch(error){
+    toast('تعذر تغيير الحالة: '+error.message,'error');
+    if(error.status===409||error.status===428)stateConflict=true;
+  }finally{if(button&&document.contains(button))button.disabled=false;}
+}
 function assignOwner(id){const c=db.complaints.find(x=>x.id===id),owner=$('#assignOwner')?.value;if(!c||!owner)return;c.owner=owner;logEvent(c,'تغيير المسؤول','تم إسناد السجل إلى '+owner+'.');persist();detailModal(id);render();toast('تم تحديث المسؤول.');}
 function changePriority(id){const c=db.complaints.find(x=>x.id===id),p=$('#detailPriority')?.value;if(!c||!p)return;const old=priorityLabel(c.priority);c.priority=p;logEvent(c,'تغيير الأولوية',old+' ← '+priorityLabel(p));persist();detailModal(id);render();toast('تم تحديث الأولوية.');}
 function addNote(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('إضافة ملاحظة داخلية','لن تُرسل هذه الملاحظة إلى المشتكي','<form id="noteForm"><div class="form-field"><label for="noteText">الملاحظة</label><textarea class="textarea-field" id="noteText" required placeholder="اكتب ملاحظة داخلية للفريق"></textarea></div><p class="small-copy">الإشارة إلى زميل (@) نصية فقط في النموذج الأولي، ولا توجد إشعارات موجهة فعلية.</p></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-note" data-id="'+esc(id)+'">حفظ الملاحظة</button>');}

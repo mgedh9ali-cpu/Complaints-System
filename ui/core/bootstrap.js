@@ -35,11 +35,34 @@ let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), s
 let stateRevision=0, stateConflict=false;
 function cleanState(){const x=structuredClone(seed);x.complaints=[];x.notifications=[];return x;}
 function loadDb(){return cleanState();}
-async function api(url, options={}) {
-  const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+let csrfTokenCache=null;
+async function getWriteCsrf(){
+  if(csrfTokenCache)return csrfTokenCache;
+  const res=await fetch('/api/csrf',{credentials:'same-origin'});
+  if(!res.ok)throw new Error('انتهت الجلسة أو تعذّر التحقق الأمني. سجّل الدخول مجددًا.');
+  const result=await res.json();
+  if(!result||typeof result.csrfToken!=='string'||!result.csrfToken){
+    throw new Error('رمز الحماية غير متاح.');
+  }
+  csrfTokenCache=result.csrfToken;
+  return csrfTokenCache;
+}
+async function api(url,options={}){
+  const method=String(options.method||'GET').toUpperCase();
+  const headers={'Content-Type':'application/json',...(options.headers||{})};
+  if(!['GET','HEAD'].includes(method)&&url!=='/api/auth/login'){
+    headers['X-CSRF-Token']=await getWriteCsrf();
+  }
+  const response=await fetch(url,{...options,credentials:'same-origin',headers});
   if(response.status===204)return null;
   const body=await response.json().catch(()=>({}));
-  if(!response.ok){const error=new Error(body.error||'تعذر تنفيذ الطلب.');error.status=response.status;throw error;}
+  if(!response.ok){
+    if(response.status===403)csrfTokenCache=null;
+    const error=new Error(body.error||'تعذر تنفيذ الطلب.');
+    error.status=response.status;
+    throw error;
+  }
+  if(url==='/api/auth/login'||url==='/api/auth/logout')csrfTokenCache=null;
   return body;
 }
 function persist(){
