@@ -418,3 +418,36 @@ body:has(#loginOverlay:not([hidden])) .app-shell { visibility:hidden; }
   .login-brand small { display:none; }
   .login-fields { padding:23px; }
 }
+
+
+/* Offline operational analytics: 14-day trend and ranked dimensions. */
+.report-summary { margin-bottom:16px; }
+.report-trend { margin-bottom:16px; }
+.report-breakdowns { margin-bottom:16px; align-items:start; }
+.report-rank-list { display:grid; gap:15px; max-height:380px; overflow-y:auto; padding-inline:2px 8px; }
+.report-rank-item .status-line { display:flex; justify-content:space-between; gap:12px; margin-bottom:7px; }
+.report-rank-item .status-line span { overflow-wrap:anywhere; }
+.report-rank-item .progress { height:9px; border-radius:99px; background:var(--line); }
+.report-rank-item .progress > span { display:block; height:100%; border-radius:inherit; background:var(--green-800); }
+.daily-chart { display:grid; grid-template-columns:repeat(14,minmax(0,1fr)); gap:clamp(3px,1.2vw,14px); align-items:end; padding:22px 4px 6px; min-height:200px; }
+.daily-bar-item { min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:180px; }
+.daily-count { min-height:18px; font-size:11px; color:var(--muted); }
+.daily-track { position:relative; width:min(100%,38px); height:140px; display:flex; align-items:end; justify-content:center; background:var(--bg); border-radius:7px 7px 3px 3px; overflow:hidden; }
+.daily-fill { display:block; width:100%; min-height:0; border-radius:7px 7px 3px 3px; background:var(--green-800); }
+.daily-label { height:19px; font-size:10px; white-space:nowrap; color:var(--muted); direction:ltr; }
+.daily-bar-item:hover .daily-fill { background:var(--gold); }
+.report-age { margin-top:16px; }
+html[data-theme="dark"] .daily-fill { background:#3fa386; }
+html[data-theme="dark"] .daily-bar-item:hover .daily-fill { background:#d4ba7e; }
+html[data-theme="dark"] .report-rank-item .progress > span { background:#3fa386; }
+@media(max-width:680px) {
+  .daily-chart { gap:3px; padding-inline:0; }
+  .daily-bar-item { height:150px; }
+  .daily-track { height:110px; border-radius:4px 4px 2px 2px; }
+  .daily-label { font-size:8px; }
+  .report-breakdowns { display:grid; grid-template-columns:minmax(0,1fr); }
+}
+@media print {
+  .daily-fill,.report-rank-item .progress > span { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  .report-rank-list { max-height:none; overflow:visible; }
+}
