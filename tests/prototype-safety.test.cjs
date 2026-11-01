@@ -3,13 +3,13 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const test = require("node:test");
 
-const app = fs.readFileSync("app.js", "utf8");
+const app = fs.readFileSync("app.full.js", "utf8");
 
 test("CSV sanitizer prefixes formula-leading values", () => {
   const definition = app
     .split(String.fromCharCode(10))
     .find((line) => line.startsWith("function csvSafe(value)"));
-  assert.ok(definition, "csvSafe(value) must exist in app.js");
+  assert.ok(definition, "csvSafe(value) must exist in app.full.js");
   const sanitizer = vm.runInNewContext(
     "(" + definition.replace("function csvSafe", "function") + ")",
   );
@@ -68,7 +68,7 @@ test("HTML escaping neutralizes markup and attribute delimiters", () => {
   const definition = app
     .split(String.fromCharCode(10))
     .find((line) => line.startsWith("function esc("));
-  assert.ok(definition, "esc() must exist in app.js");
+  assert.ok(definition, "esc() must exist in app.full.js");
   const escapeHtml = vm.runInNewContext(
     "(" + definition.replace("function esc", "function") + ")",
   );
