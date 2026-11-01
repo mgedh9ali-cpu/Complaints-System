@@ -9,6 +9,7 @@ const { loadEnv } = require('./config/env');
 const { openDatabase } = require('./config/db');
 const { createSessionMiddleware } = require('./config/session');
 const { createHelmetMiddleware } = require('./config/security');
+const { requireLocalHost } = require('./lib/local-origin');
 const { logger } = require('./lib/logger');
 const { lockDownDir, lockDownFile, lockDownDataTree } = require('./lib/data-protection');
 const { ensureThmanyahFonts } = require('./scripts/ensure-thmanyah-font');
@@ -110,6 +111,7 @@ const syncService = createSyncService({
 });
 
 app.disable('x-powered-by');
+app.use(requireLocalHost(env.port));
 app.use(createHelmetMiddleware());
 app.use(express.json({ limit: '1mb', strict: true }));
 app.use(
