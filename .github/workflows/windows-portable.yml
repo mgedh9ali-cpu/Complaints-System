@@ -5,11 +5,16 @@ on:
   pull_request:
     branches: [main]
   push:
+    branches: [main]
     tags:
       - "v*"
 
 permissions:
   contents: read
+
+concurrency:
+  group: windows-portable-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-windows:
