@@ -147,6 +147,32 @@ function createComplaintsRouter({
     }
   );
 
+  router.post(
+    '/complaints/:id/referrals',
+    requireAuth,
+    requirePermission('complaints.update'),
+    requireCsrf,
+    (req, res) => {
+      const result = complaintsService.addReferral({
+        complaintId: req.params.id,
+        entity: req.body?.entity,
+        due: req.body?.due,
+        note: req.body?.note,
+        userId: req.user.id,
+        username: req.user.username
+      });
+      if (!result.ok) {
+        return res.status(result.status || 400).json({ error: result.error });
+      }
+      res.status(201).json({
+        ok: true,
+        referral: result.referral,
+        complaint: result.complaint,
+        revision: result.revision
+      });
+    }
+  );
+
   router.patch(
     '/complaints/:id/status',
     requireAuth,
