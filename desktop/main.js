@@ -10,6 +10,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const net = require('node:net');
 const { app, BrowserWindow, dialog, shell } = require('electron');
+const { isLocalAppUrl, isPermittedExternalUrl } = require('./navigation');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = '127.0.0.1';
@@ -139,10 +140,23 @@ function createWindow() {
     }
   });
 
+  function openTrustedExternal(url) {
+    if (isPermittedExternalUrl(url, APP_URL)) {
+      shell.openExternal(url).catch(() => {});
+    }
+  }
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(APP_URL)) return { action: 'allow' };
-    shell.openExternal(url);
+    if (isLocalAppUrl(url, APP_URL)) return { action: 'allow' };
+    openTrustedExternal(url);
     return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!isLocalAppUrl(url, APP_URL)) {
+      event.preventDefault();
+      openTrustedExternal(url);
+    }
   });
 
   mainWindow.loadURL(APP_URL);
