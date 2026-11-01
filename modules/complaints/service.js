@@ -123,6 +123,7 @@ function createComplaintsService({ db, audit, logger }) {
       }
     });
     tx();
+    if (auditEvents.length && typeof audit?.syncHead === 'function') audit.syncHead();
   }
 
   function saveState({ state, userId, expectedRevision, diffComplaints, auditEvents = [] }) {
@@ -388,6 +389,7 @@ function createComplaintsService({ db, audit, logger }) {
       }
     });
     tx();
+    if (typeof audit?.syncHead === 'function') audit.syncHead();
     return { ok: true, revision: nextRevision, deletedId: complaintId };
   }
 
