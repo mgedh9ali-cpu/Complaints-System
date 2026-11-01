@@ -169,6 +169,7 @@ function createSyncService({
         conflictCount: conflicts.length
       });
     })();
+    if (typeof auditService.syncHead === 'function') auditService.syncHead();
 
     return {
       ok: true,
