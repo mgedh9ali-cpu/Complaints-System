@@ -1,1 +1,64 @@
-function reportsPage(){const buckets=[db.complaints.filter(c=>ageDays(c)<7).length,db.complaints.filter(c=>ageDays(c)>=7&&ageDays(c)<=30).length,db.complaints.filter(c=>ageDays(c)>30).length];const prov=[...new Set(db.complaints.map(c=>c.province).filter(Boolean))].map(p=>[p,db.complaints.filter(c=>c.province===p).length]);const closed=db.complaints.filter(c=>c.status==='closed');const avgClose=closed.length?Math.round(closed.reduce((a,c)=>a+ageDays(c),0)/closed.length):0;return heading('التقارير التشغيلية','مؤشرات تشغيلية مبنية على السجلات الحالية في النظام.',btn('طباعة / حفظ PDF','print-report')+btn('تصدير CSV','export-csv'))+'<div class="mini-card-grid"><div class="mini-card"><small>أقل من 7 أيام</small><strong>'+buckets[0]+'</strong></div><div class="mini-card"><small>7 إلى 30 يومًا</small><strong>'+buckets[1]+'</strong></div><div class="mini-card"><small>أكثر من 30 يومًا</small><strong>'+buckets[2]+'</strong></div></div><div class="two-col"><section class="panel"><div class="panel-header"><div><h2>توزيع السجلات حسب مدة البقاء</h2><p>مؤشر حسب تاريخ الإنشاء</p></div></div><div class="panel-body"><div class="chart-bars">'+buckets.map((n,i)=>'<div class="chart-group"><div class="chart-bar '+(i===1?'alt':'')+'" title="'+n+'" style="height:'+Math.max(3,n/Math.max(1,...buckets)*100)+'%"></div></div>').join('')+'</div><div class="chart-labels"><span>أقل من 7 أيام</span><span>7–30 يومًا</span><span>أكثر من 30</span></div><div class="report-legend"><span><i class="legend-dot"></i>عدد السجلات</span><span><i class="legend-dot alt"></i>الشريحة الوسطى</span></div></div></section><section class="panel"><div class="panel-header"><div><h2>مقارنة المحافظات</h2><p>عدد السجلات حسب المحافظة</p></div></div><div class="panel-body"><div class="status-list">'+prov.map(([p,n])=>'<div><div class="status-line"><span>'+esc(p)+'</span><span>'+n+'</span></div><div class="progress"><span style="width:'+Math.max(3,n/Math.max(1,...prov.map(x=>x[1]))*100)+'%"></span></div></div>').join('')+'</div></div></section></div><section class="panel" style="margin-top:16px"><div class="panel-header"><div><h2>ملاحظات المؤشرات</h2><p>تُحتسب المؤشرات من السجلات المحفوظة حاليًا</p></div></div><div class="panel-body"><div class="setting-row"><div><strong>متوسط عمر السجلات المغلقة</strong><small>محسوب من السجلات المغلقة المحفوظة حاليًا.</small></div><span class="setting-value">'+avgClose+' يوم</span></div><div class="setting-row"><div><strong>متوسط زمن أول رد</strong><small>يُحتسب تلقائيًا عند توفر أحداث رد مكتملة في السجلات.</small></div><span class="setting-value">حسب البيانات المتاحة</span></div></div></section>';}
+/* Operational reporting uses saved complaint records only; no external chart library. */
+function reportsPage(){
+  const records=Array.isArray(db.complaints)?db.complaints:[];
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const daily=Array.from({length:14},(_,i)=>{
+    const d=new Date(today);
+    d.setDate(today.getDate()-(13-i));
+    const start=d.getTime();
+    const next=new Date(d);next.setDate(d.getDate()+1);
+    const count=records.filter(c=>{
+      const at=new Date(c.created).getTime();
+      return Number.isFinite(at)&&at>=start&&at<next.getTime();
+    }).length;
+    return {date:d,count};
+  });
+  const categories=new Map(), provinces=new Map();
+  for(const c of records){
+    const category=String(c.category||'غير مصنف').trim()||'غير مصنف';
+    const province=String(c.province||'غير محددة').trim()||'غير محددة';
+    categories.set(category,(categories.get(category)||0)+1);
+    provinces.set(province,(provinces.get(province)||0)+1);
+  }
+  const sortedCategories=[...categories].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ar'));
+  const sortedProvinces=[...provinces].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ar'));
+  const closed=records.filter(c=>c.status==='closed');
+  const openingCounts=[records.filter(c=>ageDays(c)<7).length,records.filter(c=>ageDays(c)>=7&&ageDays(c)<=30).length,records.filter(c=>ageDays(c)>30).length];
+  const peak=Math.max(1,...daily.map(d=>d.count));
+  const dailyBars=daily.map(({date,count},i)=>{
+    const label=new Intl.DateTimeFormat('ar-SY-u-nu-latn',{day:'2-digit',month:'2-digit'}).format(date);
+    const value=Math.round(count/peak*100);
+    return '<div class="daily-bar-item" role="listitem" title="'+label+' · '+count+' شكوى" aria-label="'+label+'، '+count+' شكوى">'+
+      '<span class="daily-count">'+(count||'')+'</span>'+
+      '<div class="daily-track"><span class="daily-fill" style="height:'+value+'%"></span></div>'+
+      '<span class="daily-label">'+(i===0||i===6||i===13?label:'')+'</span></div>';
+  }).join('');
+  const horizontal=(items,emptyLabel)=>{
+    if(!items.length)return '<p class="empty-state calm-empty">'+emptyLabel+'</p>';
+    const max=Math.max(1,...items.map(item=>item[1]));
+    return '<div class="report-rank-list">'+items.map(([label,count])=>
+      '<div class="report-rank-item"><div class="status-line"><span>'+esc(label)+'</span><strong>'+count+'</strong></div>'+
+      '<div class="progress" role="meter" aria-label="'+esc(label)+'" aria-valuemin="0" aria-valuemax="'+max+'" aria-valuenow="'+count+'">'+
+      '<span style="width:'+Math.round(count/max*100)+'%"></span></div></div>'
+    ).join('')+'</div>';
+  };
+  return heading('التقارير التشغيلية','اتجاه تسجيل الشكاوى وتوزيعها بحسب التصنيف والمحافظة، من السجلات المحفوظة فقط.',
+    btn('طباعة / حفظ PDF','print-report')+btn('تصدير CSV','export-csv'))+
+    '<div class="mini-card-grid report-summary">'+[
+      ['إجمالي السجلات',records.length],
+      ['خلال آخر 14 يومًا',daily.reduce((n,d)=>n+d.count,0)],
+      ['سجلات مغلقة',closed.length],
+      ['سجلات متجاوزة للمهلة',lateComplaints().length]
+    ].map(([label,count])=>'<div class="mini-card"><small>'+label+'</small><strong>'+count+'</strong></div>').join('')+'</div>'+
+    '<section class="panel report-trend"><div class="panel-header"><div><h2>الشكاوى المسجلة يوميًا</h2><p>آخر 14 يومًا، حسب تاريخ إنشاء السجل</p></div></div><div class="panel-body">'+
+      (daily.some(d=>d.count>0)?'<div class="daily-chart" role="list" aria-label="عدد الشكاوى في كل يوم">'+dailyBars+'</div>':
+      '<div class="empty-state calm-empty">لم تُسجل شكاوى خلال آخر 14 يومًا.</div>')+
+    '</div></section>'+
+    '<div class="two-col report-breakdowns"><section class="panel"><div class="panel-header"><div><h2>حسب التصنيف</h2><p>الأكثر تسجيلًا أولًا</p></div></div><div class="panel-body">'+horizontal(sortedCategories,'لا توجد تصنيفات مسجلة.')+'</div></section>'+
+    '<section class="panel"><div class="panel-header"><div><h2>حسب المحافظة</h2><p>التوزيع الجغرافي لجميع السجلات</p></div></div><div class="panel-body">'+horizontal(sortedProvinces,'لا توجد محافظات مسجلة.')+'</div></section></div>'+
+    '<section class="panel report-age"><div class="panel-header"><div><h2>عمر السجلات</h2><p>المدة منذ الإنشاء، وليس متوسط زمن الإغلاق</p></div></div><div class="panel-body">'+
+      horizontal([['أقل من 7 أيام',openingCounts[0]],['من 7 إلى 30 يومًا',openingCounts[1]],['أكثر من 30 يومًا',openingCounts[2]]],
+      'لا توجد سجلات لعرض أعمارها.')+
+    '</div></section>';
+}
