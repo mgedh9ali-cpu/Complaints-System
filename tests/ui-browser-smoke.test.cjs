@@ -203,3 +203,31 @@ test('author or non-manager cannot approve a reply',async()=>{
   assert.equal(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length,0,role+' must be denied');
  }
 });
+
+test('assignment and priority are persisted with CSRF before success UI is shown',async()=>{
+ const ui=createFakeBrowser('staff');
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('detail','SY-2026-10001');
+ ui.node('#assignOwner').value='staff-two';
+ ui.click('assign-owner','SY-2026-10001');
+ for(let i=0;i<35;i++)await Promise.resolve();
+ const written=ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT');
+ assert.ok(written.length>=1);
+ assert.equal(written[0].headers['X-CSRF-Token'],'token-from-session');
+ assert.match(ui.node('#content').innerHTML,/staff-two/);
+ ui.node('#detailPriority').value='high';
+ ui.click('change-priority','SY-2026-10001');
+ for(let i=0;i<35;i++)await Promise.resolve();
+ assert.ok(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length>=2);
+});
+test('a reviewer cannot persist assignment or priority changes',async()=>{
+ const ui=createFakeBrowser('reviewer');
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('detail','SY-2026-10001');
+ ui.node('#assignOwner').value='other-user';
+ ui.click('assign-owner','SY-2026-10001');
+ ui.node('#detailPriority').value='high';
+ ui.click('change-priority','SY-2026-10001');
+ for(let i=0;i<25;i++)await Promise.resolve();
+ assert.equal(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length,0);
+});
