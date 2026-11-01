@@ -391,6 +391,79 @@ function createComplaintsService({ db, audit, logger }) {
     return { ok: true, revision: nextRevision, deletedId: complaintId };
   }
 
+  function addReferral({ complaintId, entity, due, note, userId, username }) {
+    const normalizedEntity = typeof entity === 'string' ? entity.trim() : '';
+    const normalizedNote = typeof note === 'string' ? note.trim() : '';
+    if (!complaintId || typeof complaintId !== 'string' || complaintId.length > 100 ||
+        normalizedEntity.length < 2 || normalizedEntity.length > 200 ||
+        normalizedNote.length > 4000 || typeof due !== 'string' ||
+        !Number.isFinite(Date.parse(due))) {
+      return { ok: false, status: 400, error: 'بيانات الإحالة غير صالحة.' };
+    }
+
+    const { state, revision } = readState();
+    const idx = findIndex(state, complaintId);
+    if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    const complaint = { ...state.complaints[idx] };
+    if (['closed', 'cancelled'].includes(complaint.status)) {
+      return { ok: false, status: 409, error: 'لا يمكن إحالة شكوى مغلقة أو ملغاة.' };
+    }
+
+    const now = new Date().toISOString();
+    const referral = {
+      entity: normalizedEntity,
+      sent: now,
+      due: new Date(due).toISOString(),
+      status: 'بانتظار الرد',
+      response: '',
+      note: normalizedNote
+    };
+    complaint.referrals = Array.isArray(complaint.referrals) ? complaint.referrals.slice() : [];
+    complaint.referrals.push(referral);
+    complaint.timeline = Array.isArray(complaint.timeline) ? complaint.timeline.slice() : [];
+    complaint.timeline.push({
+      event: 'إحالة إلى جهة',
+      by: username || 'system',
+      at: now,
+      detail: 'تم توثيق إحالة إلى ' + normalizedEntity + '.'
+    });
+    const events = [{
+      action: 'complaint_referred',
+      id: complaintId,
+      details: { entity: normalizedEntity, due: referral.due }
+    }];
+    if (complaint.status === 'in_progress') {
+      complaint.status = 'awaiting_reply';
+      complaint.statusHistory = Array.isArray(complaint.statusHistory)
+        ? complaint.statusHistory.slice() : [];
+      complaint.statusHistory.push({
+        from: 'in_progress', to: 'awaiting_reply', at: now,
+        by: username || null, reason: 'إحالة إلى ' + normalizedEntity
+      });
+      events.push({
+        action: 'complaint_status_changed',
+        id: complaintId,
+        details: {
+          from: 'in_progress', to: 'awaiting_reply',
+          reason: 'إحالة إلى ' + normalizedEntity
+        }
+      });
+    }
+    complaint.updated = now;
+    state.complaints[idx] = complaint;
+    state.notifications = Array.isArray(state.notifications) ? state.notifications : [];
+    state.notifications.unshift({
+      id: crypto.randomUUID(),
+      title: 'إحالة جديدة',
+      body: complaintId + ' · إحالة إلى ' + normalizedEntity,
+      date: now,
+      read: false
+    });
+    const nextRevision = (Number(revision) || 0) + 1;
+    persistState(state, userId, now, nextRevision, events);
+    return { ok: true, complaint, referral, revision: nextRevision };
+  }
+
   function changeStatus({ complaintId, toStatus, reason, userId, username }) {
     if (!complaintId || typeof complaintId !== 'string' || complaintId.length > 100) {
       return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
@@ -466,6 +539,7 @@ function createComplaintsService({ db, audit, logger }) {
     updateComplaint,
     deleteComplaint,
     changeStatus,
+    addReferral,
     ALLOWED_TRANSITIONS,
     REASON_REQUIRED,
     STATUS_LABELS
