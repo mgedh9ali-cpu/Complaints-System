@@ -43,13 +43,10 @@ function createSettingsRouter({ settingsService, middleware, audit, logger, role
       });
     }
 
-    if (typeof audit === 'function') {
-      audit(req.user.id, 'settings_updated', 'settings', null, {
-        revision: result.revision,
-        slaDays: result.settings.slaDays,
-        slaApproved: result.settings.slaApproved
-      });
+    if (result.invalidTransition) {
+      return res.status(409).json({ error: result.error || 'تعذر تعديل الإعدادات.' });
     }
+    // The settings audit event has already committed with the state.
     if (logger) {
       logger.info('settings updated', { userId: req.user.id, revision: result.revision });
     }
