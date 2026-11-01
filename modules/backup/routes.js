@@ -48,6 +48,37 @@ function createBackupRouter({ backupService, middleware, audit, rolesService }) 
     }
   );
 
+  router.get(
+    '/backup/complete',
+    requireAuth,
+    requirePermission('backup.database'),
+    async (req, res, next) => {
+      let backupDir = null;
+      try {
+        const result = await backupService.createCompleteBackup();
+        backupDir = result.backupDir;
+        if (typeof audit === 'function') {
+          audit(req.user.id, 'complete_backup_created', 'database', result.filename, {
+            format: 'csb', encrypted: true, verified: true,
+            counts: result.counts, attachmentCount: result.attachmentCount
+          });
+        }
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + result.filename + '"');
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Backup-Encrypted', '1');
+        res.setHeader('X-Backup-Includes-Attachments', '1');
+        res.sendFile(result.destination, (error) => {
+          backupService.cleanupBackupDir(backupDir);
+          if (error && !res.headersSent) next(error);
+        });
+      } catch (error) {
+        if (backupDir) backupService.cleanupBackupDir(backupDir);
+        next(error);
+      }
+    }
+  );
+
   return router;
 }
 
