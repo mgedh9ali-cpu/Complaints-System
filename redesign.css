@@ -363,3 +363,27 @@ html[data-theme="dark"] .top-user { color:var(--ink); }
 @media(prefers-reduced-motion:reduce) {
   .account-menu summary,.task-row,.dashboard-stats .stat-item { animation:none; transition:none; }
 }
+
+
+/* Deadline progress ring: never infer SLA when no deadline is approved. */
+.sla-cell { display:flex; align-items:center; gap:9px; }
+.sla-ring { --p:0; --c:#1f7a5c; position:relative; flex:none; width:29px; height:29px; border-radius:50%;
+  background:conic-gradient(var(--c) calc(var(--p)*1%),var(--line) 0);
+  -webkit-mask:radial-gradient(circle,transparent 9px,#000 10px);
+  mask:radial-gradient(circle,transparent 9px,#000 10px);
+}
+.sla-ring[data-level="warn"] { --c:#9a5f14; }
+.sla-ring[data-level="late"] { --c:#b3342f; }
+.sla-unset { color:var(--muted); font-size:13px; }
+.calm-empty { border:1px dashed var(--line); background:var(--bg); border-radius:12px; }
+html[data-theme="dark"] .sla-ring { --c:#63c8a5; }
+html[data-theme="dark"] .sla-ring[data-level="warn"] { --c:#e7b675; }
+html[data-theme="dark"] .sla-ring[data-level="late"] { --c:#f29a90; }
+@media(max-width:680px) {
+  .top-user { display:none !important; }
+  .sidebar-bottom > .account-menu { margin:10px 5px 5px; }
+  .sidebar-bottom > .account-menu > summary { width:100%; display:flex; gap:8px; justify-content:center; border-color:#ffffff3d; background:#ffffff14; color:#fff; }
+  .sidebar-bottom > .account-menu > summary::after { content:"إجراءات الحساب"; font-size:12px; font-weight:700; }
+  .sidebar-bottom .account-menu-panel { position:static; width:100%; margin-top:8px; box-shadow:none; border-color:var(--line); background:var(--paper); }
+  .table-panel .sla-cell { justify-content:flex-end; }
+}
