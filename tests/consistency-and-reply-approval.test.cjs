@@ -8,6 +8,7 @@ const path = require('node:path');
 const { openDatabase } = require('../config/db');
 const { createComplaintsService } = require('../modules/complaints/service');
 const { createAuditService } = require('../modules/audit/service');
+const { createSettingsService } = require('../modules/settings/service');
 const { createSyncService } = require('../modules/sync/service');
 const { createSyncPackage } = require('../lib/offline-sync');
 
@@ -247,4 +248,20 @@ test('rolled back referral does not publish an invalid audit sidecar hash', t =>
   const after = service.readState().state.complaints[0];
   assert.equal(after.status, 'in_progress');
   assert.equal(after.referrals.length, 0);
+});
+
+
+test('settings changes commit with their audit event or roll back together', t => {
+  const { db } = fixture(t);
+  let calls = 0;
+  const audit = () => { calls += 1; throw new Error('audit failed'); };
+  const service = createComplaintsService({ db, audit, logger: null });
+  const settings = createSettingsService({ complaintsService: service });
+  assert.throws(() => settings.updateSettings({
+    settings: { slaDays: 30, slaApproved: true },
+    userId: 'admin-id', expectedRevision: 0
+  }), /audit failed/);
+  assert.equal(calls, 1);
+  assert.equal(service.readState().revision, 0);
+  assert.deepEqual(service.readState().state.settings, {});
 });
