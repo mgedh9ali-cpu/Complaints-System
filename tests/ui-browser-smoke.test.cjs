@@ -11,7 +11,7 @@ function createFakeBrowser(role='admin'){
    id:key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
    classList:{add(){},remove(){},toggle(){return true},contains(){return false}},
    setAttribute(){},removeAttribute(){},focus(){},addEventListener(){},
-   querySelector(){return null},querySelectorAll(){return []}
+   querySelector(){return node('mock-dialog')},querySelectorAll(){return []},reportValidity(){return true}
   });
   return nodes.get(key);
  }
@@ -45,6 +45,15 @@ function createFakeBrowser(role='admin'){
   if(url==='/api/auth/me')response={user:{id:'u1',username:role,role}};
   else if(url==='/api/state')response={state,revision};
   else if(url==='/api/csrf')response={csrfToken:'token-from-session'};
+  else if(url==='/api/complaints'&&options.method==='POST'){
+   const data=JSON.parse(options.body);
+   const complaint={...data,id:'SY-2026-10002',status:'new',
+    created:new Date().toISOString(),updated:new Date().toISOString(),
+    notes:[],timeline:[],referrals:[],reply:null};
+   state.complaints.push(complaint);
+   revision+=1;
+   response={complaint,revision};
+  }
   else if(url.includes('/status')&&options.method==='PATCH'){
    state.complaints[0].status=JSON.parse(options.body).status;
    revision+=1;
@@ -68,7 +77,14 @@ function createFakeBrowser(role='admin'){
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click,calls};
+ function navigate(page){
+  const target={closest(selector){
+   if(selector==='[data-page]')return{dataset:{page}};
+   return null;
+  }};
+  events.get('click')({target,preventDefault(){},stopPropagation(){}});
+ }
+ return {node,events,windowEvents,location,historyEntries,click,navigate,calls};
 }
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
@@ -124,4 +140,40 @@ test('reviewer cannot call state transition endpoint from UI',async()=>{
  ui.click('change-status','SY-2026-10001');
  for(let i=0;i<15;i++)await Promise.resolve();
  assert.equal(ui.calls.filter(x=>x.url.includes('/status')).length,0);
+});
+
+test('all seven working pages render from the modular bundle without errors',async()=>{
+ const ui=createFakeBrowser();
+ for(let i=0;i<20;i++)await Promise.resolve();
+ for(const page of ['dashboard','complaints','referrals','replies','notifications','reports','settings']){
+  assert.doesNotThrow(()=>ui.navigate(page),'failed route '+page);
+  assert.ok(ui.node('#content').innerHTML.length>100,'empty route '+page);
+  assert.equal(ui.location.hash,'#'+page);
+ }
+});
+
+test('new complaint uses the authenticated creation endpoint and CSRF token',async()=>{
+ const ui=createFakeBrowser();
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('new-complaint');
+ const form=ui.node('#modalRoot').innerHTML;
+ assert.match(form,/id="newComplaintForm"/);
+ const values={cName:'مواطن اختباري',cPhone:'0912345678',cProvince:'دمشق',
+  cCategory:'خدمات عامة',cEntity:'مديرية الخدمات العامة',cPriority:'normal',
+  cOwner:'admin',cSummary:'بلاغ جديد للاختبار',cDetails:'بيانات وهمية'};
+ for(const [key,val] of Object.entries(values))ui.node('#'+key).value=val;
+ ui.click('save-complaint');
+ for(let i=0;i<50;i++)await Promise.resolve();
+ const request=ui.calls.find(x=>x.url==='/api/complaints'&&x.method==='POST');
+ assert.ok(request,'creation request not sent');
+ assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
+ assert.match(ui.node('#content').innerHTML,/بلاغ جديد للاختبار/);
+ assert.equal(ui.location.hash,'#complaints');
+});
+
+test('reviewer cannot open creation form',async()=>{
+ const ui=createFakeBrowser('reviewer');
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('new-complaint');
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="newComplaintForm"/);
 });
