@@ -4,7 +4,7 @@ const test=require('node:test');
 const vm=require('node:vm');
 const {assembleUiBundle}=require('../lib/ui-bundle');
 
-function createFakeBrowser(role='admin'){
+function createFakeBrowser(role='admin',initialReply=null){
  const events=new Map(),windowEvents=new Map(),nodes=new Map(),historyEntries=[];
  function node(key){
   if(!nodes.has(key))nodes.set(key,{
@@ -35,7 +35,7 @@ function createFakeBrowser(role='admin'){
   entity:'مديرية عامة',priority:'normal',status:'new',owner:'admin',
   summary:'شكوى اختبارية',details:'معلومات للاختبار فقط',created:'2026-10-30T00:00:00Z',
   updated:'2026-11-01T00:00:00Z',due:'2026-11-09T00:00:00Z',
-  notes:[],timeline:[],referrals:[],reply:null
+  notes:[],timeline:[],referrals:[],reply:initialReply
  }],notifications:[],templates:[],settings:{slaDays:7,slaApproved:false}};
  let revision=1;
  const calls=[];
@@ -43,7 +43,10 @@ function createFakeBrowser(role='admin'){
   calls.push({url,method:options.method||'GET',headers:options.headers||{}});
   let response;
   if(url==='/api/auth/me')response={user:{id:'u1',username:role,role}};
-  else if(url==='/api/state')response={state,revision};
+  else if(url==='/api/state'){
+   if(options.method==='PUT')revision+=1;
+   response=options.method==='PUT'?{saved:true,revision}:{state,revision};
+  }
   else if(url==='/api/csrf')response={csrfToken:'token-from-session'};
   else if(url==='/api/complaints'&&options.method==='POST'){
    const data=JSON.parse(options.body);
@@ -176,4 +179,27 @@ test('reviewer cannot open creation form',async()=>{
  for(let i=0;i<20;i++)await Promise.resolve();
  ui.click('new-complaint');
  assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="newComplaintForm"/);
+});
+
+test('manager approval is confirmed by the server with CSRF and different author',async()=>{
+ const ui=createFakeBrowser('admin',{status:'review',author:'staff-user',text:'رد تجريبي'});
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('detail','SY-2026-10001');
+ ui.click('reply-approve','SY-2026-10001');
+ for(let i=0;i<40;i++)await Promise.resolve();
+ const request=ui.calls.find(x=>x.url==='/api/state'&&x.method==='PUT');
+ assert.ok(request,'approval must be committed by API, not just local state');
+ assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
+ assert.match(ui.node('#content').innerHTML,/معتمد/);
+});
+
+test('author or non-manager cannot approve a reply',async()=>{
+ for(const [role,author] of [['admin','admin'],['staff','different-author'],['reviewer','different-author']]){
+  const ui=createFakeBrowser(role,{status:'review',author,text:'رد'});
+  for(let i=0;i<20;i++)await Promise.resolve();
+  ui.click('detail','SY-2026-10001');
+  ui.click('reply-approve','SY-2026-10001');
+  for(let i=0;i<20;i++)await Promise.resolve();
+  assert.equal(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length,0,role+' must be denied');
+ }
 });
