@@ -36,3 +36,44 @@ test('successful batch returns only files from the current request',()=>{
  assert.deepEqual(out.map(x=>x.storedName),['SY-2026-TEST-file-1','SY-2026-TEST-file-2']);
  assert.equal(removed.length,0);
 });
+
+
+test('attachment upload removes written files if its audit transaction fails', { timeout: 15000 }, async t => {
+ const express=require('express');
+ const {createAttachmentsRouter}=require('../modules/attachments/routes');
+ const complaintId='SY-2026-ATTACHMENT-TEST';
+ const written=new Map();
+ const service={
+  MAX_FILE_SIZE:5*1024*1024,
+  MAX_FILES_PER_COMPLAINT:5,
+  listByComplaint(){return [...written.values()];},
+  save(id,file){
+   const storedName=id+'_550e8400-e29b-41d4-a716-446655440000.txt';
+   const meta={id:'attachment-test',storedName,originalName:file.originalname,size:file.size};
+   written.set(storedName,meta);
+   return meta;
+  },
+  remove(name){written.delete(name);}
+ };
+ const allow=(req,res,next)=>{req.user={id:'staff-id'};next();};
+ const router=createAttachmentsRouter({
+  attachmentsService:service,
+  middleware:{requireAuth:allow,requireCsrf:allow},
+  rolesService:{requirePermission(){return allow;}},
+  complaintsService:{readState(){return {state:{complaints:[{id:complaintId}]}};}},
+  db:{transaction(fn){return ()=>fn();}},
+  audit(){throw new Error('simulated audit failure');}
+ });
+ const app=express();
+ app.use('/api',router);
+ const server=await new Promise(resolve=>{
+  const instance=app.listen(0,'127.0.0.1',()=>resolve(instance));
+ });
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const form=new FormData();
+ form.append('files',new Blob(['test upload'],{type:'text/plain'}),'test.txt');
+ const response=await fetch('http://127.0.0.1:'+server.address().port+
+  '/api/attachments/'+encodeURIComponent(complaintId),{method:'POST',body:form});
+ assert.equal(response.status,500);
+ assert.equal(written.size,0,'files must be removed after unsuccessful audit');
+});
