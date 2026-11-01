@@ -10,7 +10,7 @@ const { createComplaintsService } = require('../modules/complaints/service');
 const { createSyncService } = require('../modules/sync/service');
 const { createSyncPackage } = require('../lib/offline-sync');
 
-function fixture(t) {
+function fixture(t, audit = () => {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-consistency-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const db = openDatabase(path.join(dir, 'test.sqlite'));
@@ -20,7 +20,7 @@ function fixture(t) {
   );
   insertUser.run('admin-id', 'manager', 'test-only', 'admin', new Date().toISOString());
   insertUser.run('staff-id', 'author', 'test-only', 'staff', new Date().toISOString());
-  const service = createComplaintsService({ db, audit: () => {}, logger: null });
+  const service = createComplaintsService({ db, audit, logger: null });
   return { dir, db, service };
 }
 function stateFor(id, reply = null) {
@@ -98,4 +98,61 @@ test('offline import refuses to remove a local complaint without explicit forceR
   assert.equal(result.status, 409);
   assert.equal(result.conflicts[0].kind, 'missing_from_incoming');
   assert.deepEqual(service.readState().state.complaints.map(c => c.id), ['SY-2026-KEEP']);
+});
+
+
+test('staff cannot change protected settings through the general state endpoint', t => {
+  const { service } = fixture(t);
+  const original = stateFor('SY-2026-SECURE');
+  original.settings = { slaDays: 7, provinces: ['دمشق'] };
+  const first = service.saveState({ state: original, userId: 'admin-id', expectedRevision: 0 });
+  assert.equal(first.conflict, false);
+  const tampered = structuredClone(original);
+  tampered.settings.slaDays = 365;
+  const result = service.saveState({
+    state: tampered, userId: 'staff-id', expectedRevision: first.revision
+  });
+  assert.equal(result.invalidTransition, true);
+  assert.equal(service.readState().state.settings.slaDays, 7);
+});
+
+test('reply author cannot be forged or rewritten through state saving', t => {
+  const { service } = fixture(t);
+  const original = stateFor('SY-2026-AUTHOR');
+  const first = service.saveState({ state: original, userId: 'staff-id', expectedRevision: 0 });
+  const tampered = structuredClone(original);
+  tampered.complaints[0].reply = {
+    status: 'draft', author: 'manager', text: 'نص رد مزور'
+  };
+  const denial = service.saveState({
+    state: tampered, userId: 'staff-id', expectedRevision: first.revision
+  });
+  assert.equal(denial.invalidTransition, true);
+  assert.equal(service.readState().state.complaints[0].reply, null);
+});
+
+test('complaint creation rolls back when audit recording fails', t => {
+  const { db, service } = fixture(t, () => { throw new Error('intentional audit failure'); });
+  assert.throws(() => service.createComplaint({
+    body: { province: 'دمشق', category: 'خدمات', summary: 'اختبار التراجع' },
+    userId: 'staff-id', username: 'author'
+  }), /intentional audit failure/);
+  assert.equal(service.readState().revision, 0);
+  assert.deepEqual(service.readState().state.complaints, []);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM complaints').get().n, 0);
+});
+
+test('audit callback executes while the SQLite complaint transaction is open', t => {
+  let auditedInTransaction = false;
+  let dbRef = null;
+  const fixtureResult = fixture(t, () => {
+    auditedInTransaction = Boolean(dbRef?.inTransaction);
+  });
+  dbRef = fixtureResult.db;
+  const result = fixtureResult.service.createComplaint({
+    body: { province: 'دمشق', category: 'خدمات', summary: 'تسجيل موحد' },
+    userId: 'staff-id', username: 'author'
+  });
+  assert.equal(result.ok, true);
+  assert.equal(auditedInTransaction, true);
 });
