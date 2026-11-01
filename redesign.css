@@ -194,3 +194,32 @@ html[data-theme="dark"] .field, html[data-theme="dark"] .select-field, html[data
   }
   .sidebar.open + .nav-backdrop { display:block; }
 }
+
+/* Full complaint workspace, with anchored sections and local-only data. */
+.complaint-page{display:flex;flex-direction:column;gap:18px;max-width:1460px;margin-inline:auto}
+.complaint-page-header{display:flex;align-items:flex-start;flex-wrap:wrap;gap:17px;border-bottom:1px solid var(--line);padding-bottom:19px}
+.complaint-page-heading{flex:1;min-width:230px}
+.complaint-page-heading h1{font-size:clamp(21px,2vw,29px);line-height:1.5;margin:6px 0;color:var(--green-950)}
+.complaint-page-heading p{color:var(--muted);margin:6px 0}
+.complaint-page-badges{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:12px}
+.complaint-page-badges>span:last-child{background:var(--green-100);padding:4px 9px;border-radius:8px;font-size:12px}
+.complaint-page-tabs{display:flex;gap:8px;flex-wrap:wrap;padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:14px;position:sticky;top:0;z-index:5}
+.complaint-page-tabs button{min-height:38px;border:1px solid transparent;background:var(--green-100);color:var(--green-800);border-radius:9px;padding:7px 12px;font:600 12px var(--ui-font,Tahoma,sans-serif);cursor:pointer}
+.complaint-page-tabs button:hover{border-color:var(--green-800)}
+.complaint-page-content{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:clamp(14px,2vw,24px)}
+.complaint-page-content .detail-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,0.8fr);gap:22px;align-items:start}
+.complaint-page-content .detail-section{scroll-margin-top:98px;border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:15px;background:var(--paper)}
+.complaint-page-content .detail-section h3{color:var(--green-900);font-size:15px;margin:0 0 13px}
+.complaint-page-content .detail-field{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;line-height:1.8}
+.complaint-page-content .detail-field span:last-child{overflow-wrap:anywhere;text-align:start}
+.complaint-page.readonly #complaint-actions,
+.complaint-page.readonly [data-action="add-note"],
+.complaint-page.readonly [data-action="reply-create"],
+.complaint-page.readonly [data-action="reply-review"],
+.complaint-page.readonly [data-action="reply-approve"],
+.complaint-page.readonly [data-action="reply-sent"],
+.complaint-page.readonly [data-action="referral-create"],
+.complaint-page.readonly [data-action="survey"]{display:none!important}
+@media(max-width:1000px){.complaint-page-content .detail-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:620px){.complaint-page-header{display:block}.complaint-page-heading{padding-top:16px}.complaint-page-tabs{position:static;overflow-x:auto;flex-wrap:nowrap}.complaint-page-tabs button{white-space:nowrap}}
+@media print{.complaint-page-tabs,.complaint-page-header button,.topbar,.sidebar,.workspace-shortcuts{display:none!important}.complaint-page-content{border:0;padding:0}}

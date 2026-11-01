@@ -86,7 +86,7 @@
     if (!sections.length) return;
     if ($("#detailAttachPanel")) return;
 
-    const firstSection = sections[0];
+    const firstSection = document.querySelector('#complaint-summary') || sections[0];
     if (!firstSection) return;
 
     const idEl = document.querySelector(".ticket-id");

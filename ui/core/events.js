@@ -26,7 +26,13 @@ case 'close-modal':closeModal();break;
 case 'backdrop-close':if(e.target===el)closeModal();break;
 case 'new-complaint':newComplaint();break;
 case 'save-complaint':createComplaint();break;
-case 'detail':closeModal();detailModal(id);break;
+case 'detail':detailModal(id);break;
+case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailReturnPage);break;
+case 'detail-section':{
+ const target=document.getElementById(el.dataset.target);
+ if(target){target.scrollIntoView({behavior:'smooth',block:'start'});target.setAttribute('tabindex','-1');target.focus({preventScroll:true});}
+ break;
+}
 case 'change-status':changeStatus(id);break;
 case 'assign-owner':assignOwner(id);break;
 case 'change-priority':changePriority(id);break;
@@ -121,5 +127,5 @@ $('#syncImportFile')?.addEventListener('change',async event=>{
 $('#logoutButton')?.addEventListener('click',logout);
 updateSignedInUi();
 render();
-api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();render();refreshManagedUsers();}).catch(()=>{showLogin();});
+api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();}).catch(()=>{showLogin();});
 })();

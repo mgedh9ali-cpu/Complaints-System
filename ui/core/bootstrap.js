@@ -109,7 +109,7 @@ function showLogin(){
         });
         stateRevision=saved.revision;
       }
-      stateLoaded=true;root.remove();updateSignedInUi();render();refreshManagedUsers();
+      stateLoaded=true;root.remove();updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();
       toast('تم تسجيل الدخول وحُملت البيانات من قاعدة SQLite.');
     }catch(ex){err.textContent=ex.message;err.hidden=false;}finally{button.disabled=false;button.textContent='دخول إلى النظام';}
     });
