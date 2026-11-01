@@ -62,3 +62,19 @@ test('findComplaintConflicts detects status or updated differences', () => {
   assert.equal(conflicts.length, 1);
   assert.equal(conflicts[0].id, 'c1');
 });
+
+
+test('findComplaintConflicts blocks incoming snapshots that omit a local complaint', () => {
+  const local = [{ id: 'keep-me', status: 'new', updated: '2026-11-01T00:00:00Z' }];
+  const incoming = [{ id: 'other', status: 'new', updated: '2026-11-01T00:00:00Z' }];
+  const conflicts = findComplaintConflicts(local, incoming);
+  assert.equal(conflicts.length, 1);
+  assert.equal(conflicts[0].id, 'keep-me');
+  assert.equal(conflicts[0].kind, 'missing_from_incoming');
+});
+
+test('findComplaintConflicts detects a changed payload despite unchanged status and timestamp', () => {
+  const base = { id: 'same-id', status: 'new', updated: '2026-11-01T00:00:00Z', summary: 'Original' };
+  const conflicts = findComplaintConflicts([base], [{ ...base, summary: 'Tampered' }]);
+  assert.equal(conflicts.length, 1);
+});
