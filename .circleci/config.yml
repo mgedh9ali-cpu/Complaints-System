@@ -33,7 +33,6 @@ jobs:
       - store_artifacts:
           path: /tmp/complaints-ci
           destination: diagnostic-logs
-          when: always
 
 workflows:
   build-and-test:
