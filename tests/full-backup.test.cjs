@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { openDatabase } = require('../config/db');
+const { createAuditService } = require('../modules/audit/service');
 const { createEncryptedBundle, extractEncryptedBundle, verifyEncryptedBundle } = require('../lib/full-backup');
 
 const SECRET = 'test-only-long-and-random-enough-secret-2026-11-01';
@@ -21,12 +22,14 @@ test('full backup archives SQLite, attachments and audit integrity head with aut
   const db = openDatabase(dbPath);
   db.prepare('INSERT INTO users(id,username,password_hash,role,active,created_at) VALUES (?,?,?,?,?,?)')
     .run('admin-id', 'admin', 'test-hash', 'admin', 1, '2026-11-01T00:00:00Z');
+  const audit = createAuditService({ db, databasePath: dbPath, logger: null });
+  const auditHead = audit.record('admin-id', 'backup_test', 'system', 'test');
   db.close();
 
   const attachmentName = 'SY-2026-001_12345678-1234-1234-1234-123456789abc.pdf';
   const fileBytes = Buffer.from('%PDF-1.7\nattachment-test-data\n', 'utf8');
   fs.writeFileSync(path.join(dataDir, 'attachments', attachmentName), fileBytes);
-  fs.writeFileSync(path.join(dataDir, 'audit-head.hash'), 'sample-head-hash');
+
   const backupDir = path.join(dir, 'backup');
   const saved = await createEncryptedBundle({
     databasePath: dbPath, secret: SECRET, backupDir
@@ -50,7 +53,7 @@ test('full backup archives SQLite, attachments and audit integrity head with aut
   });
   assert.equal(result.verified, true);
   assert.deepEqual(fs.readFileSync(path.join(restoredDir, 'attachments', attachmentName)), fileBytes);
-  assert.equal(fs.readFileSync(path.join(restoredDir, 'audit-head.hash'), 'utf8'), 'sample-head-hash');
+  assert.equal(fs.readFileSync(path.join(restoredDir, 'audit-head.hash'), 'utf8').trim(), auditHead.eventHash);
 
   await assert.rejects(extractEncryptedBundle({
     bundlePath: saved.destination, secret: SECRET, outputDir: restoredDir
