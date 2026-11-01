@@ -124,6 +124,28 @@ function createSyncService({
            updated_at=excluded.updated_at,
            revision=excluded.revision`
       ).run(JSON.stringify(payload.state), userId, now, nextRevision);
+      // app_state and complaints must represent the same imported snapshot.
+      // Replacing app_state alone leaves stale complaints visible to API lookups.
+      db.prepare('DELETE FROM complaints').run();
+      const insertComplaint = db.prepare(
+        'INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+      );
+      const seen = new Set();
+      for (const complaint of payload.state.complaints) {
+        if (!complaint || typeof complaint !== 'object' ||
+            typeof complaint.id !== 'string' || !complaint.id.trim() ||
+            complaint.id.length > 100 || seen.has(complaint.id)) {
+          throw new Error('Invalid or duplicated imported complaint identifier.');
+        }
+        seen.add(complaint.id);
+        insertComplaint.run(
+          complaint.id,
+          JSON.stringify(complaint),
+          userId,
+          typeof complaint.created === 'string' ? complaint.created : now,
+          typeof complaint.updated === 'string' ? complaint.updated : now
+        );
+      }
       auditService.record(userId, 'sync_imported', 'sync', payload.syncId, {
         sourceInstanceId: payload.sourceInstanceId,
         complaintCount: payload.state.complaints.length,
