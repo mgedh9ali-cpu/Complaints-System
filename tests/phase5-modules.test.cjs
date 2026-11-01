@@ -20,6 +20,8 @@ test('phase5 modules exist and are wired', () => {
   assert.ok(server.includes('createSyncRouter') || server.includes('syncService'));
   assert.ok(server.includes('createHealthRouter') || server.includes('healthService'));
   const envSource = fs.readFileSync(path.join(root, 'config/env.js'), 'utf8');
-  assert.match(envSource, /version:\s*'0\.7\.\d+'/, 'configured version must be 0.7.x');
+  const packageVersion = require('../package.json').version;
+  assert.match(packageVersion, /^\d+\.\d+\.\d+$/, 'package version must be semantic');
+  assert.ok(envSource.includes("require('../package.json')"), 'server version must come from package.json');
   assert.ok(server.includes('version: env.version'), 'server should log the configured version');
 });
