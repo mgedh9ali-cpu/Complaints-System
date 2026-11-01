@@ -10,7 +10,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   if(!nodes.has(key))nodes.set(key,{
    id:key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
    classList:{add(){},remove(){},toggle(){return true},contains(){return false}},
-   setAttribute(){},removeAttribute(){},focus(){},addEventListener(){},
+   setAttribute(){},removeAttribute(){},focus(){},addEventListener(){},append(){},appendChild(){},remove(){},
    querySelector(){return node('mock-dialog')},querySelectorAll(){return []},reportValidity(){return true}
   });
   return nodes.get(key);
