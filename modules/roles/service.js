@@ -13,7 +13,7 @@ const PERMISSIONS = Object.freeze({
   'users.list': ['admin'],
   'complaints.create': ['admin', 'staff'],
   'complaints.update': ['admin', 'staff'],
-  'complaints.delete': ['admin', 'staff'],
+  'complaints.delete': ['admin'],
   'complaints.status': ['admin', 'staff'],
   'complaints.read': ['admin', 'staff', 'reviewer'],
   'attachments.upload': ['admin', 'staff'],

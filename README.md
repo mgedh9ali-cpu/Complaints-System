@@ -2,7 +2,7 @@
 
 نظام عربي **محلي** لإدارة الشكاوى — SQLite + واجهة ويب + **ملف سطح مكتب واحد**.
 
-**الإصدار: 0.7.6**
+**الإصدار: 0.7.8**
 
 > تحذير: لا تُدخل بيانات مواطنين حقيقية قبل مراجعة أمنية. انظر [SECURITY.md](SECURITY.md).
 
@@ -26,7 +26,7 @@ npm install
 npm run dist:win
 ```
 
-المخرج: `dist-desktop/complaints-system-0.7.6-portable.exe`
+المخرج: `dist-desktop/complaints-system-0.7.8-portable.exe`
 
 ## للمطوّر: تشغيل من المصدر
 

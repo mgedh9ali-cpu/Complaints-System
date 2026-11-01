@@ -56,54 +56,23 @@
         .join("");
     });
 
-    document.addEventListener(
-      "click",
-      async function onSave(e) {
-        const btn = e.target.closest('[data-action="save-complaint"]');
-        if (!btn) return;
-        const files =
-          pendingFiles || ($("#cAttachments") && $("#cAttachments").files);
-        if (!files || !files.length || !window.__uploadAttachments) return;
-
-        // انتظر إنشاء الشكوى ثم ارفع
-        let attempts = 0;
-        const tryUpload = async () => {
-          attempts += 1;
-          const id = findNewestComplaintId();
-          if (!id) {
-            if (attempts < 8) return setTimeout(tryUpload, 400);
-            return;
-          }
-          const saved = await window.__uploadAttachments(id, files);
-          if (saved && saved.length) {
-            notify("تم رفع " + saved.length + " مرفق للشكوى " + id);
-            pendingFiles = null;
-            if ($("#cAttachments")) $("#cAttachments").value = "";
-            const box = $("#cAttachPreview");
-            if (box) {
-              box.hidden = true;
-              box.innerHTML = "";
-            }
-          }
-        };
-        setTimeout(tryUpload, 500);
-      },
-      true,
-    );
   }
 
-  function findNewestComplaintId() {
-    const candidates = [];
-    document
-      .querySelectorAll(".ticket-id, [data-id], td, .row-title, a")
-      .forEach((el) => {
-        const t = (el.getAttribute("data-id") || el.textContent || "").trim();
-        if (/^(SY|CMP)-[\w-]+$/i.test(t)) candidates.push(t);
-      });
-    // Prefer SY-YYYY-... style from our API
-    const sy = candidates.find((c) => /^SY-\d{4}-/i.test(c));
-    return sy || candidates[0] || null;
-  }
+  // Upload only when the server has confirmed the new complaint and returned its ID.
+  // A DOM scan can select an older complaint and attach sensitive documents to it.
+  window.addEventListener('complaints:created', async (event) => {
+    const id = event.detail && event.detail.id;
+    const files = pendingFiles ? Array.from(pendingFiles) : [];
+    pendingFiles = null;
+    if (!id || !files.length || !window.__uploadAttachments) return;
+    try {
+      const saved = await window.__uploadAttachments(id, files);
+      if (saved && saved.length) notify('تم رفع ' + saved.length + ' مرفق للشكوى ' + id);
+      else notify('تم إنشاء الشكوى لكن لم تكتمل المرفقات. افتح تفاصيلها لإعادة الرفع.', 'error');
+    } catch (error) {
+      notify('تعذر رفع مرفقات الشكوى ' + id + ': ' + error.message, 'error');
+    }
+  });
 
   function escapeHtml(s) {
     return String(s).replace(

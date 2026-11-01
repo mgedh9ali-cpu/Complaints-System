@@ -13,7 +13,7 @@
 الخادم (Express + SQLite) يعمل **داخل** نفس العملية — لا يُستدعى `node` من النظام.
 
 ```text
-complaints-system-0.7.6-portable.exe
+complaints-system-0.7.8-portable.exe
         │
         ├─ واجهة النافذة (Chromium)
         └─ خادم الشكاوى (Node المدمج في Electron)
@@ -33,7 +33,7 @@ npm run dist:win
 المخرج:
 
 ```text
-dist-desktop/complaints-system-0.7.6-portable.exe
+dist-desktop/complaints-system-0.7.8-portable.exe
 ```
 
 ارفع هذا الملف في **GitHub → Releases**.

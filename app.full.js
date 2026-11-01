@@ -227,7 +227,60 @@ function newComplaint(){ensureManagedSettings();modal('تسجيل شكوى جد�
 function saveComplaintDraft(){const form=$('#newComplaintForm');if(!form)return;const draft={};['cName','cPhone','cProvince','cCategory','cEntity','cPriority','cOwner','cSummary','cDetails'].forEach(id=>{const el=$('#'+id);if(el)draft[id]=el.value;});try{sessionStorage.setItem(DRAFT_KEY,JSON.stringify(draft));}catch(e){}}
 function restoreComplaintDraft(){try{const draft=JSON.parse(sessionStorage.getItem(DRAFT_KEY)||'null');if(!draft)return;Object.entries(draft).forEach(([id,value])=>{const el=$('#'+id);if(el&&typeof value==='string')el.value=value;});duplicateCheck();}catch(e){}}
 function duplicateCheck(){const phone=phoneNorm($('#cPhone')?.value||''),text=norm($('#cSummary')?.value||'');const matches=db.complaints.filter(c=>(phone&&phone.length>=7&&phoneNorm(c.phone)===phone)||(text.length>=9&&norm(c.summary).includes(text)));const mount=$('#duplicateMount');if(!mount)return;mount.innerHTML=matches.length?'<div class="risk-note"><strong>احتمال تكرار:</strong> عُثر على '+matches.length+' سجل مشابه. راجع السجل قبل إنشاء شكوى جديدة.<div style="margin-top:8px">'+matches.slice(0,4).map(c=>'<button class="btn btn-sm" type="button" data-action="detail" data-id="'+esc(c.id)+'">'+esc(c.id)+' · '+esc(c.summary)+'</button>').join(' ')+'</div></div>':'';}
-function createComplaint(){const form=$('#newComplaintForm');if(!form.reportValidity())return;const name=$('#cName').value.trim(),phone=phoneNorm($('#cPhone').value),province=$('#cProvince').value,category=$('#cCategory').value,entity=$('#cEntity').value,priority=$('#cPriority').value,owner=$('#cOwner').value.trim(),summary=$('#cSummary').value.trim(),details=$('#cDetails').value.trim();const id='SY-'+new Date().getFullYear()+'-'+String(Math.max(10453,...db.complaints.map(c=>Number(c.id.split('-').at(-1))||0))+1).padStart(5,'0');const created=new Date().toISOString();const c={id,name,phone,province,entity,category,priority,status:'new',owner,created,updated:created,due:new Date(Date.now()+db.settings.slaDays*86400000).toISOString(),summary,details,notes:[],timeline:[],referrals:[],reply:null,confidentiality:'normal',survey:null};logEvent(c,'تسجيل الشكوى','تم إنشاء السجل وإصدار الرقم المرجعي.');db.complaints.unshift(c);persist();try{sessionStorage.removeItem(DRAFT_KEY);}catch(e){}closeModal();page='complaints';render();toast('تم حفظ السجل '+id);if(!details||!name||!phone)notify('استكمال بيانات مطلوب',id+' · بعض بيانات السجل غير مكتملة.');}
+async function createComplaint(){
+  const form=$('#newComplaintForm');
+  if(!form||!form.reportValidity())return;
+  const body={
+    name:$('#cName').value.trim(),
+    phone:phoneNorm($('#cPhone').value),
+    province:$('#cProvince').value,
+    category:$('#cCategory').value,
+    entity:$('#cEntity').value,
+    priority:$('#cPriority').value,
+    owner:$('#cOwner').value.trim(),
+    summary:$('#cSummary').value.trim(),
+    details:$('#cDetails').value.trim()
+  };
+  const saveButton=$('[data-action="save-complaint"]');
+  if(saveButton)saveButton.disabled=true;
+  try{
+    // Do not allow a queued snapshot to overwrite the newly created complaint.
+    const hadPendingSave=Boolean(persistTimer);
+    if(persistTimer){clearTimeout(persistTimer);persistTimer=null;}
+    await persistQueue;
+    if(hadPendingSave){
+      const saved=await api('/api/state',{
+        method:'PUT',
+        headers:{'X-State-Revision':String(stateRevision)},
+        body:JSON.stringify(db)
+      });
+      stateRevision=saved.revision;
+    }
+    const response=await api('/api/complaints',{
+      method:'POST',
+      body:JSON.stringify(body)
+    });
+    // Authoritative server state (including generated complaint ID and revision).
+    const stored=await api('/api/state');
+    db=stored.state||cleanState();
+    stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:response.revision;
+    stateConflict=false;
+    stateLoaded=true;
+    try{sessionStorage.removeItem(DRAFT_KEY);}catch(e){}
+    closeModal();page='complaints';render();
+    window.dispatchEvent(new CustomEvent('complaints:created',{
+      detail:{id:response.complaint.id}
+    }));
+    toast('تم حفظ السجل '+response.complaint.id);
+    if(!body.details||!body.name||!body.phone){
+      notify('استكمال بيانات مطلوب',response.complaint.id+' · بعض بيانات السجل غير مكتملة.');
+    }
+  }catch(error){
+    toast('تعذر حفظ الشكوى: '+error.message,'error');
+  }finally{
+    if(saveButton)saveButton.disabled=false;
+  }
+}
 function detailModal(id){ensureManagedSettings();const c=db.complaints.find(x=>x.id===id);if(!c)return;currentId=id;const timeline=c.timeline||[];const transitions={new:['in_progress','cancelled'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed'],awaiting_approval:['in_progress','closed'],closed:['in_progress'],cancelled:[]};const next=transitions[c.status]||[];const canClose=c.status==='in_progress'||c.status==='awaiting_reply'||c.status==='awaiting_approval';const replyHtml=c.reply?'<div class="detail-section"><h3>الرد الخارجي</h3><div class="detail-field"><span>الحالة</span><span>'+replyStatusPill(c.reply.status)+'</span></div><p style="font-size:11px;line-height:1.9">'+esc(c.reply.text)+'</p><div class="footer-actions">'+(c.reply.status==='draft'?'<button class="btn btn-sm" data-action="reply-review" data-id="'+esc(id)+'">إرسال للمراجعة</button>':'')+(c.reply.status==='review'||c.reply.status==='approval'?'<button class="btn btn-sm btn-primary" data-action="reply-approve" data-id="'+esc(id)+'">اعتماد الرد</button>':'')+(c.reply.status==='approved'?'<button class="btn btn-sm btn-primary" data-action="reply-sent" data-id="'+esc(id)+'">توثيق الإرسال</button>':'')+'</div></div>':'<div class="detail-section"><h3>الرد الخارجي</h3><p class="small-copy">لا يوجد رد مرتبط بعد.</p><button class="btn btn-sm" data-action="reply-create" data-id="'+esc(id)+'">صياغة رد</button></div>';const body='<div class="detail-top"><div><h3 class="detail-title">'+esc(c.summary)+'</h3><span class="ticket-id">'+esc(c.id)+'</span> &nbsp; '+pillStatus(c.status)+' &nbsp; '+pillPriority(c.priority)+'</div><button class="btn btn-sm" data-action="add-note" data-id="'+esc(id)+'">＋ ملاحظة داخلية</button></div><div class="detail-grid"><div><div class="detail-section"><h3>بيانات الشكوى</h3>'+[['اسم المشتكي',c.name||'غير مسجل'],['رقم الهاتف',c.phone||'غير مسجل'],['المحافظة',c.province],['التصنيف',c.category],['الجهة المختصة',c.entity||'لم تحدد'],['المسؤول الرئيسي',c.owner||'غير مسند'],['تاريخ التسجيل',dateText(c.created)],['مدة البقاء',ageDays(c)+' يوم'+(isLate(c)?' · متجاوزة المهلة':'')],['التفاصيل',c.details||'لا توجد تفاصيل']].map(([a,b])=>'<div class="detail-field"><span>'+a+'</span><span>'+esc(b)+'</span></div>').join('')+'</div>'+replyHtml+'<div class="detail-section"><h3>إضافة إحالة</h3><button class="btn btn-sm" data-action="referral-create" data-id="'+esc(id)+'">＋ إحالة إلى جهة</button> <button class="btn btn-sm" data-action="survey" data-id="'+esc(id)+'">تسجيل رأي المشتكي</button></div></div><div><div class="detail-section"><h3>إجراءات الحالة</h3><div class="form-field"><label for="detailStatus">الانتقال إلى حالة</label><select class="select-field" id="detailStatus"><option value="">اختر انتقالًا مسموحًا</option>'+next.map(s=>'<option value="'+s+'">'+statusLabel(s)+'</option>').join('')+'</select></div><div class="form-field" style="margin-top:10px"><label for="statusReason">سبب الانتقال (إلزامي للإغلاق/الإلغاء/إعادة الفتح)</label><textarea class="textarea-field" id="statusReason" placeholder="اكتب سببًا واضحًا عند الإغلاق أو إعادة الفتح"></textarea></div><button class="btn btn-primary" style="margin-top:10px" data-action="change-status" data-id="'+esc(id)+'">تطبيق الانتقال</button><div class="form-field" style="margin-top:16px"><label for="assignOwner">المسؤول الرئيسي</label><select class="select-field" id="assignOwner">'+['مها العلي','خالد منصور','سليم عمر','وسيم صالح',authenticatedUser?.username].filter(Boolean).filter((n,i,a)=>a.indexOf(n)===i).map(n=>'<option '+(c.owner===n?'selected':'')+'>'+n+'</option>').join('')+'</select></div><button class="btn" style="margin-top:9px" data-action="assign-owner" data-id="'+esc(id)+'">حفظ الإسناد</button><div class="form-field" style="margin-top:16px"><label for="detailPriority">الأولوية</label><select class="select-field" id="detailPriority">'+db.settings.priorities.map(p=>'<option value="'+esc(p.value)+'" '+(c.priority===p.value?'selected':'')+'>'+esc(p.label)+'</option>').join('')+(!db.settings.priorities.some(p=>p.value===c.priority)&&c.priority?'<option value="'+esc(c.priority)+'" selected>'+esc(priorityLabel(c.priority))+' (قيمة محفوظة قديمة)</option>':'')+'</select></div><button class="btn" style="margin-top:9px" data-action="change-priority" data-id="'+esc(id)+'">حفظ الأولوية</button></div><div class="detail-section"><h3>سجل الإجراءات</h3><div class="timeline">'+timeline.map(t=>'<div class="timeline-item"><strong>'+esc(t.event)+'</strong><p>'+esc(t.detail||'')+'</p><small>'+esc(t.by||'')+' · '+timeText(t.at)+'</small></div>').join('')+'</div></div><div class="detail-section"><h3>الملاحظات الداخلية</h3>'+(c.notes||[]).map(n=>'<div class="notice-item"><div style="flex:1"><strong>'+esc(n.by)+'</strong><p>'+esc(n.text)+'</p><small>'+timeText(n.at)+'</small></div></div>').join('')||'<p class="small-copy">لا توجد ملاحظات داخلية.</p>'+'</div></div></div><div class="callout">يُعرض هنا تسلسل الإجراءات المسجلة على الشكوى.</div>';modal('تفاصيل الشكوى','إجراءات الشكوى · '+esc(c.id),body,'<button class="btn" data-action="close-modal">إغلاق</button>',true);}
 function changeStatus(id){const c=db.complaints.find(x=>x.id===id),next=$('#detailStatus')?.value,reason=$('#statusReason')?.value.trim();if(!c||!next)return toast('اختر حالة جديدة أولًا.','warn');const allowed={new:['in_progress','cancelled'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed'],awaiting_approval:['in_progress','closed'],closed:['in_progress'],cancelled:[]};if(!(allowed[c.status]||[]).includes(next))return toast('هذا الانتقال غير مسموح وفق آلة الحالات.','error');if((next==='closed'||next==='cancelled'||c.status==='closed')&&!reason)return toast('السبب إلزامي للإغلاق أو الإلغاء أو إعادة الفتح.','error');if(next==='closed'&&c.referrals.some(r=>!r.response)&&!reason)return toast('لا يمكن الإغلاق قبل استكمال الإحالات أو توثيق الاستثناء.','error');const before=statusLabel(c.status);c.status=next;logEvent(c,'تغيير الحالة',before+' ← '+statusLabel(next)+(reason?' · السبب: '+reason:''));if(next==='closed')notify('تم إغلاق السجل',c.id+' · '+reason);persist();detailModal(id);render();toast('تم تحديث حالة الشكوى.');}
 function assignOwner(id){const c=db.complaints.find(x=>x.id===id),owner=$('#assignOwner')?.value;if(!c||!owner)return;c.owner=owner;logEvent(c,'تغيير المسؤول','تم إسناد السجل إلى '+owner+'.');persist();detailModal(id);render();toast('تم تحديث المسؤول.');}
@@ -235,7 +288,61 @@ function changePriority(id){const c=db.complaints.find(x=>x.id===id),p=$('#detai
 function addNote(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('إضافة ملاحظة داخلية','لن تُرسل هذه الملاحظة إلى المشتكي','<form id="noteForm"><div class="form-field"><label for="noteText">الملاحظة</label><textarea class="textarea-field" id="noteText" required placeholder="اكتب ملاحظة داخلية للفريق"></textarea></div><p class="small-copy">الإشارة إلى زميل (@) نصية فقط في النموذج الأولي، ولا توجد إشعارات موجهة فعلية.</p></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-note" data-id="'+esc(id)+'">حفظ الملاحظة</button>');}
 function saveNote(id){const c=db.complaints.find(x=>x.id===id),text=$('#noteText')?.value.trim();if(!c||!text)return toast('اكتب الملاحظة أولًا.','warn');c.notes.unshift({text,by:(authenticatedUser?.username||'النظام'),at:new Date().toISOString()});logEvent(c,'إضافة ملاحظة داخلية','تمت إضافة ملاحظة داخلية.');persist();detailModal(id);toast('تم حفظ الملاحظة.');}
 function newReferral(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('إضافة إحالة','تسجيل الجهة وتاريخ الإرسال والموعد المتوقع للرد','<form id="referralForm"><div class="form-grid">'+selectField('الجهة المحال إليها','rEntity',db.settings.entities,'',true)+field('موعد الرد المتوقع','rDue',new Date(Date.now()+7*86400000).toISOString().slice(0,10),'date',true)+'<div class="form-field full"><label for="rNote">ملاحظات الإحالة</label><textarea class="textarea-field" id="rNote" placeholder="ملخص الطلب المرسل"></textarea></div></div></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-referral" data-id="'+esc(id)+'">حفظ الإحالة</button>');}
-function saveReferral(id){const c=db.complaints.find(x=>x.id===id);if(!c||!$('#rEntity').value||!$('#rDue').value)return toast('أكمل الجهة وموعد الرد.','warn');c.referrals.push({entity:$('#rEntity').value,sent:new Date().toISOString(),due:new Date($('#rDue').value+'T23:59:00').toISOString(),status:'بانتظار الرد',response:'',note:$('#rNote').value.trim()});if(c.status==='in_progress')c.status='awaiting_reply';logEvent(c,'إحالة إلى جهة','تم توثيق إحالة إلى '+$('#rEntity').value+'.');notify('إحالة جديدة',c.id+' · إحالة إلى '+$('#rEntity').value);persist();detailModal(id);toast('تم تسجيل الإحالة.');}
+async function saveReferral(id){
+  const c=db.complaints.find(x=>x.id===id);
+  const entity=$('#rEntity')?.value, dueValue=$('#rDue')?.value, note=$('#rNote')?.value.trim()||'';
+  if(!c||!entity||!dueValue)return toast('أكمل الجهة وموعد الرد.','warn');
+  const saveButton=$('[data-action="save-referral"]');
+  if(saveButton)saveButton.disabled=true;
+  try{
+    const hadPendingSave=Boolean(persistTimer);
+    if(persistTimer){clearTimeout(persistTimer);persistTimer=null;}
+    await persistQueue;
+    if(hadPendingSave){
+      const saved=await api('/api/state',{
+        method:'PUT',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify(db)
+      });
+      stateRevision=saved.revision;
+    }
+    if(c.status==='in_progress'){
+      await api('/api/complaints/'+encodeURIComponent(id)+'/status',{
+        method:'PATCH',
+        body:JSON.stringify({status:'awaiting_reply',reason:'إحالة إلى '+entity})
+      });
+    }
+    const stored=await api('/api/state');
+    db=stored.state||cleanState();
+    stateRevision=stored.revision;
+    const current=db.complaints.find(x=>x.id===id);
+    if(!current)throw new Error('الشكوى غير موجودة في بيانات الخادم.');
+    current.referrals ||= [];
+    current.referrals.push({
+      entity,
+      sent:new Date().toISOString(),
+      due:new Date(dueValue+'T23:59:00').toISOString(),
+      status:'بانتظار الرد',
+      response:'',
+      note
+    });
+    logEvent(current,'إحالة إلى جهة','تم توثيق إحالة إلى '+entity+'.');
+    notify('إحالة جديدة',id+' · إحالة إلى '+entity);
+    const saved=await api('/api/state',{
+      method:'PUT',
+      headers:{'X-State-Revision':String(stateRevision)},
+      body:JSON.stringify(db)
+    });
+    stateRevision=saved.revision;
+    detailModal(id);render();toast('تم تسجيل الإحالة وحفظها على الخادم.');
+  }catch(error){
+    try{
+      const stored=await api('/api/state');
+      db=stored.state||cleanState();
+      stateRevision=stored.revision;
+      render();
+    }catch(_) {}
+    toast('تعذر حفظ الإحالة: '+error.message,'error');
+  }finally{if(saveButton)saveButton.disabled=false;}
+}
 function surveyModal(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('تسجيل رأي المشتكي','توثيق ما إذا أُخذ الرأي وهل عولجت الشكوى','<form id="surveyForm">'+selectField('هل عولجت الشكوى؟','surveyResolved',[{value:'yes',label:'نعم'},{value:'partly',label:'جزئيًا'},{value:'no',label:'لا'},{value:'unknown',label:'لم يحدد'}],c.survey?.resolved||'',true)+'<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:11px"><input type="checkbox" id="surveyAsked" '+(c.survey?.asked?'checked':'')+'> تم أخذ رأي المشتكي</label></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-survey" data-id="'+esc(id)+'">حفظ</button>');}
 function saveSurvey(id){const c=db.complaints.find(x=>x.id===id);if(!c||!$('#surveyResolved').value)return toast('حدد نتيجة المعالجة.','warn');c.survey={resolved:$('#surveyResolved').value,asked:$('#surveyAsked').checked,at:new Date().toISOString()};logEvent(c,'تسجيل استبيان الإغلاق','نتيجة المعالجة: '+$('#surveyResolved').selectedOptions[0].text+'؛ أخذ الرأي: '+(c.survey.asked?'نعم':'لا'));persist();detailModal(id);toast('تم توثيق رأي المشتكي.');}
 function replyEditor(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;const text=c.reply?.text||'';modal('صياغة رد خارجي','المسودة منفصلة عن الملاحظات الداخلية؛ يلزم اعتماد بشري قبل توثيق الإرسال','<form id="replyForm"><div class="form-grid">'+selectField('قالب الرد','replyTemplate',[{value:'',label:'بدون قالب'},...db.templates.map((t,i)=>({value:String(i),label:t.name+' · إصدار '+t.version}))],'')+'<div class="form-field"><label for="replyText">نص الرد</label><textarea class="textarea-field" id="replyText" required style="min-height:180px">'+esc(text)+'</textarea></div></div><p class="small-copy">المتغيرات المتاحة: {{رقم_الشكوى}}، {{الجهة}}، {{التصنيف}}. بعد الاعتماد يمكن توثيق الإرسال من ملف الشكوى.</p></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-reply" data-id="'+esc(id)+'">حفظ المسودة</button>');}

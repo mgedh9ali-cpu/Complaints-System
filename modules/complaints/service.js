@@ -125,13 +125,55 @@ function createComplaintsService({ db, audit, logger }) {
       return { conflict: true, currentRevision: current.revision };
     }
     const prevById = new Map((current.state.complaints || []).map((c) => [c.id, c]));
+    const ids = new Set();
+    for (const complaint of state.complaints || []) {
+      if (!complaint || typeof complaint.id !== 'string' ||
+          !complaint.id.trim() || complaint.id.length > 100 ||
+          ids.has(complaint.id)) {
+        return { invalidTransition: true, error: 'معرّف الشكوى غير صالح أو مكرر.' };
+      }
+      ids.add(complaint.id);
+    }
+    // The generic state endpoint must never be a backdoor for deleting records.
+    // Explicit deletion is audited and restricted to the manager-only API.
+    if ([...prevById.keys()].some(id => !ids.has(id))) {
+      return {
+        invalidTransition: true,
+        error: 'حذف الشكاوى غير مسموح عبر حفظ الحالة؛ استخدم إجراء الحذف المعتمد.'
+      };
+    }
+    const actor = db.prepare('SELECT username, role FROM users WHERE id = ?').get(userId);
     for (const c of state.complaints || []) {
       const prev = prevById.get(c.id);
       if (prev && prev.status !== c.status) {
         return {
           invalidTransition: true,
-          error:
-            'تغيير الحالة غير مسموح عبر حفظ الحالة الكامل. استخدم مسار تغيير الحالة.'
+          error: 'تغيير الحالة غير مسموح عبر حفظ الحالة الكامل. استخدم مسار تغيير الحالة.'
+        };
+      }
+      const beforeReply = prev?.reply;
+      const afterReply = c?.reply;
+      const beforeStatus = beforeReply?.status || null;
+      const afterStatus = afterReply?.status || null;
+      if (afterStatus === 'approved' && beforeStatus !== 'approved') {
+        if (!actor || actor.role !== 'admin' || !beforeReply ||
+            !['review', 'approval'].includes(beforeStatus) ||
+            beforeReply.author === actor.username ||
+            beforeReply.author !== afterReply.author ||
+            beforeReply.text !== afterReply.text) {
+          return {
+            invalidTransition: true,
+            error: 'اعتماد الرد يتطلب مديراً مختلفاً عن معد الرد ومسودة مراجعة ثابتة.'
+          };
+        }
+      }
+      if (afterStatus === 'sent' && beforeStatus !== 'sent' &&
+          (beforeStatus !== 'approved' || !beforeReply ||
+           beforeReply.author !== afterReply.author ||
+           beforeReply.text !== afterReply.text)) {
+        return {
+          invalidTransition: true,
+          error: 'لا يمكن توثيق إرسال رد قبل اعتماده.'
         };
       }
     }

@@ -125,7 +125,7 @@ test("complaint validation rejects prototype pollution keys", () => {
 });
 
 test("local UI uses authenticated API and server-backed state rather than localStorage for records", () => {
-  const ui = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const ui = fs.readFileSync(path.join(__dirname, "..", "app.full.js"), "utf8");
   const server = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
   assert.ok(
     ui.includes("api('/api/auth/login'") || ui.includes('/api/auth/login'),
@@ -140,8 +140,9 @@ test("local UI uses authenticated API and server-backed state rather than localS
       server.includes("/api/state"),
     "state API must be available via modular router or server",
   );
+  const dbSource = fs.readFileSync(path.join(__dirname, "..", "config/db.js"), "utf8");
   assert.ok(
-    server.includes("CREATE TABLE IF NOT EXISTS app_state"),
+    dbSource.includes("CREATE TABLE IF NOT EXISTS app_state"),
     "persistent application state must be stored in SQLite",
   );
 });
@@ -263,7 +264,7 @@ test("audit integrity helpers and modular audit service exist", () => {
     path.join(__dirname, "..", "modules/audit/service.js"),
     "utf8",
   );
-  assert.ok(server.includes("hashAuditEvent") || server.includes("audit-integrity"));
+  assert.ok(auditService.includes("hashAuditEvent") || auditService.includes("audit-integrity"));
   assert.ok(
     server.includes("ALTER TABLE audit_events ADD COLUMN previous_hash TEXT") ||
       auditService.includes("previous_hash"),
