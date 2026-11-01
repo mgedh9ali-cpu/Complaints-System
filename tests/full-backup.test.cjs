@@ -82,7 +82,7 @@ test('full backup refuses symbolic links and unsafe filenames', async t => {
   fs.mkdirSync(path.join(data, 'attachments'), { recursive: true });
   const file = path.join(data, 'complaints.sqlite');
   openDatabase(file).close();
-  fs.writeFileSync(path.join(data, 'attachments', 'unsafe:name'), 'should refuse');
+  fs.writeFileSync(path.join(data, 'attachments', 'unsafe name'), 'should refuse');
   await assert.rejects(createEncryptedBundle({
     databasePath: file, secret: SECRET, backupDir: path.join(dir, 'output')
   }), /Unsafe or non-file attachment/);
