@@ -67,6 +67,7 @@ function createAttachmentsRouter({
         return res.status(400).json({ error: 'لم يتم إرسال أي ملف.' });
       }
       let saved = [];
+      let auditCommitted = false;
       try {
         saved = saveAttachmentBatch({ attachmentsService, complaintId, files: req.files });
         const recordUploads = () => {
@@ -80,15 +81,19 @@ function createAttachmentsRouter({
         };
         if (db && typeof db.transaction === 'function') {
           db.transaction(recordUploads)();
+          auditCommitted = true;
           if (typeof audit?.syncHead === 'function') audit.syncHead();
         } else {
           recordUploads();
+          auditCommitted = true;
         }
         return res.status(201).json({ attachments: saved });
       } catch (err) {
         // A successful disk write must not leave unaudited orphan attachments.
-        for (const meta of saved.reverse()) {
-          try { attachmentsService.remove(meta.storedName); } catch (_) {}
+        if (!auditCommitted) {
+          for (const meta of saved.reverse()) {
+            try { attachmentsService.remove(meta.storedName); } catch (_) {}
+          }
         }
         if (saved.length) return res.status(500).json({ error: 'تعذر تسجيل المرفقات بأمان.' });
         return res.status(400).json({ error: err.message || 'فشل رفع الملف.' });
@@ -109,6 +114,11 @@ function createAttachmentsRouter({
         return res.status(404).json({ error: 'الشكوى غير موجودة.' });
       }
       const items = attachmentsService.listByComplaint(complaintId);
+      if (typeof audit === 'function') {
+        audit(req.user.id, 'attachments_listed', 'complaint', complaintId, {
+          count: items.length
+        });
+      }
       res.json({ attachments: items });
     }
   );
@@ -127,6 +137,12 @@ function createAttachmentsRouter({
       }
       const full = attachmentsService.getPath(parsed.storedName);
       if (!full) return res.status(404).json({ error: 'الملف غير موجود.' });
+      // Record every authorized file access before releasing sensitive bytes.
+      if (typeof audit === 'function') {
+        audit(req.user.id, 'attachment_accessed', 'attachment', parsed.storedName, {
+          complaintId: parsed.complaintId
+        });
+      }
       res.download(full, parsed.storedName, (err) => {
         if (err && !res.headersSent) res.status(500).json({ error: 'تعذر تنزيل الملف.' });
       });
