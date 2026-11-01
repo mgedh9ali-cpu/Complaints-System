@@ -3,6 +3,7 @@
 const express = require('express');
 const path = require('node:path');
 const multer = require('multer');
+const { saveAttachmentBatch } = require('./upload-batch');
 
 const UUID_TAIL =
   /_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\.[^.]+)?$/i;
@@ -65,19 +66,15 @@ function createAttachmentsRouter({
         return res.status(400).json({ error: 'لم يتم إرسال أي ملف.' });
       }
       try {
-        const saved = [];
-        for (const file of req.files) {
-          const meta = attachmentsService.save(complaintId, file);
-          saved.push(meta);
+        const saved = saveAttachmentBatch({ attachmentsService, complaintId, files: req.files });
+        for (const meta of saved) {
           if (typeof audit === 'function') {
             audit(req.user.id, 'attachment_uploaded', 'attachment', meta.id, {
-              complaintId,
-              originalName: meta.originalName,
-              size: meta.size
+              complaintId, originalName: meta.originalName, size: meta.size
             });
           }
         }
-        res.status(201).json({ attachments: saved });
+        return res.status(201).json({ attachments: saved });
       } catch (err) {
         res.status(400).json({ error: err.message || 'فشل رفع الملف.' });
       }
