@@ -17,7 +17,8 @@ const PERMISSIONS = Object.freeze({
   'complaints.status': ['admin', 'staff'],
   'complaints.read': ['admin', 'staff', 'reviewer'],
   'attachments.upload': ['admin', 'staff'],
-  'attachments.delete': ['admin', 'staff'],
+  // Permanent removal is restricted to the manager until a separate approval workflow exists.
+  'attachments.delete': ['admin'],
   'attachments.read': ['admin', 'staff', 'reviewer'],
   'export.csv': ['admin', 'staff', 'reviewer'],
   'export.xlsx': ['admin', 'staff', 'reviewer'],
