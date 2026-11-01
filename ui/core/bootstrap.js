@@ -129,7 +129,7 @@ function showLogin(){
   .login-note{font-size:11px!important;margin-top:16px!important}`;
   document.head.append(style);}
   let root=$('#loginOverlay');
-  if(!root){root=document.createElement('div');root.id='loginOverlay';root.className='login-overlay';root.innerHTML='<section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><h1 id="loginTitle">تسجيل الدخول</h1><p>أدخل بيانات المدير التي أنشأتها عند إعداد النظام على هذا اللابتوب.</p><form id="loginForm"><label for="loginUsername">اسم المستخدم</label><input id="loginUsername" name="username" autocomplete="username" required maxlength="100"><label for="loginPassword">كلمة المرور</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="200"><div id="loginError" class="login-error" role="alert" hidden></div><button type="submit">دخول إلى النظام</button></form><p class="login-note">إذا لم تُعد ملف .env بعد، راجع تعليمات التشغيل في README. لا توجد كلمة مرور افتراضية مخفية.</p></section>';document.body.append(root);
+  if(!root){root=document.createElement('div');root.id='loginOverlay';root.className='login-overlay';root.innerHTML='<section class="login-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle"><div class="login-brand"><svg viewBox="0 0 48 48" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><path d="M24 4 42 12v13c0 10-7 16-18 20C13 41 6 35 6 25V12L24 4Z"/><path d="M15 20h18M15 26h18M18 14h12" stroke-linecap="round"/></svg><h2>شعبة الاستفسارات والشكاوى</h2><p>بوابة العمل الإداري المحلية</p><small>دخول آمن للحسابات المصرّح لها</small></div><div class="login-fields"><h1 id="loginTitle">تسجيل الدخول</h1><p>أدخل اسم المستخدم وكلمة المرور الخاصة بحسابك.</p><form id="loginForm"><label for="loginUsername">اسم المستخدم</label><input id="loginUsername" name="username" autocomplete="username" required maxlength="100"><label for="loginPassword">كلمة المرور</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="200"><div id="loginError" class="login-error" role="alert" hidden></div><button type="submit">دخول إلى النظام</button></form><p class="login-note">في حال تعذر الدخول، راجع مسؤول النظام.</p></div></section>';document.body.append(root);
     $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('#loginForm button');button.disabled=true;button.textContent='جارٍ التحقق…';const err=$('#loginError');err.hidden=true;try{
       const result=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username:$('#loginUsername').value,password:$('#loginPassword').value})});
       authenticatedUser=result.user;
@@ -147,7 +147,7 @@ function showLogin(){
         stateRevision=saved.revision;
       }
       stateLoaded=true;root.remove();updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();
-      toast('تم تسجيل الدخول وحُملت البيانات من قاعدة SQLite.');
+      toast('مرحباً '+(authenticatedUser?.name||authenticatedUser?.username||'بك')+'، تم تسجيل الدخول بنجاح.');
     }catch(ex){err.textContent=ex.message;err.hidden=false;}finally{button.disabled=false;button.textContent='دخول إلى النظام';}
     });
   }
