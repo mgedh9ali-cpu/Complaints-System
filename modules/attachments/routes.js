@@ -23,7 +23,8 @@ function createAttachmentsRouter({
   middleware,
   audit,
   rolesService,
-  complaintsService
+  complaintsService,
+  db
 }) {
   const router = express.Router();
   const { requireAuth, requireCsrf } = middleware;
@@ -65,18 +66,32 @@ function createAttachmentsRouter({
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: 'لم يتم إرسال أي ملف.' });
       }
+      let saved = [];
       try {
-        const saved = saveAttachmentBatch({ attachmentsService, complaintId, files: req.files });
-        for (const meta of saved) {
-          if (typeof audit === 'function') {
-            audit(req.user.id, 'attachment_uploaded', 'attachment', meta.id, {
-              complaintId, originalName: meta.originalName, size: meta.size
-            });
+        saved = saveAttachmentBatch({ attachmentsService, complaintId, files: req.files });
+        const recordUploads = () => {
+          for (const meta of saved) {
+            if (typeof audit === 'function') {
+              audit(req.user.id, 'attachment_uploaded', 'attachment', meta.id, {
+                complaintId, originalName: meta.originalName, size: meta.size
+              });
+            }
           }
+        };
+        if (db && typeof db.transaction === 'function') {
+          db.transaction(recordUploads)();
+          if (typeof audit?.syncHead === 'function') audit.syncHead();
+        } else {
+          recordUploads();
         }
         return res.status(201).json({ attachments: saved });
       } catch (err) {
-        res.status(400).json({ error: err.message || 'فشل رفع الملف.' });
+        // A successful disk write must not leave unaudited orphan attachments.
+        for (const meta of saved.reverse()) {
+          try { attachmentsService.remove(meta.storedName); } catch (_) {}
+        }
+        if (saved.length) return res.status(500).json({ error: 'تعذر تسجيل المرفقات بأمان.' });
+        return res.status(400).json({ error: err.message || 'فشل رفع الملف.' });
       }
     }
   );
