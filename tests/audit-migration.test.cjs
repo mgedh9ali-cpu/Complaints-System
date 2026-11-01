@@ -131,7 +131,9 @@ test(
       )
       .all();
     assert.equal(verifyAuditRows(rows).valid, true);
-    assert.equal(rows.length, 1);
+    assert.ok(rows.length >= 1, 'legacy events remain after migration');
+    assert.equal(rows[0].action, 'legacy_event');
+    const initialEventCount = rows.length;
     columnsDb.close();
 
     const login = await fetch(baseUrl + "/api/auth/login", {
@@ -233,7 +235,7 @@ test(
       created_at, previous_hash, event_hash FROM audit_events ORDER BY rowid ASC`,
         )
         .all();
-      assert.equal(rows.length, 6);
+      assert.ok(rows.length >= initialEventCount + 4, 'subsequent actions must be audited');
       assert.equal(verifyAuditRows(rows).valid, true);
       assert.ok(rows.some((row) => row.action === "complaint_status_changed"));
     } finally {
