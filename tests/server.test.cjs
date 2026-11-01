@@ -125,7 +125,7 @@ test("complaint validation rejects prototype pollution keys", () => {
 });
 
 test("local UI uses authenticated API and server-backed state rather than localStorage for records", () => {
-  const ui = fs.readFileSync(path.join(__dirname, "..", "app.full.js"), "utf8");
+  const ui = require('../lib/ui-bundle').assembleUiBundle();
   const server = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
   assert.ok(
     ui.includes("api('/api/auth/login'") || ui.includes('/api/auth/login'),

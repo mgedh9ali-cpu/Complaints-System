@@ -8,7 +8,7 @@ const root = path.resolve(__dirname,'..');
 const read = p => fs.readFileSync(path.join(root,p),'utf8');
 
 test('redesigned navigation preserves all working destinations and real action handlers', () => {
-  const html = read('index.html'), app=read('app.full.js');
+  const html = read('index.html'), app=require('../lib/ui-bundle').assembleUiBundle();
   const keys=['dashboard','complaints','referrals','replies','notifications','reports','settings'];
   for(const key of keys){
     assert.match(html,new RegExp('data-page="'+key+'"'));
@@ -23,7 +23,7 @@ test('redesigned navigation preserves all working destinations and real action h
   }
 });
 test('registration control is role-bound and not shown before login',()=>{
- const app=read('app.full.js'),html=read('index.html');
+ const app=require('../lib/ui-bundle').assembleUiBundle(),html=read('index.html');
  assert.match(html, /id="headerCreateButton"[^>]*hidden/);
  assert.match(app, /headerCreate\.hidden=!authenticatedUser\|\|!\['admin','staff'\]\.includes\(role\)/);
  assert.match(app, /aria-current/);

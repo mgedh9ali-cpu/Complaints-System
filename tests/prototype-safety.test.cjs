@@ -3,7 +3,8 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const test = require("node:test");
 
-const app = fs.readFileSync("app.full.js", "utf8");
+const {assembleUiBundle}=require('../lib/ui-bundle');
+const app=assembleUiBundle();
 
 test("CSV sanitizer prefixes formula-leading values", () => {
   const definition = app

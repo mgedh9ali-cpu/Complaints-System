@@ -162,25 +162,17 @@ app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesServ
 app.use('/api', createAuditRouter({ auditService, middleware, rolesService }));
 app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService }));
 
-app.get('/app.bundle.js', (req, res) => {
-  try {
-    const fullPath = path.join(__dirname, 'app.full.js');
-    if (!fs.existsSync(fullPath)) throw new Error('app.full.js missing');
-    const fullContent = fs.readFileSync(fullPath, 'utf8');
-    if (
-      fullContent.length < 10000 ||
-      !fullContent.includes("'use strict'") ||
-      !fullContent.includes('STORAGE_KEY')
-    ) {
-      throw new Error('app.full.js incomplete or corrupt');
-    }
-    res.type('application/javascript');
-    res.setHeader('Cache-Control', 'no-store');
-    res.send(fullContent);
-  } catch (error) {
-    logger.error('UI bundle load failed', { message: error.message });
-    res.status(500).type('text/plain').send('تعذر تحميل واجهة النظام.');
-  }
+const {assembleUiBundle}=require('./lib/ui-bundle');
+app.get('/app.bundle.js',(req,res)=>{
+ try{
+  const bundled=assembleUiBundle();
+  res.type('application/javascript');
+  res.setHeader('Cache-Control','no-store');
+  res.send(bundled);
+ }catch(error){
+  logger.error('Modular UI bundle failed',{message:error.message});
+  res.status(500).type('text/plain').send('تعذر تحميل واجهة النظام.');
+ }
 });
 
 const PUBLIC_FILES = {
