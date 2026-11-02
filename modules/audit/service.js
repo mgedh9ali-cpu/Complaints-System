@@ -127,7 +127,11 @@ function createAuditService({ db, logger, databasePath }) {
     return { ok: true, checked, chainTip: previousHash };
   }
 
-  return { record, syncHead, listEvents, verifyChain };
+  function findDocumentProof(code){
+    const row=db.prepare("SELECT target_id,details_json,created_at FROM audit_events WHERE event_hash=? AND action='reply_document_issued'").get(code);
+    return row?{targetId:row.target_id,digest:JSON.parse(row.details_json).digest,createdAt:row.created_at}:null;
+  }
+  return { record, syncHead, listEvents, verifyChain, findDocumentProof };
 }
 
 module.exports = { createAuditService };

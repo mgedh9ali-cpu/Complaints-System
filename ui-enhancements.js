@@ -240,10 +240,11 @@
     document.querySelectorAll('table').forEach((table) => {
       if (!table.querySelector('thead')) return;
       const heads = Array.from(table.querySelectorAll('thead th'));
-      heads.forEach((head) => { if (!head.hasAttribute('scope')) head.setAttribute('scope', 'col'); });
+      heads.forEach((head) => { if (!head.hasAttribute('scope')) head.setAttribute('scope', 'col'); const label=head.textContent.trim(); if(label==='المحافظة')head.dataset.column='province'; if(label==='المسؤول')head.dataset.column='owner'; });
       table.querySelectorAll('tbody tr').forEach((row) => {
         Array.from(row.children).forEach((cell, index) => {
           if (cell.tagName !== 'TD' || cell.hasAttribute('data-label')) return;
+          if(heads[index]?.dataset.column)cell.dataset.column=heads[index].dataset.column;
           const heading = heads[index]?.textContent?.trim();
           if (heading) cell.setAttribute('data-label', heading);
         });
@@ -271,14 +272,14 @@
     const search = $('#complaintSearch');
     if (!search) return;
     search.setAttribute('autocomplete', 'off');
-    search.setAttribute('aria-keyshortcuts', 'Control+k');
+
     const tools = search.closest('.table-tools');
     if (!tools) return;
     if (!tools.querySelector('#uiRegistryHint')) {
       const hint = document.createElement('span');
       hint.id = 'uiRegistryHint';
       hint.className = 'ui-registry-hint';
-      hint.textContent = 'بحث مباشر · Ctrl + K';
+      hint.textContent = 'بحث مباشر · Ctrl + K للأوامر';
       tools.append(hint);
     }
     if (!tools.querySelector('#uiClearSearch')) {
@@ -342,28 +343,28 @@
         event.preventDefault();
         closeMenu(true);
       }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k' &&
-          document.body.dataset.signedIn === 'true') {
-        event.preventDefault();
-        const complaintPage = document.querySelector('[data-page="complaints"]');
-        if (complaintPage) complaintPage.click();
-        document.querySelector('#complaintSearch')?.focus();
-      }
+
     });
   }
 
   function start() {
     wireShell();
+    let glowFrame=0,glowEvent=null;
+    document.addEventListener('pointermove',event=>{
+      if(event.pointerType==='touch'||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+      const card=event.target.closest('.stat-item');if(!card)return;glowEvent={card,x:event.clientX,y:event.clientY};
+      if(!glowFrame)glowFrame=requestAnimationFrame(()=>{glowFrame=0;const {card,x,y}=glowEvent;const rect=card.getBoundingClientRect();card.style.setProperty('--x',(x-rect.left)+'px');card.style.setProperty('--y',(y-rect.top)+'px');});
+    });
     addTools();
     fetchCsrf();
     enhanceActionCells();
     enhanceWorkspace();
-    enhanceRegistry();
+    if (document.body.dataset.signedIn === 'true') enhanceRegistry();
     const observer = new MutationObserver(() => {
       addTools();
       enhanceActionCells();
       enhanceWorkspace();
-      enhanceRegistry();
+      if (document.body.dataset.signedIn === 'true') enhanceRegistry();
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }

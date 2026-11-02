@@ -131,8 +131,9 @@ test('live server never serves database or source code without authentication', 
   assert.equal((await fetch(url + '/api/state')).status, 401);
   assert.equal((await fetch(url + '/styles.css')).status, 200);
   assert.equal((await fetch(url + '/')).status, 200);
-  const rebound = await fetch(url + '/api/health', { headers: { Host: 'evil.example:3000' } });
-  assert.equal(rebound.status, 421);
-  const malformed = await fetch(url + '/', { headers: { Host: 'localhost.evil:3000' } });
-  assert.equal(malformed.status, 421);
+  const wireStatus = (target, host) => new Promise((resolve,reject) => {
+    require('node:http').get(url+target,{headers:{Host:host}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject);
+  });
+  assert.equal(await wireStatus('/api/health','evil.example:3000'),421);
+  assert.equal(await wireStatus('/','localhost.evil:3000'),421);
 });

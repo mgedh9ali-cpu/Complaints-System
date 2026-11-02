@@ -29,7 +29,7 @@ async function changeStatus(id){
       });
       stateRevision=saved.revision;
     }
-    await api('/api/complaints/'+encodeURIComponent(id)+'/status',{
+    const transition=await api('/api/complaints/'+encodeURIComponent(id)+'/status',{
       method:'PATCH',body:JSON.stringify({status:next,reason})
     });
     const authoritative=await api('/api/state');
@@ -38,6 +38,7 @@ async function changeStatus(id){
     stateConflict=false;stateLoaded=true;
     detailModal(id);
     toast('تم تحديث الحالة في قاعدة البيانات.');
+    if(transition.undoToken)showStatusUndo(id,transition.undoToken,transition.undoExpiresAt);
   }catch(error){
     toast('تعذر تغيير الحالة: '+error.message,'error');
     if(error.status===409||error.status===428)stateConflict=true;
@@ -153,4 +154,14 @@ async function saveSurvey(id){
   c.survey={resolved,asked,at:new Date().toISOString()};
   logEvent(c,'تسجيل رأي المشتكي','نتيجة المعالجة: '+label+'؛ أخذ الرأي: '+(asked?'نعم':'لا'));
  },'تم حفظ رأي المشتكي في قاعدة البيانات.');
+}
+
+function showStatusUndo(id,token,expiresAt){
+ const node=document.createElement('div');node.className='toast';node.textContent='تم تغيير الحالة · ';
+ const button=document.createElement('button');button.type='button';button.className='btn btn-sm';button.textContent='تراجع';node.append(button);$('#toastRegion').append(node);
+ const timer=setTimeout(()=>node.remove(),Math.max(0,expiresAt-Date.now()));
+ button.addEventListener('click',async()=>{button.disabled=true;try{
+  await api('/api/complaints/'+encodeURIComponent(id)+'/status/undo',{method:'POST',body:JSON.stringify({token})});
+  const stored=await api('/api/state');db=stored.state;stateRevision=stored.revision;stateConflict=false;render();toast('تم التراجع وتوثيقه في سجل التدقيق.');
+ }catch(error){toast(error.message,'error');}finally{clearTimeout(timer);node.remove();}});
 }

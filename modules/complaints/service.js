@@ -47,6 +47,7 @@ function emptyState() {
 }
 
 function createComplaintsService({ db, audit, logger }) {
+  const statusUndos = new Map();
   function readState() {
     const row = db
       .prepare('SELECT state_json, updated_at, revision FROM app_state WHERE id = 1')
@@ -352,7 +353,11 @@ function createComplaintsService({ db, audit, logger }) {
       id: complaintId,
       details: { fields: changes, revision: nextRevision }
     }]);
-    return { ok: true, complaint, revision: nextRevision, unchanged: false };
+    const undoToken=crypto.randomUUID();
+    const undoExpiresAt=Date.now()+5000;
+    for(const [token,value] of statusUndos)if(value.expiresAt<Date.now())statusUndos.delete(token);
+    statusUndos.set(undoToken,{complaintId,userId,revision:nextRevision,from:fromStatus,to:toStatus,expiresAt:undoExpiresAt});
+    return { ok: true, complaint, revision: nextRevision, unchanged: false, undoToken, undoExpiresAt };
   }
 
   function deleteComplaint({ complaintId, userId, username }) {
@@ -531,7 +536,29 @@ function createComplaintsService({ db, audit, logger }) {
         revision: nextRevision
       }
     }]);
-    return { ok: true, complaint, revision: nextRevision, unchanged: false };
+    const undoToken=crypto.randomUUID();
+    const undoExpiresAt=Date.now()+5000;
+    for(const [token,value] of statusUndos)if(value.expiresAt<Date.now())statusUndos.delete(token);
+    statusUndos.set(undoToken,{complaintId,userId,revision:nextRevision,from:fromStatus,to:toStatus,expiresAt:undoExpiresAt});
+    return { ok: true, complaint, revision: nextRevision, unchanged: false, undoToken, undoExpiresAt };
+  }
+
+  function undoStatus({complaintId,token,userId,username}){
+    const undo=typeof token==='string'?statusUndos.get(token):null;
+    if(!undo||undo.complaintId!==complaintId||undo.userId!==userId||Date.now()>undo.expiresAt)
+      return {ok:false,status:409,error:'انتهت مهلة التراجع أو لا يخصك هذا الإجراء.'};
+    const {state,revision}=readState();
+    const index=findIndex(state,complaintId),current=state.complaints[index];
+    if(revision!==undo.revision||!current||current.status!==undo.to)
+      return {ok:false,status:409,error:'تعذر التراجع لوجود تعديل أحدث. راجع السجل.'};
+    const now=new Date().toISOString(),complaint=structuredClone(current);
+    complaint.status=undo.from;complaint.updated=now;
+    complaint.statusHistory.push({from:undo.to,to:undo.from,at:now,by:username,reason:'تراجع فوري عن آخر انتقال خلال خمس ثوانٍ'});
+    complaint.timeline.push({event:'تراجع عن تغيير الحالة',at:now,by:username,detail:STATUS_LABELS[undo.to]+' ← '+STATUS_LABELS[undo.from]});
+    state.complaints[index]=complaint;
+    persistState(state,userId,now,revision+1,[{action:'complaint_status_undone',id:complaintId,details:{from:undo.to,to:undo.from,revision:revision+1}}]);
+    statusUndos.delete(token);
+    return {ok:true,complaint,revision:revision+1};
   }
 
   return {
@@ -541,6 +568,7 @@ function createComplaintsService({ db, audit, logger }) {
     updateComplaint,
     deleteComplaint,
     changeStatus,
+    undoStatus,
     addReferral,
     ALLOWED_TRANSITIONS,
     REASON_REQUIRED,

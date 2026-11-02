@@ -21,3 +21,38 @@ function lateComplaints(){return db.complaints.filter(isLate);}
 function referralList(){return db.complaints.flatMap(c=>(c.referrals||[]).map((r,i)=>({...r,complaintId:c.id,complaintSummary:c.summary,owner:c.owner,refIndex:i})));}
 function pageTitle(){return ({dashboard:'لوحة المتابعة',complaints:'سجل الشكاوى والاستفسارات',referrals:'إدارة الإحالات',replies:'الردود والاعتماد',notifications:'مركز الإشعارات',reports:'التقارير التشغيلية',settings:'القوائم والإعدادات','complaint-detail':'ملف الشكوى'})[page]||'لوحة المتابعة';}
 function navCounts(){$('#navComplaintsCount').textContent=db.complaints.length;$('#navReferralsCount').textContent=referralList().filter(r=>!r.response).length;$('#navNotificationsCount').textContent=db.notifications.filter(n=>!n.read).length;$('#topUnread').style.display=db.notifications.some(n=>!n.read)?'block':'none';}
+
+function glassPreference(){try{return localStorage.getItem('complaints-reduce-transparency')==='true';}catch(_){return false;}}
+function setGlassPreference(value){document.documentElement?.classList.toggle('reduce-transparency',value);try{localStorage.setItem('complaints-reduce-transparency',String(value));}catch(_){} }
+function enhanceGlassDetail(){
+ const article=$('.complaint-page');if(!article)return;
+ const c=db.complaints.find(x=>x.id===currentId);if(!c)return;
+ // Preserve navigation and actual server actions; tabs show one group at a time.
+ const header=$('.complaint-page-header',article);
+ if(header&&typeof document.createElement==='function'){
+  const steps=document.createElement('nav');steps.className='glass-steps';steps.setAttribute('aria-label','مراحل المعالجة');
+  const allowed={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:[],cancelled:[]};
+  steps.innerHTML=['new','in_progress','awaiting_reply','awaiting_approval','closed'].map(status=>'<button type="button" data-action="glass-step" data-status="'+status+'" '+(c.status===status?'aria-current="step"':'')+' '+(!(allowed[c.status]||[]).includes(status)?'disabled':'')+'>'+esc(statusLabel(status))+'</button>').join('');
+  header.after?.(steps);
+ }
+ const title=$('.complaint-page-heading h1',article);if(title)title.style.viewTransitionName='complaint-title';
+ $$('.row-check').forEach(check=>{if(check.dataset.id===currentId)check.closest?.('tr')?.classList.add('is-selected');});
+ const reason=$('#statusReason');if(reason)reason.closest?.('.form-field')?.classList.add('reason-sheet');
+ if($('#detailStatus'))updateReasonSheet();
+}
+function updateReasonSheet(){const reason=$('#statusReason');if(reason){const required=['closed','cancelled'].includes($('#detailStatus')?.value);reason.required=required;const wrap=reason.closest?.('.form-field');if(wrap)wrap.hidden=!required;}}
+function commandPalette(){
+ if(!authenticatedUser)return;
+ modal('لوحة الأوامر','ابحث في الشكاوى والصفحات والإجراءات — Ctrl+K','<input class="field" id="commandQuery" aria-label="بحث الأوامر" autocomplete="off" placeholder="رقم الشكوى أو الاسم أو الإجراء"><div class="command-list" id="commandResults"></div>');
+ renderCommands('');$('#commandQuery')?.focus();
+}
+function renderCommands(query){
+ const q=norm(query),mount=$('#commandResults');if(!mount)return;
+ const highlight=text=>{const raw=String(text||''),at=raw.toLowerCase().indexOf(query.toLowerCase());return query&&at>=0?esc(raw.slice(0,at))+'<mark>'+esc(raw.slice(at,at+query.length))+'</mark>'+esc(raw.slice(at+query.length)):esc(raw);};
+ const records=q?db.complaints.filter(c=>norm([c.id,c.summary,c.name,c.phone].join(' ')).includes(q)).slice(0,15):recentComplaintIds.map(id=>db.complaints.find(c=>c.id===id)).filter(Boolean).slice(0,6);
+ const pages=[['dashboard','لوحة العمل'],['complaints','سجل الشكاوى'],['referrals','الإحالات'],['replies','الردود'],['reports','التقارير'],['settings','الإعدادات']].filter(x=>!q||norm(x[1]).includes(q));
+ mount.innerHTML='<h3>'+(q?'الشكاوى':'آخر ما فتحته')+'</h3>'+records.map(c=>'<button data-action="detail" data-id="'+esc(c.id)+'">'+highlight(c.summary)+'<small dir="ltr">'+highlight(c.id)+'</small></button>').join('')+'<h3>الصفحات</h3>'+pages.map(([id,label])=>'<button data-action="command-page" data-page-target="'+id+'">'+highlight(label)+'</button>').join('')+(authenticatedUser.role!=='reviewer'&&(!q||norm('تسجيل شكوى جديدة').includes(q))?'<h3>إجراءات</h3><button data-action="new-complaint">＋ تسجيل شكوى جديدة</button>':'')+(!records.length&&!pages.length?'<p>لا توجد نتائج مطابقة.</p>':'');
+}
+function exportSelected(){const rows=db.complaints.filter(c=>selectedIds.has(c.id));if(!rows.length)return;const safe=v=>'"'+String(v??'').replace(/^[=+@-]/,"'$&").replaceAll('"','""')+'"';const csv='\ufeff'+[['الرقم','الموضوع','المحافظة','المسؤول','الحالة'],...rows.map(c=>[c.id,c.summary,c.province,c.owner,statusLabel(c.status)])].map(row=>row.map(safe).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='selected-complaints.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+
+function availableOwners(){return [...new Set([authenticatedUser?.username,...managedUsers.filter(u=>u.active&&u.role!=='reviewer').map(u=>u.username),...db.complaints.map(c=>c.owner)].filter(Boolean))];}

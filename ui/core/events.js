@@ -1,5 +1,15 @@
 document.addEventListener('click',e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return;}const goto=e.target.closest('[data-goto]');if(goto){go(goto.dataset.goto);return;}const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=el.dataset.id;
 switch(a){
+case 'conflict-save':resolveStateConflict();break;
+case 'conflict-remote':resolveStateConflict(true);break;
+case 'print-approved-reply':printApprovedReply(id);break;
+case 'verify-document-dialog':verifyDocumentDialog();break;
+case 'verify-document':verifyDocument();break;
+case 'attachment-preview':{const url='/api/attachments/'+encodeURIComponent(el.dataset.file);modal('معاينة المرفق',esc(el.dataset.name),'<img class="attachment-viewer" src="'+url+'" alt="'+esc(el.dataset.name)+'">','<a class="btn" href="'+url+'" target="_blank" rel="noopener">فتح المرفق</a>');break;}
+case 'command-open':commandPalette();break;
+case 'command-page':closeModal();go(el.dataset.pageTarget);break;
+case 'export-selected':exportSelected();break;
+case 'glass-step':{const select=$('#detailStatus');if(select){select.value=el.dataset.status;updateReasonSheet();if(['closed','cancelled'].includes(select.value))$('#statusReason')?.focus();else changeStatus(currentId);}break;}
 case 'database-backup':{
   (async()=>{try{
     el.disabled=true;el.textContent='جارٍ تجهيز النسخة…';
@@ -26,10 +36,10 @@ case 'close-modal':closeModal();break;
 case 'backdrop-close':if(e.target===el)closeModal();break;
 case 'new-complaint':newComplaint();break;
 case 'save-complaint':createComplaint();break;
-case 'detail':detailModal(id);break;
+case 'detail':if(el.style)el.style.viewTransitionName='complaint-title';recentComplaintIds=[id,...recentComplaintIds.filter(x=>x!==id)].slice(0,8);detailModal(id);break;
 case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailReturnPage);break;
 case 'detail-section':{
- const target=document.getElementById(el.dataset.target);
+ const target=document.getElementById(el.dataset.target);$$('.complaint-page-tabs button').forEach(b=>b.setAttribute('aria-pressed',String(b===el)));$$('.complaint-page .detail-section').forEach(section=>{section.hidden=section.id!==el.dataset.target;});
  if(target){target.scrollIntoView({behavior:'smooth',block:'start'});target.setAttribute('tabindex','-1');target.focus({preventScroll:true});}
  break;
 }
@@ -104,11 +114,11 @@ case 'export-csv':exportCsv();break;
 case 'print-report':window.print();break;
 }
 });
-document.addEventListener('input',e=>{if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
+document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
 );
 document.addEventListener('compositionend',e=>{if(e.target.id==='complaintSearch')e.target.dispatchEvent(new Event('input',{bubbles:true}));});
-document.addEventListener('change',e=>{if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?['مها العلي','خالد منصور','سليم عمر','وسيم صالح',authenticatedUser?.username].filter(Boolean).filter((n,i,a)=>a.indexOf(n)===i):['urgent','high','normal']).map(x=>'<option value="'+x+'">'+(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
-document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root.dataset.open&&e.key==='Tab'){const dlg=$('.modal',root);const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!dlg.contains(document.activeElement))){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dlg.contains(document.activeElement))){e.preventDefault();first.focus();}}if(e.key==='Escape'&&root.dataset.open){closeModal();return;}if(authenticatedUser&&e.ctrlKey&&e.key.toLowerCase()==='k'){e.preventDefault();go('complaints');setTimeout(()=>$('#complaintSearch')?.focus(),0);}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
+document.addEventListener('change',e=>{if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?availableOwners():['urgent','high','normal']).map(x=>'<option value="'+esc(x)+'">'+esc(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
+document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root.dataset.open&&e.key==='Tab'){const dlg=$('.modal',root);const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!dlg.contains(document.activeElement))){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dlg.contains(document.activeElement))){e.preventDefault();first.focus();}}if(e.key==='Escape'&&root.dataset.open){closeModal();return;}if(authenticatedUser&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();}if(e.target.closest?.('#commandResults')&&['ArrowDown','ArrowUp'].includes(e.key)){const buttons=$$('#commandResults button'),index=buttons.indexOf(e.target);e.preventDefault();buttons[(index+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}if(e.target.id==='commandQuery'&&e.key==='ArrowDown'){e.preventDefault();$('#commandResults button')?.focus();}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
 $('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
 $('#syncImportFile')?.addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
@@ -125,6 +135,7 @@ $('#syncImportFile')?.addEventListener('change',async event=>{
   }catch(error){toast(error.message,'error');}finally{event.target.value='';}
 });
 $('#logoutButton')?.addEventListener('click',logout);
+setGlassPreference(glassPreference());
 updateSignedInUi();
 render();
 api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();}).catch(()=>{showLogin();});

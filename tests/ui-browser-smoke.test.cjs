@@ -93,10 +93,11 @@ function createFakeBrowser(role='admin',initialReply=null){
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
  const ui=createFakeBrowser();
  for(let i=0;i<20;i++)await Promise.resolve();
- assert.match(ui.node('#content').innerHTML,/صباح العمل/);
+ assert.match(ui.node('#content').innerHTML,/مكتب الفرز والمتابعة/);
  ui.click('detail','SY-2026-10001');
  const page=ui.node('#content').innerHTML;
  assert.match(page,/class="complaint-page/);
+ assert.match(page,/triage-split is-open/);
  assert.match(page,/data-complaint-id="SY-2026-10001"/);
  assert.match(page,/id="complaint-summary"/);
  assert.match(page,/id="complaint-actions"/);

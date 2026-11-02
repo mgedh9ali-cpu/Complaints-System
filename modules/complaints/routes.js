@@ -138,7 +138,9 @@ function createComplaintsRouter({
         ok: true,
         complaint: result.complaint,
         revision: result.revision,
-        unchanged: Boolean(result.unchanged)
+        unchanged: Boolean(result.unchanged),
+        undoToken: result.undoToken,
+        undoExpiresAt: result.undoExpiresAt
       });
     }
   );
@@ -209,10 +211,18 @@ function createComplaintsRouter({
         status: result.complaint.status,
         revision: result.revision,
         statusHistory: result.complaint.statusHistory || [],
-        unchanged: Boolean(result.unchanged)
+        unchanged: Boolean(result.unchanged),
+        undoToken: result.undoToken,
+        undoExpiresAt: result.undoExpiresAt
       });
     }
   );
+
+  router.post('/complaints/:id/status/undo',requireAuth,requirePermission('complaints.status'),requireCsrf,(req,res)=>{
+    const result=complaintsService.undoStatus({complaintId:req.params.id,token:req.body?.token,userId:req.user.id,username:req.user.username});
+    if(!result.ok)return res.status(result.status||400).json({error:result.error});
+    res.json({ok:true,revision:result.revision});
+  });
 
   return router;
 }

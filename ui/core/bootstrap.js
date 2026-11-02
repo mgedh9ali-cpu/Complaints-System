@@ -32,7 +32,8 @@ const seed = {
 };
 let db = cleanState(), page='dashboard', searchText='', statusFilter='all', priorityFilter='all', quickView='all', selectedIds=new Set(), currentId=null, toastTimer=null;
 let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), stateLoaded=false;
-let stateRevision=0, stateConflict=false;
+let recentComplaintIds=[],intakeDefaults={};
+let stateRevision=0, stateConflict=false, stateBase=null, conflictDraft=null;
 function cleanState(){const x=structuredClone(seed);x.complaints=[];x.notifications=[];return x;}
 function loadDb(){return cleanState();}
 let csrfTokenCache=null;
@@ -60,9 +61,14 @@ async function api(url,options={}){
     if(response.status===403)csrfTokenCache=null;
     const error=new Error(body.error||'تعذر تنفيذ الطلب.');
     error.status=response.status;
+    if(url==='/api/state'&&method==='PUT'&&Number.isSafeInteger(body.currentRevision)){
+      stateConflict=true;conflictDraft={base:structuredClone(stateBase),local:JSON.parse(options.body)};
+      setTimeout(()=>openStateConflict().catch(ex=>toast(ex.message,'error')),0);
+    }
     throw error;
   }
   if(url==='/api/auth/login'||url==='/api/auth/logout')csrfTokenCache=null;
+  if(url==='/api/state'){if(method==='GET')stateBase=structuredClone(body.state||cleanState());else if(method==='PUT')stateBase=JSON.parse(options.body);}
   return body;
 }
 async function persistUiNow(){
@@ -178,5 +184,5 @@ async function logout(){
   }
   try{await api('/api/auth/logout',{method:'POST',body:'{}'});}
   catch(error){toast('تعذر إنهاء الجلسة: '+error.message,'error');return;}
-  authenticatedUser=null;stateLoaded=false;stateRevision=0;stateConflict=false;db=cleanState();updateSignedInUi();showLogin();
+  authenticatedUser=null;stateLoaded=false;stateRevision=0;stateConflict=false;db=cleanState();stateBase=null;conflictDraft=null;recentComplaintIds=[];intakeDefaults={};managedUsers=[];try{sessionStorage.removeItem(DRAFT_KEY);}catch(_){}updateSignedInUi();showLogin();
 }

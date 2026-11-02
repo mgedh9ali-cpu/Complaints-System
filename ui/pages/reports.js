@@ -23,6 +23,11 @@ function reportsPage(){
   }
   const sortedCategories=[...categories].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ar'));
   const sortedProvinces=[...provinces].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ar'));
+  const eligible=records.filter(c=>!['draft','cancelled'].includes(c.status)&&Number.isFinite(Date.parse(c.due)));
+  const compliant=eligible.filter(c=>c.status==='closed'?Date.parse((c.statusHistory||[]).filter(t=>t.to==='closed').at(-1)?.at||c.updated)<=Date.parse(c.due):Date.now()<=Date.parse(c.due));
+  const compliance=eligible.length?Math.round(compliant.length/eligible.length*100):null;
+  const firstResponses=records.map(c=>{const events=(c.timeline||[]).filter(t=>/توثيق إرسال الرد|إرسال الرد الخارجي|استلام رد الجهة/.test(t.event));const at=Math.min(...events.map(t=>Date.parse(t.at)).filter(Number.isFinite));return (at-Date.parse(c.created))/3600000;}).filter(hours=>Number.isFinite(hours)&&hours>=0);
+  const responseAverage=firstResponses.length?(firstResponses.reduce((a,b)=>a+b,0)/firstResponses.length).toFixed(1):null;
   const closed=records.filter(c=>c.status==='closed');
   const openingCounts=[records.filter(c=>ageDays(c)<7).length,records.filter(c=>ageDays(c)>=7&&ageDays(c)<=30).length,records.filter(c=>ageDays(c)>30).length];
   const peak=Math.max(1,...daily.map(d=>d.count));
@@ -51,6 +56,7 @@ function reportsPage(){
       ['سجلات مغلقة',closed.length],
       ['سجلات متجاوزة للمهلة',lateComplaints().length]
     ].map(([label,count])=>'<div class="mini-card"><small>'+label+'</small><strong>'+count+'</strong></div>').join('')+'</div>'+
+    '<section class="panel"><div class="panel-body"><h2>امتثال المهلة الإجمالي</h2><div class="compliance-ring" style="--value:'+(compliance??0)+'" role="img" aria-label="امتثال المهلة '+(compliance===null?'غير متاح':compliance+' بالمئة')+'"><strong>'+(compliance===null?'—':compliance+'%')+'</strong></div><p>متوسط زمن أول رد مسجل: '+(responseAverage===null?'غير متاح':responseAverage+' ساعة')+'</p><p class="small-copy">الامتثال من المهل وسجل الإغلاق؛ يستخدم آخر تحديث للسجلات القديمة. متوسط الرد يشمل أحداث الإرسال والاستلام المسجلة فقط.</p><div class="report-heat" aria-label="كثافة التسجيل خلال 14 يوماً">'+daily.map(({date,count})=>'<span style="--heat:'+Math.round(count/peak*100)+'" title="'+date.toLocaleDateString('ar-SY')+' · '+count+'" role="img" aria-label="'+date.toLocaleDateString('ar-SY')+'، '+count+' شكوى"></span>').join('')+'</div></div></section>'+
     '<section class="panel report-trend"><div class="panel-header"><div><h2>الشكاوى المسجلة يوميًا</h2><p>آخر 14 يومًا، حسب تاريخ إنشاء السجل</p></div></div><div class="panel-body">'+
       (daily.some(d=>d.count>0)?'<div class="daily-chart" role="list" aria-label="عدد الشكاوى في كل يوم">'+dailyBars+'</div>':
       '<div class="empty-state calm-empty">لم تُسجل شكاوى خلال آخر 14 يومًا.</div>')+

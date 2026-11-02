@@ -12,6 +12,8 @@ const net = require('node:net');
 const { app, BrowserWindow, dialog, shell } = require('electron');
 const { isLocalAppUrl, isPermittedExternalUrl } = require('./navigation');
 
+console.info('[runtime]',{electron:process.versions.electron,chrome:process.versions.chrome});
+
 const PORT = Number(process.env.PORT || 3000);
 const HOST = '127.0.0.1';
 const APP_URL = `http://${HOST}:${PORT}`;
