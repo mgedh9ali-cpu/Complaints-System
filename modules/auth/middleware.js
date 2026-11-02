@@ -7,8 +7,8 @@
 function createAuthMiddleware({ db, audit }) {
   function requireAuth(req, res, next) {
     if (!req.session.user) return res.status(401).json({ error: 'يلزم تسجيل الدخول.' });
-    const user = db.prepare('SELECT id, username, role, active FROM users WHERE id = ?').get(req.session.user.id);
-    if (!user || user.active !== 1) {
+    const user = db.prepare('SELECT id, username, role, active, session_version, (totp_secret IS NOT NULL) AS twoFactorEnabled FROM users WHERE id = ?').get(req.session.user.id);
+    if (!user || user.active !== 1 || (req.session.user.version || 0) !== user.session_version) {
       return req.session.destroy(() => res.status(401).json({ error: 'الحساب غير فعال.' }));
     }
     req.user = user;

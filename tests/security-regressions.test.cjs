@@ -131,9 +131,12 @@ test('live server never serves database or source code without authentication', 
   assert.equal((await fetch(url + '/api/state')).status, 401);
   assert.equal((await fetch(url + '/styles.css')).status, 200);
   assert.equal((await fetch(url + '/')).status, 200);
-  const wireStatus = (target, host) => new Promise((resolve,reject) => {
-    require('node:http').get(url+target,{headers:{Host:host}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject);
+  // Node 24 fetch normalizes Host. Send actual wire headers to exercise DNS rebinding protection.
+  const withHost = host => new Promise((resolve, reject) => {
+    require('node:http').get(url + '/api/health', { headers: { Host: host } }, res => {
+      res.resume(); res.on('end', () => resolve(res.statusCode));
+    }).on('error', reject);
   });
-  assert.equal(await wireStatus('/api/health','evil.example:3000'),421);
-  assert.equal(await wireStatus('/','localhost.evil:3000'),421);
+  assert.equal(await withHost('evil.example:3000'), 421);
+  assert.equal(await withHost('localhost.evil:3000'), 421);
 });

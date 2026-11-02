@@ -1,4 +1,5 @@
-document.addEventListener('click',e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return;}const goto=e.target.closest('[data-goto]');if(goto){go(goto.dataset.goto);return;}const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=el.dataset.id;
+document.addEventListener('click',async e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return;}const goto=e.target.closest('[data-goto]');if(goto){go(goto.dataset.goto);return;}const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=el.dataset.id;
+try {
 switch(a){
 case 'conflict-save':resolveStateConflict();break;
 case 'conflict-remote':resolveStateConflict(true);break;
@@ -24,7 +25,8 @@ case 'database-backup':{
   }catch(error){toast(error.message,'error');}finally{el.disabled=false;el.textContent='نسخ احتياطي';}})();break;}
 case 'sync-export':{
   (async()=>{try{
-    const response=await fetch('/api/sync/export',{credentials:'same-origin'});
+    const password=prompt('عبارة مرور لحماية ملف المزامنة (16 حرفًا على الأقل). شاركها مع المستلم بطريقة منفصلة:');if(password===null)return;
+    const response=await fetch('/api/sync/export',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':await getWriteCsrf()},body:JSON.stringify({password})});
     if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'تعذر التصدير.');}
     const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;link.download='complaints-sync-'+new Date().toISOString().slice(0,10)+'.json';
@@ -36,6 +38,7 @@ case 'close-modal':closeModal();break;
 case 'backdrop-close':if(e.target===el)closeModal();break;
 case 'new-complaint':newComplaint();break;
 case 'save-complaint':createComplaint();break;
+case 'save-incomplete':createComplaint(true);break;
 case 'detail':if(el.style)el.style.viewTransitionName='complaint-title';recentComplaintIds=[id,...recentComplaintIds.filter(x=>x!==id)].slice(0,8);detailModal(id);break;
 case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailReturnPage);break;
 case 'detail-section':{
@@ -61,8 +64,8 @@ case 'save-reply':saveReply(id);break;
 case 'reply-review':replyAction(id,a);break;
 case 'reply-approve':replyAction(id,a);break;
 case 'reply-sent':replyAction(id,a);break;
-case 'read-all':db.notifications.forEach(n=>n.read=true);persist();render();toast('تم تحديد الإشعارات كمقروءة.');break;
-case 'read-notice':{const n=db.notifications.find(n=>String(n.id)===String(id));if(n)n.read=true;persist();render();break;}
+case 'read-all':db.notifications.forEach(n=>n.read=true);await persistUiNow();render();toast('تم تحديد الإشعارات كمقروءة.');break;
+case 'read-notice':{const n=db.notifications.find(n=>String(n.id)===String(id));if(n)n.read=true;await persistUiNow();render();break;}
 case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';searchText='';go('complaints');break;
 case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';searchText='';go('complaints');break;
 case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';quickView='all';render();break;
@@ -75,14 +78,14 @@ case 'bulk-priority':bulkOpen();if($('#bulkType')){$('#bulkType').value='priorit
 case 'clear-selection':selectedIds.clear();render();break;
 case 'select-all':{const checks=$$('.row-check');if(el.checked)checks.forEach(c=>selectedIds.add(c.dataset.id));else selectedIds.clear();render();break;}
 case 'bulk-confirm':{const type=$('#bulkType').value,value=$('#bulkValue').value;modal('تأكيد الإجراء الجماعي','مراجعة أخيرة قبل التطبيق','<div class="risk-note">سيتم تطبيق «'+esc(type==='assign'?'تغيير المسؤول':'تغيير الأولوية')+'» على '+selectedIds.size+' سجلات. هذه العملية لا يمكن التراجع عنها تلقائيًا في النموذج.</div><p style="font-size:12px">القيمة المحددة: <strong>'+esc(value)+'</strong></p>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-apply" data-type="'+type+'" data-value="'+esc(value)+'">تأكيد التطبيق</button>');break;}
-case 'bulk-apply':{const type=el.dataset.type,value=el.dataset.value;if(!confirm('تأكيد نهائي لتطبيق الإجراء على '+selectedIds.size+' سجلات؟'))return;for(const cid of selectedIds){const c=db.complaints.find(x=>x.id===cid);if(!c)continue;if(type==='assign'){c.owner=value;logEvent(c,'إسناد جماعي','تم إسناد السجل إلى '+value+'.');}else{c.priority=value;logEvent(c,'تغيير أولوية جماعي','تم تغيير الأولوية إلى '+priorityLabel(value)+'.');}}selectedIds.clear();persist();closeModal();render();toast('تم تطبيق الإجراء الجماعي.');break;}
+case 'bulk-apply':{const type=el.dataset.type,value=el.dataset.value;if(!confirm('تأكيد نهائي لتطبيق الإجراء على '+selectedIds.size+' سجلات؟'))return;for(const cid of selectedIds){const c=db.complaints.find(x=>x.id===cid);if(!c)continue;if(type==='assign'){c.owner=value;logEvent(c,'إسناد جماعي','تم إسناد السجل إلى '+value+'.');}else{c.priority=value;logEvent(c,'تغيير أولوية جماعي','تم تغيير الأولوية إلى '+priorityLabel(value)+'.');}}selectedIds.clear();await persistUiNow();closeModal();render();toast('تم تطبيق الإجراء الجماعي.');break;}
 case 'add-setting':addSetting(validSettingType(el.dataset.type)?el.dataset.type:'categories');break;
 case 'add-category':addSetting('categories');break;
 case 'add-entity':addSetting('entities');break;
 case 'edit-setting':addSetting(el.dataset.type,el.dataset.value);break;
-case 'delete-setting':deleteSetting(el.dataset.type,el.dataset.value);break;
-case 'clear-setting-type':clearSettingType(el.dataset.type);break;
-case 'restore-settings':restoreDefaultSettings(el.dataset.type||'all');break;
+case 'delete-setting':await deleteSetting(el.dataset.type,el.dataset.value);break;
+case 'clear-setting-type':await clearSettingType(el.dataset.type);break;
+case 'restore-settings':await restoreDefaultSettings(el.dataset.type||'all');break;
 case 'save-setting':{
   const type=el.dataset.type,mode=el.dataset.mode||'create',value=$('#settingValue')?.value.trim(),description=$('#settingDescription')?.value.trim()||'';
   if(!validSettingType(type))return toast('نوع القائمة غير صالح.','error');ensureManagedSettings();if(!value)return toast('أدخل الاسم أولًا.','warn');
@@ -97,11 +100,40 @@ case 'save-setting':{
     else db.settings[type].push(value);
     if(key){if(description)db.settings[key][value]=description;else delete db.settings[key][value];}
   }
-  persist();closeModal();render();toast(mode==='edit'?'تم تعديل الخيار.':'تمت إضافة الخيار إلى القائمة.');break;
+  await persistUiNow();closeModal();render();toast(mode==='edit'?'تم تعديل الخيار.':'تمت إضافة الخيار إلى القائمة.');break;
 }
-case 'archive-setting':archiveSetting(el.dataset.type,el.dataset.value);break;
-case 'save-sla':{const days=Number($('#slaDays').value);if(!Number.isInteger(days)||days<1||days>365)return toast('أدخل مدة بين يوم و365 يومًا.','warn');db.settings.slaDays=days;db.settings.slaApproved=$('#slaApproved').checked;persist();render();toast(db.settings.slaApproved?'تم تفعيل مهلة المتابعة.':'حُفظت المدة دون تفعيل مؤشر التأخير.','warn');break;}
+case 'archive-setting':await archiveSetting(el.dataset.type,el.dataset.value);break;
+case 'save-sla':{const days=Number($('#slaDays').value);if(!Number.isInteger(days)||days<1||days>365)return toast('أدخل مدة بين يوم و365 يومًا.','warn');db.settings.slaDays=days;db.settings.slaApproved=$('#slaApproved').checked;await persistUiNow();render();toast(db.settings.slaApproved?'تم تفعيل مهلة المتابعة.':'حُفظت المدة دون تفعيل مؤشر التأخير.','warn');break;}
+case 'edit-complaint':editComplaintModal(id);break;
+case 'save-complaint-edit':saveComplaintEdit(id);break;
+case 'refresh-maintenance':refreshMaintenanceHealth();break;
+case 'save-reminder-period':saveReminderPeriod();break;
+case 'registry-next':registryPage++;render();break;
+case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
+case 'change-password':passwordChangeModal();break;
+case 'save-password-change':savePasswordChange();break;
+case 'setup-two-factor':twoFactorPasswordModal();break;
+case 'disable-two-factor':twoFactorPasswordModal(true);break;
+case 'start-two-factor':startTwoFactor();break;
+case 'confirm-two-factor':confirmTwoFactor();break;
+case 'confirm-disable-two-factor':disableTwoFactor();break;
+case 'finish-two-factor':closeModal();render();showLogin();break;
+case 'refresh-audit':refreshAudit();break;
+case 'verify-audit':verifyAudit();break;
 case 'refresh-local-users':refreshManagedUsers();break;
+case 'refresh-approvals':refreshApprovals();break;
+case 'request-archive':approvalRequestModal('complaint_archive',id);break;
+case 'submit-approval':submitApproval(el.dataset.kind,id,el.dataset.target,$('#approvalReason')?.value.trim());break;
+case 'approval-decision':approvalDecisionModal(id,el.dataset.decision);break;
+case 'save-approval-decision':saveApprovalDecision(id,el.dataset.decision);break;
+case 'edit-user-permissions':editUserPermissions(id);break;
+case 'save-user-permissions':saveUserPermissions(id);break;
+case 'referral-response':referralResponseModal(id,Number(el.dataset.index));break;
+case 'save-referral-response':saveReferralResponse(id,Number(el.dataset.index));break;
+case 'propose-duplicate':duplicateProposalModal(id);break;
+case 'submit-duplicate':submitApproval('complaint_duplicate',id,$('#duplicateOriginal')?.value,$('#approvalReason')?.value.trim());break;
+case 'toggle-completion-reminder':saveDetailChange(id,c=>{c.completionReminderStopped=!c.completionReminderStopped;},'حُفظ إعداد تذكير الاستكمال.');break;
+case 'save-collaborators':saveDetailChange(id,c=>{c.coAssistants=[...($('#coAssistants')?.selectedOptions||[])].map(o=>o.value);},'حُفظ المساعدون المشاركون.');break;
 case 'create-local-user':{
   (async()=>{const username=$('#newLocalUsername')?.value.trim(),password=$('#newLocalPassword')?.value,role=$('#newLocalRole')?.value;
     if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');
@@ -113,8 +145,9 @@ case 'toggle-local-user':{
 case 'export-csv':exportCsv();break;
 case 'print-report':window.print();break;
 }
+}catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');try{const stored=await api('/api/state');db=stored.state;stateRevision=stored.revision;render();}catch(_){}}
 });
-document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
+document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
 );
 document.addEventListener('compositionend',e=>{if(e.target.id==='complaintSearch')e.target.dispatchEvent(new Event('input',{bubbles:true}));});
 document.addEventListener('change',e=>{if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?availableOwners():['urgent','high','normal']).map(x=>'<option value="'+esc(x)+'">'+esc(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
@@ -123,10 +156,14 @@ $('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar').classLis
 $('#syncImportFile')?.addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
   try{
-    if(file.size>950*1024)throw new Error('حجم الملف يتجاوز الحد المسموح.');
+    if(file.size>96*1024*1024)throw new Error('حجم الملف يتجاوز الحد المسموح.');
     const payload=JSON.parse(await file.text());
-    if(!confirm('سيستبدل الاستيراد بيانات الشكاوى الحالية. هل أخذت نسخة احتياطية وتريد المتابعة؟'))return;
-    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify(payload)});
+    const password=prompt('عبارة مرور ملف المزامنة:');if(password===null)return;
+    const preview=await api('/api/sync/preview',{method:'POST',body:JSON.stringify({package:payload,password})});
+    if(!confirm('معاينة الاستيراد: '+preview.incomingCount+' سجل وارد، '+preview.added+' جديد، '+preview.removed+' غير موجود في الملف، '+preview.conflicts.length+' تعارض. ستُنشأ نسخة مشفرة قبل الاستبدال. متابعة؟'))return;
+    const forceReplace=preview.conflicts.length>0;
+    if(forceReplace&&!confirm('تأكيد إضافي: ستُستبدل السجلات المتعارضة بالنسخة الواردة. هل تعتمد ذلك؟'))return;
+    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:payload,password,forceReplace})});
     const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;render();
     toast(result.updateStaged
       ? 'استوردت البيانات؛ حزمة البرنامج الموقعة محفوظة للمراجعة ولم تُطبّق تلقائيًا.'
@@ -134,9 +171,14 @@ $('#syncImportFile')?.addEventListener('change',async event=>{
       'warn');
   }catch(error){toast(error.message,'error');}finally{event.target.value='';}
 });
+window.addEventListener('complaints:request-archive',event=>{if(event.detail?.id)approvalRequestModal('complaint_archive',event.detail.id);});
+window.addEventListener('complaints:refresh',async()=>{try{const stored=await api('/api/state');db=stored.state;stateRevision=stored.revision;stateConflict=false;render();}catch(error){toast(error.message,'error');}});
 $('#logoutButton')?.addEventListener('click',logout);
 setGlassPreference(glassPreference());
+window.addEventListener('complaints:request-attachment-deletion',event=>{
+ const detail=event.detail||{};if(detail.complaintId&&detail.storedName)approvalRequestModal('attachment_delete',detail.complaintId,detail.storedName);
+});
 updateSignedInUi();
 render();
-api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();}).catch(()=>{showLogin();});
+api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();refreshAssignees();refreshApprovals();}).catch(()=>{showLogin();});
 })();

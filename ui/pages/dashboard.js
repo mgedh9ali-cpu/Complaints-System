@@ -12,8 +12,8 @@ function slaIndicator(c){
 }
 function dashboard(){
   const late=lateComplaints(),approvals=pendingApprovals();
-  const open=db.complaints.filter(c=>!['closed','cancelled'].includes(c.status));
-  const missing=open.filter(c=>!c.province||!c.summary||!c.owner);
+  const open=db.complaints.filter(c=>!c.archivedAt&&!['closed','cancelled'].includes(c.status));
+  const missing=open.filter(isIncomplete);
   const pendingReferrals=referralList().filter(r=>!r.response);
   const priority=[...open].sort((a,b)=>{
     const score=c=>(isLate(c)?-1e14:0)+(c.priority==='urgent'?-1e12:c.priority==='high'?-1e11:0);
@@ -32,13 +32,13 @@ function dashboard(){
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
   return heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',authenticatedUser?.role==='reviewer'?'':btn('＋ تسجيل شكوى جديدة','new-complaint','btn-primary'))+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
-      [['جميع السجلات',db.complaints.length],['مفتوحة',open.length],['متأخرة',late.length],['بانتظار الاعتماد',approvals.length]].map(([label,n],i)=>
+      [['جميع السجلات',db.complaints.filter(c=>!c.archivedAt).length],['مفتوحة',open.length],['متأخرة',late.length],['بانتظار الاعتماد',approvals.length]].map(([label,n],i)=>
         '<div class="stat-item '+(i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+
     '<div class="work-grid"><section class="panel"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة، دون إظهار طوابير فارغة</p></div><button class="text-link" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list">'+taskHtml+'</div></div></section>'+
-    '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+db.complaints.length+' سجلًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
-      '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===3?'amber-fill':'')+'" style="width:'+(db.complaints.length?Math.max(n?5:0,n/db.complaints.length*100):0)+'%"></span></div></div>'
+    '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+db.complaints.filter(c=>!c.archivedAt).length+' سجلًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
+      '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===3?'amber-fill':'')+'" style="width:'+(db.complaints.filter(c=>!c.archivedAt).length?Math.max(n?5:0,n/db.complaints.filter(c=>!c.archivedAt).length*100):0)+'%"></span></div></div>'
     ).join('')+'</div></div></section></div>'+
     '<section class="panel table-panel"><div class="panel-header"><div><h2>أولوية المتابعة</h2><p>المتأخرة أولًا، ثم العاجلة، ثم الأقرب إلى انتهاء المهلة</p></div><button class="text-link" data-goto="complaints">عرض جميع الشكاوى</button></div>'+
       complaintTable(priority,{emptyMessage:'لا توجد شكاوى مفتوحة تحتاج إلى متابعة.'})+

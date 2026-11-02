@@ -6,7 +6,7 @@ const Database = require('better-sqlite3');
 const { hashAuditEvent } = require('../lib/audit-integrity');
 const { lockDownDir, lockDownFile, lockDownDataTree } = require('../lib/data-protection');
 
-function openDatabase(databasePath) {
+function openDatabase(databasePath, { storageKey } = {}) {
   const abs = path.resolve(databasePath);
   const dataRoot = path.dirname(abs);
   lockDownDir(dataRoot);
@@ -102,6 +102,9 @@ function openDatabase(databasePath) {
     migrate();
   }
 
+  try {
+    require('../lib/storage-migration').protectDatabase(db, abs, storageKey);
+  } catch (error) { db.close(); throw error; }
   lockDownFile(abs);
   lockDownDataTree(dataRoot);
   return db;

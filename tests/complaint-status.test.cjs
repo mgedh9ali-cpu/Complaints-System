@@ -123,27 +123,12 @@ test(
         },
       });
 
-    const complaint = {
-      id: "SY-2026-TEST001",
-      status: "new",
-      summary: "اختبار آلي",
-      province: "دمشق",
-      category: "استفسار عام",
-      timeline: [],
-      statusHistory: [],
-    };
-    const initialState = {
-      complaints: [complaint],
-      notifications: [],
-      templates: [],
-      settings: { categories: [], entities: [], provinces: [] },
-    };
-    const saveInitial = await request("/api/state", {
-      method: "PUT",
-      headers: { "X-State-Revision": "0" },
-      body: JSON.stringify(initialState),
+    const created = await request('/api/complaints', {
+      method: 'POST', body: JSON.stringify({summary:'اختبار آلي', province:'دمشق', category:'استفسار عام'})
     });
-    assert.equal(saveInitial.status, 200);
+    assert.equal(created.status, 201);
+    const complaint = (await created.json()).complaint;
+    const initialState = (await (await request('/api/state')).json()).state;
 
     const illegalState = structuredClone(initialState);
     illegalState.complaints[0].status = "closed";

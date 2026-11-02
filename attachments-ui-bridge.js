@@ -7,7 +7,7 @@
   "use strict";
 
   const $ = (s, r = document) => r.querySelector(s);
-  let pendingFiles = null;
+
 
   function notify(msg, kind) {
     if (typeof toast === "function") toast(msg, kind);
@@ -39,7 +39,7 @@
 
     const input = $("#cAttachments");
     input?.addEventListener("change", () => {
-      pendingFiles = input.files && input.files.length ? input.files : null;
+      const pendingFiles = input.files && input.files.length ? input.files : null;
       const box = $("#cAttachPreview");
       if (!box) return;
       if (!pendingFiles) {
@@ -62,8 +62,7 @@
   // A DOM scan can select an older complaint and attach sensitive documents to it.
   window.addEventListener('complaints:created', async (event) => {
     const id = event.detail && event.detail.id;
-    const files = pendingFiles ? Array.from(pendingFiles) : [];
-    pendingFiles = null;
+    const files = Array.isArray(event.detail?.files) ? event.detail.files : [];
     if (!id || !files.length || !window.__uploadAttachments) return;
     try {
       const saved = await window.__uploadAttachments(id, files);
@@ -89,7 +88,7 @@
     const firstSection = document.querySelector('#complaint-attachments') || document.querySelector('#complaint-summary') || sections[0];
     if (!firstSection) return;
 
-    const idEl = document.querySelector(".complaint-page .ticket-id") || document.querySelector(".ticket-id");
+    const idEl = document.querySelector(".complaint-page .ticket-id") || document.querySelector(".detail-pane .ticket-id");
     const complaintId = idEl ? idEl.textContent.trim() : null;
 
     const box = document.createElement("div");
@@ -130,7 +129,7 @@
         return;
       }
       const id = (
-        document.querySelector(".complaint-page .ticket-id") || document.querySelector(".ticket-id") || {}
+        document.querySelector(".complaint-page .ticket-id") || document.querySelector(".detail-pane .ticket-id") || {}
       ).textContent?.trim();
       if (!id || !window.__uploadAttachments) {
         notify("تعذر تحديد رقم الشكوى.", "error");
@@ -170,9 +169,12 @@
           const name = a.originalName || a.storedName;
           const size = a.size ? Math.round(a.size / 1024) + " ك.ب" : "";
           if (/^image\/(jpeg|png|webp|gif)$/.test(a.mime||'')) return `<button type="button" class="attach-chip" data-action="attachment-preview" data-file="${escapeHtml(a.storedName)}" data-name="${escapeHtml(name)}"><img class="attach-thumbnail" loading="lazy" src="/api/attachments/${encodeURIComponent(a.storedName)}" alt="">${escapeHtml(name)}</button>`;
-          return `<a class="attach-chip link" href="/api/attachments/${encodeURIComponent(a.storedName)}" target="_blank" rel="noopener">${escapeHtml(name)} <small>${size}</small></a>`;
+          return `<a class="attach-chip link" href="/api/attachments/${encodeURIComponent(a.storedName)}" target="_blank" rel="noopener">${escapeHtml(name)} <small>${size}</small></a> <button class="btn btn-sm" type="button" data-request-delete="${escapeHtml(a.storedName)}">طلب حذف</button>`;
         })
         .join("");
+      list.querySelectorAll("[data-request-delete]").forEach(button => button.addEventListener("click", () => {
+        window.dispatchEvent(new CustomEvent("complaints:request-attachment-deletion", { detail: { complaintId, storedName: button.dataset.requestDelete } }));
+      }));
     } catch {
       list.innerHTML =
         '<span class="small-copy">تعذر تحميل قائمة المرفقات.</span>';

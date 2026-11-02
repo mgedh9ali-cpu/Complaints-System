@@ -172,7 +172,8 @@
       wrap.innerHTML =
         '<button type="button" class="btn btn-sm" data-act="edit">تعديل</button>' +
         '<button type="button" class="btn btn-sm" data-act="draft">مسودة</button>' +
-        '<button type="button" class="btn btn-sm btn-danger" data-act="delete">حذف</button>';
+        '<button type="button" class="btn btn-sm btn-danger" data-act="delete">طلب أرشفة</button>';
+      wrap.querySelectorAll('[data-act]').forEach(button=>{const action=button.dataset.act==='delete'?'approvals.request':button.dataset.act==='draft'?'complaints.status':'complaints.update';button.hidden=!window.__complaintsCan?.(action);});
       cell.append(wrap);
       wrap.addEventListener('click', async (ev) => {
         const btn = ev.target.closest('[data-act]');
@@ -180,19 +181,16 @@
         const act = btn.getAttribute('data-act');
         try {
           if (act === 'delete') {
-            if (!confirm('حذف الشكوى ' + id + '؟')) return;
-            await window.__complaintActions.remove(id);
-            notify('تم الحذف');
-            row.remove();
+            window.dispatchEvent(new CustomEvent('complaints:request-archive',{detail:{id}}));
           } else if (act === 'draft') {
             await window.__complaintActions.setStatus(id, 'draft');
-            notify('أُعيدت كمسودة');
+            window.dispatchEvent(new Event('complaints:refresh'));notify('أُعيدت كمسودة');
           } else if (act === 'edit') {
             const summary = prompt('تعديل الملخص (اتركه فارغاً للإلغاء):');
             if (summary == null) return;
             if (!summary.trim()) return;
             await window.__complaintActions.update(id, { summary: summary.trim() });
-            notify('تم التعديل');
+            window.dispatchEvent(new Event('complaints:refresh'));notify('تم التعديل');
           }
         } catch (err) {
           notify(err.message || 'فشلت العملية', 'error');

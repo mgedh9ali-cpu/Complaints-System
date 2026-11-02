@@ -17,7 +17,8 @@ test('Windows portable package excludes local secrets, citizen data and temporar
 });
 test('release package keeps the modular UI and configuration initializer',()=>{
  const pkg=require('../package.json');
- assert.ok(pkg.build.files.includes('**/*'),'regular source files must be collected');
+ assert.ok(!pkg.build.files.includes('**/*'),'packaging must use an explicit source allowlist');
+ for(const include of ['ui/**/*.js','scripts/**/*.js','modules/**/*.js','assets/NotoSansArabic.ttf'])assert.ok(pkg.build.files.includes(include),include);
  assert.ok(!pkg.build.files.some(x=>/^!ui\//.test(x)));
  assert.ok(!pkg.build.files.some(x=>/^!scripts\//.test(x)));
  const init=require('node:fs').readFileSync(path.join(root,'desktop','main.js'),'utf8');
