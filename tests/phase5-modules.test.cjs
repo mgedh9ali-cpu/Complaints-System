@@ -21,7 +21,7 @@ test('phase5 modules exist and are wired', () => {
   assert.ok(server.includes('createHealthRouter') || server.includes('healthService'));
   const envSource = fs.readFileSync(path.join(root, 'config/env.js'), 'utf8');
   const packageVersion = require('../package.json').version;
-  assert.match(packageVersion, /^\d+\.\d+\.\d+$/, 'package version must be semantic');
+  assert.match(packageVersion, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, 'package version must be semantic');
   assert.ok(envSource.includes("require('../package.json')"), 'server version must come from package.json');
   assert.ok(server.includes('version: env.version'), 'server should log the configured version');
 });

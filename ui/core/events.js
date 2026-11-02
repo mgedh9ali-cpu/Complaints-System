@@ -26,6 +26,7 @@ case 'close-modal':closeModal();break;
 case 'backdrop-close':if(e.target===el)closeModal();break;
 case 'new-complaint':newComplaint();break;
 case 'save-complaint':createComplaint();break;
+case 'save-incomplete':createComplaint(true);break;
 case 'detail':detailModal(id);break;
 case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailReturnPage);break;
 case 'detail-section':{
@@ -91,7 +92,36 @@ case 'save-setting':{
 }
 case 'archive-setting':archiveSetting(el.dataset.type,el.dataset.value);break;
 case 'save-sla':{const days=Number($('#slaDays').value);if(!Number.isInteger(days)||days<1||days>365)return toast('أدخل مدة بين يوم و365 يومًا.','warn');db.settings.slaDays=days;db.settings.slaApproved=$('#slaApproved').checked;persist();render();toast(db.settings.slaApproved?'تم تفعيل مهلة المتابعة.':'حُفظت المدة دون تفعيل مؤشر التأخير.','warn');break;}
+case 'edit-complaint':editComplaintModal(id);break;
+case 'save-complaint-edit':saveComplaintEdit(id);break;
+case 'refresh-maintenance':refreshMaintenanceHealth();break;
+case 'save-reminder-period':saveReminderPeriod();break;
+case 'registry-next':registryPage++;render();break;
+case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
+case 'change-password':passwordChangeModal();break;
+case 'save-password-change':savePasswordChange();break;
+case 'setup-two-factor':twoFactorPasswordModal();break;
+case 'disable-two-factor':twoFactorPasswordModal(true);break;
+case 'start-two-factor':startTwoFactor();break;
+case 'confirm-two-factor':confirmTwoFactor();break;
+case 'confirm-disable-two-factor':disableTwoFactor();break;
+case 'finish-two-factor':closeModal();render();showLogin();break;
+case 'refresh-audit':refreshAudit();break;
+case 'verify-audit':verifyAudit();break;
 case 'refresh-local-users':refreshManagedUsers();break;
+case 'refresh-approvals':refreshApprovals();break;
+case 'request-archive':approvalRequestModal('complaint_archive',id);break;
+case 'submit-approval':submitApproval(el.dataset.kind,id,el.dataset.target,$('#approvalReason')?.value.trim());break;
+case 'approval-decision':approvalDecisionModal(id,el.dataset.decision);break;
+case 'save-approval-decision':saveApprovalDecision(id,el.dataset.decision);break;
+case 'edit-user-permissions':editUserPermissions(id);break;
+case 'save-user-permissions':saveUserPermissions(id);break;
+case 'referral-response':referralResponseModal(id,Number(el.dataset.index));break;
+case 'save-referral-response':saveReferralResponse(id,Number(el.dataset.index));break;
+case 'propose-duplicate':duplicateProposalModal(id);break;
+case 'submit-duplicate':submitApproval('complaint_duplicate',id,$('#duplicateOriginal')?.value,$('#approvalReason')?.value.trim());break;
+case 'toggle-completion-reminder':saveDetailChange(id,c=>{c.completionReminderStopped=!c.completionReminderStopped;},'حُفظ إعداد تذكير الاستكمال.');break;
+case 'save-collaborators':saveDetailChange(id,c=>{c.coAssistants=[...($('#coAssistants')?.selectedOptions||[])].map(o=>o.value);},'حُفظ المساعدون المشاركون.');break;
 case 'create-local-user':{
   (async()=>{const username=$('#newLocalUsername')?.value.trim(),password=$('#newLocalPassword')?.value,role=$('#newLocalRole')?.value;
     if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');
@@ -104,19 +134,22 @@ case 'export-csv':exportCsv();break;
 case 'print-report':window.print();break;
 }
 });
-document.addEventListener('input',e=>{if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
+document.addEventListener('input',e=>{if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
 );
 document.addEventListener('compositionend',e=>{if(e.target.id==='complaintSearch')e.target.dispatchEvent(new Event('input',{bubbles:true}));});
-document.addEventListener('change',e=>{if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?['مها العلي','خالد منصور','سليم عمر','وسيم صالح',authenticatedUser?.username].filter(Boolean).filter((n,i,a)=>a.indexOf(n)===i):['urgent','high','normal']).map(x=>'<option value="'+x+'">'+(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
+document.addEventListener('change',e=>{if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?[...assignees.map(u=>u.username),authenticatedUser?.username].filter(Boolean).filter((n,i,a)=>a.indexOf(n)===i):['urgent','high','normal']).map(x=>'<option value="'+x+'">'+(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
 document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root.dataset.open&&e.key==='Tab'){const dlg=$('.modal',root);const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!dlg.contains(document.activeElement))){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dlg.contains(document.activeElement))){e.preventDefault();first.focus();}}if(e.key==='Escape'&&root.dataset.open){closeModal();return;}if(authenticatedUser&&e.ctrlKey&&e.key.toLowerCase()==='k'){e.preventDefault();go('complaints');setTimeout(()=>$('#complaintSearch')?.focus(),0);}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
 $('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
 $('#syncImportFile')?.addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
   try{
-    if(file.size>950*1024)throw new Error('حجم الملف يتجاوز الحد المسموح.');
+    if(file.size>12*1024*1024)throw new Error('حجم الملف يتجاوز الحد المسموح.');
     const payload=JSON.parse(await file.text());
-    if(!confirm('سيستبدل الاستيراد بيانات الشكاوى الحالية. هل أخذت نسخة احتياطية وتريد المتابعة؟'))return;
-    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify(payload)});
+    const preview=await api('/api/sync/preview',{method:'POST',body:JSON.stringify(payload)});
+    if(!confirm('معاينة الاستيراد: '+preview.incomingCount+' سجل وارد، '+preview.added+' جديد، '+preview.removed+' غير موجود في الملف، '+preview.conflicts.length+' تعارض. ستُنشأ نسخة مشفرة قبل الاستبدال. متابعة؟'))return;
+    const forceReplace=preview.conflicts.length>0;
+    if(forceReplace&&!confirm('تأكيد إضافي: ستُستبدل السجلات المتعارضة بالنسخة الواردة. هل تعتمد ذلك؟'))return;
+    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:payload,forceReplace})});
     const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;render();
     toast(result.updateStaged
       ? 'استوردت البيانات؛ حزمة البرنامج الموقعة محفوظة للمراجعة ولم تُطبّق تلقائيًا.'
@@ -125,7 +158,10 @@ $('#syncImportFile')?.addEventListener('change',async event=>{
   }catch(error){toast(error.message,'error');}finally{event.target.value='';}
 });
 $('#logoutButton')?.addEventListener('click',logout);
+window.addEventListener('complaints:request-attachment-deletion',event=>{
+ const detail=event.detail||{};if(detail.complaintId&&detail.storedName)approvalRequestModal('attachment_delete',detail.complaintId,detail.storedName);
+});
 updateSignedInUi();
 render();
-api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();}).catch(()=>{showLogin();});
+api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();refreshAssignees();refreshApprovals();}).catch(()=>{showLogin();});
 })();

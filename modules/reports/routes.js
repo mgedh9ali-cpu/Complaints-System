@@ -15,7 +15,7 @@ function readFilters(query) {
 
 function createReportsRouter({ reportsService, middleware, audit, rolesService }) {
   const router = express.Router();
-  const { requireAuth } = middleware;
+  const { requireAuth, requireCsrf } = middleware;
   if (!rolesService || typeof rolesService.requirePermission !== 'function') {
     throw new Error('Role enforcement service is required for protected routes.');
   }
@@ -44,6 +44,16 @@ function createReportsRouter({ reportsService, middleware, audit, rolesService }
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Export-Count', String(count));
     res.send(buffer);
+  });
+
+  router.post('/export/csv/selection', requireAuth, requirePermission('export.csv'), requireCsrf, (req, res) => {
+    const ids = req.body?.ids;
+    if (!Array.isArray(ids) || ids.length > 50000 || ids.some(id => typeof id !== 'string' || id.length > 100)) {
+      return res.status(400).json({ error: 'قائمة السجلات غير صالحة.' });
+    }
+    const result = reportsService.buildCsv({ ids });
+    audit(req.user.id,'csv_export','export',result.filename,{ count: result.count, selectedIds: ids });
+    res.type('text/csv; charset=utf-8').attachment(result.filename).send(result.buffer);
   });
 
   router.get('/export/xlsx', requireAuth, requirePermission('export.xlsx'), async (req, res, next) => {
@@ -95,12 +105,13 @@ function createReportsRouter({ reportsService, middleware, audit, rolesService }
     }
   });
 
-  router.get('/export/pdf/:id', requireAuth, requirePermission('export.xlsx'), (req, res) => {
+  router.get('/export/pdf/:id', requireAuth, requirePermission('export.xlsx'), async (req, res, next) => {
+    try {
     const id = String(req.params.id || '').trim();
     if (!id || id.length > 100) {
       return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
     }
-    const result = reportsService.buildSinglePdf(id, req.user.username);
+    const result = await reportsService.buildSinglePdf(id, req.user.username);
     if (!result) return res.status(404).json({ error: 'الشكوى غير موجودة.' });
     if (typeof audit === 'function') {
       audit(req.user.id, 'pdf_export_single', 'export', id, { filename: result.filename });
@@ -112,6 +123,7 @@ function createReportsRouter({ reportsService, middleware, audit, rolesService }
     );
     res.setHeader('Cache-Control', 'no-store');
     res.send(result.buffer);
+    } catch (error) { next(error); }
   });
 
   return router;

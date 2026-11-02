@@ -25,7 +25,7 @@ test('redesigned navigation preserves all working destinations and real action h
 test('registration control is role-bound and not shown before login',()=>{
  const app=require('../lib/ui-bundle').assembleUiBundle(),html=read('index.html');
  assert.match(html, /id="headerCreateButton"[^>]*hidden/);
- assert.match(app, /headerCreate\.hidden=!authenticatedUser\|\|!\['admin','staff'\]\.includes\(role\)/);
+ assert.match(app, /headerCreate\.hidden=!uiCan\('complaints.create'\)/);
  assert.match(app, /aria-current/);
 });
 test('new visual system is served locally and respects right-to-left and reduced motion',()=>{

@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { validComplaintDraft } = require('../../lib/validation');
+const { validComplaintDraft, validStatePayload } = require('../../lib/validation');
 
 function createComplaintsRouter({
   complaintsService,
@@ -19,6 +19,14 @@ function createComplaintsRouter({
     throw new Error('Role enforcement service is required for protected routes.');
   }
   const requirePermission = (action) => rolesService.requirePermission(action);
+  router.use('/complaints/:id', requireAuth, (req, res, next) => {
+    const revision = req.get('X-State-Revision');
+    if (revision !== undefined && (!/^(0|[1-9]\d*)$/.test(revision) ||
+        Number(revision) !== complaintsService.readState().revision)) {
+      return res.status(409).json({ error: 'تغيرت البيانات؛ أعد تحميل الشكوى قبل تنفيذ الإجراء.' });
+    }
+    next();
+  });
 
   router.get('/state', requireAuth, requirePermission('complaints.read'), (req, res) => {
     const { state, updatedAt, revision } = complaintsService.readState();
@@ -45,7 +53,7 @@ function createComplaintsRouter({
         typeof state !== 'object' ||
         Array.isArray(state) ||
         !Array.isArray(state.complaints) ||
-        state.complaints.length > 5000 ||
+        state.complaints.length > 50000 ||
         !Array.isArray(state.notifications) ||
         !Array.isArray(state.templates) ||
         !state.settings ||
@@ -53,6 +61,19 @@ function createComplaintsRouter({
         Array.isArray(state.settings)
       ) {
         return res.status(400).json({ error: 'بنية البيانات المرسلة غير صالحة.' });
+      }
+      if (complaintsService.readState().revision === 0 && state.complaints.length) {
+        return res.status(409).json({ error: 'إنشاء الأرقام عبر حفظ الحالة غير مسموح؛ استخدم تسجيل الشكاوى أو الاستيراد المعتمد.' });
+      }
+      const storedState = complaintsService.readState().state;
+      if (!rolesService.can(req.user, 'settings.manage') && JSON.stringify(storedState.settings) !== JSON.stringify(state.settings)) {
+        return res.status(403).json({ error: 'إعدادات النظام لا يغيّرها إلا المدير.' });
+      }
+      const priorityValues = Array.isArray(state.settings.priorities) ? state.settings.priorities.map(p => p?.value) : [];
+      if (!validStatePayload(state) || state.complaints.some(c => !validComplaint(c, {
+        allowedPriorities: [...priorityValues, storedState.complaints.find(old => old.id === c.id)?.priority]
+      }))) {
+        return res.status(400).json({ error: 'توجد حقول شكوى غير صالحة.' });
       }
       const result = complaintsService.saveState({
         state,
@@ -87,7 +108,8 @@ function createComplaintsRouter({
     (req, res) => {
       const body = req.body || {};
       const asDraft = body.asDraft === true || body.status === 'draft';
-      if (asDraft ? !validComplaintDraft(body) : !validComplaint(body)) {
+      const allowedPriorities = complaintsService.readState().state.settings.priorities?.map(p => p.value) || [];
+      if (asDraft ? !validComplaintDraft(body) : !validComplaint(body, { allowedPriorities })) {
         return res.status(400).json({ error: 'بيانات الشكوى أو المسودة غير صالحة.' });
       }
       const prepared = asDraft ? {
@@ -122,7 +144,8 @@ function createComplaintsRouter({
       const current = complaintsService.readState().state.complaints.find(
         item => item && item.id === req.params.id
       );
-      if (current && !validComplaint({ ...current, ...incoming })) {
+      const allowedPriorities = complaintsService.readState().state.settings.priorities?.map(p => p.value) || [];
+      if (current && !validComplaint({ ...current, ...incoming }, { allowedPriorities: [...allowedPriorities, current.priority] })) {
         return res.status(400).json({ error: 'حقول تعديل الشكوى غير صالحة.' });
       }
       const result = complaintsService.updateComplaint({
@@ -187,6 +210,18 @@ function createComplaintsRouter({
     }
   );
 
+  router.patch('/complaints/:id/referrals/:index/response', requireAuth, requirePermission('complaints.update'), requireCsrf, (req, res) => {
+    const result = complaintsService.recordReferralResponse({ complaintId: req.params.id, index: Number(req.params.index),
+      response: req.body?.response, userId: req.user.id, username: req.user.username });
+    res.status(result.ok ? 200 : result.status || 400).json(result);
+  });
+
+  router.patch('/complaints/:id/reply', requireAuth, requireCsrf, (req, res) => {
+    const result = complaintsService.actOnReply({ complaintId: req.params.id, action: req.body?.action,
+      text: req.body?.text, userId: req.user.id, username: req.user.username });
+    res.status(result.ok ? 200 : result.status || 400).json(result);
+  });
+
   router.patch(
     '/complaints/:id/status',
     requireAuth,
@@ -198,7 +233,8 @@ function createComplaintsRouter({
         toStatus: req.body?.status,
         reason: req.body?.reason,
         userId: req.user.id,
-        username: req.user.username
+        username: req.user.username,
+        closureException: req.body?.closureException === true
       });
       if (!result.ok) {
         return res.status(result.status || 400).json({ error: result.error || 'تعذر تغيير الحالة.' });

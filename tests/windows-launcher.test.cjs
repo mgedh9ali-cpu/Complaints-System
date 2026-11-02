@@ -26,7 +26,7 @@ test("Windows launcher checks Node.js and initializes configuration locally on f
   assert.match(source, /where node/i, "launcher must check for Node.js");
   assert.match(
     source,
-    /20\.6/i,
+    /22\.0/i,
     "launcher must enforce the minimum Node.js version",
   );
   assert.match(

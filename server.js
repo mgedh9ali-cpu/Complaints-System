@@ -37,6 +37,9 @@ const { createHealthService } = require('./modules/health/service');
 const { createHealthRouter } = require('./modules/health/routes');
 const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
+const { createApprovalsService } = require('./modules/approvals/service');
+const { createApprovalsRouter } = require('./modules/approvals/routes');
+const { createBackupScheduler } = require('./modules/backup/scheduler');
 
 const env = loadEnv();
 const app = express();
@@ -45,10 +48,13 @@ const dataRoot = path.dirname(path.resolve(env.databasePath));
 lockDownDataTree(dataRoot);
 lockDownDir(env.sessionsDir);
 
-const db = openDatabase(env.databasePath);
+process.env.DATA_KEY = env.storageKey;
+const db = openDatabase(env.databasePath, { storageKey: env.storageKey });
+require('./lib/attachments').protectLegacyAttachments();
 lockDownFile(env.databasePath);
 
 const auditService = createAuditService({ db, logger, databasePath: env.databasePath });
+if (!auditService.verifyChain().ok) throw new Error('Audit integrity verification failed; restore a verified complete backup.');
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
   auditService.record(actorUserId, action, targetType, targetId, details);
 audit.syncHead = () => auditService.syncHead();
@@ -64,20 +70,24 @@ authService.ensureBootstrapAdmin(env.adminUsername, env.adminPassword);
 const middleware = createAuthMiddleware({ db, audit });
 const { ensureCsrfToken } = middleware;
 
-const rolesService = createRolesService();
-const complaintsService = createComplaintsService({ db, audit, logger });
+const rolesService = createRolesService({ db });
+const complaintsService = createComplaintsService({ db, audit, logger, rolesService });
 const dashboardService = createDashboardService({ complaintsService });
-const attachmentsService = createAttachmentsService();
+const attachmentsService = createAttachmentsService({ db });
+const approvalsService = createApprovalsService({ db, audit, complaintsService, attachmentsService });
 const reportsService = createReportsService({ complaintsService });
 const settingsService = createSettingsService({ complaintsService });
 const backupService = createBackupService({
   databasePath: env.databasePath,
   sessionSecret: env.backupSecret || env.sessionSecret
 });
+const backupScheduler = createBackupScheduler({ backupService,
+  directory: path.resolve(process.env.BACKUP_DIR || path.join(dataRoot, 'backups')), logger });
 const healthService = createHealthService({
   db,
   databasePath: env.databasePath,
   version: env.version
+  , backupScheduler
 });
 
 fs.mkdirSync(path.dirname(env.instanceIdPath), { recursive: true });
@@ -95,13 +105,14 @@ const syncService = createSyncService({
   auditService,
   db,
   sourceInstanceId,
+  dataDir: dataRoot,
   rootDir: path.resolve('.')
 });
 
 app.disable('x-powered-by');
 app.use(requireLocalHost(env.port));
 app.use(createHelmetMiddleware());
-app.use(express.json({ limit: '1mb', strict: true }));
+app.use(express.json({ limit: '16mb', strict: true }));
 app.use(
   createSessionMiddleware({
     sessionSecret: env.sessionSecret,
@@ -131,8 +142,13 @@ app.use((req, res, next) => {
 });
 
 app.use('/api', createHealthRouter({ healthService, middleware }));
-app.use('/api', createAuthRouter({ authService, middleware, audit }));
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+app.use('/api', createAuthRouter({ authService, middleware, audit, rolesService }));
 app.use('/api', createRolesRouter({ rolesService, middleware }));
+app.use('/api', createApprovalsRouter({ approvalsService, middleware, rolesService }));
 app.use(
   '/api',
   createComplaintsRouter({
@@ -162,7 +178,7 @@ app.use('/api', createReportsRouter({ reportsService, middleware, audit, rolesSe
 app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger, rolesService }));
 app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesService }));
 app.use('/api', createAuditRouter({ auditService, middleware, rolesService }));
-app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService }));
+app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService, backupService, complaintsService }));
 
 const {assembleUiBundle}=require('./lib/ui-bundle');
 app.get('/app.bundle.js',(req,res)=>{
@@ -183,6 +199,8 @@ const PUBLIC_FILES = {
   '/styles.css': 'styles.css',
   '/ui-enhancements.css': 'ui-enhancements.css',
   '/redesign.css': 'redesign.css',
+  '/fallback-font.css': 'fallback-font.css',
+  '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/ui-enhancements.js': 'ui-enhancements.js',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',
   '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',
@@ -204,10 +222,18 @@ app.get(Object.keys(PUBLIC_FILES), (req, res, next) => {
 app.use((err, req, res, next) => {
   logger.requestError(err, req);
   if (res.headersSent) return next(err);
-  res.status(500).json({ error: 'خطأ داخلي في الخادم.' });
+  const status = err.type === 'entity.too.large' ? 413 :
+    err.type === 'entity.parse.failed' || err.name === 'MulterError' ? 400 : 500;
+  res.status(status).json({ error: status === 413 ? 'حجم الطلب أكبر من المسموح.' :
+    status === 400 ? 'بيانات الطلب أو المرفقات غير صالحة.' : 'خطأ داخلي في الخادم.' });
 });
 
 app.listen(env.port, env.host, () => {
+  backupScheduler.start();
+  const reminders = setInterval(() => {
+    try { complaintsService.runReminders(); } catch (error) { logger.error('Reminder processing failed', { message: error.message }); }
+  }, 60000);
+  reminders.unref();
   logger.info('server listening', { host: env.host, port: env.port, version: env.version });
   console.log(
     `Complaints system listening on http://${env.host}:${env.port} (v${env.version})`

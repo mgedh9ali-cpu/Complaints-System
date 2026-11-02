@@ -2,6 +2,7 @@
 
 const path = require('node:path');
 const { version } = require('../package.json');
+const { isValidUsername, isValidPassword } = require('../lib/validation');
 
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
@@ -28,13 +29,17 @@ function loadEnv() {
   const dataDir = path.dirname(databasePath);
 
   if (process.env.BACKUP_SECRET) requiredEnv('BACKUP_SECRET', 32);
+  const adminUsername = requiredEnv('ADMIN_USERNAME', 3).trim();
+  const adminPassword = requiredEnv('ADMIN_PASSWORD', 12);
+  if (!isValidUsername(adminUsername) || !isValidPassword(adminPassword)) throw new Error('Invalid ADMIN_USERNAME or ADMIN_PASSWORD.');
 
   return {
     host,
     port,
     sessionSecret: requiredEnv('SESSION_SECRET', 32),
-    adminUsername: requiredEnv('ADMIN_USERNAME', 3),
-    adminPassword: requiredEnv('ADMIN_PASSWORD', 12),
+    storageKey: process.env.DATA_KEY ? requiredEnv('DATA_KEY', 32) : requiredEnv('SESSION_SECRET', 32),
+    adminUsername,
+    adminPassword,
     databasePath,
     sessionsDir: path.resolve(process.env.SESSIONS_DIR || path.join(dataDir, 'sessions')),
     instanceIdPath: path.resolve(

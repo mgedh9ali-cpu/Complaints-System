@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - name: Setup build Python
@@ -38,6 +38,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify installed dependency tree
+        run: npm ls --all
 
       - name: Build SQLite for Node.js tests
         run: npm rebuild better-sqlite3
@@ -49,7 +52,7 @@ jobs:
         run: npm test
 
       - name: Security audit
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=low
 
       - name: Install Electron runtime
         run: npm rebuild electron
@@ -59,6 +62,13 @@ jobs:
 
       - name: Build portable EXE
         run: npm run dist:win
+
+      - name: Smoke test the built portable application
+        shell: pwsh
+        run: |
+          $portable = (Get-ChildItem dist-desktop/*-portable.exe | Select-Object -First 1).FullName
+          if (-not $portable) { throw "Portable executable is missing" }
+          node scripts/smoke-packaged.js "$portable"
 
       - name: Upload portable application
         uses: actions/upload-artifact@v4

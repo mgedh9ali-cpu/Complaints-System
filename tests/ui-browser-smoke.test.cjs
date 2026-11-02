@@ -93,7 +93,7 @@ function createFakeBrowser(role='admin',initialReply=null){
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
  const ui=createFakeBrowser();
  for(let i=0;i<20;i++)await Promise.resolve();
- assert.match(ui.node('#content').innerHTML,/صباح العمل/);
+ assert.match(ui.node('#content').innerHTML,/مكتب الفرز والمتابعة/);
  ui.click('detail','SY-2026-10001');
  const page=ui.node('#content').innerHTML;
  assert.match(page,/class="complaint-page/);
@@ -187,7 +187,7 @@ test('manager approval is confirmed by the server with CSRF and different author
  ui.click('detail','SY-2026-10001');
  ui.click('reply-approve','SY-2026-10001');
  for(let i=0;i<40;i++)await Promise.resolve();
- const request=ui.calls.find(x=>x.url==='/api/state'&&x.method==='PUT');
+ const request=ui.calls.find(x=>x.url.endsWith('/reply')&&x.method==='PATCH');
  assert.ok(request,'approval must be committed by API, not just local state');
  assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
  assert.match(ui.node('#content').innerHTML,/معتمد/);
@@ -200,7 +200,7 @@ test('author or non-manager cannot approve a reply',async()=>{
   ui.click('detail','SY-2026-10001');
   ui.click('reply-approve','SY-2026-10001');
   for(let i=0;i<20;i++)await Promise.resolve();
-  assert.equal(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length,0,role+' must be denied');
+  assert.equal(ui.calls.filter(x=>x.url.endsWith('/reply')&&x.method==='PATCH').length,0,role+' must be denied');
  }
 });
 

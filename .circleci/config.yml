@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   test:
     docker:
-      - image: cimg/node:20.19.5
+      - image: cimg/node:24.22.1
     resource_class: medium
     steps:
       - checkout
@@ -19,6 +19,9 @@ jobs:
           name: Deterministic Node.js dependencies (no Electron postinstall)
           command: npm ci --ignore-scripts --no-audit --no-fund
       - run:
+          name: Verify installed dependency tree
+          command: npm ls --all
+      - run:
           name: Build SQLite native dependency for Node.js
           command: npm rebuild better-sqlite3 --build-from-source
       - run:
@@ -33,6 +36,9 @@ jobs:
             mkdir -p /tmp/complaints-ci
             set -o pipefail
             npm test 2>&1 | tee /tmp/complaints-ci/test.log
+      - run:
+          name: Audit every dependency finding
+          command: npm audit --audit-level=low
       - store_artifacts:
           path: /tmp/complaints-ci
           destination: diagnostic-logs

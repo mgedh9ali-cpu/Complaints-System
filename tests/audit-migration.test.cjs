@@ -102,7 +102,7 @@ test(
       if (child.exitCode === null) {
         child.kill("SIGTERM");
         await new Promise((resolve) => {
-          const timer = setTimeout(resolve, 2000);
+          const timer = setTimeout(() => { child.kill("SIGKILL"); }, 2000);
           child.once("exit", () => {
             clearTimeout(timer);
             resolve();
@@ -235,8 +235,9 @@ test(
       created_at, previous_hash, event_hash FROM audit_events ORDER BY rowid ASC`,
         )
         .all();
-      assert.equal(rows.length, initialEventCount + 3,
-        'creating a reviewer, creating a complaint, and changing its status must record exactly three events');
+      assert.equal(rows.length, initialEventCount + 5,
+        'two successful logins, user creation, complaint creation and status change are audited once each');
+      assert.equal(rows.filter(row=>row.action==='login_succeeded').length,2);
       assert.ok(rows.some(row => row.action === 'user_created'));
       assert.ok(rows.some(row => row.action === 'complaint_created'));
       assert.equal(verifyAuditRows(rows).valid, true);

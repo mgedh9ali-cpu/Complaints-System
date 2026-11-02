@@ -108,7 +108,8 @@ function waitForServer(timeoutMs = 60000) {
 
 function bootServerInProcess(paths, root) {
   if (serverBooted) return;
-  process.chdir(root);
+  // ASAR is a virtual filesystem; cwd must remain a real directory.
+  process.chdir(root.endsWith('.asar') ? path.dirname(root) : root);
   loadEnvFile(paths.envPath);
   // Always force data paths into userData (never store DB inside the portable exe)
   process.env.HOST = HOST;
@@ -116,6 +117,7 @@ function bootServerInProcess(paths, root) {
   process.env.DATABASE_PATH = paths.databasePath;
   process.env.INSTANCE_ID_PATH = paths.instanceIdPath;
   process.env.SESSIONS_DIR = paths.sessionsDir;
+  process.env.UPDATE_PUBLIC_KEY_PATH = path.resolve(paths.base, process.env.UPDATE_PUBLIC_KEY_PATH || './data/trusted-update-public.pem');
   process.env.ELECTRON_RUN = '1';
   process.env.COOKIE_SECURE = process.env.COOKIE_SECURE || 'false';
 
@@ -175,6 +177,7 @@ function createWindow() {
   }
 }
 
+require('./smoke-profile').configureSmokeProfile(app);
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();

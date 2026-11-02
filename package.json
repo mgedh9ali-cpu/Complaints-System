@@ -1,37 +1,41 @@
 {
   "name": "complaints-local-system",
-  "version": "0.7.8",
+  "version": "1.0.0-rc.1",
   "private": true,
   "description": "Local-first Arabic complaints system for private office use",
   "main": "desktop/main.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
     "start:desktop": "electron .",
-    "test": "node --test",
-    "check": "node --check server.js && node --check lib/local-origin.js && node --check lib/full-backup.js && node --check scripts/extract-complete-backup.js && node --check desktop/navigation.js && node --check sw-register.js && node --check sw.js && node --check app.js && node --check lib/ui-bundle.js && node scripts/check-ui-bundle.js && node --check ui-enhancements.js && node --check desktop/main.js && node --check config/env.js && node --check config/db.js && node --check config/session.js && node --check config/security.js && node --check lib/logger.js && node --check lib/validation.js && node --check lib/data-protection.js && node --check lib/file-magic.js && node --check lib/session-revoke.js && node --check lib/attachments.js && node --check lib/audit-integrity.js && node --check lib/offline-sync.js && node --check lib/simple-pdf.js && node --check modules/complaints/service.js && node --check modules/complaints/routes.js && node --check modules/auth/service.js && node --check modules/auth/routes.js && node --check modules/auth/middleware.js && node --check modules/roles/service.js && node --check modules/attachments/routes.js && node --check modules/reports/service.js && node --check modules/reports/routes.js && node --check modules/backup/service.js && node --check modules/audit/service.js && node --check modules/sync/service.js && node --check modules/sync/routes.js && node --check modules/health/service.js",
+    "test": "node --test --test-concurrency=4",
+    "check": "node scripts/check-source.js",
     "postinstall": "electron-builder install-app-deps",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js",
     "dist:win": "electron-builder --win portable --x64"
   },
   "engines": {
-    "node": ">=20.6"
+    "node": ">=22"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^13.0.3",
     "call-bind-apply-helpers": "^1.0.2",
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
     "helmet": "^8.1.0",
-    "multer": "^1.4.5-lts.1",
-    "session-file-store": "^1.5.0"
+    "multer": "^2.5.0",
+    "pdfkit": "^0.20.2",
+    "session-file-store": "^1.5.0",
+    "glob": "file:vendor/glob-compat",
+    "minimatch": "file:vendor/minimatch-compat",
+    "rimraf": "file:vendor/rimraf-compat"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0"
   },
   "build": {
     "appId": "local.complaints.system",
@@ -39,14 +43,31 @@
     "directories": {
       "output": "dist-desktop"
     },
-    "asar": false,
+    "asar": true,
     "asarUnpack": [
       "**/*.node",
       "**/better-sqlite3/**/*"
     ],
     "npmRebuild": true,
     "files": [
-      "**/*",
+      "server.js",
+      "package.json",
+      "index.html",
+      "app.js",
+      "attachments-ui-bridge.js",
+      "ui-enhancements.js",
+      "sw.js",
+      "sw-register.js",
+      "manifest.json",
+      "*.css",
+      "ui/**/*.js",
+      "config/**/*.js",
+      "lib/**/*.js",
+      "modules/**/*.js",
+      "scripts/**/*.js",
+      "desktop/**/*.js",
+      "assets/NotoSansArabic.ttf",
+      "assets/NotoSansArabic-OFL.txt",
       "!tests/**/*",
       "!.github/**/*",
       "!fonts/**/*",
@@ -72,7 +93,10 @@
       "!.circleci/**/*",
       "!docs/**/*",
       "!*.zip",
-      "!*.bak"
+      "!*.bak",
+      "!**/storage-key",
+      "!retired-attachments/**/*",
+      "vendor/**/*"
     ],
     "win": {
       "target": [
@@ -83,11 +107,23 @@
           ]
         }
       ],
-      "artifactName": "complaints-system-${version}-portable.${ext}"
+      "artifactName": "complaints-system-${version}-portable.${ext}",
+      "icon": "build/icon.ico"
     },
     "portable": {
       "artifactName": "complaints-system-${version}-portable.exe"
-    },
-    "includeSubNodeModules": true
+    }
+  },
+  "overrides": {
+    "uuid": "^11.1.1",
+    "glob": "$glob",
+    "minimatch": "$minimatch",
+    "rimraf": "$rimraf",
+    "global-agent": "4.1.6",
+    "fast-csv": "5.0.7",
+    "unzipper": "0.12.5"
+  },
+  "author": {
+    "name": "mgedh9ali-cpu"
   }
 }

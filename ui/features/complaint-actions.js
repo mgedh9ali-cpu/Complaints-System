@@ -9,13 +9,14 @@ async function changeStatus(id){
     in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],
     awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],
     awaiting_approval:['in_progress','closed','cancelled'],
-    closed:[],cancelled:[]
+    closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]
   };
   if(!(allowed[c.status]||[]).includes(next))return toast('انتقال الحالة غير مسموح.','error');
-  if(['closed','cancelled'].includes(next)&&reason.length<3)
+  if((['closed','cancelled'].includes(next)||['closed','cancelled'].includes(c.status))&&reason.length<3)
     return toast('يلزم توثيق سبب واضح للإغلاق أو الإلغاء.','error');
-  if(!authenticatedUser||authenticatedUser.role==='reviewer')
+  if(!uiCan('complaints.status'))
     return toast('ليس لديك صلاحية تغيير الحالة.','error');
+  if(next==='cancelled'&&((c.referrals||[]).length||['approved','sent'].includes(c.reply?.status))){await submitApproval('complaint_cancel',id,id,reason);return;}
   const button=$('[data-action="change-status"]');
   if(button)button.disabled=true;
   try{
@@ -30,7 +31,7 @@ async function changeStatus(id){
       stateRevision=saved.revision;
     }
     await api('/api/complaints/'+encodeURIComponent(id)+'/status',{
-      method:'PATCH',body:JSON.stringify({status:next,reason})
+      method:'PATCH',body:JSON.stringify({status:next,reason,closureException:Boolean($('#closureException')?.checked)})
     });
     const authoritative=await api('/api/state');
     db=authoritative.state||cleanState();
@@ -46,7 +47,7 @@ async function changeStatus(id){
 async function saveDetailChange(id,change,success){
  const complaint=db.complaints.find(x=>x?.id===id);
  if(!complaint)return toast('لا توجد شكوى بهذا الرقم.','error');
- if(!authenticatedUser||!['admin','staff'].includes(authenticatedUser.role))
+ if(!uiCan('complaints.update'))
   return toast('لا تملك صلاحية تعديل هذه الشكوى.','error');
  if(['closed','cancelled'].includes(complaint.status))
   return toast('لا يجوز تعديل شكوى مغلقة أو ملغاة.','error');
@@ -83,7 +84,7 @@ async function changePriority(id){
 }
 function addNote(id){
  if(!db.complaints.some(x=>x?.id===id))return;
- if(!authenticatedUser||!['admin','staff'].includes(authenticatedUser.role))
+ if(!uiCan('complaints.update'))
   return toast('لا تملك صلاحية إضافة ملاحظة.','error');
  modal('إضافة ملاحظة داخلية','هذه الملاحظة للفريق فقط',
  '<form id="noteForm"><div class="form-field"><label for="noteText">الملاحظة</label><textarea class="textarea-field" id="noteText" required maxlength="4000" placeholder="اكتب ملاحظة داخلية للفريق"></textarea></div></form>',
@@ -122,7 +123,7 @@ async function saveReferral(id){
       method:'POST',
       body:JSON.stringify({
         entity,
-        due:new Date(dueValue+'T23:59:00').toISOString(),
+        due:dueValue,
         note
       })
     });

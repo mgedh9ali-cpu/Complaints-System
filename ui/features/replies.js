@@ -3,15 +3,15 @@ async function saveReply(id){
  const c=db.complaints.find(x=>x.id===id);
  const text=$('#replyText')?.value.trim();
  if(!c||!text)return toast('اكتب نص الرد.','warn');
- if(!authenticatedUser||authenticatedUser.role==='reviewer')return toast('لا تملك صلاحية تحرير الرد.','error');
+ if(!uiCan('replies.draft'))return toast('لا تملك صلاحية تحرير الرد.','error');
  if(['approved','sent'].includes(c.reply?.status))return toast('لا يمكن تعديل رد معتمد أو مرسل.','error');
  const original=structuredClone(db);
  const button=$('[data-action="save-reply"]');
  if(button)button.disabled=true;
  try{
-  c.reply={status:'draft',author:authenticatedUser.username,text};
-  logEvent(c,'حفظ مسودة رد','تم حفظ مسودة رد خارجي.');
-  await persistUiNow();
+  await flushUiBeforeAction();
+  await api('/api/complaints/'+encodeURIComponent(id)+'/reply',{method:'PATCH',body:JSON.stringify({action:'draft',text})});
+  await reloadStoredState();
   detailModal(id);toast('تم حفظ المسودة في قاعدة البيانات.');
  }catch(error){
   db=original;
@@ -22,12 +22,12 @@ async function saveReply(id){
 async function replyAction(id,action){
  const c=db.complaints.find(x=>x.id===id);
  if(!c?.reply||!authenticatedUser)return;
- if(authenticatedUser.role==='reviewer')return toast('ليس لديك صلاحية تغيير مرحلة الرد.','error');
+ if(!uiCan(action==='reply-approve'?'replies.approve':action==='reply-sent'?'replies.send':'replies.draft'))return toast('ليس لديك صلاحية تغيير مرحلة الرد.','error');
  const status=c.reply.status;
  const author=c.reply.author;
  if(action==='reply-review'&&status!=='draft')return toast('المسودة غير جاهزة للمراجعة.','error');
  if(action==='reply-approve'){
-  if(authenticatedUser.role!=='admin')return toast('الاعتماد يتطلب حساب المدير.','error');
+  if(!uiCan('replies.approve'))return toast('الاعتماد يتطلب صلاحية مستقلة.','error');
   if(author===authenticatedUser.username)return toast('لا يمكن لمعد الرد اعتماده.','error');
   if(!['review','approval'].includes(status))return toast('لا يمكن اعتماد الرد في مرحلته الحالية.','error');
  }
@@ -37,6 +37,7 @@ async function replyAction(id,action){
  const button=$('[data-action="'+action+'"]');
  if(button)button.disabled=true;
  try{
+  await flushUiBeforeAction();
   if(action==='reply-review'){
    c.reply.status='review';
    logEvent(c,'إرسال الرد للمراجعة','أُرسلت المسودة إلى مرحلة المراجعة.');
@@ -46,7 +47,8 @@ async function replyAction(id,action){
   }else{
    c.reply.status='sent';logEvent(c,'توثيق إرسال الرد','تم توثيق إرسال الرد.');
   }
-  await persistUiNow();
+  await api('/api/complaints/'+encodeURIComponent(id)+'/reply',{method:'PATCH',body:JSON.stringify({action:({'reply-review':'review','reply-approve':'approve','reply-sent':'sent'})[action]})});
+  await reloadStoredState();
   detailModal(id);toast('تم حفظ مرحلة الرد في قاعدة البيانات.');
  }catch(error){
   db=original;
@@ -57,4 +59,4 @@ async function replyAction(id,action){
 }
 function newReply(){const rows=db.complaints.filter(c=>!c.reply);if(!rows.length)return toast('كل السجلات لديها رد مرتبط.','warn');modal('إنشاء رد','اختر السجل المراد إعداد رد له','<div class="form-field"><label for="replyComplaint">الشكوى</label><select class="select-field" id="replyComplaint">'+rows.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.id+' · '+c.summary)+'</option>').join('')+'</select></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="reply-next">متابعة</button>');}
 function newReferralGlobal(){const rows=db.complaints.filter(c=>c.status!=='closed'&&c.status!=='cancelled');modal('إحالة جديدة','اختر الشكوى لبدء تسجيل الإحالة','<div class="form-field"><label for="refComplaint">الشكوى</label><select class="select-field" id="refComplaint">'+rows.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.id+' · '+c.summary)+'</option>').join('')+'</select></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="referral-next">متابعة</button>');}
-function bulkOpen(){if(!selectedIds.size)return toast('حدد سجلًا واحدًا على الأقل من الجدول.','warn');ensureManagedSettings();modal('إجراءات جماعية','ستُطبق العملية على '+selectedIds.size+' سجلات','<div class="form-field"><label for="bulkType">نوع الإجراء</label><select class="select-field" id="bulkType"><option value="assign">تغيير المسؤول</option><option value="priority">تغيير الأولوية</option></select></div><div class="form-field" style="margin-top:12px"><label for="bulkValue">القيمة</label><select class="select-field" id="bulkValue"><option value="مها العلي">مها العلي</option><option value="خالد منصور">خالد منصور</option><option value="سليم عمر">سليم عمر</option><option value="وسيم صالح">وسيم صالح</option>'+db.settings.priorities.map(p=>'<option value="'+esc(p.value)+'">'+esc(p.label)+'</option>').join('')+'</select></div><div class="risk-note" style="margin-top:12px">سيظهر تأكيد إضافي قبل تطبيق الإجراء على السجلات المحددة.</div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-confirm">متابعة للتأكيد</button>');}
+function bulkOpen(){if(!selectedIds.size)return toast('حدد سجلًا واحدًا على الأقل من الجدول.','warn');ensureManagedSettings();modal('إجراءات جماعية','ستُطبق العملية على '+selectedIds.size+' سجلات','<div class="form-field"><label for="bulkType">نوع الإجراء</label><select class="select-field" id="bulkType"><option value="assign">تغيير المسؤول</option><option value="priority">تغيير الأولوية</option></select></div><div class="form-field" style="margin-top:12px"><label for="bulkValue">القيمة</label><select class="select-field" id="bulkValue">'+assignees.map(u=>'<option value="'+esc(u.username)+'">'+esc(u.username)+'</option>').join('')+''+db.settings.priorities.map(p=>'<option value="'+esc(p.value)+'">'+esc(p.label)+'</option>').join('')+'</select></div><div class="risk-note" style="margin-top:12px">سيظهر تأكيد إضافي قبل تطبيق الإجراء على السجلات المحددة.</div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-confirm">متابعة للتأكيد</button>');}

@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { storageFor } = require('../../lib/storage-codec');
 const {
   createSyncPackage,
   validateSyncPackage,
@@ -52,8 +53,23 @@ function createSyncService({
   auditService,
   db,
   sourceInstanceId,
-  rootDir
+  rootDir,
+  dataDir
 }) {
+  const storage = storageFor(db);
+  function previewPackage(payload) {
+    const validation = validateSyncPackage(payload);
+    if (!validation.ok) return validation;
+    if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > 12 * 1024 * 1024) return { ok: false, error: 'ملف المزامنة أكبر من الحد المسموح.' };
+    if (payload.sourceInstanceId === sourceInstanceId) return { ok: false, error: 'هذا الملف صادر من النسخة الحالية.' };
+    const { state, revision } = complaintsService.readState();
+    const localIds = new Set(state.complaints.map(c => c.id));
+    const incomingIds = new Set(payload.state.complaints.map(c => c.id));
+    return { ok: true, revision, incomingCount: incomingIds.size, localCount: localIds.size,
+      added: [...incomingIds].filter(id => !localIds.has(id)).length,
+      removed: [...localIds].filter(id => !incomingIds.has(id)).length,
+      conflicts: findComplaintConflicts(state.complaints, payload.state.complaints) };
+  }
   function exportPackage() {
     const { state } = complaintsService.readState();
     const safeState = state && typeof state === 'object'
@@ -72,7 +88,7 @@ function createSyncService({
     if (!validation.ok) {
       return { ok: false, status: 400, error: validation.error };
     }
-    if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > 950 * 1024) {
+    if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > 12 * 1024 * 1024) {
       return { ok: false, status: 413, error: 'ملف المزامنة أكبر من الحد المسموح.' };
     }
     if (payload.sourceInstanceId === sourceInstanceId) {
@@ -120,7 +136,7 @@ function createSyncService({
     if (updateTrusted) {
       pendingDir = stageProgramUpdate(
         payload,
-        path.resolve(process.env.DATA_DIR || './data'),
+        path.resolve(dataDir || process.env.DATA_DIR || './data'),
         trustedPublicKey
       );
     }
@@ -137,7 +153,7 @@ function createSyncService({
            updated_by=excluded.updated_by,
            updated_at=excluded.updated_at,
            revision=excluded.revision`
-      ).run(JSON.stringify(payload.state), userId, now, nextRevision);
+      ).run(storage.encodeJson(payload.state, 'app-state'), userId, now, nextRevision);
       // app_state and complaints must represent the same imported snapshot.
       // Replacing app_state alone leaves stale complaints visible to API lookups.
       db.prepare('DELETE FROM complaints').run();
@@ -154,7 +170,7 @@ function createSyncService({
         seen.add(complaint.id);
         insertComplaint.run(
           complaint.id,
-          JSON.stringify(complaint),
+          storage.encodeJson(complaint, 'complaint:' + complaint.id),
           userId,
           typeof complaint.created === 'string' ? complaint.created : now,
           typeof complaint.updated === 'string' ? complaint.updated : now
@@ -184,7 +200,7 @@ function createSyncService({
     };
   }
 
-  return { exportPackage, importPackage, findComplaintConflicts };
+  return { exportPackage, importPackage, previewPackage, findComplaintConflicts };
 }
 
 module.exports = { createSyncService, findComplaintConflicts };

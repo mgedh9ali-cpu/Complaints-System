@@ -1,6 +1,11 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { createRolesService } = require('../roles/service');
+const { storageFor } = require('../../lib/storage-codec');
+const { diffComplaints: defaultDiff } = require('../../lib/complaint-state-diff');
+const { DEFAULT_SETTINGS, DEFAULT_TEMPLATES } = require('../../lib/default-settings');
+const {dayBoundary}=require('../../lib/work-time');
 
 const ALLOWED_TRANSITIONS = Object.freeze({
   draft: ['new', 'cancelled'],
@@ -35,18 +40,24 @@ const EDITABLE_FIELDS = [
   'summary',
   'details',
   'confidentiality'
+  , 'source'
 ];
 
 function emptyState() {
   return {
     complaints: [],
     notifications: [],
-    templates: [],
-    settings: {}
+    templates: structuredClone(DEFAULT_TEMPLATES),
+    settings: structuredClone(DEFAULT_SETTINGS)
   };
 }
 
-function createComplaintsService({ db, audit, logger }) {
+function createComplaintsService({ db, audit, logger, rolesService }) {
+  const roles = rolesService || createRolesService({ db });
+  const storage = storageFor(db);
+  db.exec('CREATE TABLE IF NOT EXISTS complaint_counters(year INTEGER PRIMARY KEY, value INTEGER NOT NULL)');
+  const actorFor = userId => db.prepare('SELECT id, username, role FROM users WHERE id=?').get(userId);
+  function syncAudit() { if (!db.inTransaction && typeof audit?.syncHead === 'function') audit.syncHead(); }
   function readState() {
     const row = db
       .prepare('SELECT state_json, updated_at, revision FROM app_state WHERE id = 1')
@@ -56,11 +67,11 @@ function createComplaintsService({ db, audit, logger }) {
     }
     let state;
     try {
-      state = JSON.parse(row.state_json);
-    } catch {
-      state = emptyState();
+      state = storage.decodeJson(row.state_json, 'app-state');
+    } catch (error) {
+      throw new Error('تعذر قراءة الحالة المحفوظة؛ أُوقف الحفظ لحماية البيانات.', { cause: error });
     }
-    if (!state || typeof state !== 'object') state = emptyState();
+    if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('الحالة المحفوظة تالفة.');
     if (!Array.isArray(state.complaints)) state.complaints = [];
     if (!Array.isArray(state.notifications)) state.notifications = [];
     if (!Array.isArray(state.templates)) state.templates = [];
@@ -78,7 +89,7 @@ function createComplaintsService({ db, audit, logger }) {
     const row = db.prepare('SELECT payload_json FROM complaints WHERE id = ?').get(complaintId);
     if (row && row.payload_json) {
       try {
-        state.complaints.push(JSON.parse(row.payload_json));
+        state.complaints.push(storage.decodeJson(row.payload_json, 'complaint:' + complaintId));
         return state.complaints.length - 1;
       } catch (_) {
         return -1;
@@ -88,7 +99,7 @@ function createComplaintsService({ db, audit, logger }) {
   }
 
   function persistState(state, userId, now, nextRevision, auditEvents = []) {
-    const stateJson = JSON.stringify(state);
+    const stateJson = storage.encodeJson(state, 'app-state');
     const tx = db.transaction(() => {
       db.prepare(
         `INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)
@@ -101,9 +112,10 @@ function createComplaintsService({ db, audit, logger }) {
       ).run(stateJson, userId, now, nextRevision);
       for (const c of state.complaints || []) {
         if (!c || typeof c.id !== 'string') continue;
-        const payload = JSON.stringify(c);
-        const existing = db.prepare('SELECT id FROM complaints WHERE id = ?').get(c.id);
+        const payload = storage.encodeJson(c, 'complaint:' + c.id);
+        const existing = db.prepare('SELECT id, payload_json FROM complaints WHERE id = ?').get(c.id);
         if (existing) {
+          if (JSON.stringify(storage.decodeJson(existing.payload_json, 'complaint:' + c.id)) === JSON.stringify(c)) continue;
           db.prepare('UPDATE complaints SET payload_json = ?, updated_at = ? WHERE id = ?').run(
             payload,
             now,
@@ -123,10 +135,10 @@ function createComplaintsService({ db, audit, logger }) {
       }
     });
     tx();
-    if (auditEvents.length && typeof audit?.syncHead === 'function') audit.syncHead();
+    if (auditEvents.length) syncAudit();
   }
 
-  function saveState({ state, userId, expectedRevision, diffComplaints, auditEvents = [] }) {
+  function saveState({ state, userId, expectedRevision, diffComplaints = defaultDiff, auditEvents = [] }) {
     const current = readState();
     if (Number(expectedRevision) !== Number(current.revision)) {
       return { conflict: true, currentRevision: current.revision };
@@ -149,8 +161,8 @@ function createComplaintsService({ db, audit, logger }) {
         error: 'حذف الشكاوى غير مسموح عبر حفظ الحالة؛ استخدم إجراء الحذف المعتمد.'
       };
     }
-    const actor = db.prepare('SELECT username, role FROM users WHERE id = ?').get(userId);
-    if (current.revision > 0 && actor?.role !== 'admin' &&
+    const actor = actorFor(userId);
+    if (current.revision > 0 && !roles.can(actor, 'settings.manage') &&
         JSON.stringify(current.state.settings) !== JSON.stringify(state.settings)) {
       return { invalidTransition: true, error: 'إعدادات النظام لا يغيّرها إلا المدير.' };
     }
@@ -173,6 +185,40 @@ function createComplaintsService({ db, audit, logger }) {
         };
       }
       if (prev) {
+        for (const key of ['archivedAt','archivedBy','archiveReason','archiveApprovalId','duplicateOf','lastCompletionReminderAt','lastEscalationAt']) {
+          if (JSON.stringify(prev[key]) !== JSON.stringify(c[key])) return {
+            invalidTransition: true, error: 'الأرشفة تتطلب مسار موافقة منفصلًا.'
+          };
+        }
+        if (prev.archivedAt && JSON.stringify(prev) !== JSON.stringify(c)) return {
+          invalidTransition: true, error: 'الشكوى مؤرشفة ولا يمكن تعديلها.'
+        };
+        if (JSON.stringify(prev.referrals || []) !== JSON.stringify(c.referrals || [])) return {
+          invalidTransition: true, error: 'تعديل الإحالات يتطلب مسار الإحالات المخصص.'
+        };
+        const oldTimeline = prev.timeline || [], nextTimeline = c.timeline || [];
+        const appendOnly = Array.isArray(nextTimeline) && nextTimeline.length >= oldTimeline.length &&
+          (JSON.stringify(nextTimeline.slice(0, oldTimeline.length)) === JSON.stringify(oldTimeline) ||
+           JSON.stringify(nextTimeline.slice(nextTimeline.length - oldTimeline.length)) === JSON.stringify(oldTimeline));
+        if (!appendOnly) {
+          return { invalidTransition: true, error: 'لا يجوز محو سجل الإجراءات أو إعادة كتابته.' };
+        }
+        const appended = JSON.stringify(nextTimeline.slice(0, oldTimeline.length)) === JSON.stringify(oldTimeline)
+          ? nextTimeline.slice(oldTimeline.length) : nextTimeline.slice(0, nextTimeline.length - oldTimeline.length);
+        if (appended.some(event => !event || event.by !== actor?.username || typeof event.event !== 'string' ||
+            typeof event.at !== 'string' || !Number.isFinite(Date.parse(event.at)))) {
+          return { invalidTransition: true, error: 'لا يجوز انتحال اسم مستخدم في سجل الإجراءات.' };
+        }
+        if ((prev.owner !== c.owner || JSON.stringify(prev.coAssistants || []) !== JSON.stringify(c.coAssistants || [])) &&
+            !roles.can(actor, 'complaints.assign')) return { invalidTransition: true, error: 'ليس لديك صلاحية الإسناد.' };
+        if (prev.owner !== c.owner || JSON.stringify(prev.coAssistants || []) !== JSON.stringify(c.coAssistants || [])) {
+          const assignees = [c.owner, ...(c.coAssistants || [])];
+          if (new Set(assignees).size !== assignees.length || assignees.some(name => {
+            if (typeof name !== 'string' || !name) return true;
+            const assigned = db.prepare('SELECT id,role FROM users WHERE username=? AND active=1').get(name);
+            return !assigned || !roles.can(assigned, 'complaints.update');
+          })) return { invalidTransition: true, error: 'يجب الإسناد إلى حسابات معالجة نشطة ومختلفة.' };
+        }
         if (prev.created !== c.created) {
           return {
             invalidTransition: true,
@@ -212,6 +258,16 @@ function createComplaintsService({ db, audit, logger }) {
       const afterReply = c?.reply;
       const beforeStatus = beforeReply?.status || null;
       const afterStatus = afterReply?.status || null;
+      if (afterReply && (!['draft','review','approval','approved','sent'].includes(afterStatus) ||
+          typeof afterReply.text !== 'string' || !afterReply.text.trim() || afterReply.text.length > 10000)) {
+        return { invalidTransition: true, error: 'مرحلة الرد أو محتواه غير صالح.' };
+      }
+      const replyChanged = JSON.stringify(beforeReply) !== JSON.stringify(afterReply);
+      if (replyChanged && !roles.can(actor, afterStatus === 'approved' ? 'replies.approve' :
+          afterStatus === 'sent' ? 'replies.send' : 'replies.draft')) {
+        return { invalidTransition: true, error: 'ليس لديك صلاحية هذا الإجراء على الرد.' };
+      }
+      if (beforeReply && !afterReply) return { invalidTransition: true, error: 'لا يجوز حذف الرد عبر حفظ الحالة.' };
       if (!beforeReply && afterReply && afterReply.author !== actor?.username) {
         return { invalidTransition: true, error: 'يجب أن يكون معد الرد هو المستخدم الذي أنشأه.' };
       }
@@ -219,9 +275,10 @@ function createComplaintsService({ db, audit, logger }) {
         return { invalidTransition: true, error: 'لا يمكن تغيير هوية معد الرد.' };
       }
       if (afterStatus === 'approved' && beforeStatus !== 'approved') {
-        if (!actor || actor.role !== 'admin' || !beforeReply ||
+        if (!actor || !roles.can(actor, 'replies.approve') || !beforeReply ||
             !['review', 'approval'].includes(beforeStatus) ||
             beforeReply.author === actor.username ||
+            beforeReply.lastEditedBy === actor.username ||
             beforeReply.author !== afterReply.author ||
             beforeReply.text !== afterReply.text) {
           return {
@@ -238,6 +295,24 @@ function createComplaintsService({ db, audit, logger }) {
           invalidTransition: true,
           error: 'لا يمكن توثيق إرسال رد قبل اعتماده.'
         };
+      }
+      if (replyChanged && afterReply) {
+        if (!beforeReply || beforeReply.text !== afterReply.text) {
+          afterReply.lastEditedBy = actor?.username;
+          afterReply.lastEditedById = actor?.id;
+        }
+        if (afterStatus === 'approved' && beforeStatus !== 'approved') {
+          afterReply.approvedBy = actor.username;
+          afterReply.approvedById = actor.id;
+          afterReply.approvedAt = new Date().toISOString();
+        } else if (beforeReply && ['approved','sent'].includes(beforeStatus)) {
+          for (const key of ['approvedBy','approvedById','approvedAt','lastEditedBy','lastEditedById']) {
+            if (beforeReply[key] !== undefined) afterReply[key] = beforeReply[key];
+          }
+        }
+        if (afterStatus === 'sent' && beforeStatus !== 'sent') {
+          afterReply.sentBy = actor.username; afterReply.sentAt = new Date().toISOString();
+        }
       }
     }
     const now = new Date().toISOString();
@@ -257,9 +332,15 @@ function createComplaintsService({ db, audit, logger }) {
         }
       } catch (err) {
         if (logger) logger.warn('diffComplaints failed', { error: err.message });
+        throw err;
       }
     }
-    persistState(state, userId, now, nextRevision, [...complaintChanges, ...auditEvents]);
+    const settingsEvents = JSON.stringify(current.state.settings) !== JSON.stringify(state.settings) &&
+      !auditEvents.some(event => event.action === 'settings_updated') ? [{
+        action: 'settings_updated', targetType: 'settings',
+        details: { before: current.state.settings, after: state.settings }
+      }] : [];
+    persistState(state, userId, now, nextRevision, [...complaintChanges, ...settingsEvents, ...auditEvents]);
     return {
       conflict: false,
       updatedAt: now,
@@ -268,25 +349,37 @@ function createComplaintsService({ db, audit, logger }) {
     };
   }
 
-  function createComplaint({ body, userId, username, asDraft = false }) {
-    const id = 'SY-' + new Date().getFullYear() + '-' + crypto.randomUUID().slice(0, 8);
+  function createComplaintCore({ body, userId, username, asDraft = false }) {
+    const { state, revision } = readState();
+    const year = Number(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Damascus', year: 'numeric' }).format(new Date()));
+    const counter = db.prepare('SELECT value FROM complaint_counters WHERE year=?').get(year);
+      let maximum = counter?.value || 0;
+      for (const row of db.prepare('SELECT id FROM complaints').all()) {
+        const match = row.id.match(new RegExp('^SY-' + year + '-([0-9]{4,7})$'));
+        if (match) maximum = Math.max(maximum, Number(match[1]));
+      }
+      db.prepare('INSERT INTO complaint_counters(year,value) VALUES(?,?) ON CONFLICT(year) DO UPDATE SET value=excluded.value').run(year, maximum);
+    db.prepare('UPDATE complaint_counters SET value=value+1 WHERE year=?').run(year);
+    const sequence = db.prepare('SELECT value FROM complaint_counters WHERE year=?').get(year).value;
+    const id = 'SY-' + year + '-' + String(sequence).padStart(6, '0');
     const now = new Date().toISOString();
     const status = asDraft ? 'draft' : 'new';
     const complaint = {
       id,
       name: body.name || '',
       phone: body.phone || '',
+      source: body.source || 'phone',
       province: body.province,
       entity: body.entity || '',
       category: body.category,
       priority: body.priority || 'normal',
       status,
-      owner: body.owner || username || null,
+      owner: username || null,
       summary: body.summary || '',
       details: body.details || '',
       created: now,
       updated: now,
-      due: new Date(Date.now() + 7 * 86400000).toISOString(),
+      due: new Date(Date.now() + (Number(state.settings.slaDays) || 7) * 86400000).toISOString(),
       notes: [],
       timeline: [
         {
@@ -300,10 +393,10 @@ function createComplaintsService({ db, audit, logger }) {
       reply: null,
       confidentiality: body.confidentiality || 'normal',
       attachments: [],
+      coAssistants: [],
       statusHistory: []
     };
 
-    const { state, revision } = readState();
     state.complaints = Array.isArray(state.complaints) ? state.complaints.slice() : [];
     state.complaints.push(complaint);
     const nextRevision = (Number(revision) || 0) + 1;
@@ -315,20 +408,31 @@ function createComplaintsService({ db, audit, logger }) {
     return { ok: true, complaint, revision: nextRevision };
   }
 
+  function createComplaint(args) {
+    const result = db.transaction(() => createComplaintCore(args))();
+    syncAudit();
+    return result;
+  }
+
   function updateComplaint({ complaintId, body, userId, username }) {
     const { state, revision } = readState();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
-    if (complaint.status === 'closed' || complaint.status === 'cancelled') {
+    if (complaint.archivedAt || complaint.status === 'closed' || complaint.status === 'cancelled') {
       return { ok: false, status: 409, error: 'لا يمكن تعديل شكوى مغلقة أو ملغاة.' };
     }
     const now = new Date().toISOString();
     const changes = [];
+    const before = {};
     for (const key of EDITABLE_FIELDS) {
       if (body && Object.prototype.hasOwnProperty.call(body, key) && body[key] !== undefined) {
         const next = body[key];
         if (complaint[key] !== next) {
+          if (key === 'owner' && !roles.can(actorFor(userId), 'complaints.assign')) return {
+            ok: false, status: 403, error: 'ليس لديك صلاحية الإسناد.'
+          };
+          before[key] = complaint[key] ?? null;
           changes.push(key);
           complaint[key] = next;
         }
@@ -350,56 +454,43 @@ function createComplaintsService({ db, audit, logger }) {
     persistState(state, userId, now, nextRevision, [{
       action: 'complaint_updated',
       id: complaintId,
-      details: { fields: changes, revision: nextRevision }
+      details: { fields: changes, revision: nextRevision,
+        changes: Object.fromEntries(changes.map(key => [key, { before: before[key], after: complaint[key] }])) }
     }]);
     return { ok: true, complaint, revision: nextRevision, unchanged: false };
   }
 
   function deleteComplaint({ complaintId, userId, username }) {
+    return { ok: false, status: 409, error: 'الحذف المباشر معطل. قدّم طلب أرشفة لاعتماده من مدير آخر.' };
+  }
+
+  function archiveComplaint({ complaintId, approvalId, userId }) {
+    const approval = db.prepare("SELECT * FROM approval_requests WHERE id=? AND kind='complaint_archive' AND status='approved'").get(approvalId);
+    if (!approval || approval.complaint_id !== complaintId || approval.requester_id === userId || approval.decided_by !== userId) {
+      return { ok: false, status: 403, error: 'يلزم اعتماد مدير آخر لطلب الأرشفة.' };
+    }
     const { state, revision } = readState();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = state.complaints[idx];
-    if (complaint.status !== 'draft' && complaint.status !== 'new' && complaint.status !== 'cancelled') {
-      return {
-        ok: false,
-        status: 409,
-        error: 'يُسمح بالحذف للمسودات والجديدة والملغاة فقط. أغلق أو ألغِ الحالات الأخرى أولاً.'
-      };
-    }
-    state.complaints.splice(idx, 1);
+    if (complaint.archivedAt) return { ok: false, status: 409, error: 'الشكوى مؤرشفة بالفعل.' };
     const now = new Date().toISOString();
     const nextRevision = (Number(revision) || 0) + 1;
-    const tx = db.transaction(() => {
-      db.prepare(
-        `INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)
-         VALUES (1, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           state_json = excluded.state_json,
-           updated_by = excluded.updated_by,
-           updated_at = excluded.updated_at,
-           revision = excluded.revision`
-      ).run(JSON.stringify(state), userId, now, nextRevision);
-      db.prepare('DELETE FROM complaints WHERE id = ?').run(complaintId);
-      if (typeof audit === 'function') {
-        audit(userId, 'complaint_deleted', 'complaint', complaintId, {
-          by: username || null,
-          revision: nextRevision
-        });
-      }
-    });
-    tx();
-    if (typeof audit?.syncHead === 'function') audit.syncHead();
+    const archiveReason = storage.decodeJson(approval.reason, 'approval-reason:' + approval.id);
+    Object.assign(complaint, { archivedAt: now, archivedBy: userId, archiveReason, archiveApprovalId: approvalId });
+    persistState(state, userId, now, nextRevision, [{ action: 'complaint_archived', id: complaintId,
+      details: { approvalId, reason: archiveReason, requesterId: approval.requester_id } }]);
     return { ok: true, revision: nextRevision, deletedId: complaintId };
   }
 
   function addReferral({ complaintId, entity, due, note, userId, username }) {
     const normalizedEntity = typeof entity === 'string' ? entity.trim() : '';
     const normalizedNote = typeof note === 'string' ? note.trim() : '';
+    const dueMs = typeof due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(due) ? dayBoundary(due,true) : Date.parse(due);
     if (!complaintId || typeof complaintId !== 'string' || complaintId.length > 100 ||
         normalizedEntity.length < 2 || normalizedEntity.length > 200 ||
         normalizedNote.length > 4000 || typeof due !== 'string' ||
-        !Number.isFinite(Date.parse(due))) {
+        !Number.isFinite(dueMs)) {
       return { ok: false, status: 400, error: 'بيانات الإحالة غير صالحة.' };
     }
 
@@ -407,7 +498,7 @@ function createComplaintsService({ db, audit, logger }) {
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
-    if (['closed', 'cancelled'].includes(complaint.status)) {
+    if (complaint.archivedAt || ['closed', 'cancelled', 'draft', 'new'].includes(complaint.status)) {
       return { ok: false, status: 409, error: 'لا يمكن إحالة شكوى مغلقة أو ملغاة.' };
     }
 
@@ -415,7 +506,7 @@ function createComplaintsService({ db, audit, logger }) {
     const referral = {
       entity: normalizedEntity,
       sent: now,
-      due: new Date(due).toISOString(),
+      due: new Date(dueMs).toISOString(),
       status: 'بانتظار الرد',
       response: '',
       note: normalizedNote
@@ -466,7 +557,67 @@ function createComplaintsService({ db, audit, logger }) {
     return { ok: true, complaint, referral, revision: nextRevision };
   }
 
-  function changeStatus({ complaintId, toStatus, reason, userId, username }) {
+  function recordReferralResponse({ complaintId, index, response, userId, username }) {
+    if (typeof response !== 'string' || response.trim().length < 3 || response.length > 10000 || !Number.isSafeInteger(index)) {
+      return { ok: false, status: 400, error: 'نص رد الإحالة أو رقمها غير صالح.' };
+    }
+    const { state, revision } = readState();
+    const c = state.complaints.find(item => item.id === complaintId);
+    if (!c || !c.referrals?.[index]) return { ok: false, status: 404, error: 'الإحالة غير موجودة.' };
+    if (c.archivedAt || ['closed','cancelled'].includes(c.status)) return { ok: false, status: 409, error: 'الشكوى مغلقة أو مؤرشفة.' };
+    const before = c.referrals[index].response || '';
+    const now = new Date().toISOString();
+    Object.assign(c.referrals[index], { response: response.trim(), respondedAt: now, respondedBy: username, status: 'ورد الرد' });
+    c.updated = now;
+    persistState(state, userId, now, revision + 1, [{ action: 'referral_response_recorded', id: complaintId,
+      details: { index, before, after: response.trim() } }]);
+    return { ok: true, revision: revision + 1 };
+  }
+
+  function linkDuplicate({ complaintId, originalId, approvalId, userId }) {
+    const approval = db.prepare("SELECT * FROM approval_requests WHERE id=? AND kind='complaint_duplicate' AND status='approved'").get(approvalId);
+    if (!approval || approval.complaint_id !== complaintId || approval.target_id !== originalId ||
+        approval.requester_id === userId || approval.decided_by !== userId) return { ok: false, status: 403, error: 'موافقة الربط غير صالحة.' };
+    const { state, revision } = readState();
+    const complaint = state.complaints.find(c => c.id === complaintId);
+    const original = state.complaints.find(c => c.id === originalId);
+    if (!complaint || !original || complaint === original || original.duplicateOf || complaint.archivedAt || original.archivedAt) {
+      return { ok: false, status: 409, error: 'الربط دائري أو إحدى الشكويين غير متاحة.' };
+    }
+    complaint.duplicateOf = originalId;
+    complaint.updated = new Date().toISOString();
+    persistState(state, userId, complaint.updated, revision + 1, [{ action: 'complaint_linked_as_duplicate', id: complaintId,
+      details: { originalId, approvalId, requesterId: approval.requester_id } }]);
+    return { ok: true, revision: revision + 1 };
+  }
+
+  function actOnReply({ complaintId, action, text, userId, username }) {
+    const actor = actorFor(userId);
+    const permission = { draft: 'replies.draft', review: 'replies.draft', approve: 'replies.approve', sent: 'replies.send' }[action];
+    if (!permission || !roles.can(actor, permission)) return { ok: false, status: 403, error: 'ليس لديك صلاحية إجراء الرد.' };
+    const { state, revision } = readState();
+    const c = state.complaints.find(item => item.id === complaintId);
+    if (!c) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    if (c.archivedAt || ['closed','cancelled'].includes(c.status)) return { ok: false, status: 409, error: 'الشكوى مغلقة أو مؤرشفة.' };
+    if (action === 'draft') {
+      if (['approved','sent'].includes(c.reply?.status)) return { ok: false, status: 409, error: 'الرد المعتمد ثابت.' };
+      if (typeof text !== 'string' || !text.trim() || text.length > 10000) return { ok: false, status: 400, error: 'نص الرد غير صالح.' };
+      c.reply = { ...(c.reply || {}), author: c.reply?.author || username, text: text.trim(), status: 'draft' };
+    } else {
+      const required = { review: ['draft'], approve: ['review','approval'], sent: ['approved'] }[action];
+      if (!c.reply || !required.includes(c.reply.status)) return { ok: false, status: 409, error: 'انتقال مرحلة الرد غير مسموح.' };
+      c.reply.status = action === 'approve' ? 'approved' : action;
+    }
+    c.updated = new Date().toISOString();
+    c.timeline ||= [];
+    c.timeline.push({ event: ({ draft: 'حفظ مسودة رد', review: 'إرسال الرد للمراجعة', approve: 'اعتماد الرد', sent: 'توثيق إرسال الرد' })[action],
+      by: username, at: c.updated, detail: 'تم توثيق الإجراء على الخادم.' });
+    const result = saveState({ state, userId, expectedRevision: revision });
+    if (result.invalidTransition || result.conflict) return { ok: false, status: 409, error: result.error || 'تعارض حفظ.' };
+    return { ok: true, revision: result.revision, reply: c.reply };
+  }
+
+  function changeStatus({ complaintId, toStatus, reason, userId, username, approvalId, closureException = false }) {
     if (!complaintId || typeof complaintId !== 'string' || complaintId.length > 100) {
       return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
     }
@@ -474,6 +625,7 @@ function createComplaintsService({ db, audit, logger }) {
       return { ok: false, status: 400, error: 'حالة غير معروفة.' };
     }
     const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    if (normalizedReason.length > 2000) return { ok: false, status: 400, error: 'سبب الانتقال أطول من المسموح.' };
     if (REASON_REQUIRED.has(toStatus) && normalizedReason.length < 3) {
       return {
         ok: false,
@@ -488,10 +640,31 @@ function createComplaintsService({ db, audit, logger }) {
 
     const complaint = { ...state.complaints[idx] };
     const fromStatus = complaint.status || 'new';
+    if (fromStatus === 'draft' && toStatus === 'new' &&
+        (complaint.province === 'غير محددة' || complaint.category === 'غير مصنفة' || complaint.summary === 'مسودة بانتظار الاستكمال')) {
+      return { ok: false, status: 409, error: 'استكمل الموضوع والمحافظة والتصنيف قبل نشر المسودة.' };
+    }
+    if (complaint.archivedAt) return { ok: false, status: 409, error: 'الشكوى مؤرشفة.' };
+    const officialAction = (complaint.referrals || []).length > 0 || ['approved','sent'].includes(complaint.reply?.status);
+    if (toStatus === 'cancelled' && officialAction) {
+      const approval = approvalId && db.prepare("SELECT * FROM approval_requests WHERE id=? AND kind='complaint_cancel' AND status='approved'").get(approvalId);
+      if (!approval || approval.complaint_id !== complaintId || approval.requester_id === userId || approval.decided_by !== userId) {
+        return { ok: false, status: 409, error: 'الإلغاء بعد إجراء رسمي يتطلب طلب موافقة من مستخدم آخر.', approvalRequired: true };
+      }
+    }
+    if (toStatus === 'closed' && (complaint.referrals || []).some(r => !r.response?.trim())) {
+      if (!closureException || !roles.can(actorFor(userId), 'complaints.closeException') || normalizedReason.length < 10) {
+        return { ok: false, status: 409, error: 'يجب استكمال ردود الإحالات أو توثيق استثناء إغلاق من مستخدم مخول (10 أحرف على الأقل).' };
+      }
+    }
     if (fromStatus === toStatus) {
       return { ok: true, unchanged: true, complaint, revision };
     }
-    const allowed = ALLOWED_TRANSITIONS[fromStatus] || [];
+    const reopening = ['closed','cancelled'].includes(fromStatus) && toStatus === 'in_progress';
+    if (reopening && (!roles.can(actorFor(userId), 'complaints.reopen') || normalizedReason.length < 3)) {
+      return { ok: false, status: 403, error: 'إعادة الفتح تتطلب صلاحية مستقلة وسببًا واضحًا.' };
+    }
+    const allowed = reopening ? ['in_progress'] : ALLOWED_TRANSITIONS[fromStatus] || [];
     if (!allowed.includes(toStatus)) {
       return {
         ok: false,
@@ -528,10 +701,40 @@ function createComplaintsService({ db, audit, logger }) {
         from: fromStatus,
         to: toStatus,
         reason: normalizedReason || null,
+        closureException: Boolean(closureException),
+        approvalId: approvalId || null,
         revision: nextRevision
       }
     }]);
     return { ok: true, complaint, revision: nextRevision, unchanged: false };
+  }
+
+  function runReminders(now = new Date()) {
+    const { state, revision } = readState();
+    const admin = db.prepare("SELECT id, username FROM users WHERE role='admin' AND active=1 ORDER BY created_at LIMIT 1").get();
+    if (!admin) return 0;
+    const interval = Math.max(1, Math.min(720, Number(state.settings.completionReminderHours) || 24)) * 3600000;
+    const events = [];
+    for (const c of state.complaints) {
+      if (c.archivedAt || ['closed','cancelled'].includes(c.status)) continue;
+      const incomplete = c.status === 'draft' || !c.name || !c.phone || !c.details ||
+        !c.province || c.province === 'غير محددة' || c.category === 'غير مصنفة';
+      const late = state.settings.slaApproved === true && c.status !== 'draft' && Date.parse(c.due) < now.getTime();
+      for (const [kind, needed, field] of [
+        ['completion', incomplete && !c.completionReminderStopped, 'lastCompletionReminderAt'],
+        ['escalation', late, 'lastEscalationAt']
+      ]) {
+        if (!needed || now.getTime() - Date.parse(c[field] || c.created) < interval) continue;
+        c[field] = now.toISOString();
+        state.notifications.unshift({ id: crypto.randomUUID(), complaintId: c.id, type: kind,
+          title: kind === 'completion' ? 'استكمال بيانات مطلوب' : 'تصعيد إلى المدير: تجاوز المهلة',
+          body: c.id, date: now.toISOString(), read: false, targetRole: kind === 'escalation' ? 'admin' : null });
+        events.push({ action: kind === 'completion' ? 'completion_reminded' : 'complaint_escalated', id: c.id,
+          details: { at: now.toISOString(), targetRole: kind === 'escalation' ? 'admin' : null } });
+      }
+    }
+    if (events.length) persistState(state, admin.id, now.toISOString(), revision + 1, events);
+    return events.length;
   }
 
   return {
@@ -540,8 +743,13 @@ function createComplaintsService({ db, audit, logger }) {
     createComplaint,
     updateComplaint,
     deleteComplaint,
+    archiveComplaint,
     changeStatus,
     addReferral,
+    recordReferralResponse,
+    linkDuplicate,
+    actOnReply,
+    runReminders,
     ALLOWED_TRANSITIONS,
     REASON_REQUIRED,
     STATUS_LABELS

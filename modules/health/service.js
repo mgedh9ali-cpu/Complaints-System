@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 
-function createHealthService({ db, databasePath, version }) {
+function createHealthService({ db, databasePath, version, backupScheduler }) {
   function basic() {
     return {
       status: 'ok',
@@ -44,6 +44,8 @@ function createHealthService({ db, databasePath, version }) {
       integrity,
       foreignKeyViolations: foreignKeys,
       counts,
+      contentEncryptionEnabled: Boolean(db.storageCodec?.enabled),
+      automaticBackups: backupScheduler?.status() || null,
       databasePath: path.basename(databasePath),
       databaseBytes: dbSize,
       uptimeSeconds: Math.floor(process.uptime()),

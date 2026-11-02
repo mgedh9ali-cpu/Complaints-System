@@ -5,13 +5,15 @@
  * HTML, API responses, user data and the live app bundle remain network-only.
  * The local Express process is required for the complaints system to operate.
  */
-const CACHE_NAME = 'complaints-ui-v0.7.8-redesign1';
+const CACHE_NAME = 'complaints-ui-v1.0.0-rc.1';
 const STATIC_ASSETS = new Set([
   '/app.js',
   '/styles.css',
   '/thmanyah-fonts.css',
   '/ui-enhancements.css',
   '/redesign.css',
+  '/fallback-font.css',
+  '/assets/NotoSansArabic.ttf',
   '/ui-enhancements.js',
   '/attachments-ui-bridge.js'
 ]);

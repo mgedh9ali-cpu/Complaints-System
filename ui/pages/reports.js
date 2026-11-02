@@ -1,16 +1,14 @@
 /* Operational reporting uses saved complaint records only; no external chart library. */
 function reportsPage(){
-  const records=Array.isArray(db.complaints)?db.complaints:[];
-  const today=new Date();
-  today.setHours(0,0,0,0);
+  const records=Array.isArray(db.complaints)?db.complaints.filter(c=>!c.archivedAt):[];
+  const today=new Date(workDayKey(Date.now())+'T12:00:00Z');
   const daily=Array.from({length:14},(_,i)=>{
     const d=new Date(today);
-    d.setDate(today.getDate()-(13-i));
-    const start=d.getTime();
-    const next=new Date(d);next.setDate(d.getDate()+1);
+    d.setUTCDate(today.getUTCDate()-(13-i));
+    const day=workDayKey(d);
     const count=records.filter(c=>{
       const at=new Date(c.created).getTime();
-      return Number.isFinite(at)&&at>=start&&at<next.getTime();
+      return Number.isFinite(at)&&workDayKey(at)===day;
     }).length;
     return {date:d,count};
   });
@@ -27,7 +25,7 @@ function reportsPage(){
   const openingCounts=[records.filter(c=>ageDays(c)<7).length,records.filter(c=>ageDays(c)>=7&&ageDays(c)<=30).length,records.filter(c=>ageDays(c)>30).length];
   const peak=Math.max(1,...daily.map(d=>d.count));
   const dailyBars=daily.map(({date,count},i)=>{
-    const label=new Intl.DateTimeFormat('ar-SY-u-nu-latn',{day:'2-digit',month:'2-digit'}).format(date);
+    const label=new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',day:'2-digit',month:'2-digit'}).format(date);
     const value=Math.round(count/peak*100);
     return '<div class="daily-bar-item" role="listitem" title="'+label+' · '+count+' شكوى" aria-label="'+label+'، '+count+' شكوى">'+
       '<span class="daily-count">'+(count||'')+'</span>'+

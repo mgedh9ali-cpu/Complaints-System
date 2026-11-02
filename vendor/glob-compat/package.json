@@ -1,0 +1,17 @@
+{
+  "name": "@complaints/glob-compat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Legacy callback and sync calls over the official patched glob",
+  "main": "index.js",
+  "dependencies": {
+    "glob-patched": "npm:glob@14.0.3"
+  },
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.js"
+    },
+    "./package.json": "./package.json"
+  }
+}

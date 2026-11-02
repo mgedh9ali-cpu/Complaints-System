@@ -54,6 +54,9 @@
             `<span class="attach-chip">${escapeHtml(f.name)} <small>(${Math.round(f.size / 1024)} ك.ب)</small></span>`,
         )
         .join("");
+      list.querySelectorAll("[data-request-delete]").forEach(button => button.addEventListener("click", () => {
+        window.dispatchEvent(new CustomEvent("complaints:request-attachment-deletion", { detail: { complaintId, storedName: button.dataset.requestDelete } }));
+      }));
     });
 
   }
@@ -169,9 +172,12 @@
         .map((a) => {
           const name = a.originalName || a.storedName;
           const size = a.size ? Math.round(a.size / 1024) + " ك.ب" : "";
-          return `<a class="attach-chip link" href="/api/attachments/${encodeURIComponent(a.storedName)}" target="_blank" rel="noopener">${escapeHtml(name)} <small>${size}</small></a>`;
+          return `<a class="attach-chip link" href="/api/attachments/${encodeURIComponent(a.storedName)}" target="_blank" rel="noopener">${escapeHtml(name)} <small>${size}</small></a> <button class="btn btn-sm" type="button" data-request-delete="${escapeHtml(a.storedName)}">طلب حذف</button>`;
         })
         .join("");
+      list.querySelectorAll("[data-request-delete]").forEach(button => button.addEventListener("click", () => {
+        window.dispatchEvent(new CustomEvent("complaints:request-attachment-deletion", { detail: { complaintId, storedName: button.dataset.requestDelete } }));
+      }));
     } catch {
       list.innerHTML =
         '<span class="small-copy">تعذر تحميل قائمة المرفقات.</span>';

@@ -21,6 +21,8 @@ function initializeLocalConfig(
   const contents = [
     "# Generated locally on first launch. Keep this file private; do not commit it.",
     `SESSION_SECRET=${sessionSecret}`,
+    `DATA_KEY=${crypto.randomBytes(48).toString('base64url')}`,
+    `BACKUP_SECRET=${crypto.randomBytes(48).toString('base64url')}`,
     "ADMIN_USERNAME=admin",
     `ADMIN_PASSWORD=${adminPassword}`,
     "HOST=127.0.0.1",

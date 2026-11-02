@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 test('CircleCI uses reproducible test dependencies and persists failure logs',()=>{
  const ci=read('.circleci/config.yml');
- assert.match(ci,/image: cimg\/node:20/);
+ assert.match(ci,/image: cimg\/node:24/);
  assert.match(ci,/npm ci --ignore-scripts --no-audit --no-fund/);
  assert.match(ci,/npm rebuild better-sqlite3 --build-from-source/);
  assert.match(ci,/npm run check/);
