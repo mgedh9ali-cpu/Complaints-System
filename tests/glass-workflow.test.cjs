@@ -36,7 +36,7 @@ test('instant undo is author-bound, single use and appends an intact audit event
 test('undo refuses a later revision and expired grants',t=>{
  const {service}=fixture(t);
  const change=service.changeStatus({complaintId:'SY-TEST',toStatus:'in_progress',userId:'u1'});
- const current=service.readState();current.state.complaints[0].owner='another';
+ const current=service.readState();current.state.complaints[0].summary='تعديل مستقل يغير رقم المراجعة';
  service.saveState({state:current.state,userId:'u1',expectedRevision:current.revision});
  assert.equal(service.undoStatus({complaintId:'SY-TEST',token:change.undoToken,userId:'u1'}).ok,false);
  const next=service.changeStatus({complaintId:'SY-TEST',toStatus:'awaiting_reply',userId:'u1'});

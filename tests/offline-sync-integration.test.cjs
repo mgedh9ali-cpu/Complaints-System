@@ -199,9 +199,14 @@ test(
         categories: [],
       },
     };
+    const created = await request(source, '/api/complaints', {
+      method:'POST', body:JSON.stringify(state.complaints[0])
+    });
+    assert.equal(created.status, 201);
+    state.complaints = [created.body.complaint];
     const saved = await request(source, "/api/state", {
       method: "PUT",
-      headers: { "X-State-Revision": "0" },
+      headers: { "X-State-Revision": "1" },
       body: JSON.stringify(state),
     });
     assert.equal(
@@ -210,11 +215,13 @@ test(
       "source instance should save the test state",
     );
 
-    const exportedResponse = await fetch(source.baseUrl + "/api/sync/export", {
-      headers: { cookie: source.cookie },
-    });
-    assert.equal(exportedResponse.status, 200);
-    const bundle = await exportedResponse.json();
+    const form=new FormData();form.append('files',new Blob(['fictional transferred document'],{type:'text/plain'}),'transfer.txt');
+    const uploaded=await fetch(source.baseUrl+'/api/attachments/'+encodeURIComponent(created.body.complaint.id),{method:'POST',headers:{cookie:source.cookie,'X-CSRF-Token':source.csrfToken},body:form});
+    assert.equal(uploaded.status,201);const uploadedMeta=(await uploaded.json()).attachments[0];
+    const {sealPackage,openPackage}=require('../lib/sync-envelope');const password='synthetic-transfer-password';
+    const exportedResponse=await request(source,'/api/sync/export',{method:'POST',body:JSON.stringify({password})});
+    assert.equal(exportedResponse.status,200);
+    const bundle=openPackage(exportedResponse.body,password);
     assert.equal(bundle.sourceInstanceId.length > 0, true);
 
     bundle.programUpdate.signature = {
@@ -226,12 +233,14 @@ test(
 
     const imported = await request(destination, "/api/sync/import", {
       method: "POST",
-      body: JSON.stringify(bundle),
+      body: JSON.stringify({package:sealPackage(bundle,password),password}),
     });
     assert.equal(imported.status, 200, JSON.stringify(imported.body));
     assert.equal(imported.body.imported, true);
     assert.equal(imported.body.updateStaged, true);
 
+    const downloaded=await fetch(destination.baseUrl+'/api/attachments/'+encodeURIComponent(uploadedMeta.storedName),{headers:{cookie:destination.cookie}});
+    assert.equal(downloaded.status,200);assert.equal(await downloaded.text(),'fictional transferred document');
     const restored = await request(destination, "/api/state");
     assert.equal(restored.status, 200);
     assert.deepEqual(
@@ -258,7 +267,7 @@ test(
 
     const replay = await request(destination, "/api/sync/import", {
       method: "POST",
-      body: JSON.stringify(bundle),
+      body: JSON.stringify({package:sealPackage(bundle,password),password}),
     });
     assert.equal(
       replay.status,

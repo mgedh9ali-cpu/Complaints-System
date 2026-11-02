@@ -19,7 +19,8 @@ function renderReport(complaints) {
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[character]),
     ageDays: c => Math.max(0, Math.floor((Date.now() - new Date(c.created)) / 86400000)),
-    lateComplaints: () => complaints.filter(c => c.late)
+    lateComplaints: () => complaints.filter(c => c.late),
+    workDayKey: value => require('../lib/work-time').dayKey(value)
   };
   return vm.runInNewContext(reportsScript + '\nreportsPage();', context);
 }

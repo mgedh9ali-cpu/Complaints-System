@@ -1,0 +1,17 @@
+{
+  "name": "@complaints/minimatch-compat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Callable CommonJS compatibility over the official patched minimatch",
+  "main": "index.js",
+  "dependencies": {
+    "minimatch-patched": "npm:minimatch@11.0.2"
+  },
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.js"
+    },
+    "./package.json": "./package.json"
+  }
+}

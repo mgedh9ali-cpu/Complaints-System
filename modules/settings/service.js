@@ -58,7 +58,8 @@ function createSettingsService({ complaintsService }) {
         action: 'settings_updated',
         targetType: 'settings',
         id: null,
-        details: { slaDays: normalized.slaDays, slaApproved: normalized.slaApproved }
+        details: { slaDays: normalized.slaDays, slaApproved: normalized.slaApproved,
+          before: state.settings, after: normalized }
       }]
     });
 

@@ -2,6 +2,7 @@
 
 const { buildComplaintsWorkbook, buildSingleComplaintWorkbook } = require('../../lib/excel-export');
 const { buildSimplePdf } = require('../../lib/simple-pdf');
+const {dayBoundary,dayKey}=require('../../lib/work-time');
 
 const CSV_HEADERS = [
   'id', 'name', 'phone', 'province', 'entity', 'category',
@@ -18,22 +19,17 @@ const STATUS_LABELS = Object.freeze({
 });
 
 function escapeCsv(value) {
-  const s = value == null ? '' : String(value);
+  let s = value == null ? '' : String(value);
+  if (/^[\s\u0000-\u001f]*[=+\-@]/.test(s)) s = "'" + s;
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
-function parseDayBound(value, endOfDay) {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  const t = value.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
-  const ms = Date.parse(endOfDay ? t + 'T23:59:59.999Z' : t + 'T00:00:00.000Z');
-  return Number.isFinite(ms) ? ms : null;
-}
+function parseDayBound(value,endOfDay){return dayBoundary(value,endOfDay);}
 
 function createReportsService({ complaintsService }) {
   function listComplaints() {
     const { state } = complaintsService.readState();
-    return Array.isArray(state.complaints) ? state.complaints : [];
+    return Array.isArray(state.complaints) ? state.complaints.filter(c => !c.archivedAt) : [];
   }
 
   function findComplaint(id) {
@@ -43,6 +39,7 @@ function createReportsService({ complaintsService }) {
 
   function applyFilters(complaints, filters = {}) {
     let rows = complaints.slice();
+    if (Array.isArray(filters.ids)) { const selected = new Set(filters.ids); rows = rows.filter(c => selected.has(c.id)); }
     if (filters.status) {
       const allowed = String(filters.status)
         .split(',')
@@ -82,17 +79,18 @@ function createReportsService({ complaintsService }) {
     for (const key of Object.keys(STATUS_LABELS)) byStatus[key] = 0;
     let late = 0;
     const now = Date.now();
+    const slaApproved = complaintsService.readState().state.settings.slaApproved === true;
     for (const c of rows) {
       const st = c.status || 'unknown';
       byStatus[st] = (byStatus[st] || 0) + 1;
-      if (c.due && !['closed', 'cancelled'].includes(c.status)) {
+      if (slaApproved && c.due && !['closed', 'cancelled', 'draft'].includes(c.status)) {
         const dueMs = Date.parse(c.due);
         if (Number.isFinite(dueMs) && now > dueMs) late += 1;
       }
     }
     const reportNumber =
       'RPT-' +
-      new Date().toISOString().slice(0, 10).replace(/-/g, '') +
+      dayKey().replace(/-/g, '') +
       '-' +
       String(rows.length).padStart(4, '0');
     return {
@@ -156,7 +154,7 @@ function createReportsService({ complaintsService }) {
     };
   }
 
-  function buildSinglePdf(id, generatedBy) {
+  async function buildSinglePdf(id, generatedBy) {
     const complaint = findComplaint(id);
     if (!complaint) return null;
     const lines = [
@@ -171,14 +169,18 @@ function createReportsService({ complaintsService }) {
       'التحديث: ' + (complaint.updated || '-'),
       'الاستحقاق: ' + (complaint.due || '-'),
       'الملخص: ' + (complaint.summary || '-'),
-      'التفاصيل: ' + String(complaint.details || '-').slice(0, 500),
+      'اسم المشتكي: ' + (complaint.name || '-'),
+      'الهاتف: ' + (complaint.phone || '-'),
+      'التفاصيل: ' + String(complaint.details || '-'),
       'مُصدر التقرير: ' + (generatedBy || 'system'),
       'وقت الإصدار: ' + new Date().toISOString()
     ];
     if (complaint.survey && complaint.survey.rating) {
       lines.push('تقييم الخدمة: ' + complaint.survey.rating + '/5');
     }
-    const buffer = buildSimplePdf(lines, 'تقرير شكوى — ' + complaint.id);
+    if (complaint.reply) lines.push('الرد: ' + complaint.reply.text, 'مرحلة الرد: ' + complaint.reply.status,
+      'معد الرد: ' + complaint.reply.author, 'المعتمد: ' + (complaint.reply.approvedBy || '-'));
+    const buffer = await buildSimplePdf(lines, 'تقرير شكوى - ' + complaint.id);
     return {
       buffer,
       filename: 'complaint-' + id + '.pdf',

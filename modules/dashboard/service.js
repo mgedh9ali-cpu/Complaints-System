@@ -10,7 +10,7 @@ const APPROVAL_STATUS = 'awaiting_approval';
 
 function createDashboardService({ complaintsService }) {
   function isLate(complaint, nowMs) {
-    if (!complaint || CLOSED_STATUSES.has(complaint.status)) return false;
+    if (!complaint || (CLOSED_STATUSES.has(complaint.status)||complaint.status==='draft')) return false;
     if (!complaint.due) return false;
     const dueMs = Date.parse(complaint.due);
     return Number.isFinite(dueMs) && nowMs > dueMs;
@@ -18,7 +18,7 @@ function createDashboardService({ complaintsService }) {
 
   function buildSummary(options = {}) {
     const { state } = complaintsService.readState();
-    const complaints = Array.isArray(state.complaints) ? state.complaints : [];
+    const complaints = Array.isArray(state.complaints) ? state.complaints.filter(c => !c.archivedAt) : [];
     const nowMs = Date.now();
     const recentLimit = Number.isInteger(options.recentLimit) && options.recentLimit > 0
       ? Math.min(options.recentLimit, 50)
@@ -45,7 +45,7 @@ function createDashboardService({ complaintsService }) {
       byProvince[province] = (byProvince[province] || 0) + 1;
 
       if (!CLOSED_STATUSES.has(status)) open += 1;
-      if (isLate(c, nowMs)) late += 1;
+      if (state.settings.slaApproved === true && isLate(c, nowMs)) late += 1;
       if (status === APPROVAL_STATUS) pendingApproval += 1;
       if (priority === 'urgent' && !c.owner && !CLOSED_STATUSES.has(status)) urgentNoOwner += 1;
       if (!c.province || !c.summary || !c.owner) missingFields += 1;
@@ -66,7 +66,7 @@ function createDashboardService({ complaintsService }) {
       }));
 
     const lateItems = complaints
-      .filter((c) => isLate(c, nowMs))
+      .filter((c) => state.settings.slaApproved === true && isLate(c, nowMs))
       .sort((a, b) => Date.parse(a.due) - Date.parse(b.due))
       .slice(0, 20)
       .map((c) => ({

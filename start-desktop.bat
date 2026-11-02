@@ -11,7 +11,7 @@ echo.
 where node >nul 2>nul
 if errorlevel 1 (
   echo ERROR: Node.js is not installed.
-  echo Install Node.js 20.6+ then run npm install and retry.
+  echo Install Node.js 22.0+ then run npm install and retry.
   pause
   exit /b 1
 )

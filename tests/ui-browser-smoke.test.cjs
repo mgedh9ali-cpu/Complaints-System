@@ -188,7 +188,7 @@ test('manager approval is confirmed by the server with CSRF and different author
  ui.click('detail','SY-2026-10001');
  ui.click('reply-approve','SY-2026-10001');
  for(let i=0;i<40;i++)await Promise.resolve();
- const request=ui.calls.find(x=>x.url==='/api/state'&&x.method==='PUT');
+ const request=ui.calls.find(x=>x.url.endsWith('/reply')&&x.method==='PATCH');
  assert.ok(request,'approval must be committed by API, not just local state');
  assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
  assert.match(ui.node('#content').innerHTML,/معتمد/);
@@ -201,7 +201,7 @@ test('author or non-manager cannot approve a reply',async()=>{
   ui.click('detail','SY-2026-10001');
   ui.click('reply-approve','SY-2026-10001');
   for(let i=0;i<20;i++)await Promise.resolve();
-  assert.equal(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length,0,role+' must be denied');
+  assert.equal(ui.calls.filter(x=>x.url.endsWith('/reply')&&x.method==='PATCH').length,0,role+' must be denied');
  }
 });
 

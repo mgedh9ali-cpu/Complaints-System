@@ -88,7 +88,21 @@ function createBackupService({ databasePath, sessionSecret }) {
     }
   }
 
-  return { createVerifiedBackup, createCompleteBackup, cleanupBackupDir };
+  async function persistCompleteBackup(prefix = 'before-import') {
+    const directory = path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(path.resolve(databasePath)), 'backups'));
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    let backup;
+    try {
+      backup = await createCompleteBackup();
+      const filename = prefix.replace(/[^a-z-]/g, '') + '-' + new Date().toISOString().replace(/[:.]/g, '-') + '.csb';
+      const destination = path.join(directory, filename);
+      fs.copyFileSync(backup.destination, destination, fs.constants.COPYFILE_EXCL);
+      lockDownFile(destination);
+      return { filename, verified: true };
+    } finally { if (backup) cleanupBackupDir(backup.backupDir); }
+  }
+
+  return { createVerifiedBackup, createCompleteBackup, persistCompleteBackup, cleanupBackupDir };
 }
 
 module.exports = { createBackupService };

@@ -208,7 +208,7 @@ test("offline sync package validates contents and detects tampering", () => {
   }
 });
 
-test("complaint state diff records content changes without copying sensitive values", () => {
+test("complaint state diff records before and after values for the protected audit trail", () => {
   const { diffComplaints } = require("../lib/complaint-state-diff");
   assert.deepEqual(
     diffComplaints(
@@ -223,7 +223,7 @@ test("complaint state diff records content changes without copying sensitive val
       {
         action: "complaint_updated",
         id: "A",
-        details: { source: "state_api", changedFields: ["summary"] },
+        details: { source: "state_api", changedFields: ["summary"], changes: { summary: { before: 'old', after: 'new' } } },
       },
     ],
   );
