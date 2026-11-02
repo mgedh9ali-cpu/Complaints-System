@@ -28,7 +28,10 @@
     "helmet": "^8.1.0",
     "multer": "^2.5.0",
     "pdfkit": "^0.20.2",
-    "session-file-store": "^1.5.0"
+    "session-file-store": "^1.5.0",
+    "glob": "file:vendor/glob-compat",
+    "minimatch": "file:vendor/minimatch-compat",
+    "rimraf": "file:vendor/rimraf-compat"
   },
   "devDependencies": {
     "electron": "^45.2.1",
@@ -40,7 +43,7 @@
     "directories": {
       "output": "dist-desktop"
     },
-    "asar": false,
+    "asar": true,
     "asarUnpack": [
       "**/*.node",
       "**/better-sqlite3/**/*"
@@ -92,7 +95,8 @@
       "!*.zip",
       "!*.bak",
       "!**/storage-key",
-      "!retired-attachments/**/*"
+      "!retired-attachments/**/*",
+      "vendor/**/*"
     ],
     "win": {
       "target": [
@@ -103,13 +107,23 @@
           ]
         }
       ],
-      "artifactName": "complaints-system-${version}-portable.${ext}"
+      "artifactName": "complaints-system-${version}-portable.${ext}",
+      "icon": "build/icon.ico"
     },
     "portable": {
       "artifactName": "complaints-system-${version}-portable.exe"
     }
   },
   "overrides": {
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "glob": "$glob",
+    "minimatch": "$minimatch",
+    "rimraf": "$rimraf",
+    "global-agent": "4.1.6",
+    "fast-csv": "5.0.7",
+    "unzipper": "0.12.5"
+  },
+  "author": {
+    "name": "mgedh9ali-cpu"
   }
 }

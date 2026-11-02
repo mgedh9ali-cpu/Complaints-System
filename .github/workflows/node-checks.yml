@@ -22,9 +22,12 @@ jobs:
           sudo apt-get install -y build-essential python3
       - name: Install dependencies without Electron ABI rebuild
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify installed dependency tree
+        run: npm ls --all
+
       - name: Build SQLite module for Node.js
         run: npm rebuild better-sqlite3 --build-from-source
       - run: npm run check
       - run: npm test
-      - name: Audit high and critical dependency findings
-        run: npm audit --audit-level=high
+      - name: Audit every dependency finding
+        run: npm audit --audit-level=low

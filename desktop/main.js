@@ -108,7 +108,8 @@ function waitForServer(timeoutMs = 60000) {
 
 function bootServerInProcess(paths, root) {
   if (serverBooted) return;
-  process.chdir(root);
+  // ASAR is a virtual filesystem; cwd must remain a real directory.
+  process.chdir(root.endsWith('.asar') ? path.dirname(root) : root);
   loadEnvFile(paths.envPath);
   // Always force data paths into userData (never store DB inside the portable exe)
   process.env.HOST = HOST;
@@ -176,6 +177,7 @@ function createWindow() {
   }
 }
 
+require('./smoke-profile').configureSmokeProfile(app);
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
