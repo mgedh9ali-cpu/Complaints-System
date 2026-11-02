@@ -121,7 +121,10 @@
     "rimraf": "$rimraf",
     "global-agent": "4.1.6",
     "fast-csv": "5.0.7",
-    "unzipper": "0.12.5"
+    "unzipper": "0.12.5",
+    "glob-patched": {
+      "minimatch": "$minimatch"
+    }
   },
   "author": {
     "name": "mgedh9ali-cpu"
