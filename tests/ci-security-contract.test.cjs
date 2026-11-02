@@ -9,7 +9,7 @@ test('CircleCI uses reproducible test dependencies and persists failure logs',()
  const ci=read('.circleci/config.yml');
  assert.match(ci,/image: cimg\/node:24/);
  assert.match(ci,/npm ci --ignore-scripts --no-audit --no-fund/);
- assert.match(ci,/npm rebuild better-sqlite3 --build-from-source/);
+ assert.match(ci,/npm run check:sqlite/);
  assert.match(ci,/npm run check/);
  assert.match(ci,/npm test/);
  assert.match(ci,/store_artifacts:/);

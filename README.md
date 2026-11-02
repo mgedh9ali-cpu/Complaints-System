@@ -19,7 +19,7 @@
 
 ```bash
 npm ci --ignore-scripts
-npm rebuild better-sqlite3
+npm run check:sqlite
 node scripts/initialize-local-config.js
 npm run check
 npm test

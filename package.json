@@ -9,6 +9,7 @@
     "start:desktop": "electron .",
     "test": "node --test --test-concurrency=4",
     "check": "node scripts/check-source.js",
+    "check:sqlite": "node -e \"const Database = require('better-sqlite3'); const db = new Database(':memory:'); console.log(db.prepare('SELECT sqlite_version() AS version').get()); db.close();\"",
     "postinstall": "electron-builder install-app-deps",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js",
@@ -123,7 +124,7 @@
     "fast-csv": "5.0.7",
     "unzipper": "0.12.5",
     "glob-patched": {
-      "minimatch": "$minimatch"
+      "minimatch": "11.0.3"
     }
   },
   "author": {

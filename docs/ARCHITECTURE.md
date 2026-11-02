@@ -54,7 +54,7 @@
 
 ```bash
 npm ci --ignore-scripts
-npm rebuild better-sqlite3
+npm run check:sqlite
 node scripts/initialize-local-config.js
 npm start                 # http://127.0.0.1:3000
 npm run start:desktop     # نافذة Electron

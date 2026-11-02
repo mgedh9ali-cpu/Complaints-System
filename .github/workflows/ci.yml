@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: ci-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -25,8 +30,8 @@ jobs:
     - name: Verify installed dependency tree
       run: npm ls --all
 
-    - name: Build SQLite native module for Node.js
-      run: npm rebuild better-sqlite3 --build-from-source
+    - name: Verify SQLite native runtime for Node.js
+      run: npm run check:sqlite
 
     - name: Run Tests
       run: npm test

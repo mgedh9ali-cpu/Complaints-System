@@ -42,8 +42,8 @@ jobs:
       - name: Verify installed dependency tree
         run: npm ls --all
 
-      - name: Build SQLite for Node.js tests
-        run: npm rebuild better-sqlite3
+      - name: Verify SQLite native runtime for Node.js tests
+        run: npm run check:sqlite
 
       - name: Syntax checks
         run: npm run check
@@ -55,7 +55,7 @@ jobs:
         run: npm audit --audit-level=low
 
       - name: Install Electron runtime
-        run: npm rebuild electron
+        run: node node_modules/electron/install.js
 
       - name: Rebuild native SQLite for Electron
         run: npx electron-builder install-app-deps

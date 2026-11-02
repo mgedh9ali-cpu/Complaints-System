@@ -22,8 +22,8 @@ jobs:
           name: Verify installed dependency tree
           command: npm ls --all
       - run:
-          name: Build SQLite native dependency for Node.js
-          command: npm rebuild better-sqlite3 --build-from-source
+          name: Verify SQLite native runtime for Node.js
+          command: npm run check:sqlite
       - run:
           name: Check code and assembled UI
           command: |
