@@ -1,88 +1,22 @@
 document.addEventListener('click',async e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return;}const goto=e.target.closest('[data-goto]');if(goto){go(goto.dataset.goto);return;}const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=el.dataset.id;
 try {
 switch(a){
-case 'conflict-save':resolveStateConflict();break;
-case 'conflict-remote':resolveStateConflict(true);break;
-case 'print-approved-reply':printApprovedReply(id);break;
-case 'verify-document-dialog':verifyDocumentDialog();break;
-case 'verify-document':verifyDocument();break;
-case 'attachment-preview':{const url='/api/attachments/'+encodeURIComponent(el.dataset.file);modal('معاينة المرفق',esc(el.dataset.name),'<img class="attachment-viewer" src="'+url+'" alt="'+esc(el.dataset.name)+'">','<a class="btn" href="'+url+'" target="_blank" rel="noopener">فتح المرفق</a>');break;}
-case 'command-open':commandPalette();break;
-case 'command-page':closeModal();go(el.dataset.pageTarget);break;
-case 'export-selected':exportSelected();break;
-case 'glass-step':{const select=$('#detailStatus');if(select){select.value=el.dataset.status;updateReasonSheet();if(['closed','cancelled'].includes(select.value))$('#statusReason')?.focus();else changeStatus(currentId);}break;}
-case 'database-backup':{
-  (async()=>{try{
-    el.disabled=true;el.textContent='جارٍ تجهيز النسخة…';
-    const response=await fetch('/api/backup/complete',{credentials:'same-origin'});
-    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'تعذر إنشاء النسخة الاحتياطية.');}
-    const blob=await response.blob();if(!blob.size)throw new Error('الملف الناتج فارغ؛ لم تُنزّل نسخة احتياطية.');
-    const url=URL.createObjectURL(blob),link=document.createElement('a');
-    const disposition=response.headers.get('Content-Disposition')||'';
-    const filename=disposition.match(/filename="?([^";]+)"?/i)?.[1]||('complaints-complete-'+new Date().toISOString().slice(0,10)+'.csb');
-    link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
-    toast('تم تنزيل نسخة مشفّرة تشمل قاعدة البيانات والمرفقات. احتفظ بملف الإعدادات وسر النسخ الاحتياطي بعيداً عن النسخة.');
-  }catch(error){toast(error.message,'error');}finally{el.disabled=false;el.textContent='نسخ احتياطي';}})();break;}
-case 'confirm-sync-password':confirmSyncPassword();break;
-case 'sync-export':{
-  (async()=>{try{
-    const password=await askSyncPassword(true);if(password===null)return;
-    const response=await fetch('/api/sync/export',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':await getWriteCsrf()},body:JSON.stringify({password})});
-    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'تعذر التصدير.');}
-    const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
-    link.href=url;link.download='complaints-sync-'+new Date().toISOString().slice(0,10)+'.json';
-    document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
-    toast('تم إنشاء ملف المزامنة؛ انقله يدويًا إلى النسخة الأخرى.');
-  }catch(error){toast(error.message,'error');}})();break;}
-case 'sync-import':$('#syncImportFile')?.click();break;
 case 'close-modal':closeModal();break;
-case 'backdrop-close':if(e.target===el)closeModal();break;
 case 'new-complaint':newComplaint();break;
 case 'save-complaint':createComplaint();break;
 case 'save-incomplete':createComplaint(true);break;
-case 'detail':if(el.style)el.style.viewTransitionName='complaint-title';recentComplaintIds=[id,...recentComplaintIds.filter(x=>x!==id)].slice(0,8);detailModal(id);break;
+case 'detail':recentComplaintIds=[id,...recentComplaintIds.filter(x=>x!==id)].slice(0,8);detailModal(id);break;
 case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailReturnPage);break;
-case 'detail-section':{
- const target=document.getElementById(el.dataset.target);$$('.complaint-page-tabs button').forEach(b=>b.setAttribute('aria-pressed',String(b===el)));$$('.complaint-page .detail-section').forEach(section=>{section.hidden=section.id!==el.dataset.target;});
- if(target){target.scrollIntoView({behavior:'smooth',block:'start'});target.setAttribute('tabindex','-1');target.focus({preventScroll:true});}
- break;
-}
-case 'change-status':changeStatus(id);break;
-case 'assign-owner':assignOwner(id);break;
-case 'change-priority':changePriority(id);break;
-case 'add-note':addNote(id);break;
-case 'save-note':saveNote(id);break;
-case 'new-referral':newReferralGlobal();break;
-case 'referral-create':newReferral(id);break;
-case 'save-referral':saveReferral(id);break;
-case 'referral-next':{const v=$('#refComplaint')?.value;closeModal();if(v)newReferral(v);break;}
-case 'survey':surveyModal(id);break;
-case 'save-survey':saveSurvey(id);break;
-case 'new-reply':newReply();break;
-case 'reply-create':replyEditor(id);break;
-case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEditor(v);break;}
-case 'save-reply':saveReply(id);break;
-case 'reply-review':replyAction(id,a);break;
-case 'reply-approve':replyAction(id,a);break;
-case 'reply-sent':replyAction(id,a);break;
-case 'read-all':db.notifications.forEach(n=>n.read=true);await persistUiNow();render();toast('تم تحديد الإشعارات كمقروءة.');break;
-case 'read-notice':{const n=db.notifications.find(n=>String(n.id)===String(id));if(n)n.read=true;await persistUiNow();render();break;}
-case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';searchText='';go('complaints');break;
-case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';searchText='';go('complaints');break;
-case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';quickView='all';render();break;
-case 'quick-filter':quickView='all';statusFilter=el.dataset.value||'all';searchText='';render();break;
-case 'my-complaints':quickView='mine';statusFilter='all';priorityFilter='all';searchText='';go('complaints');break;
-case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';searchText='';go('complaints');break;
-case 'bulk-open':bulkOpen();break;
-case 'bulk-assign':bulkOpen();if($('#bulkType')){$('#bulkType').value='assign';$('#bulkType').dispatchEvent(new Event('change',{bubbles:true}));}break;
-case 'bulk-priority':bulkOpen();if($('#bulkType')){$('#bulkType').value='priority';$('#bulkType').dispatchEvent(new Event('change',{bubbles:true}));}break;
-case 'clear-selection':selectedIds.clear();render();break;
-case 'select-all':{const checks=$$('.row-check');if(el.checked)checks.forEach(c=>selectedIds.add(c.dataset.id));else selectedIds.clear();render();break;}
-case 'bulk-confirm':{const type=$('#bulkType').value,value=$('#bulkValue').value;modal('تأكيد الإجراء الجماعي','مراجعة أخيرة قبل التطبيق','<div class="risk-note">سيتم تطبيق «'+esc(type==='assign'?'تغيير المسؤول':'تغيير الأولوية')+'» على '+selectedIds.size+' سجلات. هذه العملية لا يمكن التراجع عنها تلقائيًا في النموذج.</div><p style="font-size:12px">القيمة المحددة: <strong>'+esc(value)+'</strong></p>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-apply" data-type="'+type+'" data-value="'+esc(value)+'">تأكيد التطبيق</button>');break;}
-case 'bulk-apply':{const type=el.dataset.type,value=el.dataset.value;if(!confirm('تأكيد نهائي لتطبيق الإجراء على '+selectedIds.size+' سجلات؟'))return;for(const cid of selectedIds){const c=db.complaints.find(x=>x.id===cid);if(!c)continue;if(type==='assign'){c.owner=value;logEvent(c,'إسناد جماعي','تم إسناد السجل إلى '+value+'.');}else{c.priority=value;logEvent(c,'تغيير أولوية جماعي','تم تغيير الأولوية إلى '+priorityLabel(value)+'.');}}selectedIds.clear();await persistUiNow();closeModal();render();toast('تم تطبيق الإجراء الجماعي.');break;}
+case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';quickView='all';render();break;
+case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
+case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
+case 'my-complaints':quickView='mine';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
+case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
+case 'quick-filter':quickView=el.dataset.value||'all';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';render();break;
+case 'registry-next':registryPage++;render();break;
+case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
 case 'add-setting':addSetting(validSettingType(el.dataset.type)?el.dataset.type:'categories');break;
 case 'add-category':addSetting('categories');break;
-case 'add-entity':addSetting('entities');break;
 case 'edit-setting':addSetting(el.dataset.type,el.dataset.value);break;
 case 'delete-setting':await deleteSetting(el.dataset.type,el.dataset.value);break;
 case 'clear-setting-type':await clearSettingType(el.dataset.type);break;
@@ -103,84 +37,13 @@ case 'save-setting':{
   }
   await persistUiNow();closeModal();render();toast(mode==='edit'?'تم تعديل الخيار.':'تمت إضافة الخيار إلى القائمة.');break;
 }
-case 'archive-setting':await archiveSetting(el.dataset.type,el.dataset.value);break;
-case 'save-sla':{const days=Number($('#slaDays').value);if(!Number.isInteger(days)||days<1||days>365)return toast('أدخل مدة بين يوم و365 يومًا.','warn');db.settings.slaDays=days;db.settings.slaApproved=$('#slaApproved').checked;await persistUiNow();render();toast(db.settings.slaApproved?'تم تفعيل مهلة المتابعة.':'حُفظت المدة دون تفعيل مؤشر التأخير.','warn');break;}
 case 'edit-complaint':editComplaintModal(id);break;
 case 'save-complaint-edit':saveComplaintEdit(id);break;
-case 'refresh-maintenance':refreshMaintenanceHealth();break;
-case 'save-reminder-period':saveReminderPeriod();break;
-case 'registry-next':registryPage++;render();break;
-case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
-case 'change-password':passwordChangeModal();break;
-case 'save-password-change':savePasswordChange();break;
-case 'setup-two-factor':twoFactorPasswordModal();break;
-case 'disable-two-factor':twoFactorPasswordModal(true);break;
-case 'start-two-factor':startTwoFactor();break;
-case 'confirm-two-factor':confirmTwoFactor();break;
-case 'confirm-disable-two-factor':disableTwoFactor();break;
-case 'finish-two-factor':closeModal();render();showLogin();break;
-case 'refresh-audit':refreshAudit();break;
-case 'verify-audit':verifyAudit();break;
-case 'refresh-local-users':refreshManagedUsers();break;
-case 'refresh-approvals':refreshApprovals();break;
-case 'request-archive':approvalRequestModal('complaint_archive',id);break;
-case 'submit-approval':submitApproval(el.dataset.kind,id,el.dataset.target,$('#approvalReason')?.value.trim());break;
-case 'approval-decision':approvalDecisionModal(id,el.dataset.decision);break;
-case 'save-approval-decision':saveApprovalDecision(id,el.dataset.decision);break;
-case 'edit-user-permissions':editUserPermissions(id);break;
-case 'save-user-permissions':saveUserPermissions(id);break;
-case 'referral-response':referralResponseModal(id,Number(el.dataset.index));break;
-case 'save-referral-response':saveReferralResponse(id,Number(el.dataset.index));break;
-case 'propose-duplicate':duplicateProposalModal(id);break;
-case 'submit-duplicate':submitApproval('complaint_duplicate',id,$('#duplicateOriginal')?.value,$('#approvalReason')?.value.trim());break;
-case 'toggle-completion-reminder':saveDetailChange(id,c=>{c.completionReminderStopped=!c.completionReminderStopped;},'حُفظ إعداد تذكير الاستكمال.');break;
-case 'save-collaborators':saveDetailChange(id,c=>{c.coAssistants=[...($('#coAssistants')?.selectedOptions||[])].map(o=>o.value);},'حُفظ المساعدون المشاركون.');break;
-case 'create-local-user':{
-  (async()=>{const username=$('#newLocalUsername')?.value.trim(),password=$('#newLocalPassword')?.value,role=$('#newLocalRole')?.value;
-    if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');
-    try{const result=await api('/api/users',{method:'POST',body:JSON.stringify({username,password,role})});$('#localUserForm')?.reset();toast('تم إنشاء الحساب '+result.user.username+'.');await refreshManagedUsers();}
-    catch(error){toast(error.message,'error');}})();break;}
-case 'toggle-local-user':{
-  (async()=>{try{const active=el.dataset.active==='true';await api('/api/users/'+encodeURIComponent(el.dataset.userId)+'/active',{method:'PATCH',body:JSON.stringify({active})});toast(active?'تم تفعيل الحساب.':'تم تعطيل الحساب.');await refreshManagedUsers();}
-    catch(error){toast(error.message,'error');}})();break;}
-case 'export-csv':exportCsv();break;
-case 'print-report':window.print();break;
+case 'change-status':changeStatus(id);break;
+default:break;
 }
-}catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');try{const stored=await api('/api/state');db=stored.state;stateRevision=stored.revision;render();}catch(_){}}
+}catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');}
 });
-document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(e.target.id==='cPhone'){const cleaned=e.target.value.replace(/[^\d+ ()-]/g,'');if(cleaned!==e.target.value)e.target.value=cleaned;}if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();}
-);
-document.addEventListener('compositionend',e=>{if(e.target.id==='complaintSearch')e.target.dispatchEvent(new Event('input',{bubbles:true}));});
-document.addEventListener('change',e=>{if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?availableOwners():['urgent','high','normal']).map(x=>'<option value="'+esc(x)+'">'+esc(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
-document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root.dataset.open&&e.key==='Tab'){const dlg=$('.modal',root);const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!dlg.contains(document.activeElement))){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dlg.contains(document.activeElement))){e.preventDefault();first.focus();}}if(e.key==='Escape'&&root.dataset.open){closeModal();return;}if(authenticatedUser&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();}if(e.target.closest?.('#commandResults')&&['ArrowDown','ArrowUp'].includes(e.key)){const buttons=$$('#commandResults button'),index=buttons.indexOf(e.target);e.preventDefault();buttons[(index+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}if(e.target.id==='commandQuery'&&e.key==='ArrowDown'){e.preventDefault();$('#commandResults button')?.focus();}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
-$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
-document.addEventListener('change',async event=>{
-  if(event.target.id!=='syncImportFile')return;
-  const file=event.target.files?.[0];if(!file)return;
-  try{
-    if(file.size>96*1024*1024)throw new Error('حجم الملف يتجاوز الحد المسموح.');
-    const payload=JSON.parse(await file.text());
-    const password=await askSyncPassword();if(password===null)return;
-    const preview=await api('/api/sync/preview',{method:'POST',body:JSON.stringify({package:payload,password})});
-    if(!confirm('معاينة الاستيراد: '+preview.incomingCount+' سجل وارد، '+preview.added+' جديد، '+preview.removed+' غير موجود في الملف، '+preview.conflicts.length+' تعارض. ستُنشأ نسخة مشفرة قبل الاستبدال. متابعة؟'))return;
-    const forceReplace=preview.conflicts.length>0;
-    if(forceReplace&&!confirm('تأكيد إضافي: ستُستبدل السجلات المتعارضة بالنسخة الواردة. هل تعتمد ذلك؟'))return;
-    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:payload,password,forceReplace,expectedRevision:preview.revision})});
-    const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;render();
-    toast(result.updateStaged
-      ? 'استوردت البيانات؛ حزمة البرنامج الموقعة محفوظة للمراجعة ولم تُطبّق تلقائيًا.'
-      : 'استوردت البيانات فقط؛ لم تُحفظ ملفات البرنامج لأن التوقيع الموثوق غير صالح أو غير موجود.',
-      'warn');
-  }catch(error){toast(error.message,'error');}finally{event.target.value='';}
-});
-window.addEventListener('complaints:request-archive',event=>{if(event.detail?.id)approvalRequestModal('complaint_archive',event.detail.id);});
-window.addEventListener('complaints:refresh',async()=>{try{const stored=await api('/api/state');db=stored.state;stateRevision=stored.revision;stateConflict=false;render();}catch(error){toast(error.message,'error');}});
-$('#logoutButton')?.addEventListener('click',logout);
-setGlassPreference(glassPreference());
-window.addEventListener('complaints:request-attachment-deletion',event=>{
- const detail=event.detail||{};if(detail.complaintId&&detail.storedName)approvalRequestModal('attachment_delete',detail.complaintId,detail.storedName);
-});
-updateSignedInUi();
-render();
-api('/api/auth/me').then(async result=>{authenticatedUser=result.user;const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;updateSignedInUi();restoreUiRoute();render();refreshManagedUsers();refreshAssignees();refreshApprovals();}).catch(()=>{showLogin();});
+document.addEventListener('input',e=>{if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;render();}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();});
+document.addEventListener('change',e=>{if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}});
 })();
