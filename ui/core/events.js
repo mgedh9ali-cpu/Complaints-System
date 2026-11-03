@@ -9,8 +9,8 @@ case 'verify-document':verifyDocument();break;
 case 'command-open':commandPalette();break;
 case 'command-page':closeModal();go(el.dataset.pageTarget);break;
 case 'export-selected':exportSelected();break;
-case 'close-modal':closeModal();break;
-case 'backdrop-close':if(e.target===el)closeModal();break;
+case 'close-modal':cancelPendingSyncImport?.();closeModal();break;
+case 'backdrop-close':if(e.target===el){cancelPendingSyncImport?.();closeModal();}break;
 case 'new-complaint':newComplaint();break;
 case 'save-complaint':createComplaint();break;
 case 'save-incomplete':createComplaint(true);break;
@@ -74,12 +74,15 @@ case 'refresh-approvals':refreshApprovals();break;
 case 'request-archive':approvalRequestModal('complaint_archive',id);break;
 case 'export-csv':exportCsv();break;
 case 'print-report':window.print();break;
+case 'sync-import':$('#syncImportFile')?.click();break;
+case 'sync-export':toast('استخدم تصدير المزامنة من لوحة الإعدادات مع عبارة مرور.','warn');break;
+case 'confirm-sync-password':await confirmSyncPassword();break;
 }
 }catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');}
 });
 document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();});
-document.addEventListener('change',e=>{if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
-document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root&&root.dataset.open&&e.key==='Escape'){closeModal();return;}if(authenticatedUser&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
+document.addEventListener('change',e=>{if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
+document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root&&root.dataset.open&&e.key==='Escape'){cancelPendingSyncImport?.();closeModal();return;}if(authenticatedUser&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
 if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
 // bootstrap login restore
 if(typeof loadDb==='function'){loadDb?.();}
