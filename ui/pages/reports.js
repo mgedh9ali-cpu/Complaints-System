@@ -1,5 +1,6 @@
 /* Operational reporting uses saved complaint records only; no external chart library. */
 function reportsPage(){
+  const safe=v=>String(v==null?'':v).replace(/&/g,'&'+'amp;').replace(/</g,'&'+'lt;').replace(/>/g,'&'+'gt;').replace(/"/g,'&'+'quot;').replace(/'/g,'&#39;');
   const records=Array.isArray(db.complaints)?db.complaints.filter(c=>!c.archivedAt):[];
   const today=new Date(workDayKey(Date.now())+'T12:00:00Z');
   const daily=Array.from({length:14},(_,i)=>{
@@ -41,8 +42,8 @@ function reportsPage(){
     if(!items.length)return '<p class="empty-state calm-empty">'+emptyLabel+'</p>';
     const max=Math.max(1,...items.map(item=>item[1]));
     return '<div class="report-rank-list">'+items.map(([label,count])=>
-      '<div class="report-rank-item"><div class="status-line"><span>'+esc(label)+'</span><strong>'+count+'</strong></div>'+
-      '<div class="progress" role="meter" aria-label="'+esc(label)+'" aria-valuemin="0" aria-valuemax="'+max+'" aria-valuenow="'+count+'">'+
+      '<div class="report-rank-item"><div class="status-line"><span>'+safe(label)+'</span><strong>'+count+'</strong></div>'+
+      '<div class="progress" role="meter" aria-label="'+safe(label)+'" aria-valuemin="0" aria-valuemax="'+max+'" aria-valuenow="'+count+'">'+
       '<span style="width:'+Math.round(count/max*100)+'%"></span></div></div>'
     ).join('')+'</div>';
   };
