@@ -165,6 +165,10 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       if (JSON.stringify(prev.statusHistory || []) !== JSON.stringify(c.statusHistory || [])) {
         return { invalidTransition: true, error: 'سجل الحالة يُحدَّث عبر مسار تغيير الحالة فقط.' };
       }
+      // Assignment must use PATCH /complaints/:id (release-http forbids forged owner via state).
+      if ((prev.owner || null) !== (c.owner || null)) {
+        return { invalidTransition: true, error: 'تغيير المسؤول يتم عبر مسار الإسناد فقط.' };
+      }
       if (prev.status === 'closed' || prev.status === 'cancelled' || prev.archivedAt) {
         if (JSON.stringify(prev) !== JSON.stringify(c)) {
           return { invalidTransition: true, error: 'لا يمكن تعديل شكوى مغلقة أو ملغاة عبر حفظ الحالة.' };
