@@ -2,6 +2,8 @@ function applyUiPermissions(){
   try{
     const role=authenticatedUser?.role;
     if(!role)return;
+    const headerCreate=$('#headerCreateButton');
+    if(headerCreate)headerCreate.hidden=!uiCan('complaints.create');
     // Hide create actions for reviewers; hide settings manage for non-admins when marked.
     $$('[data-action="new-complaint"]').forEach(el=>{if(role==='reviewer')el.hidden=true;});
     $$('[data-action="save-incomplete"],[data-action="save-complaint"]').forEach(el=>{if(role==='reviewer')el.hidden=true;});
