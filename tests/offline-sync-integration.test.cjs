@@ -215,7 +215,8 @@ test(
       "source instance should save the test state",
     );
 
-    const form=new FormData();form.append('files',new Blob(['fictional transferred document'],{type:'text/plain'}),'transfer.txt');
+    const transferText='synthetic document '.repeat(240000);
+    const form=new FormData();for(let index=0;index<3;index++)form.append('files',new Blob([transferText],{type:'text/plain'}),'transfer-'+index+'.txt');
     const uploaded=await fetch(source.baseUrl+'/api/attachments/'+encodeURIComponent(created.body.complaint.id),{method:'POST',headers:{cookie:source.cookie,'X-CSRF-Token':source.csrfToken},body:form});
     assert.equal(uploaded.status,201);const uploadedMeta=(await uploaded.json()).attachments[0];
     const {sealPackage,openPackage}=require('../lib/sync-envelope');const password='synthetic-transfer-password';
@@ -231,16 +232,19 @@ test(
         .toString("base64"),
     };
 
+    const preview = await request(destination, "/api/sync/preview", {method:"POST",body:JSON.stringify({package:sealPackage(bundle,password),password})});
+    assert.equal(preview.status,200);
+    assert.ok(Buffer.byteLength(JSON.stringify({package:sealPackage(bundle,password),password}))>16*1024*1024,'exercise the large authenticated parser');
     const imported = await request(destination, "/api/sync/import", {
       method: "POST",
-      body: JSON.stringify({package:sealPackage(bundle,password),password}),
+      body: JSON.stringify({package:sealPackage(bundle,password),password,expectedRevision:preview.body.revision}),
     });
     assert.equal(imported.status, 200, JSON.stringify(imported.body));
     assert.equal(imported.body.imported, true);
     assert.equal(imported.body.updateStaged, true);
 
     const downloaded=await fetch(destination.baseUrl+'/api/attachments/'+encodeURIComponent(uploadedMeta.storedName),{headers:{cookie:destination.cookie}});
-    assert.equal(downloaded.status,200);assert.equal(await downloaded.text(),'fictional transferred document');
+    assert.equal(downloaded.status,200);assert.equal(await downloaded.text(),transferText);
     const restored = await request(destination, "/api/state");
     assert.equal(restored.status, 200);
     assert.deepEqual(
@@ -267,7 +271,7 @@ test(
 
     const replay = await request(destination, "/api/sync/import", {
       method: "POST",
-      body: JSON.stringify({package:sealPackage(bundle,password),password}),
+      body: JSON.stringify({package:sealPackage(bundle,password),password,expectedRevision:preview.body.revision}),
     });
     assert.equal(
       replay.status,

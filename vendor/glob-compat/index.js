@@ -1,7 +1,7 @@
 'use strict';
 const modern = require('glob-patched');
 function legacyOptions(options) {
-  return { windowsPathsNoEscape: process.platform === 'win32', ...(options || {}) };
+  return { windowsPathsNoEscape: process.platform === 'win32', posix: true, ...(options || {}) };
 }
 function glob(pattern, options, callback) {
   if (typeof options === 'function') { callback = options; options = {}; }

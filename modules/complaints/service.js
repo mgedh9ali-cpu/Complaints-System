@@ -200,7 +200,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
         const oldNotes=prev.notes||[],nextNotes=c.notes||[];
         const prefix=Array.isArray(nextNotes)&&JSON.stringify(nextNotes.slice(0,oldNotes.length))===JSON.stringify(oldNotes);
         const suffix=Array.isArray(nextNotes)&&JSON.stringify(nextNotes.slice(nextNotes.length-oldNotes.length))===JSON.stringify(oldNotes);
-        const addedNotes=prefix?nextNotes.slice(oldNotes.length):nextNotes.slice(0,nextNotes.length-oldNotes.length);
+        const addedNotes=!Array.isArray(nextNotes)?[]:prefix?nextNotes.slice(oldNotes.length):nextNotes.slice(0,nextNotes.length-oldNotes.length);
         if(!Array.isArray(nextNotes)||nextNotes.length<oldNotes.length||(!prefix&&!suffix)||addedNotes.some(n=>!n||n.by!==actor?.username||typeof n.text!=='string'||!n.text.trim()||typeof n.at!=='string'||!Number.isFinite(Date.parse(n.at)))) {
           return {invalidTransition:true,error:'لا يجوز انتحال صاحب الملاحظة أو إعادة كتابة الملاحظات السابقة.'};
         }

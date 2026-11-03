@@ -1,6 +1,6 @@
 {
   "name": "complaints-local-system",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0-rc.3",
   "private": true,
   "description": "Local-first Arabic complaints system for private office use",
   "main": "desktop/main.js",

@@ -160,7 +160,7 @@ function maintenancePanel(){
  if(authenticatedUser?.role!=='admin')return '';
  const backup=maintenanceHealth?.automaticBackups;
  return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>النسخ وحالة التشغيل</h2><button class="btn btn-sm" data-action="refresh-maintenance">تحديث الفحص</button></div><div class="panel-body">'+
- '<p>نسخ مشفرة كل 15 دقيقة أثناء التشغيل، ونسخة يومية محفوظة 30 يومًا. يُضبط مسار النسخ الخارجي من إعداد التشغيل.</p>'+
+ '<p>نسخ مشفرة كل 15 دقيقة أثناء التشغيل، ونسخة يومية محفوظة 30 يومًا. في نسخة Windows اختر المجلد واحفظ مفتاح الاستعادة من قائمة «النسخ والاستعادة» أعلى النافذة.</p>'+
  (backup?'<p>آخر نسخة متحقق منها: '+timeText(backup.lastSuccessfulAt)+'</p><p>'+esc(backup.lastError?'فشل آخر نسخ: '+backup.lastError:backup.running?'نسخ جارٍ':backup.overdue?'لم تتوفر نسخة حديثة متحقق منها':'النسخ يعمل')+'</p>':'<p class="small-copy">اضغط تحديث الفحص لقراءة الحالة من الخادم.</p>')+
  '<label for="completionReminderHours">الفاصل بين تذكيرات الاستكمال (ساعة)</label><input class="field" id="completionReminderHours" type="number" min="1" max="720" value="'+(Number(db.settings.completionReminderHours)||24)+'"><button class="btn btn-sm" data-action="save-reminder-period">حفظ الفاصل</button></div></section>';
 }

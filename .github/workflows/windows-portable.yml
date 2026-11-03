@@ -20,6 +20,10 @@ jobs:
   build-windows:
     runs-on: windows-2022
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout code
@@ -49,7 +53,8 @@ jobs:
         run: npm run check
 
       - name: Run tests
-        run: npm test
+        timeout-minutes: 5
+        run: npm test -- --test-timeout=120000
 
       - name: Security audit
         run: npm audit --audit-level=low
@@ -70,10 +75,46 @@ jobs:
           if (-not $portable) { throw "Portable executable is missing" }
           node scripts/smoke-packaged.js "$portable"
 
+      - name: Record immutable artifact checksums
+        run: node scripts/release-manifest.js
+
+      - name: Attest Windows build provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest@v4
+        with:
+          subject-path: dist-desktop/*-portable.exe
+
       - name: Upload portable application
         uses: actions/upload-artifact@v4
         with:
           name: complaints-system-windows-portable
-          path: dist-desktop/*-portable.exe
+          path: |
+            dist-desktop/*-portable.exe
+            dist-desktop/SHA256SUMS.txt
+            dist-desktop/build-manifest.json
           if-no-files-found: error
           retention-days: 14
+
+  publish-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: complaints-system-windows-portable
+          path: dist-desktop
+      - name: Publish verified Windows release
+        run: node scripts/publish-release.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
