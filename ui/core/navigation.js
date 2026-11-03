@@ -1,3 +1,13 @@
+function applyUiPermissions(){
+  try{
+    const role=authenticatedUser?.role;
+    if(!role)return;
+    // Hide create actions for reviewers; hide settings manage for non-admins when marked.
+    $$('[data-action="new-complaint"]').forEach(el=>{if(role==='reviewer')el.hidden=true;});
+    $$('[data-action="save-incomplete"],[data-action="save-complaint"]').forEach(el=>{if(role==='reviewer')el.hidden=true;});
+    $$('.complaint-page.readonly [data-action="change-status"],.complaint-page.readonly [data-action="assign-owner"],.complaint-page.readonly [data-action="change-priority"]').forEach(el=>{el.disabled=true;});
+  }catch(_){}
+}
 function render(){
  const previous=new Map();
  if(!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)$$('.row-title').forEach(el=>{if(el.getBoundingClientRect)previous.set(el.dataset.id,el.getBoundingClientRect());});
