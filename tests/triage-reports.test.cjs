@@ -16,7 +16,7 @@ function renderReport(complaints) {
     heading: (title, desc, actions) => '<header>' + title + desc + actions + '</header>',
     btn: (label, action) => '<button data-action="' + action + '">' + label + '</button>',
     esc: value => String(value).replace(/[&<>"']/g, character => ({
-      '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;'
+      '&': '&'+'amp;', '<': '&'+'lt;', '>': '&'+'gt;', '"': '&'+'quot;', "'": '&#39;'
     })[character]),
     ageDays: c => Math.max(0, Math.floor((Date.now() - new Date(c.created)) / 86400000)),
     lateComplaints: () => complaints.filter(c => c.late),
@@ -53,7 +53,8 @@ test('operational reports chart real records, escape labels and retain local exp
   ]);
   assert.match(html, /class="daily-chart"/);
   assert.equal((html.match(/class="daily-bar-item"/g) || []).length, 14);
-  assert.match(html, /<script>alert\(1\)<\/script>/);
+  const escaped = '&'+'lt;script&'+'gt;alert\\(1\\)&'+'lt;\\/script&'+'gt;';
+  assert.match(html, new RegExp(escaped));
   assert.doesNotMatch(html, /<script>alert/);
   assert.match(html, /data-action="export-csv"/);
   assert.match(html, /data-action="print-report"/);
