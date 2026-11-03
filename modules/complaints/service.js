@@ -63,7 +63,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
   function persistState(state, userId, now, nextRevision, auditEvents = []) {
     const stateJson = storage.encodeJson(state, 'app-state');
     const tx = db.transaction(() => {
-      db.prepare(`INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)\n         VALUES (1, ?, ?, ?, ?)\n         ON CONFLICT(id) DO UPDATE SET\n           state_json = excluded.state_json, updated_by = excluded.updated_by,\n           updated_at = excluded.updated_at, revision = excluded.revision`).run(stateJson, userId, now, nextRevision);
+      db.prepare(`INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)\n         VALUES (1, ?, ?, ?, ?)\n         ON CONFLICT(id) DO UPDATE SET\n           state_json = excluded.state_json, updated_by = excluded.updated_by,\n           updated_at = excluded.updated_at, revision = excluded.revision`).run(stateJson, userId || 'system', now, nextRevision);
       for (const c of state.complaints || []) {
         if (!c || typeof c.id !== 'string') continue;
         const payload = storage.encodeJson(c, 'complaint:' + c.id);
@@ -127,7 +127,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       const nextReply = c.reply || null;
       if (prevReply && ['approved', 'sent'].includes(prevReply.status)) {
         if (!nextReply || nextReply.text !== prevReply.text || nextReply.author !== prevReply.author) {
-          return { invalidTransition: true, error: 'الرد المعتمد غير قابل للتعديل.' };
+          return { invalidTransition: true, error: 'لا يجوز تغيير نص الرد المعتمد.' };
         }
         if (prevReply.status === 'sent' && nextReply.status !== 'sent') {
           return { invalidTransition: true, error: 'لا يمكن التراجع عن إرسال الرد المعتمد.' };
@@ -153,6 +153,13 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
         if (nextNotes.length < prevNotes.length) {
           return { invalidTransition: true, error: 'حذف الملاحظات غير مسموح عبر حفظ الحالة.' };
         }
+        const actorName = actor?.username || '';
+        for (let i = prevNotes.length; i < nextNotes.length; i++) {
+          const note = nextNotes[i];
+          if (note && note.by && actorName && note.by !== actorName) {
+            return { invalidTransition: true, error: 'لا يمكن إضافة ملاحظة باسم مستخدم آخر.' };
+          }
+        }
       }
     }
     const now = new Date().toISOString();
@@ -162,6 +169,13 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       const diffs = diffComplaints(current.state.complaints || [], state.complaints || []);
       if (Array.isArray(diffs)) for (const d of diffs) complaintChanges.push({ action: d.action || 'complaint_updated', id: d.id, details: d.details || {} });
     } catch (_) {}
+    for (const c of state.complaints || []) {
+      const prev = prevById.get(c.id);
+      if (!prev) continue;
+      if (JSON.stringify(prev.notes || []) !== JSON.stringify(c.notes || [])) {
+        complaintChanges.push({ action: 'complaint_updated', id: c.id, details: { changes: { notes: { before: prev.notes || [], after: c.notes || [] } } } });
+      }
+    }
     if (JSON.stringify(current.state.settings || {}) !== JSON.stringify(state.settings || {})) {
       complaintChanges.push({ action: 'settings_updated', id: null, details: { before: current.state.settings || {}, after: state.settings || {} } });
     }
@@ -222,7 +236,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       return { ok: false, status: 409, error: 'لا يمكن تعديل شكوى مغلقة أو ملغاة.' };
     }
     const now = new Date().toISOString();
-    const changes = [];
+    const changes = {};
     for (const key of EDITABLE_FIELDS) {
       if (body && Object.prototype.hasOwnProperty.call(body, key) && body[key] !== undefined) {
         const next = body[key];
@@ -230,15 +244,15 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
           if (key === 'owner' && !roles.can(actorFor(userId), 'complaints.assign')) {
             return { ok: false, status: 403, error: 'ليس لديك صلاحية الإسناد.' };
           }
-          changes.push(key);
+          changes[key] = { before: complaint[key], after: next };
           complaint[key] = next;
         }
       }
     }
-    if (!changes.length) return { ok: true, complaint, revision, unchanged: true };
+    if (!Object.keys(changes).length) return { ok: true, complaint, revision, unchanged: true };
     complaint.updated = now;
     complaint.timeline = Array.isArray(complaint.timeline) ? complaint.timeline.slice() : [];
-    complaint.timeline.unshift({ event: 'تعديل البيانات', by: username || 'system', at: now, detail: changes.join(', ') });
+    complaint.timeline.unshift({ event: 'تعديل البيانات', by: username || 'system', at: now, detail: Object.keys(changes).join(', ') });
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
     persistState(state, userId, now, nextRevision, [{ action: 'complaint_updated', id: complaintId, details: { changes } }]);
@@ -392,7 +406,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     const reply = complaint.reply ? { ...complaint.reply } : { status: 'draft', author: username, text: '' };
     const now = new Date().toISOString();
     if (action === 'draft') {
-      if (reply.status === 'approved' || reply.status === 'sent') return { ok: false, status: 409, error: 'الرد المعتمد غير قابل للتعديل.' };
+      if (reply.status === 'approved' || reply.status === 'sent') return { ok: false, status: 409, error: 'لا يجوز تغيير نص الرد المعتمد.' };
       reply.text = text != null ? text : reply.text;
       reply.author = username || reply.author;
       reply.authorId = userId;
