@@ -62,23 +62,46 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
 
   function persistState(state, userId, now, nextRevision, auditEvents = []) {
     const stateJson = storage.encodeJson(state, 'app-state');
+    const actorId = userId || (db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get() || {}).id || null;
+    if (!actorId) throw new Error('لا يوجد مستخدم لتسجيل تحديث الحالة.');
+    const revisionToWrite = Number(nextRevision);
+    if (!Number.isSafeInteger(revisionToWrite) || revisionToWrite < 1) {
+      throw new Error('رقم مراجعة الحالة غير صالح.');
+    }
     const tx = db.transaction(() => {
-      db.prepare(`INSERT INTO app_state(id, state_json, updated_by, updated_at, revision)\n         VALUES (1, ?, ?, ?, ?)\n         ON CONFLICT(id) DO UPDATE SET\n           state_json = excluded.state_json, updated_by = excluded.updated_by,\n           updated_at = excluded.updated_at, revision = excluded.revision`).run(stateJson, userId || 'system', now, nextRevision);
+      const existing = db.prepare('SELECT id FROM app_state WHERE id = 1').get();
+      if (existing) {
+        db.prepare(
+          'UPDATE app_state SET state_json = ?, updated_by = ?, updated_at = ?, revision = ? WHERE id = 1'
+        ).run(stateJson, actorId, now, revisionToWrite);
+      } else {
+        db.prepare(
+          'INSERT INTO app_state(id, state_json, updated_by, updated_at, revision) VALUES (1, ?, ?, ?, ?)'
+        ).run(stateJson, actorId, now, revisionToWrite);
+      }
+      const written = db.prepare('SELECT revision FROM app_state WHERE id = 1').get();
+      if (!written || Number(written.revision) !== revisionToWrite) {
+        throw new Error('فشل تثبيت رقم مراجعة الحالة.');
+      }
       for (const c of state.complaints || []) {
         if (!c || typeof c.id !== 'string') continue;
         const payload = storage.encodeJson(c, 'complaint:' + c.id);
-        const existing = db.prepare('SELECT id, payload_json FROM complaints WHERE id = ?').get(c.id);
-        if (existing) {
+        const row = db.prepare('SELECT id, payload_json FROM complaints WHERE id = ?').get(c.id);
+        if (row) {
           try {
-            if (JSON.stringify(storage.decodeJson(existing.payload_json, 'complaint:' + c.id)) === JSON.stringify(c)) continue;
+            if (JSON.stringify(storage.decodeJson(row.payload_json, 'complaint:' + c.id)) === JSON.stringify(c)) continue;
           } catch (_) {}
           db.prepare('UPDATE complaints SET payload_json = ?, updated_at = ? WHERE id = ?').run(payload, now, c.id);
         } else {
-          db.prepare('INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(c.id, payload, userId || null, c.created || now, now);
+          db.prepare(
+            'INSERT INTO complaints(id, payload_json, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+          ).run(c.id, payload, actorId, c.created || now, now);
         }
       }
       for (const event of auditEvents) {
-        if (typeof audit === 'function') audit(userId, event.action, event.targetType || 'complaint', event.id ?? null, event.details || {});
+        if (typeof audit === 'function') {
+          audit(actorId, event.action, event.targetType || 'complaint', event.id ?? null, event.details || {});
+        }
       }
     });
     tx();
@@ -87,7 +110,13 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
 
   function saveState({ state, userId, expectedRevision, diffComplaints = defaultDiff, auditEvents = [] }) {
     const current = readState();
-    if (Number(expectedRevision) !== Number(current.revision)) return { conflict: true, currentRevision: current.revision };
+    const currentRevision = Number(current.revision) || 0;
+    if (expectedRevision === undefined || expectedRevision === null || Number.isNaN(Number(expectedRevision))) {
+      return { conflict: true, currentRevision };
+    }
+    if (Number(expectedRevision) !== currentRevision) {
+      return { conflict: true, currentRevision };
+    }
     const prevById = new Map((current.state.complaints || []).map((c) => [c.id, c]));
     const ids = new Set();
     for (const complaint of state.complaints || []) {
@@ -100,7 +129,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       return { invalidTransition: true, error: 'حذف الشكاوى غير مسموح عبر حفظ الحالة؛ استخدم إجراء الحذف المعتمد.' };
     }
     const actor = actorFor(userId);
-    if (current.revision > 0 && !roles.can(actor, 'settings.manage') && JSON.stringify(current.state.settings) !== JSON.stringify(state.settings)) {
+    if (currentRevision > 0 && !roles.can(actor, 'settings.manage') && JSON.stringify(current.state.settings) !== JSON.stringify(state.settings)) {
       return { invalidTransition: true, error: 'إعدادات النظام لا يغيّرها إلا المدير.' };
     }
     for (const c of state.complaints || []) {
@@ -108,7 +137,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       if (prev && prev.status !== c.status) {
         return { invalidTransition: true, error: 'تغيير الحالة غير مسموح عبر حفظ الحالة الكامل. استخدم مسار تغيير الحالة.' };
       }
-      if (!prev && current.revision > 0) {
+      if (!prev && currentRevision > 0) {
         return { invalidTransition: true, error: 'إنشاء شكوى عبر حفظ الحالة غير مسموح؛ استخدم مسار تسجيل الشكاوى.' };
       }
       if (!prev) continue;
@@ -188,7 +217,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       }
     }
     const now = new Date().toISOString();
-    const nextRevision = (Number(current.revision) || 0) + 1;
+    const nextRevision = currentRevision + 1;
     const complaintChanges = [];
     try {
       const diffs = diffComplaints(current.state.complaints || [], state.complaints || []);
@@ -347,7 +376,6 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       return { ok: false, status: 409, error: 'رمز التراجع غير صالح.' };
     }
     const record = statusUndos.get(token);
-    // Wrong user must NOT consume the single-use token.
     if (record.userId !== userId) {
       return { ok: false, status: 403, error: 'غير مصرح بالتراجع.' };
     }
@@ -558,7 +586,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     state.complaints = nextComplaints;
     const nextRevision = (Number(revision) || 0) + 1;
     const systemUser = db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get();
-    const safeSystemId = systemUser ? systemUser.id : 'system';
+    const safeSystemId = systemUser ? systemUser.id : null;
     persistState(state, safeSystemId, now.toISOString(), nextRevision, events);
     return sent;
   }
