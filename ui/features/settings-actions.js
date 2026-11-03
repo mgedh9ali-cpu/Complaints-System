@@ -1,36 +1,36 @@
-const managedTypes=['categories','provinces','entities','priorities'];
+const managedTypes=['categories','natures','provinces','entities','priorities'];
 function validSettingType(type){return managedTypes.includes(type);}
-function settingDescriptionKey(type){return type==='categories'?'categoryDescriptions':type==='entities'?'entityDescriptions':null;}
-function settingEntries(type){ensureManagedSettings();return type==='priorities'?db.settings.priorities.map(x=>({value:x.value,label:x.label})):db.settings[type].map(x=>({value:x,label:x}));}
+function settingDescriptionKey(type){return type==='categories'?'categoryDescriptions':type==='natures'?'natureDescriptions':type==='entities'?'entityDescriptions':null;}
+function settingEntries(type){ensureManagedSettings();return type==='priorities'?db.settings.priorities.map(x=>({value:x.value,label:x.label})):(db.settings[type]||[]).map(x=>({value:x,label:x}));}
 function addSetting(type,value){
   if(!validSettingType(type))return;ensureManagedSettings();const editing=typeof value==='string';value=value||'';
   const entry=editing?settingEntries(type).find(x=>x.value===value):null;if(editing&&!entry)return toast('تعذر العثور على الخيار المطلوب.','error');
   const key=settingDescriptionKey(type);if(key)db.settings[key] ||= {};
-  const title=(editing?'تعديل ':'إضافة ')+({categories:'تصنيف',provinces:'محافظة',entities:'جهة مختصة',priorities:'أولوية'})[type];
+  const title=(editing?'تعديل ':'إضافة ')+({categories:'تصنيف',natures:'طبيعة الشكاوي',provinces:'محافظة',entities:'جهة مختصة',priorities:'أولوية'})[type];
   const label=entry?.label||'';const desc=key?(db.settings[key][value]||''):'';
   modal(title,'تُحفظ القيم في قاعدة البيانات المحلية. حذف خيار لا يغيّر الشكاوى السابقة.','<form id="settingForm"><div class="form-field"><label for="settingValue">الاسم</label><input class="field" id="settingValue" required maxlength="100" value="'+esc(label)+'"></div>'+(key?'<div class="form-field" style="margin-top:12px"><label for="settingDescription">الوصف</label><textarea class="textarea-field" id="settingDescription" maxlength="500" placeholder="وصف اختياري">'+esc(desc)+'</textarea></div>':'')+'</form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-setting" data-type="'+type+'" data-mode="'+(editing?'edit':'create')+'" data-original="'+esc(value)+'">حفظ</button>');
 }
 async function deleteSetting(type,value){
   if(!validSettingType(type))return;ensureManagedSettings();const entries=settingEntries(type);if(!entries.some(x=>x.value===value))return;
-  const label=({categories:'التصنيف',provinces:'المحافظة',entities:'الجهة المختصة',priorities:'الأولوية'})[type];
+  const label=({categories:'التصنيف',natures:'طبيعة الشكاوي',provinces:'المحافظة',entities:'الجهة المختصة',priorities:'الأولوية'})[type];
   if(!confirm('حذف «'+(entries.find(x=>x.value===value)?.label||value)+'» من قائمة '+label+'؟ ستبقى القيمة كما هي في الشكاوى السابقة.'))return;
   if(type==='priorities')db.settings.priorities=db.settings.priorities.filter(x=>x.value!==value);else db.settings[type]=db.settings[type].filter(item=>item!==value);
   const key=settingDescriptionKey(type);if(key)delete (db.settings[key] ||= {})[value];await persistUiNow();render();toast('تم حذف الخيار من القائمة.');
 }
 async function clearSettingType(type){
-  if(!validSettingType(type))return;ensureManagedSettings();const label=({categories:'التصنيفات',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'})[type];
+  if(!validSettingType(type))return;ensureManagedSettings();const label=({categories:'التصنيفات',natures:'طبيعة الشكاوي',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'})[type];
   if(!settingEntries(type).length)return toast('القائمة فارغة بالفعل.','warn');
   if(!confirm('تأكيد حذف جميع '+label+' من خيارات الإدخال؟ لن تُحذف القيم المحفوظة في الشكاوى السابقة.'))return;
   db.settings[type]=[];const key=settingDescriptionKey(type);if(key)db.settings[key]={};await persistUiNow();render();toast('تم إفراغ القائمة.');
 }
 async function restoreDefaultSettings(type='all'){
-  if(!['all',...managedTypes].includes(type))return;const labels={all:'كل القوائم',categories:'التصنيفات',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'};
+  if(!['all',...managedTypes].includes(type))return;const labels={all:'كل القوائم',categories:'التصنيفات',natures:'طبيعة الشكاوي',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'};
   if(!confirm('استعادة '+labels[type]+' الافتراضية؟ لن تتغير الشكاوى السابقة.'))return;
-  for(const key of managedTypes){if(type!=='all'&&type!==key)continue;db.settings[key]=key==='priorities'?seed.settings.priorities.map(x=>({...x})): [...seed.settings[key]];const descKey=settingDescriptionKey(key);if(descKey)db.settings[descKey]={};}
+  for(const key of managedTypes){if(type!=='all'&&type!==key)continue;db.settings[key]=key==='priorities'?seed.settings.priorities.map(x=>({...x})): [...(seed.settings[key]||[])];const descKey=settingDescriptionKey(key);if(descKey)db.settings[descKey]={};}
   await persistUiNow();render();toast('تمت استعادة '+labels[type]+' الافتراضية.');
 }
 async function archiveSetting(type,value){
-  if(!validSettingType(type)||!db.settings[type].includes(value))return;
+  if(!validSettingType(type)||!(db.settings[type]||[]).includes(value))return;
   if(!confirm('أرشفة «'+value+'» من القيم المتاحة الجديدة؟ لن تتغير السجلات السابقة.'))return;
   db.settings[type]=db.settings[type].filter(x=>x!==value);
   (db.settings.archived ||= []).push({type,value,at:new Date().toISOString()});
@@ -142,93 +142,14 @@ function editComplaintModal(id){
  modal('استكمال وتعديل بيانات الشكوى','الرقم وتاريخ التسجيل وسجل الإجراءات ثابتة.',
  '<form id="editComplaintForm"><div class="form-grid">'+field('اسم المشتكي','editName',c.name||'')+field('رقم الهاتف','editPhone',c.phone||'','tel')+
  selectField('المحافظة','editProvince',options(db.settings.provinces,c.province),c.province,true)+selectField('التصنيف','editCategory',options(db.settings.categories,c.category),c.category,true)+
+ selectField('طبيعة الشكاوي','editNature',options(db.settings.natures||[],c.nature||''),c.nature||'',false)+
  selectField('الجهة','editEntity',options(db.settings.entities,c.entity),c.entity||'')+field('الموضوع','editSummary',c.summary||'','text',true,'maxlength="180"')+
  '<div class="form-field full"><label for="editDetails">التفاصيل</label><textarea class="textarea-field" id="editDetails" maxlength="10000">'+esc(c.details||'')+'</textarea></div></div></form>',
  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-complaint-edit" data-id="'+esc(id)+'">حفظ البيانات</button>');
 }
 async function saveComplaintEdit(id){
  if(!$('#editComplaintForm')?.reportValidity())return;
- const body={name:$('#editName').value.trim(),phone:phoneNorm($('#editPhone').value),province:$('#editProvince').value,category:$('#editCategory').value,
+ const body={name:$('#editName').value.trim(),phone:phoneNorm($('#editPhone').value),province:$('#editProvince').value,category:$('#editCategory').value,nature:$('#editNature')?.value||'',
   entity:$('#editEntity').value,summary:$('#editSummary').value.trim(),details:$('#editDetails').value.trim()};
  try{await flushUiBeforeAction();await api('/api/complaints/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)});closeModal();await reloadStoredState();toast('حُفظت بيانات الشكوى.');}catch(error){toast(error.message,'error');}
 }
-async function refreshMaintenanceHealth(){
- if(authenticatedUser?.role!=='admin')return;
- try{maintenanceHealth=await api('/api/health/metrics');if(page==='settings')render();}catch(error){toast(error.message,'error');}
-}
-function maintenancePanel(){
- if(authenticatedUser?.role!=='admin')return '';
- const backup=maintenanceHealth?.automaticBackups;
- return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>النسخ وحالة التشغيل</h2><button class="btn btn-sm" data-action="refresh-maintenance">تحديث الفحص</button></div><div class="panel-body">'+
- '<p>نسخ مشفرة كل 15 دقيقة أثناء التشغيل، ونسخة يومية محفوظة 30 يومًا. في نسخة Windows اختر المجلد واحفظ مفتاح الاستعادة من قائمة «النسخ والاستعادة» أعلى النافذة.</p>'+
- (backup?'<p>آخر نسخة متحقق منها: '+timeText(backup.lastSuccessfulAt)+'</p><p>'+esc(backup.lastError?'فشل آخر نسخ: '+backup.lastError:backup.running?'نسخ جارٍ':backup.overdue?'لم تتوفر نسخة حديثة متحقق منها':'النسخ يعمل')+'</p>':'<p class="small-copy">اضغط تحديث الفحص لقراءة الحالة من الخادم.</p>')+
- '<label for="completionReminderHours">الفاصل بين تذكيرات الاستكمال (ساعة)</label><input class="field" id="completionReminderHours" type="number" min="1" max="720" value="'+(Number(db.settings.completionReminderHours)||24)+'"><button class="btn btn-sm" data-action="save-reminder-period">حفظ الفاصل</button></div></section>';
-}
-async function saveReminderPeriod(){
- const hours=Number($('#completionReminderHours')?.value);if(!Number.isInteger(hours)||hours<1||hours>720)return toast('أدخل فاصلًا بين ساعة و720 ساعة.','warn');
- const before=structuredClone(db);db.settings.completionReminderHours=hours;
- try{await persistUiNow();render();toast('حُفظ فاصل التذكير.');}catch(error){db=before;toast(error.message,'error');}
-}
-function applyUiPermissions(){
- const mapping={'new-complaint':'complaints.create','save-complaint':'complaints.create','save-incomplete':'complaints.create',
-  'change-status':'complaints.status','assign-owner':'complaints.assign','save-collaborators':'complaints.assign',
-  'change-priority':'complaints.update','add-note':'complaints.update','save-note':'complaints.update',
-  'referral-create':'complaints.update','save-referral':'complaints.update','referral-response':'complaints.update',
-  'reply-create':'replies.draft','new-reply':'replies.draft','reply-review':'replies.draft','reply-approve':'replies.approve','reply-sent':'replies.send',
-  'bulk-open':'complaints.update','bulk-assign':'complaints.assign','bulk-priority':'complaints.update',
-  'export-csv':'export.csv','request-archive':'approvals.request','propose-duplicate':'approvals.request'};
- $$('[data-action]').forEach(el=>{const permission=mapping[el.dataset.action];if(permission)el.hidden=!uiCan(permission);});
-}
-
-function securityPanel(){
- return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>أمان حسابك</h2><button class="btn btn-sm" data-action="change-password">تغيير كلمة المرور</button></div><div class="panel-body"><p>'+(authenticatedUser?.twoFactorEnabled?'مفعّل: يلزم رمز من تطبيق المصادقة عند الدخول.':'يمكن حماية حسابك برمز مؤقت يعمل دون إنترنت.')+'</p><button class="btn" data-action="'+(authenticatedUser?.twoFactorEnabled?'disable-two-factor':'setup-two-factor')+'">'+(authenticatedUser?.twoFactorEnabled?'تعطيل التحقق الثنائي':'إعداد التحقق الثنائي')+'</button></div></section>';
-}
-function twoFactorPasswordModal(disable=false){
- modal(disable?'تعطيل التحقق الثنائي':'بدء إعداد التحقق الثنائي','تحقق من هويتك بكلمة المرور الحالية.',
- '<label for="twoFactorPassword">كلمة المرور الحالية</label><input class="field" id="twoFactorPassword" type="password" autocomplete="current-password">'+
- (disable?'<label for="twoFactorCode">رمز جديد من تطبيق المصادقة أو رمز استرداد</label><input class="field" id="twoFactorCode" autocomplete="one-time-code" maxlength="40">':''),
- '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="'+(disable?'confirm-disable-two-factor':'start-two-factor')+'">متابعة</button>');
-}
-async function startTwoFactor(){
- try{
-  const result=await api('/api/auth/2fa/setup',{method:'POST',body:JSON.stringify({password:$('#twoFactorPassword')?.value})});
-  modal('ربط تطبيق المصادقة','أضف حسابًا من نوع TOTP في تطبيق المصادقة باستخدام المفتاح، ثم أدخل الرمز الناتج.',
-   '<label for="twoFactorSecret">المفتاح (يظهر في هذه الخطوة فقط)</label><input class="field" id="twoFactorSecret" dir="ltr" readonly value="'+esc(result.secret)+'"><label for="twoFactorCode">رمز التحقق المكون من 6 أرقام</label><input class="field" id="twoFactorCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6">',
-   '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="confirm-two-factor">تفعيل</button>');
- }catch(error){toast(error.message,'error');}
-}
-function resetLocalSessionForTwoFactor(){authenticatedUser=null;stateLoaded=false;stateRevision=0;stateConflict=false;csrfTokenCache=null;db=cleanState();updateSignedInUi();}
-async function confirmTwoFactor(){
- try{
-  const result=await api('/api/auth/2fa/confirm',{method:'POST',body:JSON.stringify({code:$('#twoFactorCode')?.value.trim()})});
-  resetLocalSessionForTwoFactor();
-  modal('احفظ رموز الاسترداد الآن','يُستخدم كل رمز مرة واحدة عند فقدان تطبيق المصادقة. لن تظهر هذه الرموز مرة أخرى.',
-   '<div dir="ltr" style="line-height:2">'+result.recoveryCodes.map(code=>'<div><code>'+esc(code)+'</code></div>').join('')+'</div><p class="small-copy">بعد حفظها، سجّل الدخول بكلمة المرور ورمز جديد من تطبيق المصادقة.</p>',
-   '<button class="btn btn-primary" data-action="finish-two-factor">حفظت الرموز، الانتقال للدخول</button>');
- }catch(error){toast(error.message,'error');}
-}
-async function disableTwoFactor(){
- try{await api('/api/auth/2fa/disable',{method:'POST',body:JSON.stringify({password:$('#twoFactorPassword')?.value,code:$('#twoFactorCode')?.value.trim()})});resetLocalSessionForTwoFactor();closeModal();render();showLogin();}catch(error){toast(error.message,'error');}
-}
-
-function passwordChangeModal(){
- modal('تغيير كلمة المرور','تُبطل الجلسات الأخرى بعد الحفظ.',
- '<label for="currentPassword">كلمة المرور الحالية</label><input class="field" id="currentPassword" type="password" autocomplete="current-password"><label for="nextPassword">كلمة المرور الجديدة (12 حرفًا على الأقل)</label><input class="field" id="nextPassword" type="password" autocomplete="new-password" minlength="12" maxlength="200"><label for="repeatPassword">تأكيد كلمة المرور الجديدة</label><input class="field" id="repeatPassword" type="password" autocomplete="new-password" maxlength="200">',
- '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-password-change">حفظ كلمة المرور</button>');
-}
-async function savePasswordChange(){
- const newPassword=$('#nextPassword')?.value;if(!newPassword||newPassword!==$('#repeatPassword')?.value)return toast('كلمتا المرور الجديدتان غير متطابقتين.','warn');
- try{await api('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:$('#currentPassword')?.value,newPassword})});closeModal();toast('حُفظت كلمة المرور وأُبطلت الجلسات الأخرى.');}catch(error){toast(error.message,'error');}
-}
-
-let displayedAudit=[],auditCheck=null;
-function auditPanel(){
- if(!uiCan('audit.read'))return '';
- const users=new Map(managedUsers.map(u=>[u.id,u.username]));
- const labels={complaint_created:'تسجيل شكوى',complaint_updated:'تعديل شكوى',complaint_archived:'أرشفة شكوى',complaint_status_changed:'تغيير حالة',complaint_referred:'تسجيل إحالة',referral_response_recorded:'رد جهة',settings_updated:'تعديل إعدادات',approval_requested:'طلب موافقة',approval_decided:'قرار موافقة',user_permissions_changed:'تعديل صلاحيات',login_succeeded:'دخول ناجح',login_failed:'دخول مرفوض',attachment_uploaded:'رفع مرفق',attachment_accessed:'قراءة مرفق',attachment_deleted:'أرشفة مرفق',csv_export:'تصدير CSV',xlsx_export:'تصدير Excel',two_factor_enabled:'تفعيل التحقق الثنائي',two_factor_disabled:'تعطيل التحقق الثنائي'};
- return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>سجل التدقيق الخادمي</h2><div><button class="btn btn-sm" data-action="refresh-audit">عرض آخر الأحداث</button> '+(uiCan('audit.verify')?'<button class="btn btn-sm" data-action="verify-audit">فحص سلامة السلسلة</button>':'')+'</div></div><div class="panel-body">'+
- (auditCheck?'<p role="status">'+(auditCheck.ok?'نجح فحص السلسلة':'فشل فحص السلسلة؛ يلزم مراجعة المسؤول')+' · '+(auditCheck.checked||0)+' حدث</p>':'')+
- '<p class="small-copy">يعرض آخر 500 حدث من الخادم، ولا يتيح تعديلها أو حذفها.</p>'+displayedAudit.map(e=>'<details class="setting-row" style="display:block"><summary>'+esc(labels[e.action]||e.action)+' · '+esc(users.get(e.actorUserId)||e.actorUserId||'النظام')+' · '+timeText(e.createdAt)+'</summary><p><bdi dir="ltr">'+esc(e.targetId||'')+'</bdi></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(JSON.stringify(e.details,null,2))+'</pre></details>').join('')+'</div></section>';
-}
-async function refreshAudit(){try{displayedAudit=(await api('/api/audit')).events||[];render();}catch(error){toast(error.message,'error');}}
-async function verifyAudit(){try{auditCheck=await api('/api/audit/verify');render();}catch(error){toast(error.message,'error');}}
