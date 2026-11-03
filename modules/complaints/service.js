@@ -347,13 +347,21 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       return { ok: false, status: 409, error: 'رمز التراجع غير صالح.' };
     }
     const record = statusUndos.get(token);
-    const { state, revision } = readState();
-    if (record.userId !== userId || Date.now() > record.expiresAt || Number(revision) !== Number(record.revision)) {
-      statusUndos.delete(token);
-      return { ok: false, status: 409, error: 'انتهت صلاحية التراجع أو تغيرت مراجعة الحالة.' };
+    // Wrong user must NOT consume the single-use token.
+    if (record.userId !== userId) {
+      return { ok: false, status: 403, error: 'غير مصرح بالتراجع.' };
     }
     if (record.complaintId && complaintId && record.complaintId !== complaintId) {
       return { ok: false, status: 409, error: 'رمز التراجع لا يطابق الشكوى.' };
+    }
+    if (Date.now() > record.expiresAt) {
+      statusUndos.delete(token);
+      return { ok: false, status: 409, error: 'انتهت صلاحية التراجع.' };
+    }
+    const { state, revision } = readState();
+    if (Number(revision) !== Number(record.revision)) {
+      statusUndos.delete(token);
+      return { ok: false, status: 409, error: 'تغيرت مراجعة الحالة.' };
     }
     const idx = findIndex(state, record.complaintId || complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
