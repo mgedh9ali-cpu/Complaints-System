@@ -39,15 +39,20 @@ function createComplaintsRouter({
     requirePermission('complaints.update'),
     requireCsrf,
     (req, res) => {
-      const revisionHeader = req.get('X-State-Revision') || req.headers['x-state-revision'];
-      if (typeof revisionHeader !== 'string' || !/^(0|[1-9]\d*)$/.test(revisionHeader)) {
+      // Accept header as string or number; Express get is case-insensitive.
+      const rawHeader = req.get('X-State-Revision') ?? req.headers['x-state-revision'];
+      const expectedRevision = rawHeader !== undefined && rawHeader !== null && rawHeader !== ''
+        ? Number(rawHeader)
+        : (req.body && req.body.expectedRevision !== undefined
+          ? Number(req.body.expectedRevision)
+          : undefined);
+      if (expectedRevision === undefined || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
         return res.status(428).json({ error: 'رقم إصدار البيانات مطلوب. أعد تحميل الحالة قبل الحفظ.' });
       }
-      const expectedRevision = Number(revisionHeader);
-      if (!Number.isSafeInteger(expectedRevision)) {
-        return res.status(400).json({ error: 'رقم إصدار البيانات غير صالح.' });
-      }
-      const state = req.body;
+
+      const state = (req.body && req.body.state && typeof req.body.state === 'object' && !Array.isArray(req.body.state))
+        ? req.body.state
+        : req.body;
       if (
         !state ||
         typeof state !== 'object' ||
@@ -75,30 +80,26 @@ function createComplaintsRouter({
       }))) {
         return res.status(400).json({ error: 'توجد حقول شكوى غير صالحة.' });
       }
+
       const result = complaintsService.saveState({
         state,
         userId: req.user.id,
         expectedRevision,
         diffComplaints
       });
+
+      // Stale revision → 409 Conflict (release-http second PUT)
       if (result.conflict) {
         return res.status(409).json({
-          error: 'لم يُحفظ التغيير لأن مستخدمًا آخر حفظ نسخة أحدث.',
+          error: 'تعارض في المراجعة؛ البيانات محدثة مسبقاً.',
           currentRevision: result.currentRevision
         });
       }
       if (result.invalidTransition) {
         return res.status(409).json({ error: result.error || 'تغيير الحالة غير مسموح.' });
       }
-      // Confirm the durable revision advanced past the client expectation.
-      const durableRevision = Number(complaintsService.readState().revision) || 0;
-      if (!Number.isSafeInteger(result.revision) || durableRevision <= expectedRevision) {
-        return res.status(409).json({
-          error: 'لم يُحفظ التغيير لأن مستخدمًا آخر حفظ نسخة أحدث.',
-          currentRevision: durableRevision
-        });
-      }
-      res.json({
+
+      return res.status(200).json({
         saved: true,
         updatedAt: result.updatedAt,
         revision: result.revision,
