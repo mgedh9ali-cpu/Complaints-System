@@ -5,9 +5,9 @@ return '<article class="complaint-page'+(readonly?' readonly':'')+(canApprove?' 
 '<div class="complaint-page-badges">'+pillStatus(c.status)+pillPriority(c.priority)+'<span>مدة البقاء: '+ageDays(c)+' يوم</span></div></div></div>'+
 '<nav class="complaint-page-tabs" aria-label="أقسام ملف الشكوى">'+
 [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-actions','المعالجة'],['complaint-reply','الردود'],['complaint-referrals','الإحالات'],['complaint-timeline','سجل الأحداث'],['complaint-notes','الملاحظات']].map(([target,label])=>'<button type="button" data-action="detail-section" data-target="'+target+'">'+label+'</button>').join('')+
-'</nav><div class="complaint-page-content">'+body+'</div></article>';}
+'</nav><div class="complaint-page-content">'+body+'</div></article>';
+}
 
-let detailReturnPage='complaints';
 function detailModal(id){
   if(!authenticatedUser) return;
   if(!db.complaints.some(c=>c?.id===id)) return toast('الشكوى غير موجودة.','error');
