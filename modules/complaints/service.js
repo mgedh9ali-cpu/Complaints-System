@@ -111,6 +111,12 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       if (!prev && current.revision > 0) {
         return { invalidTransition: true, error: 'إنشاء شكوى عبر حفظ الحالة غير مسموح؛ استخدم مسار تسجيل الشكاوى.' };
       }
+      if (prev && (prev.status === 'closed' || prev.status === 'cancelled' || prev.archivedAt)) {
+        // Closed/cancelled records are immutable via bulk state save; use dedicated status/archive flows.
+        if (JSON.stringify(prev) !== JSON.stringify(c)) {
+          return { invalidTransition: true, error: 'لا يمكن تعديل شكوى مغلقة أو ملغاة عبر حفظ الحالة.' };
+        }
+      }
     }
     const now = new Date().toISOString();
     const nextRevision = (Number(current.revision) || 0) + 1;
