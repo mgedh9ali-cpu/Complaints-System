@@ -55,3 +55,31 @@ function passwordChangeModal(){modal('تغيير كلمة المرور','أدخ�
 async function savePasswordChange(){try{await api('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:$('#currentPassword')?.value,newPassword:$('#newPassword')?.value})});closeModal();toast('تم تغيير كلمة المرور.');}catch(e){toast(e.message,'error');}}
 function auditPanel(){return '';}
 function approvalsPanel(complaintId){return '';}
+
+/* Encrypted offline sync import (password-gated) */
+let pendingSyncPackage=null,syncImportTarget=null,syncImportResolve=null;
+function finishSyncImportWait(){if(typeof syncImportResolve==='function'){const done=syncImportResolve;syncImportResolve=null;done();}}
+function handleSyncImportChange(target){
+  const file=target?.files?.[0];if(!file)return Promise.resolve();
+  return (async()=>{
+    try{
+      const text=await file.text();
+      pendingSyncPackage=JSON.parse(text);
+      syncImportTarget=target;
+      return await new Promise(resolve=>{syncImportResolve=resolve;modal('عبارة مرور النقل','أدخل عبارة المرور المستخدمة عند تصدير الملف. الاستيراد يستبدل بيانات النسخة الحالية.','<div class="form-field"><label for="syncPassword">عبارة المرور</label><input class="field" id="syncPassword" type="password" autocomplete="off"></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="confirm-sync-password">تأكيد الاستيراد</button>');});
+    }catch(error){toast(error.message||'تعذر قراءة ملف المزامنة.','error');if(target)target.value='';finishSyncImportWait();}
+  })();
+}
+async function confirmSyncPassword(){
+  try{
+    if(!pendingSyncPackage)return toast('لا توجد حزمة مزامنة معلّقة.','warn');
+    const password=$('#syncPassword')?.value||'';
+    await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:pendingSyncPackage,password,expectedRevision:stateRevision})});
+    if(syncImportTarget)syncImportTarget.value='';
+    const input=$('#syncImportFile');if(input)input.value='';
+    pendingSyncPackage=null;syncImportTarget=null;closeModal();
+    await reloadStoredState();toast('تم استيراد ملف المزامنة.');
+  }catch(error){toast(error.message,'error');}
+  finally{finishSyncImportWait();}
+}
+function cancelPendingSyncImport(){pendingSyncPackage=null;if(syncImportTarget){try{syncImportTarget.value='';}catch(_){}}syncImportTarget=null;finishSyncImportWait();}
