@@ -189,7 +189,12 @@ function createWindow(paths) {
   }
 }
 
-require('./smoke-profile').configureSmokeProfile(app);
+try { require('./smoke-profile').configureSmokeProfile(app); }
+catch(error) {
+  require('./smoke-profile').recordSmokeFailure(error);
+  if(process.argv.includes('--release-smoke'))app.exit(1);
+  else throw error;
+}
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
@@ -210,6 +215,11 @@ if (!gotLock) {
       await waitForServer();
       createWindow(paths);
     } catch (err) {
+      if(process.argv.includes('--release-smoke')) {
+        require('./smoke-profile').recordSmokeFailure(err);
+        app.exit(1);
+        return;
+      }
       dialog.showErrorBox(
         'تعذر تشغيل التطبيق',
         (err && err.message) || String(err)

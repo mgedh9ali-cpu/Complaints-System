@@ -11,4 +11,12 @@ function configureSmokeProfile(app,args=process.argv,environment=process.env){
  }
  return true;
 }
-module.exports={configureSmokeProfile};
+function recordSmokeFailure(error,args=process.argv,environment=process.env){
+ if(!args.includes('--release-smoke'))return;
+ const root=environment.COMPLAINTS_SMOKE_USER_DATA;
+ if(!root||!path.isAbsolute(root)||!path.basename(root).startsWith('complaints-packaged-smoke-'))return;
+ try{if(!fs.lstatSync(root).isDirectory()||fs.lstatSync(root).isSymbolicLink())return;
+  fs.writeFileSync(path.join(root,'startup-error.txt'),String(error?.stack||error).slice(0,16000),{mode:0o600});
+ }catch(_){}
+}
+module.exports={configureSmokeProfile,recordSmokeFailure};

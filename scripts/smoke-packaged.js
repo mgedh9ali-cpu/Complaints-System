@@ -6,9 +6,12 @@ const {spawn,spawnSync}=require('node:child_process');
 const assert=require('node:assert/strict');
 async function smoke(executable,serverScript){
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'complaints-packaged-smoke-'));
+ const smokeRoot=path.join(directory,'complaints-packaged-smoke-profile');
+ const ambientAppData=path.join(directory,'ambient-appdata'),ambientLocalData=path.join(directory,'ambient-localdata');
+ for(const folder of [smokeRoot,ambientAppData,ambientLocalData])fs.mkdirSync(folder,{mode:0o700});
  const port=await new Promise((resolve,reject)=>{const s=net.createServer();s.once('error',reject);s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(e=>e?reject(e):resolve(p));});});
  const password='Smoke-only-'+crypto.randomBytes(24).toString('base64url');
- const env={...process.env,APPDATA:directory,LOCALAPPDATA:directory,COMPLAINTS_SMOKE_USER_DATA:directory,
+ const env={...process.env,APPDATA:ambientAppData,LOCALAPPDATA:ambientLocalData,COMPLAINTS_SMOKE_USER_DATA:smokeRoot,
   HOST:'127.0.0.1',PORT:String(port),ALLOW_LAN:'false',COOKIE_SECURE:'false',
   ADMIN_USERNAME:'release_admin',ADMIN_PASSWORD:password,
   SESSION_SECRET:crypto.randomBytes(32).toString('hex'),DATA_KEY:crypto.randomBytes(32).toString('hex'),BACKUP_SECRET:crypto.randomBytes(32).toString('hex'),
@@ -22,6 +25,8 @@ async function smoke(executable,serverScript){
   let ready=false;
   for(let i=0;i<180;i++){
    if(spawnError)throw spawnError;
+   const diagnosticPath=path.join(smokeRoot,'startup-error.txt');
+   if(fs.existsSync(diagnosticPath))throw new Error('Packaged startup failed: '+fs.readFileSync(diagnosticPath,'utf8'));
    if(child.exitCode!==null&&child.exitCode!==0)throw new Error('Packaged app exited: '+diagnostic);
    try{if((await fetch(base+'/api/health',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}
    await new Promise(r=>setTimeout(r,500));
