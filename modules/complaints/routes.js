@@ -39,7 +39,7 @@ function createComplaintsRouter({
     requirePermission('complaints.update'),
     requireCsrf,
     (req, res) => {
-      const revisionHeader = req.get('X-State-Revision');
+      const revisionHeader = req.get('X-State-Revision') || req.headers['x-state-revision'];
       if (typeof revisionHeader !== 'string' || !/^(0|[1-9]\d*)$/.test(revisionHeader)) {
         return res.status(428).json({ error: 'رقم إصدار البيانات مطلوب. أعد تحميل الحالة قبل الحفظ.' });
       }
@@ -90,11 +90,12 @@ function createComplaintsRouter({
       if (result.invalidTransition) {
         return res.status(409).json({ error: result.error || 'تغيير الحالة غير مسموح.' });
       }
-      // Successful writes must advance the revision; otherwise treat as conflict.
-      if (!Number.isSafeInteger(result.revision) || Number(result.revision) !== expectedRevision + 1) {
+      // Confirm the durable revision advanced past the client expectation.
+      const durableRevision = Number(complaintsService.readState().revision) || 0;
+      if (!Number.isSafeInteger(result.revision) || durableRevision <= expectedRevision) {
         return res.status(409).json({
           error: 'لم يُحفظ التغيير لأن مستخدمًا آخر حفظ نسخة أحدث.',
-          currentRevision: complaintsService.readState().revision
+          currentRevision: durableRevision
         });
       }
       res.json({
