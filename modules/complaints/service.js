@@ -60,7 +60,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     return -1;
   }
 
-  function persistState(state, userId, now, nextRevision, auditEvents = []) {
+  function persistState(state, userId, now, nextRevision, auditEvents = [], expectedCurrentRevision = null) {
     const stateJson = storage.encodeJson(state, 'app-state');
     const actorId = userId || (db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get() || {}).id || null;
     if (!actorId) throw new Error('لا يوجد مستخدم لتسجيل تحديث الحالة.');
@@ -68,17 +68,33 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     if (!Number.isSafeInteger(revisionToWrite) || revisionToWrite < 1) {
       throw new Error('رقم مراجعة الحالة غير صالح.');
     }
+    let conflict = false;
     const tx = db.transaction(() => {
-      const existing = db.prepare('SELECT id FROM app_state WHERE id = 1').get();
+      const existing = db.prepare('SELECT id, revision FROM app_state WHERE id = 1').get();
       if (existing) {
-        db.prepare(
-          'UPDATE app_state SET state_json = ?, updated_by = ?, updated_at = ?, revision = ? WHERE id = 1'
-        ).run(stateJson, actorId, now, revisionToWrite);
+        if (expectedCurrentRevision !== null && expectedCurrentRevision !== undefined) {
+          const cas = db.prepare(
+            'UPDATE app_state SET state_json = ?, updated_by = ?, updated_at = ?, revision = ? WHERE id = 1 AND revision = ?'
+          ).run(stateJson, actorId, now, revisionToWrite, Number(expectedCurrentRevision));
+          if (cas.changes !== 1) {
+            conflict = true;
+            return;
+          }
+        } else {
+          db.prepare(
+            'UPDATE app_state SET state_json = ?, updated_by = ?, updated_at = ?, revision = ? WHERE id = 1'
+          ).run(stateJson, actorId, now, revisionToWrite);
+        }
       } else {
+        if (expectedCurrentRevision !== null && expectedCurrentRevision !== undefined && Number(expectedCurrentRevision) !== 0) {
+          conflict = true;
+          return;
+        }
         db.prepare(
           'INSERT INTO app_state(id, state_json, updated_by, updated_at, revision) VALUES (1, ?, ?, ?, ?)'
         ).run(stateJson, actorId, now, revisionToWrite);
       }
+      if (conflict) return;
       const written = db.prepare('SELECT revision FROM app_state WHERE id = 1').get();
       if (!written || Number(written.revision) !== revisionToWrite) {
         throw new Error('فشل تثبيت رقم مراجعة الحالة.');
@@ -105,7 +121,9 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       }
     });
     tx();
+    if (conflict) return { conflict: true };
     if (auditEvents.length) syncAudit();
+    return { conflict: false, revision: revisionToWrite };
   }
 
   function saveState({ state, userId, expectedRevision, diffComplaints = defaultDiff, auditEvents = [] }) {
@@ -233,7 +251,10 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     if (JSON.stringify(current.state.settings || {}) !== JSON.stringify(state.settings || {})) {
       complaintChanges.push({ action: 'settings_updated', id: null, details: { before: current.state.settings || {}, after: state.settings || {} } });
     }
-    persistState(state, userId, now, nextRevision, [...complaintChanges, ...auditEvents]);
+    const persisted = persistState(state, userId, now, nextRevision, [...complaintChanges, ...auditEvents], currentRevision);
+    if (persisted && persisted.conflict) {
+      return { conflict: true, currentRevision: readState().revision };
+    }
     return { conflict: false, updatedAt: now, revision: nextRevision, complaintChanges };
   }
 
