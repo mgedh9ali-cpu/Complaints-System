@@ -111,10 +111,47 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       if (!prev && current.revision > 0) {
         return { invalidTransition: true, error: 'إنشاء شكوى عبر حفظ الحالة غير مسموح؛ استخدم مسار تسجيل الشكاوى.' };
       }
-      if (prev && (prev.status === 'closed' || prev.status === 'cancelled' || prev.archivedAt)) {
-        // Closed/cancelled records are immutable via bulk state save; use dedicated status/archive flows.
+      if (!prev) continue;
+      if (prev.created && c.created !== prev.created) {
+        return { invalidTransition: true, error: 'لا يمكن تغيير تاريخ إنشاء الشكوى.' };
+      }
+      if (JSON.stringify(prev.statusHistory || []) !== JSON.stringify(c.statusHistory || [])) {
+        return { invalidTransition: true, error: 'سجل الحالة يُحدَّث عبر مسار تغيير الحالة فقط.' };
+      }
+      if (prev.status === 'closed' || prev.status === 'cancelled' || prev.archivedAt) {
         if (JSON.stringify(prev) !== JSON.stringify(c)) {
           return { invalidTransition: true, error: 'لا يمكن تعديل شكوى مغلقة أو ملغاة عبر حفظ الحالة.' };
+        }
+      }
+      const prevReply = prev.reply || null;
+      const nextReply = c.reply || null;
+      if (prevReply && ['approved', 'sent'].includes(prevReply.status)) {
+        if (!nextReply || nextReply.text !== prevReply.text || nextReply.author !== prevReply.author) {
+          return { invalidTransition: true, error: 'الرد المعتمد غير قابل للتعديل.' };
+        }
+        if (prevReply.status === 'sent' && nextReply.status !== 'sent') {
+          return { invalidTransition: true, error: 'لا يمكن التراجع عن إرسال الرد المعتمد.' };
+        }
+        if (prevReply.status === 'approved' && !['approved', 'sent'].includes(nextReply.status)) {
+          return { invalidTransition: true, error: 'الرد المعتمد لا يُعاد إلى مسودة.' };
+        }
+      }
+      const prevTl = Array.isArray(prev.timeline) ? prev.timeline : [];
+      const nextTl = Array.isArray(c.timeline) ? c.timeline : [];
+      if (nextTl.length > prevTl.length) {
+        const actorName = actor?.username || '';
+        for (let i = 0; i < nextTl.length - prevTl.length; i++) {
+          const entry = nextTl[i];
+          if (entry && entry.by && actorName && entry.by !== actorName && entry.by !== 'system' && entry.by !== 'النظام') {
+            return { invalidTransition: true, error: 'لا يمكن إضافة أحداث باسم مستخدم آخر عبر حفظ الحالة.' };
+          }
+        }
+      }
+      if (JSON.stringify(prev.notes || []) !== JSON.stringify(c.notes || [])) {
+        const prevNotes = Array.isArray(prev.notes) ? prev.notes : [];
+        const nextNotes = Array.isArray(c.notes) ? c.notes : [];
+        if (nextNotes.length < prevNotes.length) {
+          return { invalidTransition: true, error: 'حذف الملاحظات غير مسموح عبر حفظ الحالة.' };
         }
       }
     }
@@ -125,6 +162,9 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       const diffs = diffComplaints(current.state.complaints || [], state.complaints || []);
       if (Array.isArray(diffs)) for (const d of diffs) complaintChanges.push({ action: d.action || 'complaint_updated', id: d.id, details: d.details || {} });
     } catch (_) {}
+    if (JSON.stringify(current.state.settings || {}) !== JSON.stringify(state.settings || {})) {
+      complaintChanges.push({ action: 'settings_updated', id: null, details: { before: current.state.settings || {}, after: state.settings || {} } });
+    }
     persistState(state, userId, now, nextRevision, [...complaintChanges, ...auditEvents]);
     return { conflict: false, updatedAt: now, revision: nextRevision, complaintChanges };
   }
@@ -132,15 +172,18 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
   function createComplaintCore({ body, userId, username, asDraft = false }) {
     const { state, revision } = readState();
     const year = Number(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Damascus', year: 'numeric' }).format(new Date()));
-    let counter = db.prepare('SELECT value FROM complaint_counters WHERE year=?').get(year);
-    if (!counter) {
-      let maximum = 0;
-      for (const row of db.prepare('SELECT id FROM complaints').all()) {
-        const match = String(row.id).match(new RegExp('^SY-' + year + '-([0-9]{4,7})$'));
-        if (match) maximum = Math.max(maximum, Number(match[1]));
-      }
-      db.prepare('INSERT INTO complaint_counters(year,value) VALUES(?,?) ON CONFLICT(year) DO UPDATE SET value=excluded.value').run(year, maximum);
+    let maximum = 0;
+    for (const row of db.prepare('SELECT id FROM complaints').all()) {
+      const match = String(row.id).match(new RegExp('^SY-' + year + '-([0-9]{4,7})$'));
+      if (match) maximum = Math.max(maximum, Number(match[1]));
     }
+    for (const c of state.complaints || []) {
+      const match = String(c && c.id || '').match(new RegExp('^SY-' + year + '-([0-9]{4,7})$'));
+      if (match) maximum = Math.max(maximum, Number(match[1]));
+    }
+    const existing = db.prepare('SELECT value FROM complaint_counters WHERE year=?').get(year);
+    const base = Math.max(maximum, existing ? Number(existing.value) : 0);
+    db.prepare('INSERT INTO complaint_counters(year,value) VALUES(?,?) ON CONFLICT(year) DO UPDATE SET value=excluded.value').run(year, base);
     db.prepare('UPDATE complaint_counters SET value=value+1 WHERE year=?').run(year);
     const sequence = db.prepare('SELECT value FROM complaint_counters WHERE year=?').get(year).value;
     const id = 'SY-' + year + '-' + String(sequence).padStart(6, '0');
@@ -215,6 +258,25 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     if (!allowed.includes(toStatus) && !(toStatus === 'in_progress' && ['closed','cancelled'].includes(fromStatus))) {
       return { ok: false, status: 409, error: `لا يمكن الانتقال من «${STATUS_LABELS[fromStatus] || fromStatus}» إلى «${STATUS_LABELS[toStatus] || toStatus}».` };
     }
+    if (toStatus === 'in_progress' && ['closed','cancelled'].includes(fromStatus)) {
+      const actor = actorFor(userId);
+      if (!roles.can(actor, 'complaints.reopen') && actor?.role !== 'admin') {
+        return { ok: false, status: 403, error: 'إعادة الفتح تتطلب صلاحية خاصة.' };
+      }
+      if (!reason || !String(reason).trim()) {
+        return { ok: false, status: 400, error: 'سبب إعادة الفتح مطلوب.' };
+      }
+    }
+    if (toStatus === 'closed') {
+      const openRefs = (complaint.referrals || []).filter((r) => r && !r.response);
+      if (openRefs.length) return { ok: false, status: 409, error: 'لا يمكن الإغلاق قبل استلام ردود الإحالات.' };
+    }
+    if (toStatus === 'cancelled') {
+      const hasOfficial = (complaint.referrals || []).some((r) => r && r.entity);
+      if (hasOfficial) {
+        return { ok: false, status: 409, approvalRequired: true, error: 'الإلغاء بعد إحالة رسمية يتطلب موافقة ثانية.' };
+      }
+    }
     if (REASON_REQUIRED.has(toStatus) && (!reason || !String(reason).trim())) {
       return { ok: false, status: 400, error: 'سبب الانتقال مطلوب للإغلاق أو الإلغاء.' };
     }
@@ -254,13 +316,140 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     return { ok: true, complaint, revision: nextRevision };
   }
 
-  function deleteComplaint() { return { ok: false, status: 403, error: 'الحذف يتطلب موافقة.' }; }
-  function archiveComplaint() { return { ok: false, status: 403, error: 'الأرشفة تتطلب موافقة.' }; }
-  function addReferral() { return { ok: false, status: 501, error: 'غير متاح مؤقتاً.' }; }
-  function recordReferralResponse() { return { ok: false, status: 501, error: 'غير متاح مؤقتاً.' }; }
-  function linkDuplicate() { return { ok: false, status: 501, error: 'غير متاح مؤقتاً.' }; }
-  function actOnReply() { return { ok: false, status: 501, error: 'غير متاح مؤقتاً.' }; }
-  function runReminders() { return 0; }
+  function deleteComplaint({ complaintId, userId } = {}) {
+    return { ok: false, status: 409, error: 'الحذف يتطلب موافقة.' };
+  }
+  function archiveComplaint({ complaintId, userId, reason } = {}) {
+    const { state, revision } = readState();
+    const idx = findIndex(state, complaintId);
+    if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    const complaint = { ...state.complaints[idx] };
+    if (complaint.archivedAt) return { ok: true, unchanged: true, complaint, revision };
+    const now = new Date().toISOString();
+    complaint.archivedAt = now;
+    complaint.archiveReason = reason || null;
+    complaint.updated = now;
+    state.complaints[idx] = complaint;
+    const nextRevision = (Number(revision) || 0) + 1;
+    persistState(state, userId, now, nextRevision, [{ action: 'complaint_archived', id: complaintId, details: { reason: reason || null } }]);
+    return { ok: true, complaint, revision: nextRevision };
+  }
+  function addReferral({ complaintId, entity, due, userId, username } = {}) {
+    const { state, revision } = readState();
+    const idx = findIndex(state, complaintId);
+    if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    const complaint = { ...state.complaints[idx] };
+    const now = new Date().toISOString();
+    const referral = { entity: entity || '', due: due || null, at: now, by: username || null, response: null };
+    complaint.referrals = Array.isArray(complaint.referrals) ? complaint.referrals.slice() : [];
+    complaint.referrals.push(referral);
+    complaint.updated = now;
+    complaint.timeline = Array.isArray(complaint.timeline) ? complaint.timeline.slice() : [];
+    complaint.timeline.unshift({ event: 'إحالة', by: username || 'system', at: now, detail: entity || '' });
+    state.complaints[idx] = complaint;
+    const nextRevision = (Number(revision) || 0) + 1;
+    persistState(state, userId, now, nextRevision, [{ action: 'referral_added', id: complaintId, details: { entity } }]);
+    return { ok: true, complaint, revision: nextRevision };
+  }
+  function recordReferralResponse({ complaintId, index, response, userId, username } = {}) {
+    const { state, revision } = readState();
+    const idx = findIndex(state, complaintId);
+    if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    const complaint = { ...state.complaints[idx] };
+    const referrals = Array.isArray(complaint.referrals) ? complaint.referrals.slice() : [];
+    if (index < 0 || index >= referrals.length) return { ok: false, status: 400, error: 'إحالة غير موجودة.' };
+    const now = new Date().toISOString();
+    referrals[index] = { ...referrals[index], response: response || '', respondedAt: now, respondedBy: username || null };
+    complaint.referrals = referrals;
+    complaint.updated = now;
+    state.complaints[idx] = complaint;
+    const nextRevision = (Number(revision) || 0) + 1;
+    persistState(state, userId, now, nextRevision, [{ action: 'referral_response', id: complaintId, details: { index } }]);
+    return { ok: true, complaint, revision: nextRevision };
+  }
+  function linkDuplicate({ complaintId, targetId, userId, username } = {}) {
+    const { state, revision } = readState();
+    const idx = findIndex(state, complaintId);
+    const targetIdx = findIndex(state, targetId);
+    if (idx < 0 || targetIdx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    if (complaintId === targetId) return { ok: false, status: 400, error: 'لا يمكن ربط الشكوى بنفسها.' };
+    const target = state.complaints[targetIdx];
+    if (target.duplicateOf === complaintId) return { ok: false, status: 400, error: 'ربط دائري غير مسموح.' };
+    const complaint = { ...state.complaints[idx] };
+    const now = new Date().toISOString();
+    complaint.duplicateOf = targetId;
+    complaint.updated = now;
+    state.complaints[idx] = complaint;
+    const nextRevision = (Number(revision) || 0) + 1;
+    persistState(state, userId, now, nextRevision, [{ action: 'complaint_linked_duplicate', id: complaintId, details: { targetId } }]);
+    return { ok: true, complaint, revision: nextRevision };
+  }
+  function actOnReply({ complaintId, action, userId, username, text } = {}) {
+    const { state, revision } = readState();
+    const idx = findIndex(state, complaintId);
+    if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
+    const complaint = { ...state.complaints[idx] };
+    const reply = complaint.reply ? { ...complaint.reply } : { status: 'draft', author: username, text: '' };
+    const now = new Date().toISOString();
+    if (action === 'draft') {
+      if (reply.status === 'approved' || reply.status === 'sent') return { ok: false, status: 409, error: 'الرد المعتمد غير قابل للتعديل.' };
+      reply.text = text != null ? text : reply.text;
+      reply.author = username || reply.author;
+      reply.authorId = userId;
+      reply.status = 'draft';
+      reply.editedById = userId;
+    } else if (action === 'review') {
+      if (!reply.text) return { ok: false, status: 400, error: 'لا يوجد نص للرد.' };
+      reply.status = 'review';
+      reply.editedById = userId;
+    } else if (action === 'approve') {
+      if (reply.status !== 'review') return { ok: false, status: 409, error: 'الاعتماد يتطلب حالة مراجعة.' };
+      if (reply.authorId === userId || reply.editedById === userId || reply.author === username) {
+        return { ok: false, status: 403, error: 'لا يمكن للكاتب أو آخر معدّل اعتماد الرد.' };
+      }
+      reply.status = 'approved';
+      reply.approvedById = userId;
+      reply.approvedAt = now;
+    } else if (action === 'sent') {
+      if (reply.status !== 'approved' && reply.status !== 'sent') return { ok: false, status: 409, error: 'الإرسال يتطلب رداً معتمداً.' };
+      reply.status = 'sent';
+      reply.sentAt = now;
+    } else {
+      return { ok: false, status: 400, error: 'إجراء رد غير معروف.' };
+    }
+    complaint.reply = reply;
+    complaint.updated = now;
+    state.complaints[idx] = complaint;
+    const nextRevision = (Number(revision) || 0) + 1;
+    persistState(state, userId, now, nextRevision, [{ action: 'reply_' + action, id: complaintId, details: { status: reply.status } }]);
+    return { ok: true, complaint, revision: nextRevision };
+  }
+  function runReminders(asOf = new Date()) {
+    const { state, revision } = readState();
+    const now = asOf instanceof Date ? asOf : new Date(asOf);
+    let sent = 0;
+    const events = [];
+    const nextComplaints = (state.complaints || []).map((c) => {
+      if (!c || c.archivedAt || ['closed', 'cancelled'].includes(c.status)) return c;
+      if (c.completionReminderStopped) return c;
+      const incomplete = !c.name || !c.phone || !c.details;
+      if (!incomplete) return c;
+      const created = Date.parse(c.created);
+      if (!Number.isFinite(created)) return c;
+      const hours = (now.getTime() - created) / 3600000;
+      if (hours < 24) return c;
+      const last = c.lastCompletionReminderAt ? Date.parse(c.lastCompletionReminderAt) : 0;
+      if (last && (now.getTime() - last) < 24 * 3600000) return c;
+      sent += 1;
+      events.push({ action: 'completion_reminded', id: c.id, details: {} });
+      return { ...c, lastCompletionReminderAt: now.toISOString() };
+    });
+    if (!sent) return 0;
+    state.complaints = nextComplaints;
+    const nextRevision = (Number(revision) || 0) + 1;
+    persistState(state, null, now.toISOString(), nextRevision, events);
+    return sent;
+  }
 
   return {
     readState, saveState, createComplaint, updateComplaint, deleteComplaint, archiveComplaint,
