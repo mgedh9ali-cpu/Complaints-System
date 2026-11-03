@@ -1,5 +1,5 @@
 function workDayKey(value){const d=new Date(value);if(!Number.isFinite(d.getTime()))return '';return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Damascus',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);}
-function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));}
 function norm(s=''){return String(s).normalize('NFKD').replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/[ىئي]/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ء/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
 function phoneNorm(s=''){let n=String(s).replace(/[^\d+]/g,'');if(n.startsWith('+963'))n='0'+n.slice(4);if(n.startsWith('963'))n='0'+n.slice(3);return n;}
 function dateText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',day:'2-digit',month:'short',year:'numeric'}).format(d);}
@@ -9,7 +9,7 @@ function isIncomplete(c){return c.status==='draft'||!c.name||!c.phone||!c.detail
 function isLate(c){return !c.archivedAt && db.settings.slaApproved && !['closed','cancelled','draft'].includes(c.status) && Number.isFinite(new Date(c.due).getTime()) && Date.now()>new Date(c.due).getTime();}
 function statusLabel(s){return ({draft:'غير مكتملة',new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
 function statusClass(s){return ({draft:'new',new:'new',in_progress:'progressing',awaiting_reply:'waiting',awaiting_approval:'waiting',closed:'closed',cancelled:'closed'})[s]||'closed';}
-function ensureManagedSettings(){if(!db.settings||typeof db.settings!=='object')db.settings={};for(const key of ['categories','entities','provinces'])if(!Array.isArray(db.settings[key]))db.settings[key]=[...seed.settings[key]];if(!Array.isArray(db.settings.priorities))db.settings.priorities=seed.settings.priorities.map(x=>({...x}));db.settings.categoryDescriptions ||= {};db.settings.entityDescriptions ||= {};}
+function ensureManagedSettings(){if(!db.settings||typeof db.settings!=='object')db.settings={};for(const key of ['categories','entities','provinces','natures'])if(!Array.isArray(db.settings[key]))db.settings[key]=[...(seed.settings[key]||[])];if(!Array.isArray(db.settings.priorities))db.settings.priorities=seed.settings.priorities.map(x=>({...x}));db.settings.categoryDescriptions ||= {};db.settings.entityDescriptions ||= {};db.settings.natureDescriptions ||= {};}
 function priorityLabel(p){ensureManagedSettings();return ({urgent:'عاجلة',high:'عالية',normal:'عادية'})[p]||db.settings.priorities.find(x=>x.value===p)?.label||p;}
 function priorityClass(p){return ({urgent:'urgent',high:'high',normal:'normal'})[p]||'normal';}
 function pillStatus(s){return '<span class="pill '+statusClass(s)+'">'+esc(statusLabel(s))+'</span>';}
