@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   provinces: [],
   entities: [],
   categories: [],
+  natures: [],
   priorities: [
     { value: 'urgent', label: 'عاجلة' },
     { value: 'high', label: 'مرتفعة' },
@@ -14,7 +15,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   ]
 });
 
-const LIST_KEYS = ['provinces', 'entities', 'categories', 'priorities'];
+const LIST_KEYS = ['provinces', 'entities', 'categories', 'natures', 'priorities'];
 
 function normalizeSettings(raw) {
   const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
@@ -24,6 +25,7 @@ function normalizeSettings(raw) {
     provinces: Array.isArray(src.provinces) ? src.provinces.slice(0, 200) : [],
     entities: Array.isArray(src.entities) ? src.entities.slice(0, 500) : [],
     categories: Array.isArray(src.categories) ? src.categories.slice(0, 200) : [],
+    natures: Array.isArray(src.natures) ? src.natures.slice(0, 200) : [],
     priorities: Array.isArray(src.priorities) && src.priorities.length
       ? src.priorities.slice(0, 20)
       : DEFAULT_SETTINGS.priorities.map((p) => ({ ...p }))
