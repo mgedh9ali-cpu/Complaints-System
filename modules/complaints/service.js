@@ -125,16 +125,43 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       }
       const prevReply = prev.reply || null;
       const nextReply = c.reply || null;
-      if (prevReply && ['approved', 'sent'].includes(prevReply.status)) {
-        if (!nextReply || nextReply.text !== prevReply.text || nextReply.author !== prevReply.author) {
-          return { invalidTransition: true, error: 'لا يجوز تغيير نص الرد المعتمد.' };
+      if (!prevReply && nextReply) {
+        const actorName = actor?.username || '';
+        if (nextReply.author && actorName && nextReply.author !== actorName) {
+          return { invalidTransition: true, error: 'لا يمكن إنشاء رد باسم مستخدم آخر عبر حفظ الحالة.' };
         }
-        if (prevReply.status === 'sent' && nextReply.status !== 'sent') {
-          return { invalidTransition: true, error: 'لا يمكن التراجع عن إرسال الرد المعتمد.' };
+        if (['approved', 'sent'].includes(nextReply.status)) {
+          return { invalidTransition: true, error: 'اعتماد الرد يتطلب مساراً مختلفاً أو صلاحية المدير.' };
         }
-        if (prevReply.status === 'approved' && !['approved', 'sent'].includes(nextReply.status)) {
-          return { invalidTransition: true, error: 'الرد المعتمد لا يُعاد إلى مسودة.' };
+      }
+      if (prevReply && nextReply) {
+        if (prevReply.author !== nextReply.author || (prevReply.text !== nextReply.text && ['approved', 'sent'].includes(prevReply.status))) {
+          if (prevReply.author !== nextReply.author) {
+            return { invalidTransition: true, error: 'لا يجوز تغيير كاتب الرد عبر حفظ الحالة.' };
+          }
         }
+        if (prevReply.status !== nextReply.status) {
+          if (nextReply.status === 'approved') {
+            if (prevReply.status !== 'review') {
+              return { invalidTransition: true, error: 'الاعتماد يتطلب حالة مراجعة قائمة.' };
+            }
+            if (!roles.can(actor, 'replies.approve') && actor?.role !== 'admin') {
+              return { invalidTransition: true, error: 'اعتماد الرد يتطلب مديراً مختلفاً.' };
+            }
+          } else if (['approved', 'sent'].includes(prevReply.status) && !['approved', 'sent'].includes(nextReply.status)) {
+            return { invalidTransition: true, error: 'الرد المعتمد لا يُعاد إلى مسودة.' };
+          } else if (prevReply.status === 'sent' && nextReply.status !== 'sent') {
+            return { invalidTransition: true, error: 'لا يمكن التراجع عن إرسال الرد المعتمد.' };
+          }
+        }
+        if (prevReply && ['approved', 'sent'].includes(prevReply.status)) {
+          if (!nextReply || nextReply.text !== prevReply.text || nextReply.author !== prevReply.author) {
+            return { invalidTransition: true, error: 'لا يجوز تغيير نص الرد المعتمد.' };
+          }
+        }
+      }
+      if (prevReply && !nextReply) {
+        return { invalidTransition: true, error: 'لا يمكن حذف الرد عبر حفظ الحالة.' };
       }
       const prevTl = Array.isArray(prev.timeline) ? prev.timeline : [];
       const nextTl = Array.isArray(c.timeline) ? c.timeline : [];
@@ -348,21 +375,47 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     persistState(state, userId, now, nextRevision, [{ action: 'complaint_archived', id: complaintId, details: { reason: reason || null } }]);
     return { ok: true, complaint, revision: nextRevision };
   }
-  function addReferral({ complaintId, entity, due, userId, username } = {}) {
+  function addReferral({ complaintId, entity, due, note, userId, username } = {}) {
     const { state, revision } = readState();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
-    const complaint = { ...state.complaints[idx] };
+    const prev = state.complaints[idx];
+    const fromStatus = prev.status || 'new';
     const now = new Date().toISOString();
-    const referral = { entity: entity || '', due: due || null, at: now, by: username || null, response: null };
-    complaint.referrals = Array.isArray(complaint.referrals) ? complaint.referrals.slice() : [];
+    const referral = {
+      entity: entity || '',
+      due: due || null,
+      note: note || '',
+      at: now,
+      by: username || null,
+      response: null
+    };
+    const complaint = { ...prev };
+    complaint.referrals = Array.isArray(prev.referrals) ? prev.referrals.slice() : [];
     complaint.referrals.push(referral);
+    complaint.status = 'awaiting_reply';
     complaint.updated = now;
-    complaint.timeline = Array.isArray(complaint.timeline) ? complaint.timeline.slice() : [];
-    complaint.timeline.unshift({ event: 'إحالة', by: username || 'system', at: now, detail: entity || '' });
+    complaint.statusHistory = Array.isArray(prev.statusHistory) ? prev.statusHistory.slice() : [];
+    complaint.statusHistory.push({
+      from: fromStatus,
+      to: 'awaiting_reply',
+      at: now,
+      by: username || null,
+      reason: note || null
+    });
+    complaint.timeline = Array.isArray(prev.timeline) ? prev.timeline.slice() : [];
+    complaint.timeline.unshift({
+      event: 'إحالة',
+      by: username || 'system',
+      at: now,
+      detail: entity || ''
+    });
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision, [{ action: 'referral_added', id: complaintId, details: { entity } }]);
+    persistState(state, userId, now, nextRevision, [
+      { action: 'complaint_referred', id: complaintId, details: { entity, due: due || null } },
+      { action: 'complaint_status_changed', id: complaintId, details: { from: fromStatus, to: 'awaiting_reply' } }
+    ]);
     return { ok: true, complaint, revision: nextRevision };
   }
   function recordReferralResponse({ complaintId, index, response, userId, username } = {}) {
