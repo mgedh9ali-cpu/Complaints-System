@@ -23,9 +23,10 @@ case 'database-backup':{
     link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
     toast('تم تنزيل نسخة مشفّرة تشمل قاعدة البيانات والمرفقات. احتفظ بملف الإعدادات وسر النسخ الاحتياطي بعيداً عن النسخة.');
   }catch(error){toast(error.message,'error');}finally{el.disabled=false;el.textContent='نسخ احتياطي';}})();break;}
+case 'confirm-sync-password':confirmSyncPassword();break;
 case 'sync-export':{
   (async()=>{try{
-    const password=prompt('عبارة مرور لحماية ملف المزامنة (16 حرفًا على الأقل). شاركها مع المستلم بطريقة منفصلة:');if(password===null)return;
+    const password=await askSyncPassword(true);if(password===null)return;
     const response=await fetch('/api/sync/export',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':await getWriteCsrf()},body:JSON.stringify({password})});
     if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||'تعذر التصدير.');}
     const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
@@ -153,17 +154,18 @@ document.addEventListener('compositionend',e=>{if(e.target.id==='complaintSearch
 document.addEventListener('change',e=>{if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}if(e.target.id==='replyTemplate'){const i=e.target.value;if(i==='')return;const t=db.templates[Number(i)];if(t){const c=db.complaints.find(x=>x.id===currentId);$('#replyText').value=t.text.replaceAll('{{رقم_الشكوى}}',c?.id||'').replaceAll('{{الجهة}}',c?.entity||'الجهة المختصة').replaceAll('{{التصنيف}}',c?.category||'التصنيف');}}if(e.target.id==='bulkType'){const v=$('#bulkValue');if(v){v.innerHTML=(e.target.value==='assign'?availableOwners():['urgent','high','normal']).map(x=>'<option value="'+esc(x)+'">'+esc(e.target.value==='assign'?x:priorityLabel(x))+'</option>').join('');}}});
 document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root.dataset.open&&e.key==='Tab'){const dlg=$('.modal',root);const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||!dlg.contains(document.activeElement))){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||!dlg.contains(document.activeElement))){e.preventDefault();first.focus();}}if(e.key==='Escape'&&root.dataset.open){closeModal();return;}if(authenticatedUser&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();}if(e.target.closest?.('#commandResults')&&['ArrowDown','ArrowUp'].includes(e.key)){const buttons=$$('#commandResults button'),index=buttons.indexOf(e.target);e.preventDefault();buttons[(index+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}if(e.target.id==='commandQuery'&&e.key==='ArrowDown'){e.preventDefault();$('#commandResults button')?.focus();}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
 $('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
-$('#syncImportFile')?.addEventListener('change',async event=>{
+document.addEventListener('change',async event=>{
+  if(event.target.id!=='syncImportFile')return;
   const file=event.target.files?.[0];if(!file)return;
   try{
     if(file.size>96*1024*1024)throw new Error('حجم الملف يتجاوز الحد المسموح.');
     const payload=JSON.parse(await file.text());
-    const password=prompt('عبارة مرور ملف المزامنة:');if(password===null)return;
+    const password=await askSyncPassword();if(password===null)return;
     const preview=await api('/api/sync/preview',{method:'POST',body:JSON.stringify({package:payload,password})});
     if(!confirm('معاينة الاستيراد: '+preview.incomingCount+' سجل وارد، '+preview.added+' جديد، '+preview.removed+' غير موجود في الملف، '+preview.conflicts.length+' تعارض. ستُنشأ نسخة مشفرة قبل الاستبدال. متابعة؟'))return;
     const forceReplace=preview.conflicts.length>0;
     if(forceReplace&&!confirm('تأكيد إضافي: ستُستبدل السجلات المتعارضة بالنسخة الواردة. هل تعتمد ذلك؟'))return;
-    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:payload,password,forceReplace})});
+    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:payload,password,forceReplace,expectedRevision:preview.revision})});
     const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateConflict=false;stateLoaded=true;render();
     toast(result.updateStaged
       ? 'استوردت البيانات؛ حزمة البرنامج الموقعة محفوظة للمراجعة ولم تُطبّق تلقائيًا.'

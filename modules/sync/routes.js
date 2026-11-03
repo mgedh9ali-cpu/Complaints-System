@@ -14,6 +14,7 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
   router.post('/sync/export', requireAuth, requirePermission('sync.export'), requireCsrf, (req, res) => {
     try {
     const bundle = syncService.exportPackage();
+    const sealed = sealPackage(bundle, req.body?.password);
     if (auditService) {
       auditService.record(req.user.id, 'sync_exported', 'sync', bundle.syncId, {
         complaintCount: Array.isArray(bundle.state?.complaints) ? bundle.state.complaints.length : 0
@@ -25,7 +26,7 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
       'attachment; filename="complaints-sync-' + new Date().toISOString().slice(0, 10) + '.json"'
     );
     res.setHeader('Cache-Control','private, no-store');
-    res.send(JSON.stringify(sealPackage(bundle,req.body?.password)));
+    res.send(JSON.stringify(sealed));
     }catch(error){res.status(400).json({error:error.message});}
   });
 
@@ -46,7 +47,10 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
           req.body.forceReplace === 'true');
       const payload = openPackage(req.body?.package,req.body?.password);
       const preview = syncService.previewPackage(payload);
-      if (!preview.ok) return res.status(400).json({ error: preview.error });
+      if (!preview.ok) return res.status(preview.status || 400).json({ error: preview.error });
+      if (!Number.isSafeInteger(req.body.expectedRevision) || req.body.expectedRevision !== preview.revision) {
+        return res.status(409).json({ error: 'تغيرت البيانات منذ المعاينة. أعد المعاينة قبل تأكيد الاستيراد.' });
+      }
       if (preview.conflicts.length && !forceReplace) return res.status(409).json({
         error: 'توجد تعارضات؛ راجع المعاينة قبل تأكيد الاستبدال.', conflicts: preview.conflicts, conflictCount: preview.conflicts.length
       });

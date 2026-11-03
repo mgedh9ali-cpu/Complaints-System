@@ -9,9 +9,8 @@ const {createComplaintsService}=require('../modules/complaints/service');
 
 function fixture(t){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'complaint-boundary-'));
- t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const db=openDatabase(path.join(dir,'office.sqlite'));
- t.after(()=>db.close());
+ t.after(()=>{db.close();fs.rmSync(dir,{recursive:true,force:true,maxRetries:10,retryDelay:100});});
  const user=db.prepare('INSERT INTO users(id,username,password_hash,role,active,created_at) VALUES(?,?,?,?,1,?)');
  const now=new Date().toISOString();
  user.run('admin-id','director','test-only','admin',now);

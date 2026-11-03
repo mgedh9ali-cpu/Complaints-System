@@ -9,7 +9,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const net = require('node:net');
-const { app, BrowserWindow, dialog, shell } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
 const { isLocalAppUrl, isPermittedExternalUrl } = require('./navigation');
 
 console.info('[runtime]',{electron:process.versions.electron,chrome:process.versions.chrome});
@@ -20,6 +20,7 @@ const APP_URL = `http://${HOST}:${PORT}`;
 
 let mainWindow = null;
 let serverBooted = false;
+let serverRuntime;
 
 function appRoot() {
   if (app.isPackaged) {
@@ -30,12 +31,19 @@ function appRoot() {
 }
 
 function ensureUserDataLayout() {
-  const base = app.getPath('userData');
+  const applicationBase = app.getPath('userData');
+  const options = require('./recovery').readOptions(applicationBase);
+  const base = options.activeProfile ? path.join(applicationBase, options.activeProfile) : applicationBase;
+  if (options.activeProfile && (!fs.existsSync(path.join(base,'.env')) || !fs.existsSync(path.join(base,'data','complaints.sqlite')))) {
+    throw new Error('مجلد البيانات المستعادة غير مكتمل؛ لم تُنشأ قاعدة بديلة.');
+  }
   const dataDir = path.join(base, 'data');
   const sessionsDir = path.join(dataDir, 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
   return {
     base,
+    applicationBase,
+    options,
     dataDir,
     sessionsDir,
     databasePath: path.join(dataDir, 'complaints.sqlite'),
@@ -113,6 +121,7 @@ function bootServerInProcess(paths, root) {
   // ASAR is a virtual filesystem; cwd must remain a real directory.
   process.chdir(root.endsWith('.asar') ? path.dirname(root) : root);
   loadEnvFile(paths.envPath);
+  if(paths.options.backupDirectory) process.env.BACKUP_DIR=paths.options.backupDirectory;
   // Always force data paths into userData (never store DB inside the portable exe)
   process.env.HOST = HOST;
   process.env.PORT = String(PORT);
@@ -124,18 +133,18 @@ function bootServerInProcess(paths, root) {
   process.env.COOKIE_SECURE = process.env.COOKIE_SECURE || 'false';
 
   // Starts Express via Electron's embedded Node — no system `node` binary
-  require(path.join(root, 'server.js'));
+  serverRuntime = require(path.join(root, 'server.js'));
   serverBooted = true;
 }
 
-function createWindow() {
+function createWindow(paths) {
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 900,
     minWidth: 960,
     minHeight: 640,
     title: 'نظام الشكاوى والاستفسارات',
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -164,6 +173,7 @@ function createWindow() {
   });
 
   mainWindow.loadURL(APP_URL);
+  require('./maintenance').installMaintenanceMenu({app,Menu,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -179,7 +189,12 @@ function createWindow() {
   }
 }
 
-require('./smoke-profile').configureSmokeProfile(app);
+try { require('./smoke-profile').configureSmokeProfile(app); }
+catch(error) {
+  require('./smoke-profile').recordSmokeFailure(error);
+  if(process.argv.includes('--release-smoke'))app.exit(1);
+  else throw error;
+}
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
@@ -198,8 +213,13 @@ if (!gotLock) {
       ensureEnvFile(paths.envPath, root);
       bootServerInProcess(paths, root);
       await waitForServer();
-      createWindow();
+      createWindow(paths);
     } catch (err) {
+      if(process.argv.includes('--release-smoke')) {
+        require('./smoke-profile').recordSmokeFailure(err);
+        app.exit(1);
+        return;
+      }
       dialog.showErrorBox(
         'تعذر تشغيل التطبيق',
         (err && err.message) || String(err)

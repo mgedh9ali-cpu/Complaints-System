@@ -17,9 +17,9 @@ function createFakeBrowser(role='admin',initialReply=null){
  }
  const document={
   body:{dataset:{},prepend(){},append(){},appendChild(){}},activeElement:null,
-  querySelector(selector){if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
+  querySelector(selector){if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
   querySelectorAll(selector){return selector==='.nav-link'?[node('nav-dashboard'),node('nav-registry')]:[];},
-  addEventListener(type,fn){events.set(type,fn);},
+  addEventListener(type,fn){const previous=events.get(type);events.set(type,previous?event=>{previous(event);return fn(event);}:fn);},
   getElementById(id){return node('#'+id);},
   createElement(){return node('created-node');},
   contains(){return true;}
@@ -40,13 +40,15 @@ function createFakeBrowser(role='admin',initialReply=null){
  let revision=1;
  const calls=[];
  const fetch=async (url,options={})=>{
-  calls.push({url,method:options.method||'GET',headers:options.headers||{}});
+  calls.push({url,method:options.method||'GET',headers:options.headers||{},body:options.body});
   let response;
   if(url==='/api/auth/me')response={user:{id:'u1',username:role,role}};
   else if(url==='/api/state'){
    if(options.method==='PUT')revision+=1;
    response=options.method==='PUT'?{saved:true,revision}:{state,revision};
   }
+  else if(url==='/api/sync/preview')response={revision,incomingCount:1,added:1,removed:0,conflicts:[]};
+  else if(url==='/api/sync/import')response={imported:true};
   else if(url==='/api/csrf')response={csrfToken:'token-from-session'};
   else if(url==='/api/complaints'&&options.method==='POST'){
    const data=JSON.parse(options.body);
@@ -231,4 +233,24 @@ test('a reviewer cannot persist assignment or priority changes',async()=>{
  ui.click('change-priority','SY-2026-10001');
  for(let i=0;i<25;i++)await Promise.resolve();
  assert.equal(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length,0);
+});
+
+
+test('settings import survives absent startup input and rerender; password is masked and preview revision is submitted',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
+ for(let attempt=0;attempt<2;attempt++){
+  ui.navigate('settings');
+  const target={id:'syncImportFile',files:[{size:100,async text(){return '{"format":"synthetic-envelope"}';}}],value:'selected',classList:{contains(){return false;}}};
+  const pending=ui.events.get('change')({target});
+  for(let i=0;i<10;i++)await Promise.resolve();
+  assert.match(ui.node('#modalRoot').innerHTML,/type="password"/);assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="syncPasswordConfirm"/);
+  ui.node('#syncPassword').value='test-transfer-password';ui.click('confirm-sync-password');await pending;
+  assert.equal(target.value,'');ui.navigate('dashboard');
+ }
+ const imports=ui.calls.filter(c=>c.url==='/api/sync/import');assert.equal(imports.length,2);
+ assert.equal(JSON.parse(imports[0].body).expectedRevision,1);
+ const target={id:'syncImportFile',files:[{size:1,async text(){return '{}';}}],classList:{contains(){return false;}}};
+ const pending=ui.events.get('change')({target});for(let i=0;i<10;i++)await Promise.resolve();
+ ui.events.get('keydown')({key:'Escape',target:{},preventDefault(){}});await pending;
+ assert.equal(ui.calls.filter(c=>c.url==='/api/sync/import').length,2,'cancel must not submit a transfer');
 });

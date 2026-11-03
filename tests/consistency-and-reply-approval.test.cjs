@@ -14,9 +14,8 @@ const { createSyncPackage } = require('../lib/offline-sync');
 
 function fixture(t, audit = () => {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-consistency-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const db = openDatabase(path.join(dir, 'test.sqlite'));
-  t.after(() => db.close());
+  t.after(() => { db.close(); fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
   const insertUser = db.prepare(
     'INSERT INTO users(id, username, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, 1, ?)'
   );

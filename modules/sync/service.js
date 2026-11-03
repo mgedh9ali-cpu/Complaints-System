@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const {exportFiles,prepareFiles}=require('../../lib/sync-attachments');
+const {exportFiles,prepareFiles,validateFiles}=require('../../lib/sync-attachments');
 const { storageFor } = require('../../lib/storage-codec');
 const {
   createSyncPackage,
@@ -64,6 +64,8 @@ function createSyncService({
     if (!validation.ok) return validation;
     if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > 64 * 1024 * 1024) return { ok: false, error: 'ملف المزامنة أكبر من الحد المسموح.' };
     if (payload.sourceInstanceId === sourceInstanceId) return { ok: false, error: 'هذا الملف صادر من النسخة الحالية.' };
+    if (db.prepare("SELECT id FROM audit_events WHERE action='sync_imported' AND target_id=?").get(payload.syncId)) return { ok: false, status: 409, error: 'سبق استيراد ملف المزامنة هذا.' };
+    try { validateFiles(payload,{db,dataDir}); } catch(error) { return {ok:false,error:error.message}; }
     const { state, revision } = complaintsService.readState();
     const localIds = new Set(state.complaints.map(c => c.id));
     const incomingIds = new Set(payload.state.complaints.map(c => c.id));
@@ -137,6 +139,8 @@ function createSyncService({
     }
 
     let pendingDir = null;
+    const files=prepareFiles(payload,{db,dataDir});
+    try {
     if (updateTrusted) {
       pendingDir = stageProgramUpdate(
         payload,
@@ -146,8 +150,7 @@ function createSyncService({
     }
 
     const now = new Date().toISOString();
-    const files=prepareFiles(payload,{db,dataDir});
-    try { db.transaction(() => {
+    db.transaction(() => {
       const currentRow = db.prepare('SELECT revision FROM app_state WHERE id=1').get();
       const nextRevision = (currentRow?.revision ?? 0) + 1;
       db.prepare(
@@ -190,7 +193,7 @@ function createSyncService({
         forceReplace: Boolean(forceReplace),
         conflictCount: conflicts.length
       });
-    })(); }catch(error){files.rollback();throw error;}
+    })(); }catch(error){files.rollback();if(pendingDir)fs.rmSync(pendingDir,{recursive:true,force:true});throw error;}
     if (typeof auditService.syncHead === 'function') auditService.syncHead();
 
     return {

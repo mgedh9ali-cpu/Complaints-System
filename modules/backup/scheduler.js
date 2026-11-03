@@ -19,8 +19,7 @@ function pruneBackups(directory, now = Date.now()) {
 function createBackupScheduler({ backupService, directory, logger, intervalMs = 15 * 60000, now = () => new Date() }) {
   let running = false, timer;
   let status = { lastSuccessfulAt: null, lastError: null, running: false, intervalMinutes: intervalMs / 60000, retentionDays: 30 };
-  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const statusPath = path.join(directory, 'backup-status.json');
+  let statusPath = path.join(directory, 'backup-status.json');
   try { status = { ...status, ...JSON.parse(fs.readFileSync(statusPath, 'utf8')), running: false }; } catch (_) {}
   function persist() {
     fs.writeFileSync(statusPath + '.tmp', JSON.stringify(status), { mode: 0o600 });
@@ -31,6 +30,7 @@ function createBackupScheduler({ backupService, directory, logger, intervalMs = 
     running = true; status.running = true;
     let backup;
     try {
+      fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
       backup = await backupService.createCompleteBackup();
       const destination = path.join(directory, 'automatic-' + now().toISOString().replace(/[:.]/g, '-') + '.csb');
       fs.copyFileSync(backup.destination, destination, fs.constants.COPYFILE_EXCL);
@@ -46,15 +46,20 @@ function createBackupScheduler({ backupService, directory, logger, intervalMs = 
     } finally {
       if (backup) backupService.cleanupBackupDir(backup.backupDir);
       status.running = false; running = false;
-      persist();
+      try { persist(); } catch (error) { status.lastError = error.message; logger?.error('Backup status could not be saved', { message: error.message }); }
     }
   }
   return {
     runOnce,
+    setDirectory(nextDirectory) {
+      if(running)throw new Error('انتظر اكتمال النسخة الجارية ثم أعد اختيار المجلد.');
+      directory=path.resolve(nextDirectory);statusPath=path.join(directory,'backup-status.json');
+      status={...status,lastSuccessfulAt:null,lastError:null};
+    },
     start() { runOnce().catch(error => logger?.error('Backup status could not be saved', { message: error.message }));
       timer = setInterval(() => { runOnce().catch(error => logger?.error('Backup status could not be saved', { message: error.message })); }, intervalMs); timer.unref?.(); },
     stop() { clearInterval(timer); },
-    status() { return { ...status, overdue: !status.lastSuccessfulAt || Date.now() - Date.parse(status.lastSuccessfulAt) > intervalMs * 2 }; }
+    status() { return { ...status, directory, overdue: !status.lastSuccessfulAt || now().getTime() - Date.parse(status.lastSuccessfulAt) > intervalMs * 2 }; }
   };
 }
 module.exports = { createBackupScheduler, pruneBackups };

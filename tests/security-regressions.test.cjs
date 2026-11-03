@@ -101,7 +101,6 @@ test('live server never serves database or source code without authentication', 
   timeout: 30000
 }, async t => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-http-security-'));
-  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const port = await freePort();
   const url = 'http://127.0.0.1:' + port;
   const child = spawn(process.execPath, ['server.js'], {
@@ -118,7 +117,16 @@ test('live server never serves database or source code without authentication', 
     },
     stdio: 'ignore'
   });
-  t.after(() => { child.kill('SIGTERM'); });
+  t.after(async () => {
+    if (child.exitCode === null && child.signalCode === null) {
+      await new Promise(resolve => {
+        const timer = setTimeout(() => child.kill('SIGKILL'), 2000);
+        child.once('exit', () => { clearTimeout(timer); resolve(); });
+        child.kill('SIGTERM');
+      });
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
   await waitFor(url + '/api/health', child);
 
   for (const target of ['/data/complaints.sqlite', '/data/complaints.sqlite-wal',

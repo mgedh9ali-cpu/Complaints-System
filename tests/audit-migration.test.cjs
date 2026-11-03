@@ -55,7 +55,6 @@ test(
     const root = fs.mkdtempSync(
       path.join(os.tmpdir(), "complaints-audit-migration-"),
     );
-    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const databasePath = path.join(root, "legacy.sqlite");
     const db = new Database(databasePath);
     db.exec(`
@@ -100,15 +99,16 @@ test(
     });
     t.after(async () => {
       if (child.exitCode === null) {
-        child.kill("SIGTERM");
         await new Promise((resolve) => {
           const timer = setTimeout(() => { child.kill("SIGKILL"); }, 2000);
           child.once("exit", () => {
             clearTimeout(timer);
             resolve();
           });
+          child.kill("SIGTERM");
         });
       }
+      fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     });
 
     await waitForServer(child, baseUrl + "/api/health");

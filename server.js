@@ -106,14 +106,13 @@ const syncService = createSyncService({
   db,
   sourceInstanceId,
   dataDir: dataRoot,
-  rootDir: path.resolve('.'),
+  rootDir: __dirname,
   attachmentsService
 });
 
 app.disable('x-powered-by');
 app.use(requireLocalHost(env.port));
 app.use(createHelmetMiddleware());
-app.use(express.json({ limit: '16mb', strict: true }));
 app.use(
   createSessionMiddleware({
     sessionSecret: env.sessionSecret,
@@ -122,6 +121,11 @@ app.use(
   })
 );
 app.use(ensureCsrfToken);
+// Large encrypted transfers are parsed only after authentication and header CSRF.
+app.use(['/api/sync/preview', '/api/sync/import'], middleware.requireAuth,
+  rolesService.requirePermission('sync.import'), middleware.requireCsrf,
+  express.json({ limit: '96mb', strict: true }));
+app.use(express.json({ limit: '16mb', strict: true }));
 
 app.use((req, res, next) => {
   const p = (req.path || '').toLowerCase();
@@ -240,3 +244,4 @@ app.listen(env.port, env.host, () => {
     `Complaints system listening on http://${env.host}:${env.port} (v${env.version})`
   );
 });
+module.exports = { backupScheduler, backupService, audit };
