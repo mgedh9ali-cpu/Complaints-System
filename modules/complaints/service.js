@@ -135,10 +135,8 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
         }
       }
       if (prevReply && nextReply) {
-        if (prevReply.author !== nextReply.author || (prevReply.text !== nextReply.text && ['approved', 'sent'].includes(prevReply.status))) {
-          if (prevReply.author !== nextReply.author) {
-            return { invalidTransition: true, error: 'لا يجوز تغيير كاتب الرد عبر حفظ الحالة.' };
-          }
+        if (prevReply.author !== nextReply.author) {
+          return { invalidTransition: true, error: 'لا يجوز تغيير كاتب الرد عبر حفظ الحالة.' };
         }
         if (prevReply.status !== nextReply.status) {
           if (nextReply.status === 'approved') {
@@ -154,8 +152,8 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
             return { invalidTransition: true, error: 'لا يمكن التراجع عن إرسال الرد المعتمد.' };
           }
         }
-        if (prevReply && ['approved', 'sent'].includes(prevReply.status)) {
-          if (!nextReply || nextReply.text !== prevReply.text || nextReply.author !== prevReply.author) {
+        if (['approved', 'sent'].includes(prevReply.status)) {
+          if (nextReply.text !== prevReply.text || nextReply.author !== prevReply.author) {
             return { invalidTransition: true, error: 'لا يجوز تغيير نص الرد المعتمد.' };
           }
         }
@@ -286,7 +284,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     return { ok: true, complaint, revision: nextRevision };
   }
 
-  function changeStatus({ complaintId, toStatus, reason, userId, username, closureException }) {
+  function changeStatus({ complaintId, toStatus, reason, userId, username, closureException, approvalId }) {
     if (!complaintId || typeof complaintId !== 'string') return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
     if (!Object.prototype.hasOwnProperty.call(ALLOWED_TRANSITIONS, toStatus)) return { ok: false, status: 400, error: 'حالة غير معروفة.' };
     const { state, revision } = readState();
@@ -314,7 +312,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     }
     if (toStatus === 'cancelled') {
       const hasOfficial = (complaint.referrals || []).some((r) => r && r.entity);
-      if (hasOfficial) {
+      if (hasOfficial && !approvalId) {
         return { ok: false, status: 409, approvalRequired: true, error: 'الإلغاء بعد إحالة رسمية يتطلب موافقة ثانية.' };
       }
     }
@@ -331,36 +329,72 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
     persistState(state, userId, now, nextRevision, [{ action: 'complaint_status_changed', id: complaintId, details: { from: fromStatus, to: toStatus, reason: reason || null } }]);
-    statusUndos.set(complaintId, { from: fromStatus, to: toStatus, at: Date.now() });
-    return { ok: true, complaint, revision: nextRevision, unchanged: false };
+    const undoToken = crypto.randomUUID();
+    const undoExpiresAt = Date.now() + 60000;
+    statusUndos.set(undoToken, {
+      complaintId,
+      from: fromStatus,
+      to: toStatus,
+      userId,
+      revision: nextRevision,
+      expiresAt: undoExpiresAt
+    });
+    return { ok: true, complaint, revision: nextRevision, unchanged: false, undoToken, undoExpiresAt };
   }
 
-  function undoStatus({ complaintId, userId, username }) {
-    const undo = statusUndos.get(complaintId);
-    if (!undo || Date.now() - undo.at > 5000) return { ok: false, status: 409, error: 'لا يوجد تراجع متاح.' };
+  function undoStatus({ complaintId, token, userId, username }) {
+    if (!token || !statusUndos.has(token)) {
+      return { ok: false, status: 409, error: 'رمز التراجع غير صالح.' };
+    }
+    const record = statusUndos.get(token);
     const { state, revision } = readState();
-    const idx = findIndex(state, complaintId);
+    if (record.userId !== userId || Date.now() > record.expiresAt || Number(revision) !== Number(record.revision)) {
+      statusUndos.delete(token);
+      return { ok: false, status: 409, error: 'انتهت صلاحية التراجع أو تغيرت مراجعة الحالة.' };
+    }
+    if (record.complaintId && complaintId && record.complaintId !== complaintId) {
+      return { ok: false, status: 409, error: 'رمز التراجع لا يطابق الشكوى.' };
+    }
+    const idx = findIndex(state, record.complaintId || complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
-    if (complaint.status !== undo.to) return { ok: false, status: 409, error: 'الحالة تغيّرت.' };
+    if (complaint.status !== record.to) {
+      statusUndos.delete(token);
+      return { ok: false, status: 409, error: 'الحالة تغيّرت.' };
+    }
     const now = new Date().toISOString();
-    complaint.status = undo.from;
+    complaint.status = record.from;
     complaint.updated = now;
     complaint.statusHistory = Array.isArray(complaint.statusHistory) ? complaint.statusHistory.slice() : [];
-    complaint.statusHistory.push({ from: undo.to, to: undo.from, at: now, by: username, reason: 'تراجع فوري' });
+    complaint.statusHistory.push({
+      from: record.to,
+      to: record.from,
+      at: now,
+      by: username || null,
+      reason: 'تراجع فوري'
+    });
     complaint.timeline = Array.isArray(complaint.timeline) ? complaint.timeline.slice() : [];
-    complaint.timeline.unshift({ event: 'تراجع عن تغيير الحالة', at: now, by: username, detail: (STATUS_LABELS[undo.to] || undo.to) + ' ← ' + (STATUS_LABELS[undo.from] || undo.from) });
+    complaint.timeline.unshift({
+      event: 'تراجع عن تغيير الحالة',
+      at: now,
+      by: username || 'system',
+      detail: (STATUS_LABELS[record.to] || record.to) + ' ← ' + (STATUS_LABELS[record.from] || record.from)
+    });
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision, [{ action: 'complaint_status_undo', id: complaintId, details: {} }]);
-    statusUndos.delete(complaintId);
+    statusUndos.delete(token);
+    persistState(state, userId, now, nextRevision, [{
+      action: 'complaint_status_undone',
+      id: record.complaintId || complaintId,
+      details: { from: record.to, to: record.from }
+    }]);
     return { ok: true, complaint, revision: nextRevision };
   }
 
   function deleteComplaint({ complaintId, userId } = {}) {
     return { ok: false, status: 409, error: 'الحذف يتطلب موافقة.' };
   }
-  function archiveComplaint({ complaintId, userId, reason } = {}) {
+  function archiveComplaint({ complaintId, userId, reason, approvalId } = {}) {
     const { state, revision } = readState();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
@@ -434,9 +468,10 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     persistState(state, userId, now, nextRevision, [{ action: 'referral_response', id: complaintId, details: { index } }]);
     return { ok: true, complaint, revision: nextRevision };
   }
-  function linkDuplicate({ complaintId, targetId, userId, username } = {}) {
+  function linkDuplicate({ complaintId, targetId, originalId, userId, username } = {}) {
     const { state, revision } = readState();
     const idx = findIndex(state, complaintId);
+    targetId = targetId || originalId;
     const targetIdx = findIndex(state, targetId);
     if (idx < 0 || targetIdx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     if (complaintId === targetId) return { ok: false, status: 400, error: 'لا يمكن ربط الشكوى بنفسها.' };
@@ -514,7 +549,9 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     if (!sent) return 0;
     state.complaints = nextComplaints;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, null, now.toISOString(), nextRevision, events);
+    const systemUser = db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get();
+    const safeSystemId = systemUser ? systemUser.id : 'system';
+    persistState(state, safeSystemId, now.toISOString(), nextRevision, events);
     return sent;
   }
 
