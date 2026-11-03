@@ -29,7 +29,6 @@ function setGlassPreference(value){document.documentElement?.classList.toggle('r
 function enhanceGlassDetail(){
  const article=$('.complaint-page');if(!article)return;
  const c=db.complaints.find(x=>x.id===currentId);if(!c)return;
- // Preserve navigation and actual server actions; tabs show one group at a time.
  const header=$('.complaint-page-header',article);
  if(header&&typeof document.createElement==='function'){
   const steps=document.createElement('nav');steps.className='glass-steps';steps.setAttribute('aria-label','مراحل المعالجة');
@@ -55,6 +54,8 @@ function renderCommands(query){
  const pages=[['dashboard','لوحة العمل'],['complaints','سجل الشكاوى'],['referrals','الإحالات'],['replies','الردود'],['reports','التقارير'],['settings','الإعدادات']].filter(x=>!q||norm(x[1]).includes(q));
  mount.innerHTML='<h3>'+(q?'الشكاوى':'آخر ما فتحته')+'</h3>'+records.map(c=>'<button data-action="detail" data-id="'+esc(c.id)+'">'+highlight(c.summary)+'<small dir="ltr">'+highlight(c.id)+'</small></button>').join('')+'<h3>الصفحات</h3>'+pages.map(([id,label])=>'<button data-action="command-page" data-page-target="'+id+'">'+highlight(label)+'</button>').join('')+(authenticatedUser.role!=='reviewer'&&(!q||norm('تسجيل شكوى جديدة').includes(q))?'<h3>إجراءات</h3><button data-action="new-complaint">＋ تسجيل شكوى جديدة</button>':'')+(!records.length&&!pages.length?'<p>لا توجد نتائج مطابقة.</p>':'');
 }
+function csvSafe(value){if(value==null)return "";const s=String(value);return /^[\x00-\x1F\s]*[=+\-@]/.test(s)?"'"+s:s;}
+function exportCsv(ids){const rows=Array.isArray(ids)&&ids.length?db.complaints.filter(c=>ids.includes(c.id)):db.complaints.filter(c=>!c.archivedAt);const headers=['id','name','phone','province','category','nature','status','priority','owner','summary','created'];const lines=[headers.join(',')];for(const c of rows){lines.push(headers.map(h=>'"'+csvSafe(c[h]??'').replace(/"/g,'""')+'"').join(','));}const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='complaints-export.csv';a.click();URL.revokeObjectURL(a.href);}
 function exportSelected(){if(!selectedIds.size)return;return exportCsv([...selectedIds]);}
 
 function availableOwners(){return [...new Set([authenticatedUser?.username,...managedUsers.filter(u=>u.active&&u.role!=='reviewer').map(u=>u.username),...db.complaints.map(c=>c.owner)].filter(Boolean))];}
