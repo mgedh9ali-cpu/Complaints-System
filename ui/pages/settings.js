@@ -16,7 +16,6 @@ function settingsPageBase(){
   '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>معلومات التشغيل</h2></div><div class="panel-body"><div class="settings-list"><div class="setting-row"><div><strong>التخزين</strong><small>تُحفظ بيانات النظام في قاعدة البيانات المحلية الخاصة بالتطبيق.</small></div><span class="setting-value">محلي</span></div><div class="setting-row"><div><strong>النسخ الاحتياطي</strong><small>يمكن إنشاء نسخة احتياطية من قاعدة البيانات من أدوات الإدارة.</small></div><span class="setting-value">متاح</span></div><div class="setting-row"><div><strong>المزامنة</strong><small>يمكن نقل ملف المزامنة يدويًا بين النسخ المصرح بها.</small></div><span class="setting-value">يدوي</span></div></div></div></section>';
 }
 
-let managedUsers=[];
 function userManagementPanel(){
   if(authenticatedUser?.role!=='admin')return '';
   const roleLabels={admin:'مدير النظام',staff:'موظف',reviewer:'مراجع'};
