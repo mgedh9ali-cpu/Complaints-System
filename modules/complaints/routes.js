@@ -90,7 +90,13 @@ function createComplaintsRouter({
       if (result.invalidTransition) {
         return res.status(409).json({ error: result.error || 'تغيير الحالة غير مسموح.' });
       }
-      // Events are recorded atomically inside complaintsService.saveState.
+      // Successful writes must advance the revision; otherwise treat as conflict.
+      if (!Number.isSafeInteger(result.revision) || Number(result.revision) !== expectedRevision + 1) {
+        return res.status(409).json({
+          error: 'لم يُحفظ التغيير لأن مستخدمًا آخر حفظ نسخة أحدث.',
+          currentRevision: complaintsService.readState().revision
+        });
+      }
       res.json({
         saved: true,
         updatedAt: result.updatedAt,
@@ -254,10 +260,15 @@ function createComplaintsRouter({
     }
   );
 
-  router.post('/complaints/:id/status/undo',requireAuth,requirePermission('complaints.status'),requireCsrf,(req,res)=>{
-    const result=complaintsService.undoStatus({complaintId:req.params.id,token:req.body?.token,userId:req.user.id,username:req.user.username});
-    if(!result.ok)return res.status(result.status||400).json({error:result.error});
-    res.json({ok:true,revision:result.revision});
+  router.post('/complaints/:id/status/undo', requireAuth, requirePermission('complaints.status'), requireCsrf, (req, res) => {
+    const result = complaintsService.undoStatus({
+      complaintId: req.params.id,
+      token: req.body?.token,
+      userId: req.user.id,
+      username: req.user.username
+    });
+    if (!result.ok) return res.status(result.status || 400).json({ error: result.error });
+    res.json({ ok: true, revision: result.revision });
   });
 
   return router;
