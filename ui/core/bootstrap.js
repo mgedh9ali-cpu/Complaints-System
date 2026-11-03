@@ -1,4 +1,3 @@
-(() => {
 'use strict';
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
@@ -24,8 +23,8 @@ async function api(url,opts={}){const headers=Object.assign({'Content-Type':'app
 async function loadDb(){const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateLoaded=true;stateConflict=false;}
 async function persistUiNow(){if(!stateLoaded)return;const saved=await api('/api/state',{method:'PUT',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify(db)});stateRevision=saved.revision;}
 function persist(){if(persistTimer)clearTimeout(persistTimer);persistTimer=setTimeout(()=>{persistTimer=null;persistQueue=persistQueue.then(()=>persistUiNow()).catch(e=>toast(e.message,'error'));},400);}
-function updateSignedInUi(){const name=authenticatedUser?.username||'';const el=$('#signedInUser');if(el)el.textContent=name;}
-function showLogin(){const overlay=$('#loginOverlay');if(overlay)overlay.hidden=false;$('#appShell')&&($('#appShell').hidden=true);}
+function updateSignedInUi(){const name=authenticatedUser?.username||'';const el=$('#signedInUser');if(el)el.textContent=name;const top=$('#topUserName');if(top)top.textContent=name||'غير مسجل';const headerCreate=$('#headerCreateButton');if(headerCreate)headerCreate.hidden=!uiCan('complaints.create');document.body.dataset.signedIn=authenticatedUser?'true':'false';const overlay=$('#loginOverlay');if(overlay)overlay.hidden=!!authenticatedUser;const shell=$('#appShell');if(shell)shell.hidden=!authenticatedUser;}
+function showLogin(){const overlay=$('#loginOverlay');if(overlay)overlay.hidden=false;$('#appShell')&&($('#appShell').hidden=true);document.body.dataset.signedIn='false';}
 function logout(){authenticatedUser=null;stateLoaded=false;db=cleanState();try{sessionStorage.removeItem(DRAFT_KEY);}catch(_){}updateSignedInUi();showLogin();}
 async function refreshAssignees(){try{const r=await api('/api/users');managedUsers=r.users||[];assignees=(r.users||[]).filter(u=>u.active&&u.role!=='reviewer');}catch(_){}}
 /* UI modules continue; IIFE closed by events.js */
