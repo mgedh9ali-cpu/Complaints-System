@@ -61,12 +61,11 @@ case 'save-setting':{
     else db.settings[type].push(value);
     if(key){if(description)db.settings[key][value]=description;else delete db.settings[key][value];}
   }
-  await persistUiNow();closeModal();render();toast(mode==='edit'?'تم تعديل الخيار.':'تمت إضافة الخيار إلى القائمة.');break;
+  await persistUiNow();closeModal();render();toast(mode==='edit'?'تم تعديل العنصر.':'تمت إضافة العنصر.');
+  break;
 }
 case 'edit-complaint':editComplaintModal(id);break;
-case 'save-complaint-edit':saveComplaintEdit(id);break;
-case 'registry-next':registryPage++;render();break;
-case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
+case 'save-edit-complaint':saveEditComplaint(id);break;
 case 'change-password':passwordChangeModal();break;
 case 'save-password-change':savePasswordChange();break;
 case 'refresh-local-users':refreshManagedUsers();break;
@@ -82,9 +81,12 @@ case 'confirm-sync-password':await confirmSyncPassword();break;
 });
 document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();});
 document.addEventListener('change',e=>{if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
-document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root&&root.dataset.open&&e.key==='Escape'){cancelPendingSyncImport?.();closeModal();return;}if(authenticatedUser&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
+document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root&&root.dataset.open){if(e.key==='Escape'){cancelPendingSyncImport?.();closeModal();return;}if(e.key==='Tab'){const dlg=$('.modal',root);if(!dlg)return;const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}if(authenticatedUser&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
 if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
+
+async function submitLogin(e){e?.preventDefault?.();const username=$('#loginUsername')?.value?.trim();const password=$('#loginPassword')?.value||'';if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');try{const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});authenticatedUser=data.user||data;await loadDb();updateSignedInUi();const overlay=$('#loginOverlay');if(overlay)overlay.hidden=true;const shell=$('#appShell');if(shell)shell.hidden=false;document.body.dataset.signedIn='true';if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();toast('تم تسجيل الدخول.');}catch(err){toast(err.message||'فشل تسجيل الدخول','error');}}
 // bootstrap login restore
 if(typeof loadDb==='function'){loadDb?.();}
+if($('#loginForm'))$('#loginForm').addEventListener('submit',submitLogin);
 (async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();}catch(_){showLogin();}})();
 })();
