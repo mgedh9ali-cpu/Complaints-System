@@ -272,3 +272,194 @@ button:disabled, input:disabled, select:disabled { cursor: not-allowed; opacity:
   .ui-registry-hint { order: 3; }
   .ui-clear-search { order: 2; }
 }
+
+/* Font stack: Thmanyah when installed locally; Noto Sans Arabic always available from /assets */
+@font-face {
+  font-family: "Noto Sans Arabic";
+  src: url("/assets/NotoSansArabic.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  --ui-font: "Thmanyah Sans", "ThmanyahSans", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea,
+.btn,
+.field,
+.nav-link,
+.panel,
+.login-card {
+  font-family: var(--ui-font) !important;
+}
+
+/* Login: coherent two-panel layout matching HTML structure */
+.login-overlay {
+  display: grid !important;
+  place-items: center !important;
+  padding: 20px !important;
+  min-height: 100dvh !important;
+}
+
+.login-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) !important;
+  width: min(860px, calc(100vw - 32px)) !important;
+  max-width: 860px !important;
+  min-height: 420px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  box-shadow: 0 24px 80px rgba(8, 30, 26, 0.28) !important;
+  border: 1px solid #d5e4df !important;
+}
+
+.login-brand {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 40px 36px !important;
+  background: linear-gradient(155deg, #0f2e28 0%, #1a5244 55%, #23604d 100%) !important;
+  color: #f5f4e9 !important;
+}
+
+.login-brand svg {
+  color: #e3c77e !important;
+  flex: none !important;
+}
+
+.login-brand h2 {
+  margin: 4px 0 0 !important;
+  color: #fff !important;
+  font-size: 22px !important;
+  line-height: 1.55 !important;
+  font-weight: 700 !important;
+}
+
+.login-brand p {
+  color: #d4e8df !important;
+  font-size: 14px !important;
+  margin: 0 !important;
+  line-height: 1.7 !important;
+}
+
+.login-brand small {
+  color: #b8d0c6 !important;
+  font-size: 12px !important;
+}
+
+.login-fields {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 14px !important;
+  min-width: 0 !important;
+  padding: 36px 34px !important;
+  background: #fff !important;
+}
+
+.login-fields h1 {
+  margin: 0 !important;
+  font-size: 24px !important;
+  color: #14382d !important;
+  line-height: 1.4 !important;
+}
+
+.login-fields .login-subtitle,
+.login-fields > p {
+  margin: 0 0 6px !important;
+  color: #5a6f66 !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
+.login-fields .form-field {
+  gap: 8px !important;
+}
+
+.login-fields .form-field label {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #2a453c !important;
+}
+
+.login-fields .field {
+  min-height: 46px !important;
+  font-size: 14px !important;
+  border-radius: 11px !important;
+  border: 1px solid #c9d8d2 !important;
+  background: #fbfcfc !important;
+}
+
+.login-fields .field:focus {
+  border-color: #2b6b58 !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 3px rgba(43, 107, 88, 0.18) !important;
+}
+
+.login-fields .login-submit,
+.login-fields button[type="submit"] {
+  margin-top: 8px !important;
+  min-height: 48px !important;
+  width: 100% !important;
+  border-radius: 12px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  background: linear-gradient(135deg, #1a5244, #2b6b58) !important;
+  border: none !important;
+  color: #fff !important;
+}
+
+/* Settings / empty lists: less sparse empty cards */
+.empty-state {
+  padding: 28px 20px !important;
+  line-height: 1.85 !important;
+  color: #66776f !important;
+  font-size: 13px !important;
+}
+
+.settings-list .setting-row,
+.panel .empty-state {
+  min-height: 0 !important;
+}
+
+.panel-body:has(.empty-state) {
+  padding-block: 18px !important;
+}
+
+@media (max-width: 720px) {
+  .login-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: min(440px, 100%) !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 28px) !important;
+    overflow-y: auto !important;
+  }
+  .login-brand {
+    padding: 22px 24px !important;
+    gap: 8px !important;
+  }
+  .login-brand h2 {
+    font-size: 17px !important;
+  }
+  .login-brand p {
+    font-size: 12px !important;
+  }
+  .login-brand small {
+    display: none !important;
+  }
+  .login-fields {
+    padding: 22px 20px 26px !important;
+  }
+}
