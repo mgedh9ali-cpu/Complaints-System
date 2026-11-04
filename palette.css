@@ -1,10 +1,5 @@
-/* Palette · sourced from provided swatches
- * #0F1F17  deepest
- * #1E3A2E  dark green
- * #3E5A3F  mid green
- * #6B7F67  sage
- * #C7CBB8  cream
- * #3D4337  charcoal green
+/* Palette · institutional green system
+ * #0F1F17 deepest · #1E3A2E dark · #3E5A3F mid · #6B7F67 sage · #C7CBB8 cream · #3D4337 charcoal
  */
 :root {
   --green-950: #0F1F17;
@@ -36,6 +31,9 @@
   --g3: rgba(244, 245, 239, 0.92);
   --sh: 15, 31, 23;
   --aurora: linear-gradient(135deg, #0F1F17 0%, #1E3A2E 45%, #3E5A3F 100%);
+  --sla-ok: #3E5A3F;
+  --sla-warn: #a67c2a;
+  --sla-late: #8b3a3a;
 }
 
 html {
@@ -136,7 +134,6 @@ button:disabled.is-loading,
   to { transform: rotate(360deg); }
 }
 
-/* Success pulse after withButtonLock completes */
 .btn.btn-success-pulse {
   background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
   border-color: #3E5A3F !important;
@@ -185,8 +182,8 @@ button:disabled.is-loading,
 .topbar {
   background: rgba(244, 245, 239, 0.94) !important;
   border-bottom-color: #b8bda8 !important;
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }
 
 /* Login */
@@ -220,6 +217,8 @@ button:disabled.is-loading,
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+.table-wrap,
+.table-wrap *,
 .table-wrap tbody tr,
 .table-wrap thead th {
   backdrop-filter: none !important;
