@@ -73,43 +73,32 @@ function createReportsService({ complaintsService }) {
   }
 
   function buildSummaryReport(filters = {}, generatedBy) {
-    const all = listComplaints();
-    const rows = applyFilters(all, filters);
-    const byStatus = Object.create(null);
-    for (const key of Object.keys(STATUS_LABELS)) byStatus[key] = 0;
-    let late = 0;
-    const now = Date.now();
-    const slaApproved = complaintsService.readState().state.settings.slaApproved === true;
-    for (const c of rows) {
+    const complaints = applyFilters(listComplaints(), filters);
+    const byStatus = {};
+    const byProvince = {};
+    const byCategory = {};
+    for (const c of complaints) {
       const st = c.status || 'unknown';
       byStatus[st] = (byStatus[st] || 0) + 1;
-      if (slaApproved && c.due && !['closed', 'cancelled', 'draft'].includes(c.status)) {
-        const dueMs = Date.parse(c.due);
-        if (Number.isFinite(dueMs) && now > dueMs) late += 1;
-      }
+      const pr = c.province || '—';
+      byProvince[pr] = (byProvince[pr] || 0) + 1;
+      const cat = c.category || '—';
+      byCategory[cat] = (byCategory[cat] || 0) + 1;
     }
-    const reportNumber =
-      'RPT-' +
-      dayKey().replace(/-/g, '') +
-      '-' +
-      String(rows.length).padStart(4, '0');
     return {
-      reportNumber,
+      reportNumber: 'SUM-' + new Date().toISOString().slice(0, 10),
       generatedAt: new Date().toISOString(),
       generatedBy: generatedBy || 'system',
-      filters: {
-        status: filters.status || null,
-        province: filters.province || null,
-        owner: filters.owner || null,
-        from: filters.from || null,
-        to: filters.to || null
-      },
-      totals: {
-        all: rows.length,
-        late,
-        byStatus
-      },
-      statusLabels: STATUS_LABELS
+      filters,
+      totals: { all: complaints.length, byStatus, byProvince, byCategory },
+      complaints: complaints.map((c) => ({
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        province: c.province,
+        category: c.category,
+        created: c.created
+      }))
     };
   }
 
@@ -131,7 +120,11 @@ function createReportsService({ complaintsService }) {
     const complaints = applyFilters(listComplaints(), filters);
     const buffer = await buildComplaintsWorkbook(complaints, {
       title: 'تقرير الشكاوى',
-      generatedBy: generatedBy || 'system'
+      generatedBy: generatedBy || 'system',
+      from: filters.from || '',
+      to: filters.to || '',
+      status: filters.status || '',
+      province: filters.province || ''
     });
     return {
       buffer,
@@ -158,33 +151,25 @@ function createReportsService({ complaintsService }) {
     const complaint = findComplaint(id);
     if (!complaint) return null;
     const lines = [
-      'المعرّف: ' + complaint.id,
+      'تقرير شكوى فردية',
+      'الرقم: ' + (complaint.id || ''),
+      'الاسم: ' + (complaint.name || ''),
       'الحالة: ' + (STATUS_LABELS[complaint.status] || complaint.status || ''),
-      'التصنيف: ' + (complaint.category || '-'),
-      'الأولوية: ' + (complaint.priority || '-'),
-      'المحافظة: ' + (complaint.province || '-'),
-      'الجهة: ' + (complaint.entity || '-'),
-      'المسؤول: ' + (complaint.owner || '-'),
-      'الإنشاء: ' + (complaint.created || '-'),
-      'التحديث: ' + (complaint.updated || '-'),
-      'الاستحقاق: ' + (complaint.due || '-'),
-      'الملخص: ' + (complaint.summary || '-'),
-      'اسم المشتكي: ' + (complaint.name || '-'),
-      'الهاتف: ' + (complaint.phone || '-'),
-      'التفاصيل: ' + String(complaint.details || '-'),
-      'مُصدر التقرير: ' + (generatedBy || 'system'),
-      'وقت الإصدار: ' + new Date().toISOString()
+      'المحافظة: ' + (complaint.province || ''),
+      'التصنيف: ' + (complaint.category || ''),
+      'الملخص: ' + (complaint.summary || ''),
+      'التفاصيل: ' + (complaint.details || ''),
+      'تاريخ الإنشاء: ' + (complaint.created || ''),
+      'المسؤول: ' + (complaint.owner || ''),
+      'مُصدر بواسطة: ' + (generatedBy || 'system')
     ];
-    if (complaint.survey && complaint.survey.rating) {
-      lines.push('تقييم الخدمة: ' + complaint.survey.rating + '/5');
-    }
-    if (complaint.reply) lines.push('الرد: ' + complaint.reply.text, 'مرحلة الرد: ' + complaint.reply.status,
-      'معد الرد: ' + complaint.reply.author, 'المعتمد: ' + (complaint.reply.approvedBy || '-'));
-    const buffer = await buildSimplePdf(lines, 'تقرير شكوى - ' + complaint.id);
+    const buffer = await buildSimplePdf({
+      title: 'شكوى ' + (complaint.id || ''),
+      lines
+    });
     return {
       buffer,
-      filename: 'complaint-' + id + '.pdf',
-      complaint
+      filename: 'شكوى-' + id + '.pdf'
     };
   }
 
@@ -196,8 +181,9 @@ function createReportsService({ complaintsService }) {
     buildCsv,
     buildXlsx,
     buildSingleXlsx,
-    buildSinglePdf
+    buildSinglePdf,
+    STATUS_LABELS
   };
 }
 
-module.exports = { createReportsService };
+module.exports = { createReportsService, STATUS_LABELS };
