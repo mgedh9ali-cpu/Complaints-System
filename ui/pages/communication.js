@@ -37,13 +37,11 @@ function notificationsPage(){
   return heading('مركز الإشعارات','تنبيهات داخلية للاستكمال والاعتماد والإحالات والمتأخرات.',unread?btn('تحديد الكل كمقروء','read-all'):'')+
   '<section class="panel"><div class="panel-header"><h2>آخر التنبيهات</h2><span class="setting-value">'+unread+' غير مقروء</span></div><div class="panel-body">'+
   (list.length?
-    '<div class="notice-list">'+list.map(n=>'<div class="notice-item'+(n.read?' is-read':'')+'">'+'
-      <div class="notice-mark '+(n.read?'read':'')+'">'+(n.read?'✓':'!')+'</div>'+
-      '<div class="notice-body"><strong>'+esc(n.title)+'</strong><p>'+esc(n.body)+'</p><small>'+timeText(n.date||n.at)+'</small></div>'+
-      '<div class="notice-actions">'+
-      (n.complaintId?'<button class="btn btn-sm btn-primary" data-action="detail" data-id="'+esc(n.complaintId)+'">فتح الشكوى</button>':'')+
-      (!n.read?'<button class="btn btn-sm" data-action="read-notice" data-id="'+esc(String(n.id))+'">تمّت القراءة</button>':'')+
-      '</div></div>').join('')+'</div>'
+    '<div class="notice-list">'+list.map(n=>{
+      const nid=esc(String(n.id));
+      const cid=n.complaintId?esc(n.complaintId):'';
+      return '<div class="notice-item'+(n.read?' is-read':'')+'">'+'<div class="notice-mark '+(n.read?'read':'')+'">'+(n.read?'✓':'!')+'</div>'+'<div class="notice-body"><strong>'+esc(n.title)+'</strong><p>'+esc(n.body)+'</p><small>'+timeText(n.date||n.at)+'</small></div>'+'<div class="notice-actions">'+(cid?'<button class="btn btn-sm btn-primary" data-action="detail" data-id="'+cid+'">فتح الشكوى</button>':'')+(!n.read?'<button class="btn btn-sm" data-action="read-notice" data-id="'+nid+'">تمّت القراءة</button>':'')+'</div></div>';
+    }).join('')+'</div>'
   :'<div class="empty-state"><p>لا توجد إشعارات حالياً. تظهر هنا التنبيهات عند الاستكمال أو التأخير أو الاعتماد.</p></div>')+
   '</div></section>';
 }
