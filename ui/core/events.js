@@ -1,5 +1,9 @@
-document.addEventListener('click',async e=>{const nav=e.target.closest('[data-page]');if(nav){go(nav.dataset.page);return;}const goto=e.target.closest('[data-goto]');if(goto){go(goto.dataset.goto);return;}const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action,id=el.dataset.id;
-try {
+/* Events bootstrap — data-action switch and global listeners. */
+document.addEventListener('click',async e=>{
+const el=e.target.closest('[data-action]');
+if(!el)return;
+const a=el.dataset.action,id=el.dataset.id;
+try{
 switch(a){
 case 'conflict-save':resolveStateConflict();break;
 case 'conflict-remote':resolveStateConflict(true);break;
@@ -41,37 +45,8 @@ case 'my-complaints':quickView='mine';statusFilter='all';priorityFilter='all';ca
 case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'bulk-open':bulkOpen();break;
 case 'clear-selection':selectedIds.clear();render();break;
-case 'add-setting':addSetting(validSettingType(el.dataset.type)?el.dataset.type:'categories');break;
-case 'add-category':addSetting('categories');break;
-case 'edit-setting':addSetting(el.dataset.type,el.dataset.value);break;
-case 'delete-setting':await deleteSetting(el.dataset.type,el.dataset.value);break;
-case 'clear-setting-type':await clearSettingType(el.dataset.type);break;
-case 'restore-settings':await restoreDefaultSettings(el.dataset.type||'all');break;
-case 'save-setting':{
-  const type=el.dataset.type,mode=el.dataset.mode||'create',value=$('#settingValue')?.value.trim(),description=$('#settingDescription')?.value.trim()||'';
-  if(!validSettingType(type))return toast('نوع القائمة غير صالح.','error');ensureManagedSettings();if(!value)return toast('أدخل الاسم أولًا.','warn');
-  const original=el.dataset.original||'',entries=settingEntries(type);
-  if(entries.some(item=>item.label.toLocaleLowerCase()===value.toLocaleLowerCase()&&!(mode==='edit'&&item.value===original)))return toast('هذا الاسم موجود بالفعل في القائمة.','warn');
-  if(type==='priorities'){
-    if(mode==='edit'){const entry=db.settings.priorities.find(x=>x.value===original);if(!entry)return toast('تعذر العثور على الأولوية.','error');entry.label=value;}
-    else db.settings.priorities.push({value:'custom-'+Date.now().toString(36),label:value});
-  }else{
-    const key=settingDescriptionKey(type);if(key)db.settings[key] ||= {};
-    if(mode==='edit'){const index=db.settings[type].indexOf(original);if(index<0)return toast('تعذر العثور على القيمة المراد تعديلها.','error');db.settings[type][index]=value;if(key)delete db.settings[key][original];}
-    else db.settings[type].push(value);
-    if(key){if(description)db.settings[key][value]=description;else delete db.settings[key][value];}
-  }
-  await persistUiNow();closeModal();render();toast(mode==='edit'?'تم تعديل العنصر.':'تمت إضافة العنصر.');
-  break;
-}
-case 'edit-complaint':editComplaintModal(id);break;
-case 'save-edit-complaint':saveEditComplaint(id);break;
-case 'change-password':passwordChangeModal();break;
-case 'save-password-change':savePasswordChange();break;
-case 'refresh-local-users':refreshManagedUsers();break;
-case 'refresh-approvals':refreshApprovals();break;
-case 'request-archive':approvalRequestModal('complaint_archive',id);break;
 case 'export-csv':exportCsv();break;
+case 'export-xlsx':await exportXlsx();break;
 case 'print-report':window.print();break;
 case 'sync-import':$('#syncImportFile')?.click();break;
 case 'sync-export':toast('استخدم تصدير المزامنة من لوحة الإعدادات مع عبارة مرور.','warn');break;
