@@ -94,7 +94,6 @@ function createAttachmentsRouter({
         }
         return res.status(201).json({ attachments: saved });
       } catch (err) {
-        // A successful disk write must not leave unaudited orphan attachments.
         if (!auditCommitted) {
           for (const meta of saved.reverse()) {
             try { attachmentsService.remove(meta.storedName); } catch (_) {}
@@ -142,7 +141,6 @@ function createAttachmentsRouter({
       }
       const full = attachmentsService.getPath(parsed.storedName);
       if (!full) return res.status(404).json({ error: 'الملف غير موجود.' });
-      // Record every authorized file access before releasing sensitive bytes.
       if (typeof audit === 'function') {
         audit(req.user.id, 'attachment_accessed', 'attachment', parsed.storedName, {
           complaintId: parsed.complaintId
@@ -150,6 +148,10 @@ function createAttachmentsRouter({
       }
       const bytes = attachmentsService.read(parsed.storedName);
       if (!bytes) return res.status(404).json({ error: 'الملف غير موجود.' });
+      // Prevent MIME sniffing and block any active content if a file is opened inline.
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+      res.setHeader('X-Frame-Options', 'DENY');
       res.attachment(attachmentsService.metadata?.(parsed.storedName)?.originalName || parsed.storedName).send(bytes);
     }
   );
@@ -171,7 +173,6 @@ function createAttachmentsRouter({
       if (!complaintExists(parsed.complaintId)) {
         return res.status(404).json({ error: 'الشكوى المرتبطة بالملف غير موجودة.' });
       }
-      // attachment_deleted is recorded by the separate two-person approval transaction.
       res.status(409).json({ error: 'قدّم طلب حذف من مسار الموافقات؛ يلزم قرار مدير مختلف عن مقدم الطلب.' });
     }
   );

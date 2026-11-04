@@ -1,4 +1,22 @@
 /* Events bootstrap — data-action switch and global listeners. */
+
+/** Prevent double-submit on action buttons while an async handler runs. */
+window.withButtonLock = async function withButtonLock(btn, fn) {
+  if (!btn || btn.disabled || btn.classList.contains('is-loading')) return;
+  const original = btn.getAttribute('aria-busy');
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  btn.setAttribute('aria-busy', 'true');
+  try {
+    return await fn();
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+    if (original == null) btn.removeAttribute('aria-busy');
+    else btn.setAttribute('aria-busy', original);
+  }
+};
+
 document.addEventListener('click',async e=>{
 const el=e.target.closest('[data-action]');
 if(!el)return;
@@ -16,26 +34,26 @@ case 'export-selected':exportSelected();break;
 case 'close-modal':cancelPendingSyncImport?.();closeModal();break;
 case 'backdrop-close':if(e.target===el){cancelPendingSyncImport?.();closeModal();}break;
 case 'new-complaint':newComplaint();break;
-case 'save-complaint':createComplaint();break;
-case 'save-incomplete':createComplaint(true);break;
+case 'save-complaint':await withButtonLock(el,()=>createComplaint());break;
+case 'save-incomplete':await withButtonLock(el,()=>createComplaint(true));break;
 case 'detail':recentComplaintIds=[id,...recentComplaintIds.filter(x=>x!==id)].slice(0,8);detailModal(id);break;
 case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailReturnPage);break;
-case 'change-status':changeStatus(id);break;
-case 'assign-owner':assignOwner(id);break;
+case 'change-status':await withButtonLock(el,()=>changeStatus(id));break;
+case 'assign-owner':await withButtonLock(el,()=>assignOwner(id));break;
 case 'change-priority':changePriority(id);break;
 case 'add-note':addNote(id);break;
-case 'save-note':saveNote(id);break;
+case 'save-note':await withButtonLock(el,()=>saveNote(id));break;
 case 'new-referral':newReferralGlobal();break;
 case 'referral-create':newReferral(id);break;
-case 'save-referral':saveReferral(id);break;
+case 'save-referral':await withButtonLock(el,()=>saveReferral(id));break;
 case 'survey':surveyModal(id);break;
-case 'save-survey':saveSurvey(id);break;
+case 'save-survey':await withButtonLock(el,()=>saveSurvey(id));break;
 case 'new-reply':newReply();break;
 case 'reply-create':replyEditor(id);break;
-case 'save-reply':saveReply(id);break;
-case 'reply-review':replyAction(id,a);break;
-case 'reply-approve':replyAction(id,a);break;
-case 'reply-sent':replyAction(id,a);break;
+case 'save-reply':await withButtonLock(el,()=>saveReply(id));break;
+case 'reply-review':await withButtonLock(el,()=>replyAction(id,a));break;
+case 'reply-approve':await withButtonLock(el,()=>replyAction(id,a));break;
+case 'reply-sent':await withButtonLock(el,()=>replyAction(id,a));break;
 case 'read-all':db.notifications.forEach(n=>n.read=true);await persistUiNow();render();toast('تم تحديد الإشعارات كمقروءة.');break;
 case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
@@ -46,7 +64,7 @@ case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFi
 case 'bulk-open':bulkOpen();break;
 case 'clear-selection':selectedIds.clear();render();break;
 case 'export-csv':exportCsv();break;
-case 'export-xlsx':await exportXlsx();break;
+case 'export-xlsx':await withButtonLock(el,()=>exportXlsx());break;
 case 'print-report':window.print();break;
 case 'sync-import':$('#syncImportFile')?.click();break;
 case 'sync-export':toast('استخدم تصدير المزامنة من لوحة الإعدادات مع عبارة مرور.','warn');break;

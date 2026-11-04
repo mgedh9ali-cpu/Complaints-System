@@ -43,12 +43,104 @@ html {
   color: var(--ink);
 }
 
+/* ========== Unified button system (wins over redesign.css) ========== */
+.btn,
+.ui-tool-button,
+.action-cell button,
+.row-actions button,
+button.btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 38px !important;
+  padding: 8px 14px !important;
+  border-radius: 10px !important;
+  border: 1px solid #b8bda8 !important;
+  background: #f7f8f2 !important;
+  color: #0F1F17 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, filter 0.15s ease !important;
+  text-decoration: none !important;
+}
+.btn:hover,
+.ui-tool-button:hover,
+.action-cell button:hover,
+.row-actions button:hover {
+  background: #e8ebe0 !important;
+  border-color: #6B7F67 !important;
+  filter: none !important;
+  transform: none !important;
+}
+.btn-primary,
+.top-create-button,
+.login-fields .login-submit,
+.login-fields button[type="submit"] {
+  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
+  border-color: #3E5A3F !important;
+  color: #C7CBB8 !important;
+  box-shadow: 0 6px 18px rgba(30, 58, 46, 0.28) !important;
+}
+.btn-primary:hover,
+.top-create-button:hover {
+  filter: brightness(1.08) !important;
+  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
+  color: #C7CBB8 !important;
+}
+.btn-secondary,
+.btn-glass {
+  background: rgba(244, 245, 239, 0.85) !important;
+  border-color: #b8bda8 !important;
+  color: #1E3A2E !important;
+}
+.btn-danger {
+  color: #8b3a3a !important;
+  border-color: #d4a8a8 !important;
+  background: #f5e8e8 !important;
+}
+.btn-danger:hover {
+  background: #edd5d5 !important;
+  border-color: #c08080 !important;
+}
+.btn-sm,
+.row-actions .btn-sm {
+  min-height: 32px !important;
+  padding: 5px 10px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+.btn:disabled,
+.btn.is-loading,
+button:disabled.is-loading,
+.btn[aria-busy="true"] {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  filter: none !important;
+}
+.btn.is-loading::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+  margin-inline-start: 4px;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Sidebar */
 .sidebar {
   background: linear-gradient(170deg, #0F1F17 0%, #1E3A2E 55%, #3E5A3F 100%) !important;
   box-shadow: -6px 0 28px rgba(15, 31, 23, 0.18) !important;
 }
-
 .brand strong { color: #C7CBB8 !important; }
 .brand small,
 .prototype-note { color: #a8b09a !important; }
@@ -70,19 +162,12 @@ html {
 .side-user strong, .side-user small { color: #C7CBB8 !important; }
 .avatar { background: #C7CBB8 !important; color: #0F1F17 !important; }
 
-/* Top bar & primary actions */
-.topbar { background: rgba(244, 245, 239, 0.94) !important; border-bottom-color: #b8bda8 !important; }
-.btn-primary,
-.top-create-button,
-.login-fields .login-submit,
-.login-fields button[type="submit"] {
-  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
-  border-color: #3E5A3F !important;
-  color: #C7CBB8 !important;
-  box-shadow: 0 6px 18px rgba(30, 58, 46, 0.28) !important;
-}
-.btn-primary:hover {
-  filter: brightness(1.08);
+/* Top bar — light blur only on chrome */
+.topbar {
+  background: rgba(244, 245, 239, 0.94) !important;
+  border-bottom-color: #b8bda8 !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
 }
 
 /* Login */
@@ -109,15 +194,29 @@ html {
   box-shadow: 0 0 0 3px rgba(62, 90, 63, 0.22) !important;
 }
 
-/* Cards & surfaces */
+/* Cards — solid, no blur on tables/rows */
 .panel, .stat-card, .mini-card, .table-panel, .login-card {
   background: var(--paper) !important;
   border-color: #b8bda8 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.table-wrap tbody tr,
+.table-wrap thead th {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 .stat-number, .page-heading h1 { color: #0F1F17 !important; }
 .eyebrow { color: #3E5A3F !important; }
 .pill.progressing { background: #e4e8dc; color: #1E3A2E; }
 .pill.new { background: #e8ebe0; color: #3E5A3F; }
+
+/* Modal backdrop keeps soft blur (dialogs only) */
+.modal-backdrop {
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  background: rgba(15, 31, 23, 0.55) !important;
+}
 
 /* Focus */
 button:focus-visible,
