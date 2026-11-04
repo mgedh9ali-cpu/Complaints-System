@@ -1,4 +1,4 @@
-/* Noto Sans Arabic — SIL OFL, bundled in assets/ for devices without Thmanyah. */
+/* Noto Sans Arabic — SIL OFL, bundled in assets/ (always available offline). */
 @font-face {
   font-family: "Noto Sans Arabic";
   src: url("/assets/NotoSansArabic.ttf") format("truetype");
