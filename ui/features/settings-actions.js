@@ -10,6 +10,36 @@ function addSetting(type,value){
   const label=entry?.label||'';const desc=key?(db.settings[key][value]||''):'';
   modal(title,'تُحفظ القيم في قاعدة البيانات المحلية. حذف خيار لا يغيّر الشكاوى السابقة.','<form id="settingForm"><div class="form-field"><label for="settingValue">الاسم</label><input class="field" id="settingValue" required maxlength="100" value="'+esc(label)+'"></div>'+(key?'<div class="form-field" style="margin-top:12px"><label for="settingDescription">الوصف</label><textarea class="textarea-field" id="settingDescription" maxlength="500" placeholder="وصف اختياري">'+esc(desc)+'</textarea></div>':'')+'</form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-setting" data-type="'+type+'" data-mode="'+(editing?'edit':'create')+'" data-original="'+esc(value)+'">حفظ</button>');
 }
+async function saveSetting(type,mode,original){
+  if(!validSettingType(type))return;
+  ensureManagedSettings();
+  const name=($('#settingValue')?.value||'').trim();
+  if(!name)return toast('أدخل الاسم.','warn');
+  const key=settingDescriptionKey(type);
+  const desc=($('#settingDescription')?.value||'').trim();
+  if(type==='priorities'){
+    const value=name.toLowerCase().replace(/\s+/g,'_').slice(0,40)||'custom';
+    if(mode==='edit'){
+      const i=db.settings.priorities.findIndex(p=>p.value===original);
+      if(i>=0)db.settings.priorities[i]={value:original,label:name};
+    }else{
+      if(db.settings.priorities.some(p=>p.label===name||p.value===value))return toast('القيمة موجودة مسبقاً.','warn');
+      db.settings.priorities.push({value,label:name});
+    }
+  }else{
+    if(mode==='edit'){
+      const i=(db.settings[type]||[]).indexOf(original);
+      if(i>=0)db.settings[type][i]=name;
+      if(key&&original!==name){db.settings[key][name]=db.settings[key][original]||desc;delete db.settings[key][original];}
+      else if(key)db.settings[key][name]=desc;
+    }else{
+      if((db.settings[type]||[]).includes(name))return toast('القيمة موجودة مسبقاً.','warn');
+      db.settings[type]=[...(db.settings[type]||[]),name];
+      if(key){db.settings[key]||={};db.settings[key][name]=desc;}
+    }
+  }
+  await persistUiNow();closeModal();render();toast('تم حفظ الخيار.');
+}
 async function deleteSetting(type,value){
   if(!validSettingType(type))return;ensureManagedSettings();const entries=settingEntries(type);if(!entries.some(x=>x.value===value))return;
   const label=({categories:'التصنيف',natures:'طبيعة الشكاوي',provinces:'المحافظة',entities:'الجهة المختصة',priorities:'الأولوية'})[type];
@@ -28,6 +58,13 @@ async function restoreDefaultSettings(type='all'){
   if(!confirm('استعادة '+labels[type]+' الافتراضية؟ لن تتغير الشكاوى السابقة.'))return;
   for(const key of managedTypes){if(type!=='all'&&type!==key)continue;db.settings[key]=key==='priorities'?seed.settings.priorities.map(x=>({...x})): [...(seed.settings[key]||[])];const descKey=settingDescriptionKey(key);if(descKey)db.settings[descKey]={};}
   await persistUiNow();render();toast('تمت استعادة '+labels[type]+' الافتراضية.');
+}
+async function saveSlaSettings(){
+  const days=Number($('#slaDays')?.value);
+  if(!Number.isFinite(days)||days<1||days>365)return toast('أدخل عدد أيام صالحاً (1–365).','warn');
+  db.settings.slaDays=Math.floor(days);
+  db.settings.slaApproved=Boolean($('#slaApproved')?.checked);
+  await persistUiNow();render();toast('حُفظت إعدادات المهلة.');
 }
 function editComplaintModal(id){
   const c=db.complaints.find(c=>c.id===id);if(!c||!uiCan('complaints.update'))return;
@@ -49,11 +86,21 @@ async function saveComplaintEdit(id){
 async function flushUiBeforeAction(){if(stateConflict)throw new Error('حل تعارض البيانات قبل تنفيذ إجراء جديد.');await persistQueue;if(persistTimer)await persistUiNow();}
 async function reloadStoredState(){const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number(stored.revision)||0;stateConflict=false;stateLoaded=true;render();}
 function permissionsPanel(){if(authenticatedUser?.role!=='admin')return '';return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>صلاحيات الحسابات الفردية</h2></div><div class="panel-body">'+managedUsers.filter(u=>u.role!=='admin').map(u=>'<div class="setting-row"><strong>'+esc(u.username)+'</strong><button class="btn btn-sm" data-action="edit-user-permissions" data-id="'+esc(u.id)+'">تخصيص الصلاحيات</button></div>').join('')+'</div></section>';}
-function maintenancePanel(){if(authenticatedUser?.role!=='admin')return '';return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>صحة النظام</h2></div><div class="panel-body"><p class="small-copy">لوحة الصيانة متاحة للمدير.</p></div></section>';}
+function maintenancePanel(){
+  if(authenticatedUser?.role!=='admin')return '';
+  return '<section class="panel" style="margin-top:16px"><div class="panel-header"><div><h2>صحة النظام ونزاهة البيانات</h2><p>فحص سلامة قاعدة البيانات وسلسلة التدقيق من داخل البرنامج</p></div></div><div class="panel-body">'
+    +'<div class="footer-actions" style="margin-bottom:12px">'
+    +'<button class="btn btn-primary" data-action="audit-verify">فحص سلامة قاعدة البيانات وسلسلة التدقيق الآن</button>'
+    +'<button class="btn" data-action="verify-document-dialog">التحقق من مستند مطبوع</button>'
+    +'</div><div id="integrityCert" class="small-copy">اضغط الزر لعرض شهادة النزاهة.</div></div></section>';
+}
 function securityPanel(){return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>الأمان</h2></div><div class="panel-body"><button class="btn btn-sm" data-action="change-password">تغيير كلمة المرور</button></div></section>';}
 function passwordChangeModal(){modal('تغيير كلمة المرور','أدخل كلمة المرور الحالية والجديدة.','<div class="form-field"><label for="currentPassword">الحالية</label><input class="field" id="currentPassword" type="password"></div><div class="form-field"><label for="newPassword">الجديدة</label><input class="field" id="newPassword" type="password" minlength="12"></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-password-change">حفظ</button>');}
 async function savePasswordChange(){try{await api('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:$('#currentPassword')?.value,newPassword:$('#newPassword')?.value})});closeModal();toast('تم تغيير كلمة المرور.');}catch(e){toast(e.message,'error');}}
-function auditPanel(){return '';}
+function auditPanel(){
+  if(!uiCan('audit.read')&&authenticatedUser?.role!=='admin')return '';
+  return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>سجل التدقيق</h2></div><div class="panel-body"><p class="small-copy">سلسلة الهاشات تحمي من التلاعب الخارجي. استخدم زر الفحص في «صحة النظام».</p></div></section>';
+}
 function approvalsPanel(complaintId){return '';}
 
 /* Encrypted offline sync import (password-gated) */

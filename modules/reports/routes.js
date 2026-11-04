@@ -111,10 +111,14 @@ function createReportsRouter({ reportsService, middleware, audit, rolesService }
     if (!id || id.length > 100) {
       return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
     }
-    const result = await reportsService.buildSinglePdf(id, req.user.username);
+    const kind = req.query.kind === 'receipt' ? 'receipt' : 'report';
+    const result = await reportsService.buildSinglePdf(id, req.user.username, { kind });
     if (!result) return res.status(404).json({ error: 'الشكوى غير موجودة.' });
     if (typeof audit === 'function') {
-      audit(req.user.id, 'pdf_export_single', 'export', id, { filename: result.filename });
+      audit(req.user.id, kind === 'receipt' ? 'pdf_receipt' : 'pdf_export_single', 'export', id, {
+        filename: result.filename,
+        integrityHash: result.integrityHash
+      });
     }
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
@@ -122,6 +126,7 @@ function createReportsRouter({ reportsService, middleware, audit, rolesService }
       "attachment; filename*=UTF-8''" + encodeURIComponent(result.filename)
     );
     res.setHeader('Cache-Control', 'no-store');
+    if (result.integrityHash) res.setHeader('X-Integrity-Hash', result.integrityHash);
     res.send(result.buffer);
     } catch (error) { next(error); }
   });

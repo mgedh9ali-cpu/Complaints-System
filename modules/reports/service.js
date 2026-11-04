@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const { buildComplaintsWorkbook, buildSingleComplaintWorkbook } = require('../../lib/excel-export');
 const { buildSimplePdf } = require('../../lib/simple-pdf');
 const {dayBoundary,dayKey}=require('../../lib/work-time');
@@ -10,6 +11,7 @@ const CSV_HEADERS = [
 ];
 
 const STATUS_LABELS = Object.freeze({
+  draft: 'غير مكتملة',
   new: 'جديدة',
   in_progress: 'قيد المعالجة',
   awaiting_reply: 'بانتظار رد الجهة',
@@ -147,29 +149,59 @@ function createReportsService({ complaintsService }) {
     };
   }
 
-  async function buildSinglePdf(id, generatedBy) {
+  function integrityFor(complaint) {
+    return crypto
+      .createHash('sha256')
+      .update(JSON.stringify({
+        id: complaint.id,
+        summary: complaint.summary,
+        status: complaint.status,
+        created: complaint.created,
+        updated: complaint.updated
+      }))
+      .digest('hex');
+  }
+
+  async function buildSinglePdf(id, generatedBy, options = {}) {
     const complaint = findComplaint(id);
     if (!complaint) return null;
-    const lines = [
-      'تقرير شكوى فردية',
-      'الرقم: ' + (complaint.id || ''),
-      'الاسم: ' + (complaint.name || ''),
-      'الحالة: ' + (STATUS_LABELS[complaint.status] || complaint.status || ''),
-      'المحافظة: ' + (complaint.province || ''),
-      'التصنيف: ' + (complaint.category || ''),
-      'الملخص: ' + (complaint.summary || ''),
-      'التفاصيل: ' + (complaint.details || ''),
-      'تاريخ الإنشاء: ' + (complaint.created || ''),
-      'المسؤول: ' + (complaint.owner || ''),
-      'مُصدر بواسطة: ' + (generatedBy || 'system')
-    ];
+    const kind = options.kind === 'receipt' ? 'receipt' : 'report';
+    const hash = integrityFor(complaint);
+    const lines = kind === 'receipt'
+      ? [
+          'إيصال استلام شكوى',
+          'الرقم المرجعي: ' + (complaint.id || ''),
+          'اسم المشتكي: ' + (complaint.name || '—'),
+          'الهاتف: ' + (complaint.phone || '—'),
+          'المحافظة: ' + (complaint.province || '—'),
+          'التصنيف: ' + (complaint.category || '—'),
+          'الموضوع: ' + (complaint.summary || ''),
+          'تاريخ التسجيل: ' + (complaint.created || ''),
+          'الحالة: ' + (STATUS_LABELS[complaint.status] || complaint.status || ''),
+          'مُصدر بواسطة: ' + (generatedBy || 'system')
+        ]
+      : [
+          'تقرير شكوى فردية',
+          'الرقم: ' + (complaint.id || ''),
+          'الاسم: ' + (complaint.name || ''),
+          'الحالة: ' + (STATUS_LABELS[complaint.status] || complaint.status || ''),
+          'المحافظة: ' + (complaint.province || ''),
+          'التصنيف: ' + (complaint.category || ''),
+          'الملخص: ' + (complaint.summary || ''),
+          'التفاصيل: ' + (complaint.details || ''),
+          'تاريخ الإنشاء: ' + (complaint.created || ''),
+          'المسؤول: ' + (complaint.owner || ''),
+          'مُصدر بواسطة: ' + (generatedBy || 'system')
+        ];
     const buffer = await buildSimplePdf({
-      title: 'شكوى ' + (complaint.id || ''),
-      lines
+      title: kind === 'receipt' ? 'إيصال استلام · ' + (complaint.id || '') : 'شكوى ' + (complaint.id || ''),
+      lines,
+      integrityHash: hash
     });
     return {
       buffer,
-      filename: 'شكوى-' + id + '.pdf'
+      filename: (kind === 'receipt' ? 'ايصال-' : 'شكوى-') + id + '.pdf',
+      integrityHash: hash
     };
   }
 
