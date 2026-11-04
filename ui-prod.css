@@ -1,0 +1,166 @@
+/* Production polish — attachments, backup, notices, empty states */
+
+.btn-backup {
+  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
+  border-color: #3E5A3F !important;
+  color: #C7CBB8 !important;
+  font-weight: 700 !important;
+}
+.top-actions .btn-backup {
+  min-height: 36px !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+}
+
+.attach-input-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.attach-dropzone {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 12px 14px !important;
+  border: 1px dashed #b8bda8 !important;
+  border-radius: 12px !important;
+  background: #fafbf7 !important;
+}
+.attach-dropzone.compact {
+  padding: 10px 12px !important;
+  margin-top: 10px !important;
+}
+.attach-hint,
+.attach-dropzone .attach-hint {
+  font-size: 12px !important;
+  color: #3D4337 !important;
+}
+.attach-preview {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 8px !important;
+}
+.attach-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  background: #e8ebe0 !important;
+  border: 1px solid #b8bda8 !important;
+  font-size: 12px !important;
+  max-width: 100%;
+}
+.attach-chip img.attach-thumbnail {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.attach-panel {
+  margin-top: 8px !important;
+}
+.attach-panel-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  margin-bottom: 8px !important;
+}
+.attach-panel-title {
+  font-weight: 700 !important;
+  font-size: 13px !important;
+}
+.attach-list {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  min-height: 28px !important;
+}
+
+.notice-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+.notice-item {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 12px 14px !important;
+  border: 1px solid #b8bda8 !important;
+  border-radius: 12px !important;
+  background: #fafbf7 !important;
+}
+.notice-item.is-read {
+  opacity: 0.72 !important;
+}
+.notice-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  background: #f2eedc;
+  color: #7a6a3a;
+  flex: none;
+}
+.notice-mark.read {
+  background: #e4e8dc;
+  color: #1E3A2E;
+}
+.notice-body {
+  flex: 1;
+  min-width: 0;
+}
+.notice-body p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.notice-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empty-state {
+  padding: 28px 20px !important;
+  text-align: center !important;
+  color: #3D4337 !important;
+}
+.empty-state .btn {
+  margin-top: 12px !important;
+}
+
+.backup-panel .footer-actions {
+  margin-bottom: 10px !important;
+}
+
+.update-steps {
+  margin: 12px 0;
+  padding-inline-start: 1.25rem;
+  line-height: 1.85;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .top-actions .btn-backup span,
+  #topUpdateHelpButton {
+    /* keep labels readable on narrow windows */
+  }
+  .notice-item {
+    flex-wrap: wrap;
+  }
+  .notice-actions {
+    flex-direction: row;
+    width: 100%;
+  }
+}
