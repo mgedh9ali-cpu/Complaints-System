@@ -205,6 +205,7 @@ const PUBLIC_FILES = {
   '/ui-enhancements.css': 'ui-enhancements.css',
   '/redesign.css': 'redesign.css',
   '/fallback-font.css': 'fallback-font.css',
+  '/palette.css': 'palette.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/ui-enhancements.js': 'ui-enhancements.js',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',
