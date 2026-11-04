@@ -3,6 +3,24 @@
 const express = require('express');
 const { validComplaintDraft, validStatePayload } = require('../../lib/validation');
 
+function normalizePhone(s) {
+  let n = String(s || '').replace(/[^\d+]/g, '');
+  if (n.startsWith('+963')) n = '0' + n.slice(4);
+  if (n.startsWith('963')) n = '0' + n.slice(3);
+  return n;
+}
+function normalizeText(s) {
+  return String(s || '')
+    .normalize('NFKD')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/[ىئي]/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
 function createComplaintsRouter({
   complaintsService,
   middleware,
@@ -33,13 +51,36 @@ function createComplaintsRouter({
     res.json({ state, updatedAt, revision });
   });
 
+  /** Instant duplicate hint for intake (phone / name / summary). */
+  router.get('/complaints/duplicates', requireAuth, requirePermission('complaints.read'), (req, res) => {
+    const phone = normalizePhone(req.query.phone || '');
+    const name = normalizeText(req.query.name || '');
+    const summary = normalizeText(req.query.summary || '');
+    const { state } = complaintsService.readState();
+    const list = Array.isArray(state.complaints) ? state.complaints : [];
+    const matches = list.filter((c) => {
+      if (!c || c.archivedAt) return false;
+      if (phone && phone.length >= 7 && normalizePhone(c.phone) === phone) return true;
+      if (name && name.length >= 4 && normalizeText(c.name) === name) return true;
+      if (summary && summary.length >= 9 && normalizeText(c.summary).includes(summary)) return true;
+      return false;
+    }).slice(0, 8).map((c) => ({
+      id: c.id,
+      name: c.name || '',
+      phone: c.phone || '',
+      summary: c.summary || '',
+      status: c.status,
+      created: c.created
+    }));
+    res.json({ matches, count: matches.length });
+  });
+
   router.put(
     '/state',
     requireAuth,
     requirePermission('complaints.update'),
     requireCsrf,
     (req, res) => {
-      // Accept header as string or number; Express get is case-insensitive.
       const rawHeader = req.get('X-State-Revision') ?? req.headers['x-state-revision'];
       const expectedRevision = rawHeader !== undefined && rawHeader !== null && rawHeader !== ''
         ? Number(rawHeader)
@@ -88,7 +129,6 @@ function createComplaintsRouter({
         diffComplaints
       });
 
-      // Stale revision → 409 Conflict (release-http second PUT)
       if (result.conflict) {
         return res.status(409).json({
           error: 'تعارض في المراجعة؛ البيانات محدثة مسبقاً.',

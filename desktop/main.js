@@ -9,7 +9,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const net = require('node:net');
-const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu, Tray, nativeImage, Notification } = require('electron');
 const { isLocalAppUrl, isPermittedExternalUrl } = require('./navigation');
 
 console.info('[runtime]',{electron:process.versions.electron,chrome:process.versions.chrome});
@@ -19,12 +19,13 @@ const HOST = '127.0.0.1';
 const APP_URL = `http://${HOST}:${PORT}`;
 
 let mainWindow = null;
+let tray = null;
 let serverBooted = false;
 let serverRuntime;
+let quitting = false;
 
 function appRoot() {
   if (app.isPackaged) {
-    // With asar: app.getAppPath() points at app.asar (or unpacked app folder)
     return app.getAppPath();
   }
   return path.resolve(__dirname, '..');
@@ -118,11 +119,9 @@ function waitForServer(timeoutMs = 60000) {
 
 function bootServerInProcess(paths, root) {
   if (serverBooted) return;
-  // ASAR is a virtual filesystem; cwd must remain a real directory.
   process.chdir(root.endsWith('.asar') ? path.dirname(root) : root);
   loadEnvFile(paths.envPath);
   if(paths.options.backupDirectory) process.env.BACKUP_DIR=paths.options.backupDirectory;
-  // Always force data paths into userData (never store DB inside the portable exe)
   process.env.HOST = HOST;
   process.env.PORT = String(PORT);
   process.env.DATABASE_PATH = paths.databasePath;
@@ -132,9 +131,45 @@ function bootServerInProcess(paths, root) {
   process.env.ELECTRON_RUN = '1';
   process.env.COOKIE_SECURE = process.env.COOKIE_SECURE || 'false';
 
-  // Starts Express via Electron's embedded Node — no system `node` binary
   serverRuntime = require(path.join(root, 'server.js'));
   serverBooted = true;
+}
+
+function showTrayNotification(title, body) {
+  try {
+    if (Notification.isSupported()) {
+      new Notification({ title, body }).show();
+    }
+  } catch (_) {}
+}
+
+function installTray(root) {
+  const iconCandidates = [
+    path.join(root, 'build', 'icon.ico'),
+    path.join(root, 'build', 'icon.png'),
+    path.join(__dirname, 'icon.png')
+  ];
+  let image = nativeImage.createEmpty();
+  for (const candidate of iconCandidates) {
+    if (fs.existsSync(candidate)) {
+      image = nativeImage.createFromPath(candidate);
+      if (!image.isEmpty()) break;
+    }
+  }
+  tray = new Tray(image.isEmpty() ? nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==') : image);
+  tray.setToolTip('نظام الشكاوى والاستفسارات');
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'إظهار النافذة', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
+    { label: 'إخفاء النافذة', click: () => { mainWindow?.hide(); } },
+    { type: 'separator' },
+    { label: 'إغلاق التطبيق', click: () => { quitting = true; app.quit(); } }
+  ]);
+  tray.setContextMenu(contextMenu);
+  tray.on('double-click', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isVisible()) mainWindow.hide();
+    else { mainWindow.show(); mainWindow.focus(); }
+  });
 }
 
 function createWindow(paths) {
@@ -174,6 +209,15 @@ function createWindow(paths) {
 
   mainWindow.loadURL(APP_URL);
   require('./maintenance').installMaintenanceMenu({app,Menu,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
+
+  mainWindow.on('close', (event) => {
+    if (!quitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      showTrayNotification('نظام الشكاوى', 'يعمل في الخلفية. انقر مرتين على الأيقونة لإظهار النافذة.');
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -202,6 +246,7 @@ if (!gotLock) {
   app.on('second-instance', () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
       mainWindow.focus();
     }
   });
@@ -213,6 +258,7 @@ if (!gotLock) {
       ensureEnvFile(paths.envPath, root);
       bootServerInProcess(paths, root);
       await waitForServer();
+      installTray(root);
       createWindow(paths);
     } catch (err) {
       if(process.argv.includes('--release-smoke')) {
@@ -228,7 +274,9 @@ if (!gotLock) {
     }
   });
 
+  app.on('before-quit', () => { quitting = true; });
+
   app.on('window-all-closed', () => {
-    app.quit();
+    if (quitting) app.quit();
   });
 }

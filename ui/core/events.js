@@ -44,8 +44,10 @@ switch(a){
 case 'conflict-save':resolveStateConflict();break;
 case 'conflict-remote':resolveStateConflict(true);break;
 case 'print-approved-reply':printApprovedReply(id);break;
+case 'print-receipt':await withButtonLock(el,()=>printComplaintReceipt(id));break;
 case 'verify-document-dialog':verifyDocumentDialog();break;
-case 'verify-document':verifyDocument();break;
+case 'verify-document':await verifyDocument();break;
+case 'audit-verify':await withButtonLock(el,()=>runAuditIntegrityCheck());break;
 case 'command-open':commandPalette();break;
 case 'command-page':closeModal();go(el.dataset.pageTarget);break;
 case 'export-selected':exportSelected();break;
@@ -89,6 +91,20 @@ case 'sync-export':toast('استخدم تصدير المزامنة من لوحة
 case 'confirm-sync-password':await confirmSyncPassword();break;
 case 'restore-draft':restoreComplaintDraft(true);break;
 case 'discard-draft':try{localStorage.removeItem(DRAFT_KEY);sessionStorage.removeItem(DRAFT_KEY);}catch(_){} $('#draftBanner')?.remove();toast('تم تجاهل المسودة.');break;
+case 'add-setting':addSetting(el.dataset.type);break;
+case 'edit-setting':addSetting(el.dataset.type,el.dataset.value);break;
+case 'delete-setting':await deleteSetting(el.dataset.type,el.dataset.value);break;
+case 'clear-setting-type':await clearSettingType(el.dataset.type);break;
+case 'restore-settings':await restoreDefaultSettings(el.dataset.type||'all');break;
+case 'save-setting':await withButtonLock(el,()=>saveSetting(el.dataset.type,el.dataset.mode,el.dataset.original));break;
+case 'save-sla':await withButtonLock(el,()=>saveSlaSettings());break;
+case 'add-category':addSetting('categories');break;
+case 'change-password':passwordChangeModal();break;
+case 'save-password-change':await withButtonLock(el,()=>savePasswordChange());break;
+case 'refresh-local-users':await refreshManagedUsers();break;
+case 'save-complaint-edit':await withButtonLock(el,()=>saveComplaintEdit(id));break;
+case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
+case 'registry-next':registryPage+=1;render();break;
 }
 }catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');}
 });
