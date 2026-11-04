@@ -35,6 +35,8 @@ const { createSyncService } = require('./modules/sync/service');
 const { createSyncRouter } = require('./modules/sync/routes');
 const { createHealthService } = require('./modules/health/service');
 const { createHealthRouter } = require('./modules/health/routes');
+const { createRemindersService } = require('./modules/reminders/service');
+const { createRemindersRouter } = require('./modules/reminders/routes');
 const { validComplaint } = require('./lib/validation');
 const { diffComplaints } = require('./lib/complaint-state-diff');
 const { createApprovalsService } = require('./modules/approvals/service');
@@ -72,6 +74,7 @@ const { ensureCsrfToken } = middleware;
 
 const rolesService = createRolesService({ db });
 const complaintsService = createComplaintsService({ db, audit, logger, rolesService });
+const remindersService = createRemindersService({ db, complaintsService, audit });
 const dashboardService = createDashboardService({ complaintsService });
 const attachmentsService = createAttachmentsService({ db });
 const approvalsService = createApprovalsService({ db, audit, complaintsService, attachmentsService });
@@ -166,6 +169,7 @@ app.use(
     rolesService
   })
 );
+app.use('/api', createRemindersRouter({ remindersService, middleware, rolesService }));
 app.use('/api', createDashboardRouter({ dashboardService, middleware, rolesService }));
 app.use(
   '/api',
