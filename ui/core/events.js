@@ -1,19 +1,37 @@
 /* Events bootstrap — data-action switch and global listeners. */
 
-/** Prevent double-submit on action buttons while an async handler runs. */
+/** Prevent double-submit on action buttons while an async handler runs.
+ *  Shows spinner during work, then a short green ✓ pulse on success. */
 window.withButtonLock = async function withButtonLock(btn, fn) {
   if (!btn || btn.disabled || btn.classList.contains('is-loading')) return;
-  const original = btn.getAttribute('aria-busy');
+  const originalBusy = btn.getAttribute('aria-busy');
+  const originalHtml = btn.innerHTML;
   btn.disabled = true;
   btn.classList.add('is-loading');
   btn.setAttribute('aria-busy', 'true');
+  let ok = false;
   try {
-    return await fn();
+    const result = await fn();
+    ok = true;
+    return result;
   } finally {
-    btn.disabled = false;
     btn.classList.remove('is-loading');
-    if (original == null) btn.removeAttribute('aria-busy');
-    else btn.setAttribute('aria-busy', original);
+    if (ok) {
+      btn.classList.add('btn-success-pulse');
+      btn.innerHTML = '<span class="btn-check" aria-hidden="true">✓</span> تم';
+      window.setTimeout(() => {
+        if (!document.contains(btn)) return;
+        btn.classList.remove('btn-success-pulse');
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        if (originalBusy == null) btn.removeAttribute('aria-busy');
+        else btn.setAttribute('aria-busy', originalBusy);
+      }, 900);
+    } else {
+      btn.disabled = false;
+      if (originalBusy == null) btn.removeAttribute('aria-busy');
+      else btn.setAttribute('aria-busy', originalBusy);
+    }
   }
 };
 
@@ -69,12 +87,35 @@ case 'print-report':window.print();break;
 case 'sync-import':$('#syncImportFile')?.click();break;
 case 'sync-export':toast('استخدم تصدير المزامنة من لوحة الإعدادات مع عبارة مرور.','warn');break;
 case 'confirm-sync-password':await confirmSyncPassword();break;
+case 'restore-draft':restoreComplaintDraft(true);break;
+case 'discard-draft':try{localStorage.removeItem(DRAFT_KEY);sessionStorage.removeItem(DRAFT_KEY);}catch(_){} $('#draftBanner')?.remove();toast('تم تجاهل المسودة.');break;
 }
 }catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');}
 });
 document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();});
 document.addEventListener('change',e=>{if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
-document.addEventListener('keydown',e=>{const root=$('#modalRoot');if(root&&root.dataset.open){if(e.key==='Escape'){cancelPendingSyncImport?.();closeModal();return;}if(e.key==='Tab'){const dlg=$('.modal',root);if(!dlg)return;const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}const first=items[0],last=items[items.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}if(authenticatedUser&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();}if(authenticatedUser&&authenticatedUser.role!=='reviewer'&&e.altKey&&e.key.toLowerCase()==='n'){e.preventDefault();newComplaint();}});
+document.addEventListener('keydown',e=>{
+  const root=$('#modalRoot');
+  if(root&&root.dataset.open){
+    if(e.key==='Escape'){cancelPendingSyncImport?.();closeModal();return;}
+    if(e.key==='Tab'){
+      const dlg=$('.modal',root);if(!dlg)return;
+      const items=modalFocusables(dlg);if(!items.length){e.preventDefault();dlg.focus();return;}
+      const first=items[0],last=items[items.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  }
+  if(!authenticatedUser)return;
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod&&e.key.toLowerCase()==='k'){e.preventDefault();commandPalette();return;}
+  if(mod&&e.key.toLowerCase()==='n'&&authenticatedUser.role!=='reviewer'){e.preventDefault();newComplaint();return;}
+  if(e.altKey&&e.key.toLowerCase()==='n'&&authenticatedUser.role!=='reviewer'){e.preventDefault();newComplaint();return;}
+  if(mod&&e.key.toLowerCase()==='s'){
+    const saveBtn=$('[data-action="save-complaint"]')||$('[data-action="save-reply"]')||$('[data-action="save-note"]')||$('[data-action="save-referral"]');
+    if(saveBtn&&!saveBtn.disabled){e.preventDefault();saveBtn.click();}
+  }
+});
 if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
 
 async function submitLogin(e){e?.preventDefault?.();const username=$('#loginUsername')?.value?.trim();const password=$('#loginPassword')?.value||'';if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');try{const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});authenticatedUser=data.user||data;await loadDb();updateSignedInUi();const overlay=$('#loginOverlay');if(overlay)overlay.hidden=true;const shell=$('#appShell');if(shell)shell.hidden=false;document.body.dataset.signedIn='true';if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();toast('تم تسجيل الدخول.');}catch(err){toast(err.message||'فشل تسجيل الدخول','error');}}

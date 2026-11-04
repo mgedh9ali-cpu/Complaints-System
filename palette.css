@@ -136,6 +136,25 @@ button:disabled.is-loading,
   to { transform: rotate(360deg); }
 }
 
+/* Success pulse after withButtonLock completes */
+.btn.btn-success-pulse {
+  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
+  border-color: #3E5A3F !important;
+  color: #C7CBB8 !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+  animation: btn-success-pulse 0.9s ease;
+}
+.btn.btn-success-pulse .btn-check {
+  font-weight: 700;
+  margin-inline-end: 2px;
+}
+@keyframes btn-success-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(62, 90, 63, 0.45); }
+  40% { box-shadow: 0 0 0 8px rgba(62, 90, 63, 0.12); }
+  100% { box-shadow: 0 0 0 0 rgba(62, 90, 63, 0); }
+}
+
 /* Sidebar */
 .sidebar {
   background: linear-gradient(170deg, #0F1F17 0%, #1E3A2E 55%, #3E5A3F 100%) !important;
