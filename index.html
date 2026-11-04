@@ -62,6 +62,8 @@
           </div>
           <div class="top-actions">
             <button type="button" class="btn btn-primary top-create-button" id="headerCreateButton" data-action="new-complaint" hidden>＋ <span>تسجيل شكوى</span></button>
+            <button type="button" class="btn btn-backup" id="topBackupButton" data-action="database-backup" hidden title="نسخة احتياطية كاملة">نسخة احتياطية</button>
+            <button type="button" class="btn btn-sm" id="topUpdateHelpButton" data-action="show-update-help" hidden title="كيفية تحديث البرنامج">تحديث</button>
             <button type="button" class="icon-btn" data-page="notifications" aria-label="الإشعارات"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><i id="topUnread"></i></button>
             <div class="top-user">
               <span class="avatar small" aria-hidden="true">م</span><span id="topUserName">غير مسجل</span>
@@ -70,8 +72,10 @@
                 <div class="account-menu-panel" aria-label="إجراءات الحساب">
                   <span class="account-menu-caption">إجراءات الحساب</span>
                   <button type="button" class="btn" id="databaseBackupButton" data-action="database-backup" hidden>إنشاء نسخة احتياطية</button>
+                  <button type="button" class="btn" data-action="backup-database-only" hidden id="databaseOnlyBackupButton">نسخة القاعدة فقط</button>
+                  <button type="button" class="btn" data-action="show-update-help">كيفية التحديث</button>
                   <button type="button" class="btn" id="csvExportButton" hidden>تصدير CSV</button>
-                  <button type="button" class="btn" id="logoutButton" hidden>تسجيل الخروج</button>
+                  <button type="button" class="btn" id="logoutButton" data-action="logout" hidden>تسجيل الخروج</button>
                 </div>
               </details>
             </div>
