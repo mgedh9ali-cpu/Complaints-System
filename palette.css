@@ -1,0 +1,129 @@
+/* Palette · sourced from provided swatches
+ * #0F1F17  deepest
+ * #1E3A2E  dark green
+ * #3E5A3F  mid green
+ * #6B7F67  sage
+ * #C7CBB8  cream
+ * #3D4337  charcoal green
+ */
+:root {
+  --green-950: #0F1F17;
+  --green-900: #1E3A2E;
+  --green-800: #3E5A3F;
+  --green-700: #6B7F67;
+  --green-100: #C7CBB8;
+  --gold: #C7CBB8;
+  --ink: #0F1F17;
+  --muted: #3D4337;
+  --line: #b8bda8;
+  --paper: #f4f5ef;
+  --bg: #e8ebe0;
+  --red: #8b3a3a;
+  --red-bg: #f5e8e8;
+  --amber: #7a6a3a;
+  --amber-bg: #f2eedc;
+  --blue: #3E5A3F;
+  --blue-bg: #e4e8dc;
+  --radius: 16px;
+  --shadow: 0 6px 24px rgba(15, 31, 23, 0.08);
+  --ui-radius: 16px;
+  --ui-glow: 0 8px 28px rgba(15, 31, 23, 0.1);
+  --focus-color: #6B7F67;
+  --brand: #3E5A3F;
+  --hi: rgba(199, 203, 184, 0.35);
+  --inner: #f7f8f2;
+  --solid: #f4f5ef;
+  --g3: rgba(244, 245, 239, 0.92);
+  --sh: 15, 31, 23;
+  --aurora: linear-gradient(135deg, #0F1F17 0%, #1E3A2E 45%, #3E5A3F 100%);
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* Sidebar */
+.sidebar {
+  background: linear-gradient(170deg, #0F1F17 0%, #1E3A2E 55%, #3E5A3F 100%) !important;
+  box-shadow: -6px 0 28px rgba(15, 31, 23, 0.18) !important;
+}
+
+.brand strong { color: #C7CBB8 !important; }
+.brand small,
+.prototype-note { color: #a8b09a !important; }
+.status-dot { background: #6B7F67 !important; box-shadow: 0 0 0 3px rgba(107, 127, 103, 0.25) !important; }
+.nav-group-label { color: #8a9480 !important; }
+.nav-link, .nav-quick { color: #C7CBB8 !important; }
+.nav-link:hover, .nav-quick:hover { background: rgba(199, 203, 184, 0.1) !important; color: #fff !important; }
+.nav-link.active {
+  background: #C7CBB8 !important;
+  color: #0F1F17 !important;
+  border-color: #a8b09a !important;
+  box-shadow: inset -3px 0 #3E5A3F !important;
+  font-weight: 700 !important;
+}
+.nav-link.active .nav-icon { color: #1E3A2E !important; }
+.nav-link.active .nav-count { background: #b8bda8 !important; color: #0F1F17 !important; }
+.nav-icon { color: #8a9480 !important; }
+.nav-count { background: rgba(199, 203, 184, 0.15) !important; color: #C7CBB8 !important; }
+.side-user strong, .side-user small { color: #C7CBB8 !important; }
+.avatar { background: #C7CBB8 !important; color: #0F1F17 !important; }
+
+/* Top bar & primary actions */
+.topbar { background: rgba(244, 245, 239, 0.94) !important; border-bottom-color: #b8bda8 !important; }
+.btn-primary,
+.top-create-button,
+.login-fields .login-submit,
+.login-fields button[type="submit"] {
+  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
+  border-color: #3E5A3F !important;
+  color: #C7CBB8 !important;
+  box-shadow: 0 6px 18px rgba(30, 58, 46, 0.28) !important;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+/* Login */
+.login-overlay {
+  background: linear-gradient(135deg, #0F1F17 0%, #1E3A2E 50%, #3E5A3F 100%) !important;
+}
+.login-brand {
+  background: linear-gradient(155deg, #0F1F17 0%, #1E3A2E 55%, #3E5A3F 100%) !important;
+  color: #C7CBB8 !important;
+}
+.login-brand h2 { color: #C7CBB8 !important; }
+.login-brand p { color: #a8b09a !important; }
+.login-brand small { color: #8a9480 !important; }
+.login-brand svg { color: #C7CBB8 !important; }
+.login-fields h1 { color: #0F1F17 !important; }
+.login-fields .login-subtitle,
+.login-fields > p { color: #3D4337 !important; }
+.login-fields .field {
+  border-color: #b8bda8 !important;
+  background: #f7f8f2 !important;
+}
+.login-fields .field:focus {
+  border-color: #3E5A3F !important;
+  box-shadow: 0 0 0 3px rgba(62, 90, 63, 0.22) !important;
+}
+
+/* Cards & surfaces */
+.panel, .stat-card, .mini-card, .table-panel, .login-card {
+  background: var(--paper) !important;
+  border-color: #b8bda8 !important;
+}
+.stat-number, .page-heading h1 { color: #0F1F17 !important; }
+.eyebrow { color: #3E5A3F !important; }
+.pill.progressing { background: #e4e8dc; color: #1E3A2E; }
+.pill.new { background: #e8ebe0; color: #3E5A3F; }
+
+/* Focus */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline-color: #6B7F67 !important;
+}
