@@ -48,6 +48,10 @@ case 'print-receipt':await withButtonLock(el,()=>printComplaintReceipt(id));brea
 case 'verify-document-dialog':verifyDocumentDialog();break;
 case 'verify-document':await verifyDocument();break;
 case 'audit-verify':await withButtonLock(el,()=>runAuditIntegrityCheck());break;
+case 'set-reminder':openReminderModal(id);break;
+case 'save-reminder':await withButtonLock(el,()=>submitReminder(id));break;
+case 'alarm-dismiss':await dismissReminder(el.dataset.reminder);break;
+case 'alarm-open':await dismissReminder(el.dataset.reminder);detailModal(id);break;
 case 'command-open':commandPalette();break;
 case 'command-page':closeModal();go(el.dataset.pageTarget);break;
 case 'export-selected':exportSelected();break;
@@ -134,9 +138,9 @@ document.addEventListener('keydown',e=>{
 });
 if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
 
-async function submitLogin(e){e?.preventDefault?.();const username=$('#loginUsername')?.value?.trim();const password=$('#loginPassword')?.value||'';if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');try{const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});authenticatedUser=data.user||data;await loadDb();updateSignedInUi();const overlay=$('#loginOverlay');if(overlay)overlay.hidden=true;const shell=$('#appShell');if(shell)shell.hidden=false;document.body.dataset.signedIn='true';if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();toast('تم تسجيل الدخول.');}catch(err){toast(err.message||'فشل تسجيل الدخول','error');}}
+async function submitLogin(e){e?.preventDefault?.();const username=$('#loginUsername')?.value?.trim();const password=$('#loginPassword')?.value||'';if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');try{const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});authenticatedUser=data.user||data;await loadDb();updateSignedInUi();const overlay=$('#loginOverlay');if(overlay)overlay.hidden=true;const shell=$('#appShell');if(shell)shell.hidden=false;document.body.dataset.signedIn='true';if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();toast('تم تسجيل الدخول.');}catch(err){toast(err.message||'فشل تسجيل الدخول','error');}}
 // bootstrap login restore
 if(typeof loadDb==='function'){loadDb?.();}
 if($('#loginForm'))$('#loginForm').addEventListener('submit',submitLogin);
-(async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();}catch(_){showLogin();}})();
+(async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
 })();
