@@ -9,7 +9,7 @@ function isIncomplete(c){return c.status==='draft'||!c.name||!c.phone||!c.detail
 function isLate(c){return !c.archivedAt && db.settings.slaApproved && !['closed','cancelled','draft'].includes(c.status) && Number.isFinite(new Date(c.due).getTime()) && Date.now()>new Date(c.due).getTime();}
 function statusLabel(s){return ({draft:'غير مكتملة',new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
 function statusClass(s){return ({draft:'new',new:'new',in_progress:'progressing',awaiting_reply:'waiting',awaiting_approval:'waiting',closed:'closed',cancelled:'closed'})[s]||'closed';}
-function ensureManagedSettings(){if(!db.settings||typeof db.settings!=='object')db.settings={};for(const key of ['categories','entities','provinces','natures'])if(!Array.isArray(db.settings[key]))db.settings[key]=[...(seed.settings[key]||[])];if(!Array.isArray(db.settings.priorities))db.settings.priorities=seed.settings.priorities.map(x=>({...x}));db.settings.categoryDescriptions ||= {};db.settings.entityDescriptions ||= {};db.settings.natureDescriptions ||= {};}
+function ensureManagedSettings(){if(!db.settings||typeof db.settings!=='object')db.settings={};for(const key of ['categories','entities','provinces','natures']){if(!Array.isArray(db.settings[key])||db.settings[key].length===0)db.settings[key]=[...(seed.settings[key]||[])];}if(!Array.isArray(db.settings.priorities)||!db.settings.priorities.length)db.settings.priorities=seed.settings.priorities.map(x=>({...x}));db.settings.categoryDescriptions ||= {};db.settings.entityDescriptions ||= {};db.settings.natureDescriptions ||= {};}
 function priorityLabel(p){ensureManagedSettings();return ({urgent:'عاجلة',high:'عالية',normal:'عادية'})[p]||db.settings.priorities.find(x=>x.value===p)?.label||p;}
 function priorityClass(p){return ({urgent:'urgent',high:'high',normal:'normal'})[p]||'normal';}
 function pillStatus(s){return '<span class="pill '+statusClass(s)+'">'+esc(statusLabel(s))+'</span>';}
@@ -57,5 +57,40 @@ function renderCommands(query){
 function csvSafe(value){if(value==null)return "";const s=String(value);return /^[\x00-\x1F\s]*[=+\-@]/.test(s)?"'"+s:s;}
 function exportCsv(ids){const rows=Array.isArray(ids)&&ids.length?db.complaints.filter(c=>ids.includes(c.id)):db.complaints.filter(c=>!c.archivedAt);const headers=['id','name','phone','province','category','nature','status','priority','owner','summary','created'];const lines=[headers.join(',')];for(const c of rows){lines.push(headers.map(h=>'"'+csvSafe(c[h]??'').replace(/"/g,'""')+'"').join(','));}const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='complaints-export.csv';a.click();URL.revokeObjectURL(a.href);}
 function exportSelected(){if(!selectedIds.size)return;return exportCsv([...selectedIds]);}
+async function exportXlsx(){
+  try{
+    const params=new URLSearchParams();
+    const from=$('#reportFrom')?.value?.trim();
+    const to=$('#reportTo')?.value?.trim();
+    const status=$('#reportStatus')?.value?.trim();
+    const province=$('#reportProvince')?.value?.trim();
+    if(from)params.set('from',from);
+    if(to)params.set('to',to);
+    if(status)params.set('status',status);
+    if(province)params.set('province',province);
+    const qs=params.toString();
+    const url='/api/export/xlsx'+(qs?'?'+qs:'');
+    const res=await fetch(url,{credentials:'same-origin'});
+    if(!res.ok){
+      let msg='تعذر تصدير Excel';
+      try{const j=await res.json();if(j.error)msg=j.error;}catch(_){}
+      throw new Error(msg);
+    }
+    const blob=await res.blob();
+    const dispo=res.headers.get('Content-Disposition')||'';
+    let filename='تقرير-الشكاوى.xlsx';
+    const m=dispo.match(/filename\*=UTF-8''([^;]+)|filename="?([^\";]+)"?/i);
+    if(m){try{filename=decodeURIComponent((m[1]||m[2]||filename).trim());}catch(_){}}
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    const count=res.headers.get('X-Export-Count');
+    toast(count?('تم تصدير '+count+' سجل إلى Excel.'):'تم تصدير تقرير Excel.');
+  }catch(err){
+    toast(err.message||'فشل تصدير Excel','error');
+  }
+}
 
 function availableOwners(){return [...new Set([authenticatedUser?.username,...managedUsers.filter(u=>u.active&&u.role!=='reviewer').map(u=>u.username),...db.complaints.map(c=>c.owner)].filter(Boolean))];}
