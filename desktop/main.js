@@ -12,6 +12,13 @@ const net = require('node:net');
 const { app, BrowserWindow, dialog, shell, Menu, Tray, nativeImage, Notification } = require('electron');
 const { isLocalAppUrl, isPermittedExternalUrl } = require('./navigation');
 
+// Faster local render; avoid stale HTTP cache on the embedded loopback app
+try {
+  app.commandLine.appendSwitch('disable-http-cache');
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+  app.commandLine.appendSwitch('enable-zero-copy');
+} catch (_) {}
+
 console.info('[runtime]',{electron:process.versions.electron,chrome:process.versions.chrome});
 
 const PORT = Number(process.env.PORT || 3000);
@@ -179,6 +186,8 @@ function createWindow(paths) {
     minWidth: 960,
     minHeight: 640,
     title: 'نظام الشكاوى والاستفسارات',
+    show: false,
+    backgroundColor: '#0F1F17',
     autoHideMenuBar: false,
     webPreferences: {
       nodeIntegration: false,
@@ -207,6 +216,10 @@ function createWindow(paths) {
     }
   });
 
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+  });
+
   mainWindow.loadURL(APP_URL);
   require('./maintenance').installMaintenanceMenu({app,Menu,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
 
@@ -223,13 +236,15 @@ function createWindow(paths) {
   });
 
   if (ensureEnvFile._bootstrapMessage) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'إعداد أول تشغيل',
-      message: 'إعداد محلي جديد',
-      detail: ensureEnvFile._bootstrapMessage
+    mainWindow.once('show', () => {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'إعداد أول تشغيل',
+        message: 'إعداد محلي جديد',
+        detail: ensureEnvFile._bootstrapMessage
+      });
+      ensureEnvFile._bootstrapMessage = null;
     });
-    ensureEnvFile._bootstrapMessage = null;
   }
 }
 
