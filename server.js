@@ -121,7 +121,6 @@ app.use(
   })
 );
 app.use(ensureCsrfToken);
-// Large encrypted transfers are parsed only after authentication and header CSRF.
 app.use(['/api/sync/preview', '/api/sync/import'], middleware.requireAuth,
   rolesService.requirePermission('sync.import'), middleware.requireCsrf,
   express.json({ limit: '96mb', strict: true }));
@@ -206,6 +205,7 @@ const PUBLIC_FILES = {
   '/redesign.css': 'redesign.css',
   '/fallback-font.css': 'fallback-font.css',
   '/palette.css': 'palette.css',
+  '/ui-layout.css': 'ui-layout.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/ui-enhancements.js': 'ui-enhancements.js',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',
