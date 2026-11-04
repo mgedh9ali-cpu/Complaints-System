@@ -14,17 +14,13 @@ function openDatabase(databasePath, { storageKey } = {}) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
-  // Overwrite deleted content on disk (best-effort local privacy)
-  try {
-    db.pragma('secure_delete = ON');
-  } catch {
-    /* older SQLite builds may ignore */
-  }
-  try {
-    db.pragma('temp_store = MEMORY');
-  } catch {
-    /* ignore */
-  }
+  // High-performance local cache (desktop / single-user)
+  try { db.pragma('synchronous = NORMAL'); } catch { /* ignore */ }
+  try { db.pragma('temp_store = MEMORY'); } catch { /* ignore */ }
+  try { db.pragma('cache_size = -64000'); } catch { /* 64MB page cache */ }
+  try { db.pragma('mmap_size = 268435456'); } catch { /* 256MB mmap */ }
+  try { db.pragma('secure_delete = ON'); } catch { /* older SQLite */ }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -57,8 +53,22 @@ function openDatabase(databasePath, { storageKey } = {}) {
       details_json TEXT NOT NULL CHECK(json_valid(details_json)),
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS complaint_reminders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      complaint_id TEXT NOT NULL,
+      reminder_time TEXT NOT NULL,
+      note TEXT NOT NULL,
+      priority TEXT NOT NULL DEFAULT 'normal',
+      is_dismissed INTEGER NOT NULL DEFAULT 0 CHECK(is_dismissed IN (0,1)),
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
     CREATE INDEX IF NOT EXISTS idx_complaints_updated ON complaints(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_reminders_active
+      ON complaint_reminders(is_dismissed, reminder_time);
+    CREATE INDEX IF NOT EXISTS idx_reminders_complaint
+      ON complaint_reminders(complaint_id);
   `);
 
   const appStateColumns = new Set(
