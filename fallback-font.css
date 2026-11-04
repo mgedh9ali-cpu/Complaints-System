@@ -1,4 +1,4 @@
-/* Noto Sans Arabic is redistributed under the SIL Open Font License in assets/. */
+/* Noto Sans Arabic — SIL OFL, bundled in assets/ for devices without Thmanyah. */
 @font-face {
   font-family: "Noto Sans Arabic";
   src: url("/assets/NotoSansArabic.ttf") format("truetype");
@@ -6,5 +6,16 @@
   font-weight: 400;
   font-display: swap;
 }
-:root { --ui-font: "Thmanyah Sans", "Noto Sans Arabic", Tahoma, sans-serif; }
-body, button, input, select, textarea { font-family: "Thmanyah Sans", "Noto Sans Arabic", Tahoma, sans-serif; }
+
+:root {
+  --ui-font: "Thmanyah Sans", "ThmanyahSans", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--ui-font);
+}

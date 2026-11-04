@@ -1,7 +1,6 @@
-/* Thmanyah Sans is intentionally loaded only from a licensed local installation.
- * Its license forbids distributing raw font files through a public repository
- * or serving them as independently downloadable files.
- * Install original Thmanyah Sans OTF files on Windows from font.thmanyah.com.
+/* Thmanyah Sans — local install only (license forbids redistributing font files).
+ * Install OTF from https://font.thmanyah.com/ then restart the app.
+ * Until installed, Noto Sans Arabic (assets/) is used via fallback-font.css.
  */
 @font-face {
   font-family: "Thmanyah Sans";

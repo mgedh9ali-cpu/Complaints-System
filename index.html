@@ -97,19 +97,32 @@
     <script src="sw-register.js"></script>
 
 <div id="loginOverlay" class="login-overlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
-  <form id="loginForm" class="login-card" autocomplete="on">
-    <h1 id="loginTitle">تسجيل الدخول</h1>
-    <p class="login-subtitle">نظام الشكاوى المحلي — يتطلب حساباً صالحاً</p>
-    <div class="form-field">
-      <label for="loginUsername">اسم المستخدم</label>
-      <input class="field" id="loginUsername" name="username" type="text" required autocomplete="username" />
+  <div class="login-card">
+    <div class="login-brand" aria-hidden="true">
+      <svg viewBox="0 0 48 48" width="52" height="52">
+        <path d="M24 4 42 12v13c0 10-7 16-18 20C13 41 6 35 6 25V12L24 4Z" fill="none" stroke="currentColor" stroke-width="2.5" />
+        <path d="M15 20h18M15 26h18M18 14h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+      </svg>
+      <h2>شعبة الاستفسارات والشكاوى</h2>
+      <p>نظام إدارة محلي يعمل دون اتصال</p>
+      <small>قاعدة بيانات خاصة على هذا الجهاز</small>
     </div>
-    <div class="form-field">
-      <label for="loginPassword">كلمة المرور</label>
-      <input class="field" id="loginPassword" name="password" type="password" required autocomplete="current-password" />
-    </div>
-    <button type="submit" class="btn btn-primary login-submit">دخول</button>
-  </form>
+    <form id="loginForm" class="login-fields" autocomplete="on">
+      <h1 id="loginTitle">تسجيل الدخول</h1>
+      <p class="login-subtitle">يتطلب حساباً صالحاً للمتابعة</p>
+      <div class="form-field">
+        <label for="loginUsername">اسم المستخدم</label>
+        <input class="field" id="loginUsername" name="username" type="text" required autocomplete="username" />
+      </div>
+      <div class="form-field">
+        <label for="loginPassword">كلمة المرور</label>
+        <div class="ui-login-password-wrap">
+          <input class="field" id="loginPassword" name="password" type="password" required autocomplete="current-password" />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary login-submit">دخول</button>
+    </form>
+  </div>
 </div>
 
 </body>
