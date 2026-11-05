@@ -7,7 +7,18 @@ const { backupDatabase } = require('../../scripts/backup-database');
 const { encryptBuffer, lockDownFile } = require('../../lib/data-protection');
 const { createEncryptedBundle, verifyEncryptedBundle } = require('../../lib/full-backup');
 
+function safeBackupName(name) {
+  if (typeof name !== 'string' || !name || name.length > 200) return null;
+  if (name.includes('..') || name.includes('/') || name.includes('\\') || name.includes('\0')) return null;
+  if (!/^[A-Za-z0-9._-]+\.(csb|sqlite|enc|sqlite\.enc)$/i.test(name) && !name.endsWith('.sqlite.enc')) return null;
+  return name;
+}
+
 function createBackupService({ databasePath, sessionSecret }) {
+  function defaultDir() {
+    return path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(path.resolve(databasePath)), 'backups'));
+  }
+
   async function createVerifiedBackup({ encrypt = true } = {}) {
     const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-database-backup-'));
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -15,11 +26,8 @@ function createBackupService({ databasePath, sessionSecret }) {
     const plainPath = path.join(backupDir, plainName);
     try {
       const result = await backupDatabase(databasePath, plainPath);
-      if (!result.verified) {
-        throw new Error('Backup verification did not complete.');
-      }
+      if (!result.verified) throw new Error('Backup verification did not complete.');
       lockDownFile(plainPath);
-
       if (encrypt && sessionSecret) {
         const plain = fs.readFileSync(plainPath);
         const sealed = encryptBuffer(plain, sessionSecret);
@@ -27,35 +35,18 @@ function createBackupService({ databasePath, sessionSecret }) {
         const encPath = path.join(backupDir, encName);
         fs.writeFileSync(encPath, sealed, { mode: 0o600 });
         lockDownFile(encPath);
-        try {
-          fs.unlinkSync(plainPath);
-        } catch {
-          /* ignore */
-        }
+        try { fs.unlinkSync(plainPath); } catch { /* ignore */ }
         return {
-          backupDir,
-          destination: encPath,
-          filename: encName,
-          encrypted: true,
-          counts: result.counts,
-          verified: true
+          backupDir, destination: encPath, filename: encName,
+          encrypted: true, counts: result.counts, verified: true
         };
       }
-
       return {
-        backupDir,
-        destination: plainPath,
-        filename: plainName,
-        encrypted: false,
-        counts: result.counts,
-        verified: true
+        backupDir, destination: plainPath, filename: plainName,
+        encrypted: false, counts: result.counts, verified: true
       };
     } catch (error) {
-      try {
-        fs.rmSync(backupDir, { recursive: true, force: true });
-      } catch {
-        /* ignore */
-      }
+      try { fs.rmSync(backupDir, { recursive: true, force: true }); } catch { /* ignore */ }
       throw error;
     }
   }
@@ -81,15 +72,11 @@ function createBackupService({ databasePath, sessionSecret }) {
   }
 
   function cleanupBackupDir(backupDir) {
-    try {
-      fs.rmSync(backupDir, { recursive: true, force: true });
-    } catch {
-      /* ignore */
-    }
+    try { fs.rmSync(backupDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 
   async function persistCompleteBackup(prefix = 'before-import') {
-    const directory = path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(path.resolve(databasePath)), 'backups'));
+    const directory = defaultDir();
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     let backup;
     try {
@@ -102,16 +89,49 @@ function createBackupService({ databasePath, sessionSecret }) {
     } finally { if (backup) cleanupBackupDir(backup.backupDir); }
   }
 
+  function deleteBackup(filename, directory) {
+    const name = safeBackupName(filename);
+    if (!name) throw new Error('اسم ملف النسخة غير صالح.');
+    const dir = path.resolve(directory || defaultDir());
+    const full = path.join(dir, name);
+    if (path.dirname(full) !== dir) throw new Error('مسار النسخة غير مسموح.');
+    if (!fs.existsSync(full)) throw new Error('النسخة غير موجودة.');
+    const stat = fs.statSync(full);
+    if (!stat.isFile()) throw new Error('النسخة غير موجودة.');
+    fs.unlinkSync(full);
+    return { deleted: name };
+  }
+
+  async function verifyStoredBackup(filename, directory) {
+    const name = safeBackupName(filename);
+    if (!name) throw new Error('اسم ملف النسخة غير صالح.');
+    if (!/\.csb$/i.test(name)) throw new Error('اختبار الاستعادة متاح للنسخ الكاملة (.csb) فقط.');
+    if (!sessionSecret) throw new Error('مفتاح النسخ غير متوفر على الخادم.');
+    const dir = path.resolve(directory || defaultDir());
+    const full = path.join(dir, name);
+    if (path.dirname(full) !== dir || !fs.existsSync(full)) throw new Error('النسخة غير موجودة.');
+    const result = await verifyEncryptedBundle({ bundlePath: full, secret: sessionSecret });
+    return {
+      ok: Boolean(result.verified),
+      filename: name,
+      counts: result.counts || null,
+      attachmentCount: result.attachmentCount ?? null,
+      files: result.files ?? null
+    };
+  }
+
   return {
     createVerifiedBackup,
     createCompleteBackup,
     persistCompleteBackup,
     cleanupBackupDir,
+    deleteBackup,
+    verifyStoredBackup,
     listBackups(directory, limit) {
-      return listStoredBackups(directory || path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(path.resolve(databasePath)), 'backups')), limit);
+      return listStoredBackups(directory || defaultDir(), limit);
     },
     defaultBackupDirectory() {
-      return path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(path.resolve(databasePath)), 'backups'));
+      return defaultDir();
     }
   };
 }
