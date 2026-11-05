@@ -10,25 +10,21 @@ function createBackupRouter({ backupService, middleware, audit, rolesService, ba
   }
   const requirePermission = (action) => rolesService.requirePermission(action);
 
+  function backupDir() {
+    return backupScheduler?.status?.()?.directory ||
+      backupService.defaultBackupDirectory?.() ||
+      null;
+  }
+
   router.get(
     '/backup/status',
     requireAuth,
     requirePermission('backup.database'),
     (req, res) => {
-      const directory =
-        backupScheduler?.status?.()?.directory ||
-        backupService.defaultBackupDirectory?.() ||
-        null;
+      const directory = backupDir();
       const auto = backupScheduler?.status?.() || null;
-      const backups = backupService.listBackups
-        ? backupService.listBackups(directory, 40)
-        : [];
-      res.json({
-        automatic: auto,
-        directory,
-        backups,
-        count: backups.length
-      });
+      const backups = backupService.listBackups ? backupService.listBackups(directory, 40) : [];
+      res.json({ automatic: auto, directory, backups, count: backups.length });
     }
   );
 
@@ -37,14 +33,98 @@ function createBackupRouter({ backupService, middleware, audit, rolesService, ba
     requireAuth,
     requirePermission('backup.database'),
     (req, res) => {
-      const directory =
-        backupScheduler?.status?.()?.directory ||
-        backupService.defaultBackupDirectory?.() ||
-        null;
-      const backups = backupService.listBackups
-        ? backupService.listBackups(directory, 50)
-        : [];
+      const directory = backupDir();
+      const backups = backupService.listBackups ? backupService.listBackups(directory, 50) : [];
       res.json({ directory, backups });
+    }
+  );
+
+  router.patch(
+    '/backup/settings',
+    requireAuth,
+    requirePermission('backup.database'),
+    middleware.requireCsrf,
+    (req, res, next) => {
+      try {
+        if (!backupScheduler?.configure) {
+          return res.status(400).json({ error: 'جدولة النسخ غير متاحة.' });
+        }
+        const { intervalMinutes, retentionDays } = req.body || {};
+        const status = backupScheduler.configure({ intervalMinutes, retentionDays });
+        if (typeof audit === 'function') {
+          audit(req.user.id, 'backup_settings_updated', 'system', null, {
+            intervalMinutes: status.intervalMinutes,
+            retentionDays: status.retentionDays
+          });
+        }
+        res.json({ ok: true, automatic: status });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  router.delete(
+    '/backup/file',
+    requireAuth,
+    requirePermission('backup.database'),
+    middleware.requireCsrf,
+    (req, res, next) => {
+      try {
+        const name = (req.body && req.body.name) || req.query.name;
+        const result = backupService.deleteBackup(name, backupDir());
+        if (typeof audit === 'function') {
+          audit(req.user.id, 'backup_file_deleted', 'database', result.deleted, {});
+        }
+        res.json({ ok: true, deleted: result.deleted });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  router.post(
+    '/backup/verify',
+    requireAuth,
+    requirePermission('backup.database'),
+    middleware.requireCsrf,
+    async (req, res, next) => {
+      try {
+        const name = req.body?.name;
+        const result = await backupService.verifyStoredBackup(name, backupDir());
+        if (backupScheduler?.recordRestoreTest) {
+          backupScheduler.recordRestoreTest({
+            ok: result.ok,
+            detail: result.ok ? 'اختبار استعادة ناجح' : 'فشل التحقق',
+            filename: result.filename
+          });
+        }
+        if (typeof audit === 'function') {
+          audit(req.user.id, result.ok ? 'backup_restore_test_ok' : 'backup_restore_test_failed', 'database', result.filename, {
+            counts: result.counts,
+            attachmentCount: result.attachmentCount
+          });
+        }
+        res.json({
+          ok: result.ok,
+          filename: result.filename,
+          counts: result.counts,
+          attachmentCount: result.attachmentCount,
+          files: result.files,
+          automatic: backupScheduler?.status?.() || null
+        });
+      } catch (error) {
+        if (backupScheduler?.recordRestoreTest) {
+          try {
+            backupScheduler.recordRestoreTest({
+              ok: false,
+              detail: error.message,
+              filename: req.body?.name || null
+            });
+          } catch (_) { /* ignore */ }
+        }
+        next(error);
+      }
     }
   );
 
@@ -53,10 +133,10 @@ function createBackupRouter({ backupService, middleware, audit, rolesService, ba
     requireAuth,
     requirePermission('backup.database'),
     async (req, res, next) => {
-      let backupDir = null;
+      let backupDirTmp = null;
       try {
         const result = await backupService.createVerifiedBackup({ encrypt: true });
-        backupDir = result.backupDir;
+        backupDirTmp = result.backupDir;
         if (typeof audit === 'function') {
           audit(req.user.id, 'database_backup_created', 'database', result.filename, {
             format: result.encrypted ? 'sqlite.enc' : 'sqlite',
@@ -69,18 +149,15 @@ function createBackupRouter({ backupService, middleware, audit, rolesService, ba
           ? 'application/octet-stream'
           : 'application/vnd.sqlite3';
         res.setHeader('Content-Type', contentType);
-        res.setHeader(
-          'Content-Disposition',
-          'attachment; filename="' + result.filename + '"'
-        );
+        res.setHeader('Content-Disposition', 'attachment; filename="' + result.filename + '"');
         res.setHeader('Cache-Control', 'no-store');
         res.setHeader('X-Backup-Encrypted', result.encrypted ? '1' : '0');
         res.sendFile(result.destination, (err) => {
-          backupService.cleanupBackupDir(backupDir);
+          backupService.cleanupBackupDir(backupDirTmp);
           if (err && !res.headersSent) next(err);
         });
       } catch (error) {
-        if (backupDir) backupService.cleanupBackupDir(backupDir);
+        if (backupDirTmp) backupService.cleanupBackupDir(backupDirTmp);
         next(error);
       }
     }
@@ -91,10 +168,10 @@ function createBackupRouter({ backupService, middleware, audit, rolesService, ba
     requireAuth,
     requirePermission('backup.database'),
     async (req, res, next) => {
-      let backupDir = null;
+      let backupDirTmp = null;
       try {
         const result = await backupService.createCompleteBackup();
-        backupDir = result.backupDir;
+        backupDirTmp = result.backupDir;
         if (typeof audit === 'function') {
           audit(req.user.id, 'complete_backup_created', 'database', result.filename, {
             format: 'csb', encrypted: true, verified: true,
@@ -110,11 +187,11 @@ function createBackupRouter({ backupService, middleware, audit, rolesService, ba
           res.setHeader('X-Backup-Attachment-Count', String(result.attachmentCount));
         }
         res.sendFile(result.destination, (error) => {
-          backupService.cleanupBackupDir(backupDir);
+          backupService.cleanupBackupDir(backupDirTmp);
           if (error && !res.headersSent) next(error);
         });
       } catch (error) {
-        if (backupDir) backupService.cleanupBackupDir(backupDir);
+        if (backupDirTmp) backupService.cleanupBackupDir(backupDirTmp);
         next(error);
       }
     }
