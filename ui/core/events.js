@@ -1,6 +1,6 @@
 /* Events bootstrap — data-action switch and global listeners. */
 
-window.withButtonLock = async function withButtonLock(btn, fn) {
+async function withButtonLock(btn, fn) {
   if (!btn || btn.disabled || btn.classList.contains('is-loading')) return;
   const originalBusy = btn.getAttribute('aria-busy');
   const originalHtml = btn.innerHTML;
@@ -31,9 +31,12 @@ window.withButtonLock = async function withButtonLock(btn, fn) {
       else btn.setAttribute('aria-busy', originalBusy);
     }
   }
-};
+}
+window.withButtonLock = withButtonLock;
 
 document.addEventListener('click',async e=>{
+const destination=e.target.closest('[data-page]')||e.target.closest('[data-goto]');
+if(destination){if(authenticatedUser)go(destination.dataset.page||destination.dataset.goto);return;}
 const el=e.target.closest('[data-action]');
 if(!el)return;
 const a=el.dataset.action,id=el.dataset.id;
@@ -152,9 +155,26 @@ document.addEventListener('keydown',e=>{
     if(saveBtn&&!saveBtn.disabled){e.preventDefault();saveBtn.click();}
   }
 });
-if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));});
+if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));if($('#navBackdrop'))$('#navBackdrop').hidden=!open;});
 
-async function submitLogin(e){e?.preventDefault?.();const username=$('#loginUsername')?.value?.trim();const password=$('#loginPassword')?.value||'';if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');try{const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});authenticatedUser=data.user||data;await loadDb();updateSignedInUi();const overlay=$('#loginOverlay');if(overlay)overlay.hidden=true;const shell=$('#appShell');if(shell)shell.hidden=false;document.body.dataset.signedIn='true';if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();toast('تم تسجيل الدخول.');}catch(err){toast(err.message||'فشل تسجيل الدخول','error');}}
-if(typeof loadDb==='function'){loadDb?.();}
+let loginPending=false;
+async function submitLogin(e){
+ e?.preventDefault?.();if(loginPending)return;
+ const username=$('#loginUsername')?.value?.trim(),password=$('#loginPassword')?.value||'';
+ const error=$('#loginError'),button=$('#loginForm button[type="submit"]');
+ if(error){error.hidden=true;error.textContent='';}
+ if(!username||!password){if(error){error.textContent='أدخل اسم المستخدم وكلمة المرور.';error.hidden=false;}return;}
+ loginPending=true;if(button){button.disabled=true;button.textContent='جارٍ التحقق…';}$('#loginForm')?.setAttribute('aria-busy','true');
+ try{
+  const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password,rememberMe:$('#loginRemember')?.checked===true})});
+  authenticatedUser=data.user||data;await loadDb();updateSignedInUi();
+  if($('#loginPassword'))$('#loginPassword').value='';
+  if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();toast('تم تسجيل الدخول.');
+ }catch(err){if(error){error.textContent=err.message||'فشل تسجيل الدخول';error.hidden=false;}$('#loginPassword')?.focus();}
+ finally{loginPending=false;if(button){button.disabled=false;button.textContent='دخول';}$('#loginForm')?.removeAttribute('aria-busy');}
+}
+if($('#csvExportButton'))$('#csvExportButton').addEventListener('click',()=>{if(uiCan('export.csv'))exportCsv();});
 if($('#loginForm'))$('#loginForm').addEventListener('submit',submitLogin);
 (async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
+
+})();

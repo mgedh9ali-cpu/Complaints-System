@@ -20,7 +20,7 @@ function render(){
  $('#pageCrumb').textContent=pageTitle();navCounts();$$('.nav-link').forEach(b=>{const isCurrent=b.dataset.page===page;b.classList.toggle('active',isCurrent);if(isCurrent)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});}
 function go(p,replace=false){
  if(!['dashboard','complaints','referrals','replies','notifications','reports','settings','complaint-detail'].includes(p))p='dashboard';
- page=p;selectedIds.clear();$('#sidebar').classList.remove('open');$('#menuToggle').setAttribute('aria-expanded','false');
+ page=p;selectedIds.clear();if($('#navBackdrop'))$('#navBackdrop').hidden=true;$('#sidebar').classList.remove('open');$('#menuToggle').setAttribute('aria-expanded','false');
  if(!replace)history.pushState({view:p},'',p==='complaint-detail'&&currentId?'#complaint/'+encodeURIComponent(currentId):'#'+p);
  render();$('#content').focus({preventScroll:true});
 }
