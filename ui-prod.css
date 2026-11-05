@@ -152,10 +152,6 @@
 }
 
 @media (max-width: 720px) {
-  .top-actions .btn-backup span,
-  #topUpdateHelpButton {
-    /* keep labels readable on narrow windows */
-  }
   .notice-item {
     flex-wrap: wrap;
   }
@@ -218,4 +214,72 @@
   background: #e8ebe0;
   padding: 1px 6px;
   border-radius: 4px;
+}
+
+.dp-history-wrap {
+  overflow-x: auto;
+  margin: 10px 0 8px;
+  border: 1px solid #c7cbb8;
+  border-radius: 12px;
+  background: #fafbf7;
+}
+.dp-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.dp-history-table th,
+.dp-history-table td {
+  padding: 8px 10px;
+  text-align: right;
+  border-bottom: 1px solid #e0e4d6;
+  vertical-align: top;
+}
+.dp-history-table th {
+  background: #eef1e6;
+  font-weight: 700;
+  color: #1e3a2e;
+}
+.dp-history-table tr:last-child td { border-bottom: none; }
+.dp-progress {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #c7cbb8;
+  background: #f2f5ec;
+}
+.dp-progress-title {
+  margin: 0 0 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.dp-progress-list {
+  margin: 0;
+  padding-inline-start: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dp-progress-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #3d4337;
+  opacity: 0.55;
+}
+.dp-progress-list li.is-active {
+  opacity: 1;
+  font-weight: 700;
+  color: #1e3a2e;
+}
+.dp-progress-list li.is-done {
+  opacity: 0.9;
+  color: #1e3a2e;
+}
+.dp-step-mark {
+  width: 1.4em;
+  text-align: center;
+  font-weight: 700;
 }

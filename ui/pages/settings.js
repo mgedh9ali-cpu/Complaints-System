@@ -8,10 +8,17 @@ function settingsPageBase(){
     return '<div class="settings-list">'+(rows||'<p class="small-copy">لا توجد عناصر. أضف قيمة جديدة أو استعد القائمة الافتراضية.</p>')+'</div><button class="btn" style="margin-top:12px" data-action="add-setting" data-type="'+type+'">＋ إضافة '+(labels[type]||type)+'</button>';
   };
   const protectionSection = (typeof renderDataProtectionCenter === 'function')
-    ? renderDataProtectionCenter(typeof _protectionStatus !== 'undefined' ? _protectionStatus : null)
+    ? renderDataProtectionCenter(typeof _protectionStatus !== 'undefined' ? _protectionStatus : null, typeof _backupHistory !== 'undefined' ? _backupHistory : null)
     : '<section class="panel backup-panel"><div class="panel-header"><div><h2>النسخ الاحتياطي والتحديث</h2><p>احفظ بياناتك بوضوح قبل أي تحديث أو نقل</p></div></div><div class="panel-body"><div class="footer-actions"><button class="btn btn-primary btn-backup" data-action="database-backup">نسخة احتياطية كاملة (مع المرفقات)</button><button class="btn" data-action="backup-database-only">نسخة قاعدة البيانات فقط</button><button class="btn" data-action="show-update-help">كيفية تحديث البرنامج</button></div><p class="small-copy">النسخة الكاملة موصى بها قبل التحديث.</p></div></section>';
-  if (typeof loadProtectionStatus === 'function' && (!_protectionStatus || Date.now() - (_protectionStatusLoadedAt||0) > 60000)) {
-    loadProtectionStatus(false).then(()=>{ if (typeof page !== 'undefined' && page === 'settings' && typeof render === 'function') render(); }).catch(()=>{});
+  if (typeof loadProtectionStatus === 'function') {
+    const stale = !_protectionStatus || Date.now() - (_protectionStatusLoadedAt||0) > 60000;
+    const histStale = typeof loadBackupHistory === 'function' && (!_backupHistory || Date.now() - (_backupHistoryLoadedAt||0) > 60000);
+    if (stale || histStale) {
+      Promise.all([
+        loadProtectionStatus(false),
+        typeof loadBackupHistory === 'function' ? loadBackupHistory(false) : Promise.resolve()
+      ]).then(()=>{ if (typeof page !== 'undefined' && page === 'settings' && typeof render === 'function') render(); }).catch(()=>{});
+    }
   }
   return heading('القوائم والإعدادات','إدارة القيم ومهل المتابعة وإعدادات التشغيل والنسخ الاحتياطي.',btn('إضافة تصنيف','add-category'))+
   protectionSection+
