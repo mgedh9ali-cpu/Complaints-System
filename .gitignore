@@ -24,3 +24,9 @@ fonts/
 fonts-src/
 
 /node_modules
+
+# Cairo is redistributed under the bundled SIL OFL license.
+!assets/fonts/
+assets/fonts/*
+!assets/fonts/cairo-*-wght-normal.woff2
+!assets/fonts/Cairo-OFL.txt

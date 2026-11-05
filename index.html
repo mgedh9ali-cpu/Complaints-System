@@ -7,9 +7,8 @@
     <meta name="description" content="نظام إدارة الشكاوى المحلي - يعمل دون اتصال" />
     <link rel="manifest" href="/manifest.json" />
     <title>شعبة الاستفسارات والشكاوى | تشغيل محلي</title>
-    <link rel="preload" href="/assets/Tajawal-Regular.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="/assets/fonts/cairo-arabic-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="fallback-font.css" />
-    <link rel="stylesheet" href="ui-compat.css" />
     <link rel="stylesheet" href="ui-system.css" />
   </head>
   <body>
@@ -124,6 +123,7 @@
           <input class="field" id="loginPassword" name="password" type="password" required autocomplete="current-password" />
         </div>
       </div>
+      <div class="form-field"><label for="loginCode">رمز التحقق الثنائي (إن كان مفعّلًا)</label><input class="field" id="loginCode" name="code" autocomplete="one-time-code" maxlength="40" dir="ltr"></div>
       <label class="login-remember"><input type="checkbox" id="loginRemember" name="rememberMe" aria-describedby="rememberHelp"> البقاء مسجّلًا على هذا الجهاز</label>
       <small id="rememberHelp">لمدة تصل إلى 30 يومًا. استخدمه على جهاز موثوق فقط.</small>
       <p id="loginError" class="login-error" role="alert" aria-live="assertive" hidden></p>

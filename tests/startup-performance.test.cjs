@@ -18,7 +18,7 @@ async function desktopBoot(failSplash=false,pathApi=path){
  Object.assign(app,{isPackaged:true,getAppPath:()=>'/project',getPath:()=>'/profile',whenReady:()=>Promise.resolve(),requestSingleInstanceLock:()=>true,quit:()=>events.push('quit')});
  class Window extends EventEmitter{
   constructor(){super();this.webContents=new EventEmitter();this.webContents.setWindowOpenHandler=()=>{};}
-  loadFile(file){events.push('splash');assert.ok(file.endsWith('startup.html'));if(failSplash)return Promise.reject(new Error('missing splash'));queueMicrotask(()=>this.emit('ready-to-show'));return Promise.resolve();}
+  loadFile(file){events.push('splash');assert.ok(file.endsWith('splash.html'));if(failSplash)return Promise.reject(new Error('missing splash'));queueMicrotask(()=>this.emit('ready-to-show'));return Promise.resolve();}
   loadURL(url){events.push('application');assert.equal(url,'http://127.0.0.1:3000');return Promise.resolve();}
   isDestroyed(){return false;}show(){events.push('visible');this.emit('show');}
  }

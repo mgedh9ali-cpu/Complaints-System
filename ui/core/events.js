@@ -42,6 +42,50 @@ if(!el)return;
 const a=el.dataset.action,id=el.dataset.id;
 try{
 switch(a){
+case 'attachment-preview':{const url='/api/attachments/'+encodeURIComponent(el.dataset.file);modal('معاينة المرفق',esc(el.dataset.name),'<img class="attachment-viewer" src="'+url+'" alt="'+esc(el.dataset.name)+'">','<a class="btn" href="'+url+'" target="_blank" rel="noopener">فتح المرفق</a>');break;}
+case 'glass-step':{const select=$('#detailStatus');if(select){select.value=el.dataset.status;updateReasonSheet();if(['closed','cancelled'].includes(select.value))$('#statusReason')?.focus();else changeStatus(currentId);}break;}
+case 'referral-next':{const v=$('#refComplaint')?.value;closeModal();if(v)newReferral(v);break;}
+case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEditor(v);break;}
+case 'bulk-assign':bulkOpen('assign');break;
+case 'bulk-priority':bulkOpen('priority');break;
+case 'select-all':{const checks=$$('.row-check');if(el.checked)checks.forEach(c=>selectedIds.add(c.dataset.id));else selectedIds.clear();render();break;}
+case 'bulk-confirm':{const type=$('#bulkType').value,value=$('#bulkValue').value;modal('تأكيد الإجراء الجماعي','مراجعة أخيرة قبل التطبيق','<div class="risk-note">سيتم تطبيق «'+esc(type==='assign'?'تغيير المسؤول':'تغيير الأولوية')+'» على '+selectedIds.size+' سجلات. هذه العملية لا يمكن التراجع عنها تلقائيًا في النموذج.</div><p style="font-size:12px">القيمة المحددة: <strong>'+esc(value)+'</strong></p>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-apply" data-type="'+type+'" data-value="'+esc(value)+'">تأكيد التطبيق</button>');break;}
+case 'bulk-apply':await applyRecoveredBulk(el.dataset.type,el.dataset.value);break;
+case 'add-entity':addSetting('entities');break;
+case 'archive-setting':await archiveSetting(el.dataset.type,el.dataset.value);break;
+case 'edit-complaint':editComplaintModal(id);break;
+case 'refresh-maintenance':refreshMaintenanceHealth();break;
+case 'save-reminder-period':saveReminderPeriod();break;
+case 'setup-two-factor':twoFactorPasswordModal();break;
+case 'disable-two-factor':twoFactorPasswordModal(true);break;
+case 'start-two-factor':startTwoFactor();break;
+case 'confirm-two-factor':confirmTwoFactor();break;
+case 'confirm-disable-two-factor':disableTwoFactor();break;
+case 'finish-two-factor':closeModal();render();showLogin();break;
+case 'refresh-audit':refreshAudit();break;
+case 'verify-audit':verifyAudit();break;
+case 'refresh-approvals':refreshApprovals();break;
+case 'request-archive':approvalRequestModal('complaint_archive',id);break;
+case 'submit-approval':submitApproval(el.dataset.kind,id,el.dataset.target,$('#approvalReason')?.value.trim());break;
+case 'approval-decision':approvalDecisionModal(id,el.dataset.decision);break;
+case 'save-approval-decision':saveApprovalDecision(id,el.dataset.decision);break;
+case 'edit-user-permissions':editUserPermissions(id);break;
+case 'save-user-permissions':saveUserPermissions(id);break;
+case 'referral-response':referralResponseModal(id,Number(el.dataset.index));break;
+case 'save-referral-response':saveReferralResponse(id,Number(el.dataset.index));break;
+case 'propose-duplicate':duplicateProposalModal(id);break;
+case 'submit-duplicate':submitApproval('complaint_duplicate',id,$('#duplicateOriginal')?.value,$('#approvalReason')?.value.trim());break;
+case 'toggle-completion-reminder':saveDetailChange(id,c=>{c.completionReminderStopped=!c.completionReminderStopped;},'حُفظ إعداد تذكير الاستكمال.');break;
+case 'save-collaborators':saveDetailChange(id,c=>{c.coAssistants=[...($('#coAssistants')?.selectedOptions||[])].map(o=>o.value);},'حُفظ المساعدون المشاركون.');break;
+case 'create-local-user':{
+  (async()=>{const username=$('#newLocalUsername')?.value.trim(),password=$('#newLocalPassword')?.value,role=$('#newLocalRole')?.value;
+    if(!username||!password)return toast('أدخل اسم المستخدم وكلمة المرور.','warn');
+    try{const result=await api('/api/users',{method:'POST',body:JSON.stringify({username,password,role})});$('#localUserForm')?.reset();toast('تم إنشاء الحساب '+result.user.username+'.');await refreshManagedUsers();}
+    catch(error){toast(error.message,'error');}})();break;}
+case 'toggle-local-user':{
+  (async()=>{try{const active=el.dataset.active==='true';await api('/api/users/'+encodeURIComponent(el.dataset.userId)+'/active',{method:'PATCH',body:JSON.stringify({active})});toast(active?'تم تفعيل الحساب.':'تم تعطيل الحساب.');await refreshManagedUsers();}
+    catch(error){toast(error.message,'error');}})();break;}
+
 case 'conflict-save':resolveStateConflict();break;
 case 'conflict-remote':resolveStateConflict(true);break;
 case 'print-approved-reply':printApprovedReply(id);break;
@@ -144,7 +188,7 @@ case 'registry-next':registryPage+=1;render();break;
 });
 document.addEventListener('submit',e=>{if(e.target.id==='reportFiltersForm'){e.preventDefault();applyReportFilters();}});
 document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();});
-document.addEventListener('change',e=>{if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
+document.addEventListener('change',e=>{if(e.target.id==='bulkType'){updateBulkValues(e.target.value);return;}if(e.target.id==='paletteSelect'){window.setPalette?.(e.target.value);return;}if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
 document.addEventListener('keydown',e=>{
   const root=$('#modalRoot');
   if(root&&root.dataset.open){
@@ -178,7 +222,7 @@ async function submitLogin(e){
  if(!username||!password){if(error){error.textContent='أدخل اسم المستخدم وكلمة المرور.';error.hidden=false;}return;}
  loginPending=true;if(button){button.disabled=true;button.textContent='جارٍ التحقق…';}$('#loginForm')?.setAttribute('aria-busy','true');
  try{
-  const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password,rememberMe:$('#loginRemember')?.checked===true})});
+  const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password,code:$('#loginCode')?.value.trim()||undefined,rememberMe:$('#loginRemember')?.checked===true})});
   authenticatedUser=data.user||data;await loadDb();updateSignedInUi();
   if($('#loginPassword'))$('#loginPassword').value='';
   if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();toast('تم تسجيل الدخول.');
