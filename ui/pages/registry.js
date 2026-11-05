@@ -1,5 +1,6 @@
 let registryPage=1;
 let dateTypeFilter='created';
+let recordTypeFilter='all';
 let dateFrom='';
 let dateTo='';
 
@@ -53,6 +54,7 @@ function filteredComplaints(){
     (priorityFilter==='all'||c.priority===priorityFilter)&&
     (categoryFilter==='all'||c.category===categoryFilter)&&
     (natureFilter==='all'||(c.nature||'')===natureFilter)&&
+    (recordTypeFilter==='all'||(recordTypeFilter==='inquiry'? (typeof isInquiryRecord==='function'&&isInquiryRecord(c)) : !(typeof isInquiryRecord==='function'&&isInquiryRecord(c))))&&
     inDateRange(c)&&
     (quickView==='all'||quickView==='archived'||
       (quickView==='late'&&isLate(c))||
@@ -68,6 +70,6 @@ function complaintsPage(){
   registryPage=Math.min(Math.max(1,registryPage),totalPages);
   const visibleRows=rows.slice((registryPage-1)*50,registryPage*50);
   return heading('سجل الشكاوى والاستفسارات','ابحث بالعربية مع تجاهل التشكيل. زر «بحث عام» لأي رقم أو اسم أو هاتف.',(!uiCan('complaints.create')?'':btn('＋ تسجيل شكوى جديدة','new-complaint','btn-primary'))+(selectedIds.size?btn('إجراءات جماعية','bulk-open'):''))+
-  '<div class="filters-row" style="margin-bottom:13px"><button class="filter-chip '+(quickView==='all'?'active':'')+'" data-action="quick-filter" data-value="all">كل السجلات</button><button class="filter-chip '+(quickView==='mine'?'active':'')+'" data-action="my-complaints">شكاواي</button><button class="filter-chip '+(quickView==='urgent-no-reply'?'active':'')+'" data-action="urgent-no-reply">عاجلة بلا رد</button><button class="filter-chip" data-goto="replies">تنتظر الاعتماد</button><button class="filter-chip '+(quickView==='late'?'active':'')+'" data-action="filter-late">متجاوزة المهلة</button></div>'+
+  '<div class="filters-row" style="margin-bottom:13px"><button class="filter-chip '+(quickView==='all'?'active':'')+'" data-action="quick-filter" data-value="all">كل السجلات</button><button class="filter-chip '+(recordTypeFilter==='complaint'?'active':'')+'" data-action="filter-record-type" data-value="complaint">شكاوى فقط</button><button class="filter-chip '+(recordTypeFilter==='inquiry'?'active':'')+'" data-action="filter-record-type" data-value="inquiry">استفسارات فقط</button><button class="filter-chip '+(quickView==='mine'?'active':'')+'" data-action="my-complaints">شكاواي</button><button class="filter-chip '+(quickView==='urgent-no-reply'?'active':'')+'" data-action="urgent-no-reply">عاجلة بلا رد</button><button class="filter-chip" data-goto="replies">تنتظر الاعتماد</button><button class="filter-chip '+(quickView==='late'?'active':'')+'" data-action="filter-late">متجاوزة المهلة</button></div>'+
   '<div class="footer-actions"><button class="btn btn-sm" data-action="quick-filter" data-value="missing">بيانات غير مكتملة</button><button class="btn btn-sm" data-action="quick-filter" data-value="archived">الأرشيف</button></div><section class="panel table-panel">'+filters()+'<div id="bulkMount">'+(selectedIds.size?'<div class="bulk-bar"><span>تم تحديد '+selectedIds.size+' سجلًا</span><div class="footer-actions"><button class="btn btn-sm" data-action="bulk-assign">إسناد المسؤول</button><button class="btn btn-sm" data-action="bulk-priority">تغيير الأولوية</button><button class="btn btn-sm" data-action="export-selected">تصدير المحدد</button><button class="btn btn-sm btn-quiet" data-action="clear-selection">إلغاء التحديد</button></div></div>':'')+'</div>'+complaintTable(visibleRows,{select:true,emptyMessage:db.complaints.length?'لا توجد شكاوى تطابق المرشحات الحالية. امسح المرشحات لعرض السجل.':'لا توجد شكاوى مسجلة بعد. يمكنك تسجيل شكوى جديدة.'})+'<div class="table-footer"><span>صفحة '+registryPage+' من '+totalPages+' · '+rows.length+' سجلًا</span><div><button class="btn btn-sm" data-action="registry-prev" '+(registryPage<=1?'disabled':'')+'>السابق</button> <button class="btn btn-sm" data-action="registry-next" '+(registryPage>=totalPages?'disabled':'')+'>التالي</button></div></div></section>';
 }
