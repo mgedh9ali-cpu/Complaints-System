@@ -51,6 +51,12 @@ case 'backup-database-only':await withButtonLock(el,()=>runDatabaseOnlyBackup())
 case 'show-update-help':showUpdateHelp();break;
 case 'show-restore-guide':showRestoreGuide();break;
 case 'refresh-protection-status':await withButtonLock(el,()=>refreshProtectionStatusAndRender());break;
+case 'save-backup-settings':await withButtonLock(el,()=>saveBackupSettings());break;
+case 'delete-backup-file':await withButtonLock(el,()=>deleteBackupFile(el.dataset.name));break;
+case 'restore-wizard-start':restoreWizardStart(el.dataset.name||null);break;
+case 'restore-wizard-step2':await withButtonLock(el,()=>restoreWizardStep2());break;
+case 'restore-wizard-step4':restoreWizardStep4();break;
+case 'restore-wizard-step5':await restoreWizardStep5();break;
 case 'logout':await logout();break;
 case 'read-notice':{
   const n=(db.notifications||[]).find(x=>String(x.id)===String(id));
@@ -151,4 +157,3 @@ async function submitLogin(e){e?.preventDefault?.();const username=$('#loginUser
 if(typeof loadDb==='function'){loadDb?.();}
 if($('#loginForm'))$('#loginForm').addEventListener('submit',submitLogin);
 (async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
-})();
