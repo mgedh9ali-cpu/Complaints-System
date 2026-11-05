@@ -10,7 +10,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   if(!nodes.has(key))nodes.set(key,{
    id:key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
    classList:{add(){},remove(){},toggle(){return true},contains(){return false}},
-   setAttribute(){},removeAttribute(){},focus(){},addEventListener(){},append(){},appendChild(){},remove(){},
+   getAttribute(){return null;},setAttribute(){},removeAttribute(){},focus(){},addEventListener(){},append(){},appendChild(){},remove(){},
    querySelector(){return node('mock-dialog')},querySelectorAll(){return []},reportValidity(){return true}
   });
   return nodes.get(key);
@@ -29,7 +29,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   pushState(_state,_title,url){historyEntries.push(url);location.hash=url;},
   replaceState(_state,_title,url){historyEntries.push('replace:'+url);location.hash=url;}
  };
- const window={history,location,addEventListener(type,fn){windowEvents.set(type,fn);},dispatchEvent(){}};
+ const window={setTimeout:()=>0,history,location,addEventListener(type,fn){windowEvents.set(type,fn);},dispatchEvent(){}};
  const state={complaints:[{
   id:'SY-2026-10001',name:'اختبار',phone:'0912345678',province:'دمشق',category:'استفسار',
   entity:'مديرية عامة',priority:'normal',status:'new',owner:'admin',
@@ -59,7 +59,9 @@ function createFakeBrowser(role='admin',initialReply=null){
    revision+=1;
    response={complaint,revision};
   }
-  else if(url.includes('/status')&&options.method==='PATCH'){
+  else if(url==='/api/complaints/SY-2026-10001'&&options.method==='PATCH'){
+   Object.assign(state.complaints[0],JSON.parse(options.body));revision+=1;response={ok:true,revision};
+  }else if(url.includes('/status')&&options.method==='PATCH'){
    state.complaints[0].status=JSON.parse(options.body).status;
    revision+=1;
    response={ok:true,revision};
@@ -77,7 +79,7 @@ function createFakeBrowser(role='admin',initialReply=null){
  vm.runInNewContext(assembleUiBundle(),context,{filename:'app.bundle.js',timeout:4000});
  function click(action,id){
   const target={closest(selector){
-   if(selector==='[data-action]')return{dataset:{action,id}};
+   if(selector==='[data-action]'){const button=node('action-'+action);button.dataset={action,id};return button;}
    return null;
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
@@ -89,7 +91,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click,navigate,calls};
+ return {node,events,windowEvents,location,historyEntries,click,navigate,calls,state};
 }
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
@@ -215,14 +217,16 @@ test('assignment and priority are persisted with CSRF before success UI is shown
  ui.node('#assignOwner').value='staff-two';
  ui.click('assign-owner','SY-2026-10001');
  for(let i=0;i<35;i++)await Promise.resolve();
- const written=ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT');
- assert.ok(written.length>=1);
+ const written=ui.calls.filter(x=>x.url==='/api/complaints/SY-2026-10001'&&x.method==='PATCH');
+ assert.equal(written.length,1);
+ assert.deepEqual(JSON.parse(written[0].body),{owner:'staff-two'});
+ assert.equal(written[0].headers['X-State-Revision'],'1');
  assert.equal(written[0].headers['X-CSRF-Token'],'token-from-session');
  assert.match(ui.node('#content').innerHTML,/staff-two/);
  ui.node('#detailPriority').value='high';
  ui.click('change-priority','SY-2026-10001');
  for(let i=0;i<35;i++)await Promise.resolve();
- assert.ok(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length>=2);
+ assert.ok(ui.calls.filter(x=>x.url==='/api/state'&&x.method==='PUT').length>=1);
 });
 test('a reviewer cannot persist assignment or priority changes',async()=>{
  const ui=createFakeBrowser('reviewer');
@@ -254,4 +258,19 @@ test('settings import survives absent startup input and rerender; password is ma
  const pending=ui.events.get('change')({target});for(let i=0;i<10;i++)await Promise.resolve();
  ui.events.get('keydown')({key:'Escape',target:{},preventDefault(){}});await pending;
  assert.equal(ui.calls.filter(c=>c.url==='/api/sync/import').length,2,'cancel must not submit a transfer');
+});
+
+
+test('legacy empty intake lists display local defaults without rewriting synchronized settings',async()=>{
+ const ui=createFakeBrowser();
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.state.settings.provinces=[];ui.state.settings.categories=[];ui.state.settings.entities=[];
+ const settings=structuredClone(ui.state.settings);
+ ui.click('new-complaint');
+ const html=ui.node('#modalRoot').innerHTML;
+ assert.match(html,/<option value="دمشق"/);
+ assert.match(html,/<option value="خدمات عامة"/);
+ assert.match(html,/<option value="مديرية الخدمات العامة"/);
+ assert.deepEqual(structuredClone(ui.state.settings),settings);
+ assert.equal(ui.calls.filter(x=>x.method==='PUT').length,0);
 });

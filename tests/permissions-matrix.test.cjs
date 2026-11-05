@@ -103,5 +103,8 @@ test('attachment removal endpoint retains CSRF and documented reason validation'
   assert.match(block, /requirePermission\('attachments.delete'\)/);
   assert.match(block, /requireCsrf/);
   assert.match(block, /reason.length < 3 \|\| reason.length > 500/);
-  assert.match(block, /attachment_deleted/);
+  assert.match(block, /res.status\(409\)/);
+  assert.match(block, /مسار الموافقات/);
+  const approvals = fs.readFileSync(path.join(__dirname, '..', 'modules', 'approvals', 'service.js'), 'utf8');
+  assert.match(approvals, /attachment_deleted/);
 });
