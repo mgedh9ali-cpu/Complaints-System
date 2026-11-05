@@ -14,7 +14,6 @@ function openDatabase(databasePath, { storageKey } = {}) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
-  // High-performance local cache (desktop / single-user)
   try { db.pragma('synchronous = NORMAL'); } catch { /* ignore */ }
   try { db.pragma('temp_store = MEMORY'); } catch { /* ignore */ }
   try { db.pragma('cache_size = -64000'); } catch { /* 64MB page cache */ }
@@ -115,6 +114,18 @@ function openDatabase(databasePath, { storageKey } = {}) {
   try {
     require('../lib/storage-migration').protectDatabase(db, abs, storageKey);
   } catch (error) { db.close(); throw error; }
+  try {
+    const { runMigrations } = require('../lib/schema-migrations');
+    const { version } = require('../package.json');
+    runMigrations(db, { appVersion: version });
+  } catch (error) {
+    db.close();
+    throw new Error('Schema migration failed: ' + error.message);
+  }
+  try {
+    const { writeDataRootMarker } = require('../lib/data-locator');
+    writeDataRootMarker(dataRoot, { databasePath: abs });
+  } catch (_) { /* non-fatal */ }
   lockDownFile(abs);
   lockDownDataTree(dataRoot);
   return db;
