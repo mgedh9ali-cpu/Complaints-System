@@ -29,7 +29,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   pushState(_state,_title,url){historyEntries.push(url);location.hash=url;},
   replaceState(_state,_title,url){historyEntries.push('replace:'+url);location.hash=url;}
  };
- const window={setTimeout:()=>0,history,location,addEventListener(type,fn){windowEvents.set(type,fn);},dispatchEvent(){}};
+ const window={scrollY:0,scrollTo({top}){this.scrollY=top;},setTimeout:()=>0,history,location,addEventListener(type,fn){windowEvents.set(type,fn);},dispatchEvent(){}};
  const state={complaints:[{
   id:'SY-2026-10001',name:'اختبار',phone:'0912345678',province:'دمشق',category:'استفسار',
   entity:'مديرية عامة',priority:'normal',status:'new',owner:'admin',
@@ -91,7 +91,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click,navigate,calls,state};
+ return {node,events,windowEvents,location,historyEntries,click,navigate,calls,state,window};
 }
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
@@ -273,4 +273,15 @@ test('legacy empty intake lists display local defaults without rewriting synchro
  assert.match(html,/<option value="مديرية الخدمات العامة"/);
  assert.deepEqual(structuredClone(ui.state.settings),settings);
  assert.equal(ui.calls.filter(x=>x.method==='PUT').length,0);
+});
+
+
+test('page navigation restores its own scroll and repeated clicks preserve the current page',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
+ ui.navigate('complaints');ui.window.scrollY=480;
+ ui.navigate('reports');assert.equal(ui.window.scrollY,0);ui.window.scrollY=120;
+ ui.navigate('complaints');assert.equal(ui.window.scrollY,480);
+ const count=ui.historyEntries.length,html=ui.node('#content').innerHTML;
+ ui.navigate('complaints');assert.equal(ui.historyEntries.length,count);assert.equal(ui.node('#content').innerHTML,html);assert.equal(ui.window.scrollY,480);
+ ui.location.hash='#reports';ui.windowEvents.get('popstate')();assert.equal(ui.window.scrollY,120);
 });

@@ -8,20 +8,20 @@
 /* ───────── 1. الرموز (Tokens) ───────── */
 :root {
   /* لون */
-  --ink: #0F1F17;          /* حبر */
-  --ink-2: #3D4337;        /* نص خافت */
-  --paper: #E8EBE0;        /* خلفية الصفحة */
-  --surface: #F9FAF5;      /* البطاقات والجداول */
-  --forest: #1E3A2E;       /* اللون الأساسي */
-  --forest-deep: #0F1F17;  /* الشريط الجانبي */
-  --line: #C7CBB8;         /* فواصل زخرفية */
-  --line-strong: #6B7F67;  /* حدود الحقول (≥3:1) */
-  --focus: #3E5A3F;
-  --link: #1E3A2E;
+  --ink: #142E25;          /* حبر */
+  --ink-2: #465F54;        /* نص خافت */
+  --paper: #F1F6F3;        /* خلفية الصفحة */
+  --surface: #FFFFFF;      /* البطاقات والجداول */
+  --forest: #086747;       /* اللون الأساسي */
+  --forest-deep: #092F25;  /* الشريط الجانبي */
+  --line: #CFDDD5;         /* فواصل زخرفية */
+  --line-strong: #728D80;  /* حدود الحقول (≥3:1) */
+  --focus: #087C55;
+  --link: #086747;
   --danger: #8A1F1F;
-  --on-forest: #F1F3EA;
-  --on-forest-2: #C7CBB8;
-  --nav-active-bg: #C7CBB8;
+  --on-forest: #FFFFFF;
+  --on-forest-2: #C8E1D5;
+  --nav-active-bg: #D9F3E5;
   --sla-ok: #3E5A3F; --sla-warn: #9A6200; --sla-late: #B3261E;
   --brand-fg: #FFFFFF;
   /* حالات: [خلفية، نص] */
@@ -34,7 +34,7 @@
   /* اللوحة المرفقة: أخضر عميق، غابي، زيتوني، مريمي، كريمي، فحمي. */
   --palette-deep: #0F1F17; --palette-forest: #1E3A2E; --palette-olive: #3E5A3F;
   --palette-sage: #6B7F67; --palette-cream: #C7CBB8; --palette-charcoal: #3D4337;
-  --chart-1: #1E3A2E; --chart-2: #3E5A3F; --chart-3: #6B7F67;
+  --chart-1: #086747; --chart-2: #3E5A3F; --chart-3: #6B7F67;
   --chart-4: #C7CBB8; --chart-5: #3D4337; --chart-6: #0F1F17;
   --green-900: #1E3A2E; --green-700: #6B7F67; --green-100: #C7CBB8; --gold: #C7CBB8;
   /* مسافات (مضاعفات 4) */
@@ -46,7 +46,8 @@
   --sh-2: 0 6px 20px rgb(22 48 42 / .10);
   --sh-3: 0 18px 48px rgb(22 48 42 / .22);
   /* خط ومقياس طباعي (نسبة ~1.2) */
-  --font: "Thmanyah Sans", "ThmanyahSans", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  --font: "Tajawal", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  --ui-font: var(--font);
   --t-xs: 12.5px; --t-sm: 13.5px; --t-md: 15px; --t-lg: 18px; --t-xl: 22px; --t-2xl: 28px;
   --ease: cubic-bezier(.2, .8, .2, 1);
   --d1: 120ms; --d2: 200ms;
@@ -70,8 +71,11 @@ html[data-theme="dark"] {
 /* ───────── 2. الأساس ───────── */
 *, *::before, *::after { box-sizing: border-box; }
 html { font-family: var(--font); font-size: var(--t-md); background: var(--paper); color: var(--ink);
-  line-height: 1.75; -webkit-text-size-adjust: 100%; }
-body { margin: 0; min-width: 320px; background: var(--paper); }
+  line-height: 1.7; -webkit-text-size-adjust: 100%; }
+body { margin: 0; min-width: 320px; background: var(--paper); letter-spacing: normal; }
+/* Cancel the legacy full-window noise filter and native-font overrides. */
+body::before { content: none; display: none; }
+html { scroll-behavior: auto; }
 button, input, select, textarea { font: inherit; color: inherit; }
 h1, h2, h3, h4 { margin: 0; line-height: 1.4; font-weight: 700; text-wrap: balance; }
 h1 { font-size: var(--t-xl); } h2 { font-size: var(--t-lg); } h3 { font-size: var(--t-md); }
@@ -108,6 +112,11 @@ small, .small-copy, .subheading { font-size: var(--t-sm); color: var(--ink-2); }
 .nav-link.active, .nav-link[aria-current="page"] { background: var(--nav-active-bg); color: var(--forest-deep); font-weight: 700; }
 html[data-theme="dark"] .nav-link.active { color: var(--on-forest); }
 .nav-icon, .ui-svg-icon { width: 20px; height: 20px; flex: none; }
+.sidebar .brand strong, .sidebar .nav-icon, .sidebar .side-user strong { color: inherit; }
+.sidebar .brand small, .sidebar .side-user small { color: var(--on-forest-2); }
+.nav-icon { display: grid; place-items: center; }
+.nav-icon svg { display: block; width: 20px; height: 20px; opacity: 1; }
+.sidebar { backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
 .nav-text { flex: 1; }
 .nav-count { min-width: 24px; padding: 0 var(--s2); border-radius: var(--r-pill); font-size: var(--t-xs);
   text-align: center; background: rgb(233 239 230 / .16); }
@@ -138,7 +147,7 @@ html[data-theme="dark"] .nav-link.active { color: var(--on-forest); }
 /* ───────── 4. الأزرار ───────── */
 .btn, .icon-button, .icon-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
   min-height: 44px; padding: var(--s2) var(--s4); border: 1px solid var(--line-strong); border-radius: var(--r-ctl);
-  background: var(--surface); color: var(--ink); font-weight: 600; line-height: 1.2; cursor: pointer;
+  background: var(--surface); color: var(--ink); font-weight: 500; line-height: 1.4; cursor: pointer;
   transition: background var(--d1) var(--ease), border-color var(--d1) var(--ease), transform var(--d1) var(--ease); }
 .btn:hover, .icon-button:hover, .icon-btn:hover { background: color-mix(in srgb, var(--forest) 8%, var(--surface)); }
 .btn:active { transform: translateY(1px); }
@@ -198,7 +207,7 @@ tbody tr:focus-within { background: color-mix(in srgb, var(--forest) 9%, var(--s
   border: 1px dashed var(--line-strong); border-radius: var(--r-panel); }
 .callout, .risk-note { padding: var(--s3) var(--s4); border-radius: var(--r-ctl); border-inline-start: 4px solid var(--sla-warn);
   background: var(--st-wait-bg); color: var(--st-wait-fg); }
-.progress { height: 8px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+.progress { height: 8px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--forest) 10%, var(--surface)); overflow: hidden; }
 .daily-fill, .progress > * { height: 100%; background: var(--forest); border-radius: inherit; }
 
 /* ───────── 7. الحالات والأولويات و SLA ───────── */

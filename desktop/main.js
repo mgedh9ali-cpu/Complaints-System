@@ -12,12 +12,7 @@ const net = require('node:net');
 const { app, BrowserWindow, dialog, shell, Menu, Tray, nativeImage, Notification } = require('electron');
 const { isLocalAppUrl, isPermittedExternalUrl } = require('./navigation');
 
-// Faster local render; avoid stale HTTP cache on the embedded loopback app
-try {
-  app.commandLine.appendSwitch('disable-http-cache');
-  app.commandLine.appendSwitch('enable-gpu-rasterization');
-  app.commandLine.appendSwitch('enable-zero-copy');
-} catch (_) {}
+// Use Chromium's hardware defaults. The local server controls asset freshness.
 
 console.info('[runtime]',{electron:process.versions.electron,chrome:process.versions.chrome});
 
@@ -187,7 +182,7 @@ function createWindow(paths) {
     minHeight: 640,
     title: 'نظام الشكاوى والاستفسارات',
     show: false,
-    backgroundColor: '#0F1F17',
+    backgroundColor: '#F1F6F3',
     autoHideMenuBar: false,
     webPreferences: {
       nodeIntegration: false,
@@ -216,12 +211,17 @@ function createWindow(paths) {
     }
   });
 
-  mainWindow.once('ready-to-show', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+  let rejectVisible;
+  const visible = new Promise((resolve, reject) => {
+    rejectVisible = reject;
+    mainWindow.once('ready-to-show', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+      resolve();
+    });
   });
-
-  mainWindow.loadURL(APP_URL);
-  require('./maintenance').installMaintenanceMenu({app,Menu,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
+  mainWindow.loadFile(path.join(__dirname, 'startup.html')).catch(error => {
+    rejectVisible(error);
+  });
 
   mainWindow.on('close', (event) => {
     if (!quitting) {
@@ -246,6 +246,7 @@ function createWindow(paths) {
       ensureEnvFile._bootstrapMessage = null;
     });
   }
+  return visible;
 }
 
 try { require('./smoke-profile').configureSmokeProfile(app); }
@@ -271,10 +272,13 @@ if (!gotLock) {
       const root = appRoot();
       const paths = ensureUserDataLayout();
       ensureEnvFile(paths.envPath, root);
+      // Paint a local window before loading server modules and checking the database.
+      await createWindow(paths);
       bootServerInProcess(paths, root);
       await waitForServer();
       installTray(root);
-      createWindow(paths);
+      await mainWindow.loadURL(APP_URL);
+      require('./maintenance').installMaintenanceMenu({app,Menu,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
     } catch (err) {
       if(process.argv.includes('--release-smoke')) {
         require('./smoke-profile').recordSmokeFailure(err);

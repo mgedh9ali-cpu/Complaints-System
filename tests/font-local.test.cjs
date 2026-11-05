@@ -8,19 +8,15 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('Thmanyah Sans is the first Arabic UI font and uses only local installed faces', () => {
-  const faces = read('thmanyah-fonts.css').replace(/\/\*[\s\S]*?\*\//g, '');
-  const ui = read('ui-enhancements.css');
-  const styles = read('styles.css');
-  const html = read('index.html');
-  for (const weight of [400, 500, 700]) {
-    assert.match(faces, new RegExp('font-weight:\\s*' + weight + '\\s*;'));
-  }
-  assert.match(faces, /src:\s*local\(/);
-  assert.doesNotMatch(faces, /url\s*\(|\.woff2|\.otf|https?:\/\//);
-  assert.match(ui, /--ui-font:\s*"Thmanyah Sans"/);
-  assert.match(styles, /font-family:\s*"Thmanyah Sans"/);
-  assert.match(html, /href="thmanyah-fonts\.css"/);
+test('active Arabic UI uses the bundled Tajawal font consistently and preloads it locally', () => {
+  const fallback = read('fallback-font.css'), system = read('ui-system.css'), html = read('index.html');
+  assert.match(fallback, /src:\s*url\("\/assets\/Tajawal-Regular\.ttf"\)/);
+  assert.match(fallback, /--ui-font:\s*"Tajawal"/);
+  assert.match(system, /--font:\s*"Tajawal"/);
+  assert.match(system, /--ui-font:\s*var\(--font\)/);
+  assert.match(html, /rel="preload" href="\/assets\/Tajawal-Regular\.ttf" as="font"/);
+  assert.doesNotMatch(html, /rel="stylesheet" href="thmanyah-fonts\.css"/);
+  assert.doesNotMatch(fallback, /https?:\/\//);
 });
 
 test('Font binaries and reconstruction sources are not bundled or served', () => {

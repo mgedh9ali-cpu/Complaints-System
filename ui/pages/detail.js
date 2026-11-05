@@ -18,9 +18,11 @@ function detailModal(id){
   if(!db.complaints.some(c=>c?.id===id)) return toast('الشكوى غير موجودة.','error');
   const changed=page!=='complaint-detail'||currentId!==id;
   if(page!=='complaint-detail') detailReturnPage=page;
+  if(changed)routeScrollPositions.set(page,window.scrollY||0);
   closeModal();
   currentId=id;page='complaint-detail';
   if(changed) history.pushState({view:page,id},'', '#complaint/'+encodeURIComponent(id));
-  if(typeof document.startViewTransition==='function'&&!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){document.startViewTransition(()=>render());}else render();
+  const paint=()=>{render();if(changed)window.scrollTo?.({top:0,behavior:'instant'});};
+  if(changed&&typeof document.startViewTransition==='function'&&!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){document.startViewTransition(paint);}else paint();
   $('#content')?.focus({preventScroll:true});
 }
