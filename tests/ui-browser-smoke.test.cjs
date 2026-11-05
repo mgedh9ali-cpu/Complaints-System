@@ -5,12 +5,12 @@ const vm=require('node:vm');
 const {assembleUiBundle}=require('../lib/ui-bundle');
 
 function createFakeBrowser(role='admin',initialReply=null){
- const events=new Map(),windowEvents=new Map(),nodes=new Map(),historyEntries=[];
+ const events=new Map(),windowEvents=new Map(),nodes=new Map(),historyEntries=[],downloads=[];
  function node(key){
   if(!nodes.has(key))nodes.set(key,{
    id:key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
    classList:{add(){},remove(){},toggle(){return true},contains(){return false}},
-   getAttribute(){return null;},setAttribute(){},removeAttribute(){},focus(){},addEventListener(type,fn){events.set(key+':'+type,fn);},append(){},appendChild(){},remove(){},
+   getAttribute(){return null;},setAttribute(){},removeAttribute(){},click(){downloads.push(this.download);},focus(){},addEventListener(type,fn){events.set(key+':'+type,fn);},append(){},appendChild(){},remove(){},
    querySelector(){return node('mock-dialog')},querySelectorAll(){return []},reportValidity(){return true}
   });
   return nodes.get(key);
@@ -67,7 +67,7 @@ function createFakeBrowser(role='admin',initialReply=null){
    revision+=1;
    response={ok:true,revision};
   }else response={users:[]};
-  return {ok:true,status:200,json:async()=>response};
+  return {ok:true,status:200,json:async()=>response,blob:async()=>new Blob(["synthetic export"])};
  };
  const context={
   document,window,history,location,fetch,
@@ -92,7 +92,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click,navigate,calls,state,window};
+ return {node,events,windowEvents,location,historyEntries,click,navigate,calls,state,window,downloads};
 }
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
@@ -170,7 +170,7 @@ test('new complaint uses the authenticated creation endpoint and CSRF token',asy
  assert.match(form,/id="newComplaintForm"/);
  const values={cName:'مواطن اختباري',cPhone:'0912345678',cProvince:'دمشق',
   cCategory:'خدمات عامة',cEntity:'مديرية الخدمات العامة',cPriority:'normal',
-  cOwner:'admin',cSummary:'بلاغ جديد للاختبار',cDetails:'بيانات وهمية'};
+  cFirstContactDate:'2026-10-19',cOwner:'admin',cSummary:'بلاغ جديد للاختبار',cDetails:'بيانات وهمية'};
  for(const [key,val] of Object.entries(values))ui.node('#'+key).value=val;
  ui.click('save-complaint');
  for(let i=0;i<50;i++)await Promise.resolve();
@@ -178,7 +178,9 @@ test('new complaint uses the authenticated creation endpoint and CSRF token',asy
  assert.ok(request,'creation request not sent');
  assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
  assert.match(ui.node('#content').innerHTML,/بلاغ جديد للاختبار/);
- assert.equal(ui.location.hash,'#complaints');
+ assert.equal(JSON.parse(request.body).firstContactDate,'2026-10-19');
+ assert.equal(ui.location.hash,'#complaint/SY-2026-10002');
+ for(const action of ['edit-complaint','request-complaint-delete','export-complaint-pdf','export-complaint-word'])assert.ok(ui.node('#content').innerHTML.includes('data-action="'+action+'"'));
 });
 
 test('reviewer cannot open creation form',async()=>{
@@ -308,4 +310,24 @@ test('login submits a supplied second factor code to the existing authentication
  ui.node('#loginUsername').value='admin';ui.node('#loginPassword').value='Synthetic-password-2026';ui.node('#loginCode').value='123456';
  await ui.events.get('#loginForm:submit')({target:{id:'loginForm'},preventDefault(){}});
  const request=ui.calls.find(c=>c.url==='/api/auth/login'&&c.method==='POST');assert.ok(request);assert.equal(JSON.parse(request.body).code,'123456');
+});
+
+
+test('first contact date can be edited and the delete button opens the approval workflow',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.click('edit-complaint','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/editFirstContactDate/);
+ const values={editName:'اسم اختباري',editPhone:'0912345678',editProvince:'دمشق',editCategory:'استفسار',editEntity:'جهة',editSummary:'موضوع',editDetails:'تفاصيل',editFirstContactDate:'2026-10-19'};
+ for(const [key,value]of Object.entries(values))ui.node('#'+key).value=value;
+ ui.click('save-complaint-edit','SY-2026-10001');for(let i=0;i<40;i++)await Promise.resolve();
+ const request=ui.calls.find(c=>c.url==='/api/complaints/SY-2026-10001'&&c.method==='PATCH');assert.ok(request);assert.equal(JSON.parse(request.body).firstContactDate,'2026-10-19');
+ ui.click('request-complaint-delete','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/complaint_archive/);assert.match(ui.node('#modalDescription').textContent,/موافقة مدير آخر/);
+ assert.equal(ui.calls.filter(c=>c.method==='DELETE').length,0);
+});
+
+
+test('individual PDF and Word actions download the chosen complaint through authenticated export routes',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ for(const action of ['export-complaint-pdf','export-complaint-word']){ui.click(action,'SY-2026-10001');for(let i=0;i<50;i++)await Promise.resolve();}
+ for(const format of ['pdf','docx'])assert.ok(ui.calls.some(c=>c.url==='/api/export/'+format+'/SY-2026-10001'&&c.method==='GET'));
+ assert.deepEqual(ui.downloads,['شكوى-SY-2026-10001.pdf','شكوى-SY-2026-10001.docx']);
 });

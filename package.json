@@ -23,6 +23,7 @@
     "better-sqlite3": "^13.0.3",
     "call-bind-apply-helpers": "^1.0.2",
     "exceljs": "^4.4.0",
+    "jszip": "3.10.2",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",

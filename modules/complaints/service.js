@@ -21,7 +21,7 @@ const STATUS_LABELS = Object.freeze({
   closed: 'مغلقة', cancelled: 'ملغاة'
 });
 const REASON_REQUIRED = Object.freeze(new Set(['closed', 'cancelled']));
-const EDITABLE_FIELDS = ['name','phone','province','entity','category','nature','priority','owner','summary','details','confidentiality','source'];
+const EDITABLE_FIELDS = ['name','phone','province','entity','category','nature','priority','owner','summary','details','confidentiality','source','firstContactDate'];
 
 function emptyState() {
   return { complaints: [], notifications: [], templates: structuredClone(DEFAULT_TEMPLATES), settings: structuredClone(DEFAULT_SETTINGS) };
@@ -287,6 +287,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       province: body.province, entity: body.entity || '', category: body.category,
       nature: body.nature || '', priority: body.priority || 'normal', status,
       owner: username || null, summary: body.summary || '', details: body.details || '',
+      firstContactDate: body.firstContactDate || null,
       created: now, updated: now,
       due: new Date(Date.now() + (Number(state.settings.slaDays) || 7) * 86400000).toISOString(),
       notes: [], timeline: [{ event: asDraft ? 'حفظ مسودة' : 'تسجيل الشكوى', by: username || 'system', at: now, detail: asDraft ? 'مسودة غير منشورة.' : 'تم الإنشاء عبر API.' }],

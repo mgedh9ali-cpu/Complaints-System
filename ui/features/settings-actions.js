@@ -71,7 +71,7 @@ function editComplaintModal(id){
   ensureManagedSettings();
   const options=(items,current)=>items.includes(current)?items:[current,...items].filter(Boolean);
   modal('استكمال وتعديل بيانات الشكوى','الرقم وتاريخ التسجيل وسجل الإجراءات ثابتة.',
-  '<form id="editComplaintForm"><div class="form-grid">'+field('اسم المشتكي','editName',c.name||'')+field('رقم الهاتف','editPhone',c.phone||'','tel')+
+  '<form id="editComplaintForm"><div class="form-grid">'+field('اسم المشتكي','editName',c.name||'')+field('تاريخ أول تواصل','editFirstContactDate',c.firstContactDate||'','date')+field('رقم الهاتف','editPhone',c.phone||'','tel')+
   selectField('المحافظة','editProvince',options(db.settings.provinces,c.province),c.province,true)+selectField('التصنيف','editCategory',options(db.settings.categories,c.category),c.category,true)+
   selectField('طبيعة الشكاوي','editNature',options(db.settings.natures||[],c.nature||''),c.nature||'',false)+
   selectField('الجهة','editEntity',options(db.settings.entities,c.entity),c.entity||'')+field('الموضوع','editSummary',c.summary||'','text',true,'maxlength="180"')+
@@ -80,7 +80,7 @@ function editComplaintModal(id){
 }
 async function saveComplaintEdit(id){
   if(!$('#editComplaintForm')?.reportValidity())return;
-  const body={name:$('#editName').value.trim(),phone:phoneNorm($('#editPhone').value),province:$('#editProvince').value,category:$('#editCategory').value,nature:$('#editNature')?.value||'',entity:$('#editEntity').value,summary:$('#editSummary').value.trim(),details:$('#editDetails').value.trim()};
+  const body={firstContactDate:$('#editFirstContactDate')?.value||null,name:$('#editName').value.trim(),phone:phoneNorm($('#editPhone').value),province:$('#editProvince').value,category:$('#editCategory').value,nature:$('#editNature')?.value||'',entity:$('#editEntity').value,summary:$('#editSummary').value.trim(),details:$('#editDetails').value.trim()};
   try{await flushUiBeforeAction();await api('/api/complaints/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)});closeModal();await reloadStoredState();toast('حُفظت بيانات الشكوى.');}catch(error){toast(error.message,'error');}
 }
 async function flushUiBeforeAction(){if(stateConflict)throw new Error('حل تعارض البيانات قبل تنفيذ إجراء جديد.');await persistQueue;if(persistTimer)await persistUiNow();}

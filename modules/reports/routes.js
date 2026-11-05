@@ -133,6 +133,21 @@ function createReportsRouter({ reportsService, middleware, audit, rolesService }
     } catch (error) { next(error); }
   });
 
+  router.get('/export/docx/:id', requireAuth, requirePermission('export.xlsx'), async (req, res, next) => {
+    try {
+      const id = String(req.params.id || '').trim();
+      if (!id || id.length > 100) return res.status(400).json({ error: 'معرّف الشكوى غير صالح.' });
+      const result = await reportsService.buildSingleDocx(id, req.user.username);
+      if (!result) return res.status(404).json({ error: 'الشكوى غير موجودة.' });
+      if (typeof audit === 'function') audit(req.user.id, 'docx_export_single', 'export', id, { filename: result.filename, integrityHash: result.integrityHash });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(result.filename));
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Integrity-Hash', result.integrityHash);
+      res.send(result.buffer);
+    } catch (error) { next(error); }
+  });
+
   return router;
 }
 
