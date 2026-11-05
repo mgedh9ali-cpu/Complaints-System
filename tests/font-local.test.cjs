@@ -8,15 +8,16 @@ const test = require('node:test');
 const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('active Arabic UI uses the bundled Tajawal font consistently and preloads it locally', () => {
-  const fallback = read('fallback-font.css'), system = read('ui-system.css'), html = read('index.html');
-  assert.match(fallback, /src:\s*url\("\/assets\/Tajawal-Regular\.ttf"\)/);
-  assert.match(fallback, /--ui-font:\s*"Tajawal"/);
-  assert.match(system, /--font:\s*"Tajawal"/);
-  assert.match(system, /--ui-font:\s*var\(--font\)/);
-  assert.match(html, /rel="preload" href="\/assets\/Tajawal-Regular\.ttf" as="font"/);
-  assert.doesNotMatch(html, /rel="stylesheet" href="thmanyah-fonts\.css"/);
-  assert.doesNotMatch(fallback, /https?:\/\//);
+test('active Cairo font is bundled and preloaded locally in both writing systems', () => {
+ const system=read('ui-system.css'),html=read('index.html'),pkg=JSON.parse(read('package.json')),server=read('server.js');
+ assert.match(system,/--font:\s*"Cairo"/);assert.match(system,/font-weight: 200 1000/);
+ for(const subset of ['arabic','latin']){
+  const file='cairo-'+subset+'-wght-normal.woff2';
+  assert.ok(system.includes('/assets/fonts/'+file));assert.ok(server.includes('/assets/fonts/'+file));
+  assert.equal(fs.readFileSync(path.join(root,'assets/fonts',file)).subarray(0,4).toString(),'wOF2');
+ }
+ assert.match(html,/rel="preload" href="\/assets\/fonts\/cairo-arabic-wght-normal\.woff2"/);
+ assert.doesNotMatch(html,/href="(?:thmanyah-fonts|ui-compat)\.css"/);assert.ok(pkg.build.files.includes('assets/fonts/**'));
 });
 
 test('Font binaries and reconstruction sources are not bundled or served', () => {

@@ -105,9 +105,9 @@ function waitForServer(timeoutMs = 60000) {
           reject(new Error('الخادم المحلي لم يصبح جاهزاً خلال المهلة.'));
           return;
         }
-        setTimeout(tryOnce, 250);
+        setTimeout(tryOnce, 40);
       };
-      socket.setTimeout(800);
+      socket.setTimeout(300);
       socket.once('error', onFail);
       socket.once('timeout', onFail);
       socket.connect(PORT, HOST, () => {
@@ -182,7 +182,7 @@ function createWindow(paths) {
     minHeight: 640,
     title: 'نظام الشكاوى والاستفسارات',
     show: false,
-    backgroundColor: '#F1F6F3',
+    backgroundColor: '#05402F',
     autoHideMenuBar: false,
     webPreferences: {
       nodeIntegration: false,
@@ -219,7 +219,7 @@ function createWindow(paths) {
       resolve();
     });
   });
-  mainWindow.loadFile(path.join(__dirname, 'startup.html')).catch(error => {
+  mainWindow.loadFile(path.join(__dirname, 'splash.html')).catch(error => {
     rejectVisible(error);
   });
 
@@ -276,8 +276,8 @@ if (!gotLock) {
       await createWindow(paths);
       bootServerInProcess(paths, root);
       await waitForServer();
-      installTray(root);
       await mainWindow.loadURL(APP_URL);
+      installTray(root);
       require('./maintenance').installMaintenanceMenu({app,Menu,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
     } catch (err) {
       if(process.argv.includes('--release-smoke')) {

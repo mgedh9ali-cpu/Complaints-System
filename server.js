@@ -214,9 +214,9 @@ const PUBLIC_FILES = {
   '/ui-layout.css': 'ui-layout.css',
   '/ui-prod.css': 'ui-prod.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
-  '/assets/Tajawal-Regular.ttf': 'assets/Tajawal-Regular.ttf',
-  '/assets/Tajawal-Medium.ttf': 'assets/Tajawal-Medium.ttf',
-  '/assets/Tajawal-Bold.ttf': 'assets/Tajawal-Bold.ttf',
+  '/assets/fonts/cairo-arabic-wght-normal.woff2': 'assets/fonts/cairo-arabic-wght-normal.woff2',
+  '/assets/fonts/cairo-latin-wght-normal.woff2': 'assets/fonts/cairo-latin-wght-normal.woff2',
+
 
   '/ui-enhancements.js': 'ui-enhancements.js',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',

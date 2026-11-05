@@ -14,7 +14,8 @@ function render(){
  $('.bulk-bar')?.remove();
  const content=$('#content');const renderers={dashboard,complaints:complaintsPage,referrals:referralsPage,replies:repliesPage,notifications:notificationsPage,reports:reportsPage,settings:settingsPage,'complaint-detail':complaintDetailPage};content.innerHTML=page==='complaint-detail'?'<div class="detail-workspace">'+complaintDetailPage()+'</div>':'<div class="triage-list">'+(renderers[page]||dashboard)()+'</div>';enhanceGlassDetail();applyUiPermissions();
  const bulk=$('.bulk-bar',content);if(bulk)document.body.append(bulk);
- $('#pageCrumb').textContent=pageTitle();navCounts();$$('.nav-link').forEach(b=>{const isCurrent=b.dataset.page===page;b.classList.toggle('active',isCurrent);if(isCurrent)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});}
+ $('#pageCrumb').textContent=pageTitle();navCounts();$$('.nav-link').forEach(b=>{const isCurrent=b.dataset.page===page;b.classList.toggle('active',isCurrent);if(isCurrent)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+ document.dispatchEvent?.(new CustomEvent('complaints:render',{detail:{route:page==='complaint-detail'?page+':'+currentId:page}}));}
 const routeScrollPositions=new Map();
 function restoreRouteScroll(){window.scrollTo?.({top:routeScrollPositions.get(page)||0,behavior:'instant'});}
 function go(p,replace=false){
@@ -26,7 +27,7 @@ function go(p,replace=false){
  selectedIds.clear();
  if(!replace)history.pushState({view:p},'',p==='complaint-detail'&&currentId?'#complaint/'+encodeURIComponent(currentId):'#'+p);
  render();restoreRouteScroll();const content=$('#content');content.focus({preventScroll:true});
- if(!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)content.animate?.([{transform:'translateY(4px)'},{transform:'none'}],{duration:100,easing:'ease-out'});
+
 }
 function restoreUiRoute(){
  const hash=location.hash||'';

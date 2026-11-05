@@ -30,7 +30,7 @@ function dashboard(){
     '<div class="task-row"><div class="task-symbol '+color+'">'+icon+'</div><div class="task-copy"><strong>'+label+'</strong><small>'+description+'</small></div><span class="task-value">'+n+'</span><button class="btn btn-sm" '+(dest?'data-goto="'+dest+'"':'data-action="'+action+'"')+'>مراجعة</button></div>'
   ).join(''):'<div class="empty-state calm-empty">لا شيء يحتاج انتباهك الآن. يمكنك مراجعة السجل أو تسجيل شكوى جديدة.</div>';
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
-  return heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',authenticatedUser?.role==='reviewer'?'':btn('＋ تسجيل شكوى جديدة','new-complaint','btn-primary'))+
+  return heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.','')+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
       [['جميع السجلات',db.complaints.filter(c=>!c.archivedAt).length],['مفتوحة',open.length],['متأخرة',late.length],['بانتظار الاعتماد',approvals.length]].map(([label,n],i)=>
         '<div class="stat-item '+(i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'

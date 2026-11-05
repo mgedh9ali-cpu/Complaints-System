@@ -10,7 +10,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   if(!nodes.has(key))nodes.set(key,{
    id:key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
    classList:{add(){},remove(){},toggle(){return true},contains(){return false}},
-   getAttribute(){return null;},setAttribute(){},removeAttribute(){},focus(){},addEventListener(){},append(){},appendChild(){},remove(){},
+   getAttribute(){return null;},setAttribute(){},removeAttribute(){},focus(){},addEventListener(type,fn){events.set(key+':'+type,fn);},append(){},appendChild(){},remove(){},
    querySelector(){return node('mock-dialog')},querySelectorAll(){return []},reportValidity(){return true}
   });
   return nodes.get(key);
@@ -49,6 +49,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   }
   else if(url==='/api/sync/preview')response={revision,incomingCount:1,added:1,removed:0,conflicts:[]};
   else if(url==='/api/sync/import')response={imported:true};
+  else if(url==='/api/users'&&options.method==='POST')response={user:{id:'created',username:JSON.parse(options.body).username}};
   else if(url==='/api/csrf')response={csrfToken:'token-from-session'};
   else if(url==='/api/complaints'&&options.method==='POST'){
    const data=JSON.parse(options.body);
@@ -77,9 +78,9 @@ function createFakeBrowser(role='admin',initialReply=null){
   CustomEvent:class{constructor(type,options){this.type=type;this.detail=options?.detail;}}
  };
  vm.runInNewContext(assembleUiBundle(),context,{filename:'app.bundle.js',timeout:4000});
- function click(action,id){
+ function click(action,id,dataset={}){
   const target={closest(selector){
-   if(selector==='[data-action]'){const button=node('action-'+action);button.dataset={action,id};return button;}
+   if(selector==='[data-action]'){const button=node('action-'+action);button.dataset={action,id,...dataset};return button;}
    return null;
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
@@ -284,4 +285,27 @@ test('page navigation restores its own scroll and repeated clicks preserve the c
  const count=ui.historyEntries.length,html=ui.node('#content').innerHTML;
  ui.navigate('complaints');assert.equal(ui.historyEntries.length,count);assert.equal(ui.node('#content').innerHTML,html);assert.equal(ui.window.scrollY,480);
  ui.location.hash='#reports';ui.windowEvents.get('popstate')();assert.equal(ui.window.scrollY,120);
+});
+
+
+test('recovered referral and reply entry actions open their selection forms',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.click('new-referral');assert.match(ui.node('#modalRoot').innerHTML,/refComplaint/);
+ ui.click('new-reply');assert.match(ui.node('#modalRoot').innerHTML,/replyComplaint/);
+});
+test('recovered account creation and approval requests call authenticated APIs with CSRF',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.node('#newLocalUsername').value='assistant-two';ui.node('#newLocalPassword').value='Synthetic-password-2026';ui.node('#newLocalRole').value='staff';
+ ui.click('create-local-user');for(let i=0;i<35;i++)await Promise.resolve();
+ let request=ui.calls.find(c=>c.url==='/api/users'&&c.method==='POST');assert.ok(request);assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
+ ui.node('#approvalReason').value='طلب حفظ الشكوى في الأرشيف';
+ ui.click('submit-approval','SY-2026-10001',{kind:'complaint_archive',target:'SY-2026-10001'});
+ for(let i=0;i<35;i++)await Promise.resolve();
+ request=ui.calls.find(c=>c.url==='/api/approvals'&&c.method==='POST');assert.ok(request);assert.equal(JSON.parse(request.body).kind,'complaint_archive');assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
+});
+test('login submits a supplied second factor code to the existing authentication endpoint',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.node('#loginUsername').value='admin';ui.node('#loginPassword').value='Synthetic-password-2026';ui.node('#loginCode').value='123456';
+ await ui.events.get('#loginForm:submit')({target:{id:'loginForm'},preventDefault(){}});
+ const request=ui.calls.find(c=>c.url==='/api/auth/login'&&c.method==='POST');assert.ok(request);assert.equal(JSON.parse(request.body).code,'123456');
 });

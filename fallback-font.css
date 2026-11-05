@@ -1,45 +1,4 @@
-/* Tajawal — Copyright Boutros International; SIL OFL in assets/Tajawal-OFL.txt.
- * Bundled locally; no font installation or network access is required. */
+/* Noto Sans Arabic remains the local fallback and PDF typeface. */
 @font-face {
-  font-family: "Tajawal";
-  src: url("/assets/Tajawal-Regular.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Tajawal";
-  src: url("/assets/Tajawal-Medium.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Tajawal";
-  src: url("/assets/Tajawal-Bold.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-}
-
-/* Noto Sans Arabic — SIL OFL, bundled in assets/ (always available offline). */
-@font-face {
-  font-family: "Noto Sans Arabic";
-  src: url("/assets/NotoSansArabic.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-
-:root {
-  --ui-font: "Tajawal", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
-}
-
-html,
-body,
-button,
-input,
-select,
-textarea {
-  font-family: var(--ui-font);
+ font-family:"Noto Sans Arabic";src:url("/assets/NotoSansArabic.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap;
 }
