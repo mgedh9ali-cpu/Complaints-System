@@ -1,4 +1,4 @@
-/* Document print / verify — approved replies and intake receipts with integrity codes. */
+/* Document print / verify — approved replies, intake receipts, complaint cover. */
 
 async function printApprovedReply(id){
   const c=db.complaints.find(x=>x?.id===id);
@@ -6,7 +6,7 @@ async function printApprovedReply(id){
     return toast('يلزم رد معتمد قبل الطباعة.','warn');
   try{
     const proof=await api('/api/documents/reply/'+encodeURIComponent(id),{method:'POST',body:JSON.stringify({})});
-    const w=window.open('','_blank','noopener,noreferrer');
+    const w=window.open('','blank','noopener,noreferrer');
     if(!w)return toast('اسمح بالنوافذ المنبثقة لطباعة المستند.','warn');
     const code=proof.code||proof.digest||'';
     w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>رد معتمد · ${esc(c.id)}</title>
@@ -90,4 +90,45 @@ async function runAuditIntegrityCheck(){
     if(mount)mount.innerHTML='<span style="color:#8b3a3a">'+esc(error.message)+'</span>';
     toast(error.message,'error');
   }
+}
+
+function printComplaintCover(id){
+  const c=db.complaints.find(x=>x?.id===id);
+  if(!c)return toast('الشكوى غير موجودة.','error');
+  const w=window.open('','blank','noopener,noreferrer');
+  if(!w)return toast('اسمح بالنوافذ المنبثقة.','warn');
+  const refs=(c.referrals||[]).map(r=>esc(r.entity||r.to||'—')).join('، ')||'—';
+  const att=(c.attachments||[]).length;
+  const st=typeof statusLabel==='function'?statusLabel(c.status):c.status;
+  const pr=typeof priorityLabel==='function'?priorityLabel(c.priority):c.priority||'—';
+  const dt=typeof dateText==='function'?dateText(c.created):c.created||'—';
+  w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>غلاف · '+esc(c.id)+'</title>'+
+  '<style>@page{size:A4;margin:16mm}body{font-family:Tahoma,Arial,sans-serif;color:#0F1F17;line-height:1.75}'+
+  '.header{text-align:center;margin-bottom:24px}.header h1{font-size:20px;margin:0;color:#1E3A2E}'+
+  '.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin:20px 0}'+
+  '.label{font-size:11px;color:#3D4337}.value{font-size:14px;font-weight:700}'+
+  '.subject{margin:18px 0;padding:14px;border:1px solid #b8bda8;border-radius:10px;background:#f7f8f2}'+
+  '.foot{margin-top:40px;display:flex;justify-content:space-between;font-size:12px;color:#3D4337}'+
+  '.sig{margin-top:48px;display:grid;grid-template-columns:1fr 1fr;gap:24px}'+
+  '.sig div{border-top:1px solid #b8bda8;padding-top:8px;text-align:center}</style></head><body>'+
+  '<div class="header"><h1>ملف شكوى</h1><p>نظام إدارة الشكاوى والاستفسارات</p></div>'+
+  '<div class="grid">'+
+  '<div><div class="label">رقم الشكوى</div><div class="value" dir="ltr">'+esc(c.id)+'</div></div>'+
+  '<div><div class="label">الحالة</div><div class="value">'+esc(st)+'</div></div>'+
+  '<div><div class="label">تاريخ التسجيل</div><div class="value">'+esc(dt)+'</div></div>'+
+  '<div><div class="label">الأولوية</div><div class="value">'+esc(pr)+'</div></div>'+
+  '<div><div class="label">صاحب الشكوى</div><div class="value">'+esc(c.name||'—')+'</div></div>'+
+  '<div><div class="label">الجهة المختصة</div><div class="value">'+esc(c.entity||'—')+'</div></div>'+
+  '<div><div class="label">التصنيف / الطبيعة</div><div class="value">'+esc((c.category||'—')+' / '+(c.nature||'—'))+'</div></div>'+
+  '<div><div class="label">الموظف المتابع</div><div class="value">'+esc(c.owner||'—')+'</div></div>'+
+  '</div>'+
+  '<div class="subject"><div class="label">الموضوع</div><div class="value">'+esc(c.summary||'—')+'</div>'+
+  '<p style="margin:10px 0 0;font-size:13px;font-weight:400">'+esc((c.details||'').slice(0,800))+'</p></div>'+
+  '<div class="grid"><div><div class="label">الإحالات</div><div class="value">'+refs+'</div></div>'+
+  '<div><div class="label">عدد المرفقات</div><div class="value">'+att+'</div></div></div>'+
+  '<div class="sig"><div>توقيع المستلم</div><div>توقيع المسؤول</div></div>'+
+  '<div class="foot"><span>تاريخ الطباعة: '+esc(new Date().toLocaleString('ar-IQ'))+'</span><span dir="ltr">'+esc(c.id)+'</span></div>'+
+  '<script>window.onload=function(){window.print()}<\/script></body></html>');
+  w.document.close();
+  toast('تم فتح غلاف الشكوى للطباعة.');
 }
