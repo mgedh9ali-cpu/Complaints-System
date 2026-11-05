@@ -43,6 +43,7 @@ case 'conflict-save':resolveStateConflict();break;
 case 'conflict-remote':resolveStateConflict(true);break;
 case 'print-approved-reply':printApprovedReply(id);break;
 case 'print-receipt':await withButtonLock(el,()=>printComplaintReceipt(id));break;
+case 'print-complaint-cover':printComplaintCover(id);break;
 case 'verify-document-dialog':verifyDocumentDialog();break;
 case 'verify-document':await verifyDocument();break;
 case 'audit-verify':await withButtonLock(el,()=>runAuditIntegrityCheck());break;
@@ -96,7 +97,7 @@ case 'reply-sent':await withButtonLock(el,()=>replyAction(id,a));break;
 case 'read-all':db.notifications.forEach(n=>n.read=true);await persistUiNow();render();toast('تم تحديد الإشعارات كمقروءة.');break;
 case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
-case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';quickView='all';render();break;
+case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';dateTypeFilter='created';dateFrom='';dateTo='';quickView='all';registryPage=1;render();break;
 case 'quick-filter':quickView=el.dataset.value||'all';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';render();break;
 case 'my-complaints':quickView='mine';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
@@ -128,7 +129,7 @@ case 'registry-next':registryPage+=1;render();break;
 }catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');}
 });
 document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cSummary'].includes(e.target.id))duplicateCheck();if(['cName','cPhone','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();});
-document.addEventListener('change',e=>{if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
+document.addEventListener('change',e=>{if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
 document.addEventListener('keydown',e=>{
   const root=$('#modalRoot');
   if(root&&root.dataset.open){
