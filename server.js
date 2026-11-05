@@ -214,6 +214,10 @@ const PUBLIC_FILES = {
   '/ui-layout.css': 'ui-layout.css',
   '/ui-prod.css': 'ui-prod.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
+  '/assets/Tajawal-Regular.ttf': 'assets/Tajawal-Regular.ttf',
+  '/assets/Tajawal-Medium.ttf': 'assets/Tajawal-Medium.ttf',
+  '/assets/Tajawal-Bold.ttf': 'assets/Tajawal-Bold.ttf',
+
   '/ui-enhancements.js': 'ui-enhancements.js',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',
   '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',

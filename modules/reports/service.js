@@ -1,8 +1,6 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { buildComplaintsWorkbook, buildSingleComplaintWorkbook } = require('../../lib/excel-export');
-const { buildSimplePdf } = require('../../lib/simple-pdf');
 const {dayBoundary,dayKey}=require('../../lib/work-time');
 
 const CSV_HEADERS = [
@@ -126,6 +124,7 @@ function createReportsService({ complaintsService }) {
 
   async function buildXlsx(generatedBy, filters = {}) {
     const complaints = applyFilters(listComplaints(), filters);
+    const { buildComplaintsWorkbook } = require('../../lib/excel-export');
     const buffer = await buildComplaintsWorkbook(complaints, {
       title: 'تقرير الشكاوى',
       generatedBy: generatedBy || 'system',
@@ -145,6 +144,7 @@ function createReportsService({ complaintsService }) {
   async function buildSingleXlsx(id, generatedBy) {
     const complaint = findComplaint(id);
     if (!complaint) return null;
+    const { buildSingleComplaintWorkbook } = require('../../lib/excel-export');
     const buffer = await buildSingleComplaintWorkbook(complaint, {
       generatedBy: generatedBy || 'system'
     });
@@ -199,6 +199,7 @@ function createReportsService({ complaintsService }) {
           'المسؤول: ' + (complaint.owner || ''),
           'مُصدر بواسطة: ' + (generatedBy || 'system')
         ];
+    const { buildSimplePdf } = require('../../lib/simple-pdf');
     const buffer = await buildSimplePdf({
       title: kind === 'receipt' ? 'إيصال استلام · ' + (complaint.id || '') : 'شكوى ' + (complaint.id || ''),
       lines,
