@@ -8,6 +8,29 @@ const path=require('node:path');
 const {createSessionMiddleware}=require('../config/session');
 const {createAuthRouter}=require('../modules/auth/routes');
 
+// express-session derives originalMaxAge through two Date.now() calls in the
+// expires setter/getter, so elapsed clock time may reduce the stored lifetime.
+function assertStoredLifetime(cookie, duration, startedAt, completedAt) {
+ const elapsed = completedAt - startedAt;
+ assert.ok(cookie.originalMaxAge <= duration && cookie.originalMaxAge >= duration - elapsed,
+  'stored TTL must match the selected duration within the measured request time');
+ const expires = Date.parse(cookie.expires);
+ assert.ok(expires >= startedAt + duration - elapsed && expires <= completedAt + duration,
+  'stored expiry must match the selected duration within the request time');
+}
+
+test('session TTL assertions tolerate a clock tick but reject a different duration', t=>{
+ const {Cookie}=require('express-session');
+ let now=1800000000000;const startedAt=now;
+ t.mock.method(Date,'now',()=>now++);
+ const duration=30*86400000;
+ const cookie=new Cookie({maxAge:duration}).data;
+ assert.equal(cookie.originalMaxAge,duration-1,'exercise the one-millisecond setter/getter boundary');
+ assertStoredLifetime(cookie,duration,startedAt,now);
+ assert.throws(()=>assertStoredLifetime({...cookie,originalMaxAge:30*60000},duration,startedAt,now));
+ assert.throws(()=>assertStoredLifetime({...cookie,originalMaxAge:duration+1},duration,startedAt,now));
+});
+
 test('persistent login uses server sessions, strict boolean opt-in, regeneration and logout',async t=>{
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'complaints-remember-'));
  const app=express();app.use(express.json());
@@ -29,7 +52,7 @@ test('persistent login uses server sessions, strict boolean opt-in, regeneration
   const sessionId=decodeURIComponent(cookie.slice(cookie.indexOf('=')+1)).slice(2).split('.')[0];
   const stored=JSON.parse(fs.readFileSync(path.join(directory,sessionId+'.json'),'utf8'));
   if(cookies.length>1)assert.equal((await fetch(base+'/api/csrf',{headers:{cookie:cookies.at(-2)}})).status,401,'the previous session no longer authenticates');
-  assert.equal(stored.cookie.originalMaxAge,days*86400000,'file store retains the chosen TTL');
+  assertStoredLifetime(stored.cookie,days*86400000,before,Date.now());
   assert.equal(stored.password,undefined);
  }
  const response=await fetch(base+'/api/auth/logout',{method:'POST',headers:{cookie:cookies.at(-1)}});
