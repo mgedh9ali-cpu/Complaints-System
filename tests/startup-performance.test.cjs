@@ -13,7 +13,7 @@ test('report service startup leaves Excel and PDF engines unloaded until export'
  assert.deepEqual(JSON.parse(result),[]);
 });
 
-async function desktopBoot(failSplash=false){
+async function desktopBoot(failSplash=false,pathApi=path){
  const events=[],runtime={backupService:{}},app=new EventEmitter();
  Object.assign(app,{isPackaged:true,getAppPath:()=>'/project',getPath:()=>'/profile',whenReady:()=>Promise.resolve(),requestSingleInstanceLock:()=>true,quit:()=>events.push('quit')});
  class Window extends EventEmitter{
@@ -28,13 +28,13 @@ async function desktopBoot(failSplash=false){
  const electron={app,BrowserWindow:Window,Tray,nativeImage:{createEmpty:()=>image,createFromPath:()=>image},Menu:{buildFromTemplate:()=>({})},dialog:{showErrorBox:()=>events.push('error')},shell:{},Notification:{isSupported:()=>false}};
  const context={__dirname:'/project/desktop',console:{info(){}},process:{versions:{},env:{},argv:[],chdir(){}},setTimeout,queueMicrotask,require(name){
   if(name==='electron')return electron;
-  if(name==='node:path')return path;
+  if(name==='node:path')return pathApi;
   if(name==='node:net')return {Socket};
   if(name==='node:fs')return {existsSync:()=>true,mkdirSync(){},readFileSync:()=>''};
   if(name==='./navigation')return {isLocalAppUrl:()=>true,isPermittedExternalUrl:()=>false};
   if(name==='./recovery')return {readOptions:()=>({})};
   if(name==='./smoke-profile')return {configureSmokeProfile(){}};
-  if(name==='/project/server.js'){events.push('server');return runtime;}
+  if(name===pathApi.join('/project','server.js')){events.push('server');return runtime;}
   if(name==='./maintenance')return {installMaintenanceMenu(options){assert.equal(options.runtime,runtime);events.push('maintenance');}};
   throw new Error('Unexpected import '+name);
  }};
@@ -42,8 +42,10 @@ async function desktopBoot(failSplash=false){
  await new Promise(resolve=>setImmediate(resolve));return events;
 }
 test('desktop paints its local startup window before loading the server and attaches maintenance after readiness',async()=>{
- const events=await desktopBoot();
- assert.deepEqual(events,['splash','visible','server','application','maintenance']);
+ for(const pathApi of [path.posix,path.win32]){
+  const events=await desktopBoot(false,pathApi);
+  assert.deepEqual(events,['splash','visible','server','application','maintenance']);
+ }
 });
 test('missing startup page fails visibly without hanging or launching a hidden server',async()=>{
  assert.deepEqual(await desktopBoot(true),['splash','error','quit']);
