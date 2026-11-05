@@ -56,3 +56,40 @@ function nextStepPanelHtml(c){
     '.next-step-panel .small-copy{margin:0}';
   document.head.appendChild(s);
 })();
+
+/** Defer wrap until complaintDetailPage exists (loads after this file in the bundle). */
+function installDetailNextStepEnhancer(){
+  if(typeof complaintDetailPage !== 'function') return false;
+  if(complaintDetailPage.__nextStepWrapped) return true;
+  const orig = complaintDetailPage;
+  function wrapped(){
+    let html = orig.apply(this, arguments);
+    if(typeof html !== 'string') return html;
+    const id = currentId;
+    const c = (db.complaints || []).find(x => x && x.id === id);
+    if(!c) return html;
+    if(html.indexOf('complaint-next-step') < 0 && typeof nextStepPanelHtml === 'function'){
+      const panel = nextStepPanelHtml(c);
+      if(panel) html = html.replace('<div class="detail-grid">', panel + '<div class="detail-grid">');
+    }
+    if(html.indexOf('pill-inquiry') < 0 && html.indexOf('pill-complaint') < 0 && typeof pillRecordType === 'function'){
+      html = html.replace('<div class="complaint-page-badges">', '<div class="complaint-page-badges">' + pillRecordType(c));
+    }
+    if(html.indexOf('نوع السجل') < 0){
+      const label = (typeof isInquiryRecord === 'function' && isInquiryRecord(c)) ? 'استفسار' : 'شكوى';
+      html = html.replace(
+        '<div class="detail-field"><span>اسم المشتكي</span>',
+        '<div class="detail-field"><span>نوع السجل</span><span>' + label + '</span></div><div class="detail-field"><span>اسم المشتكي</span>'
+      );
+    }
+    return html;
+  }
+  wrapped.__nextStepWrapped = true;
+  complaintDetailPage = wrapped;
+  return true;
+}
+if(!installDetailNextStepEnhancer()){
+  document.addEventListener('DOMContentLoaded', function(){ installDetailNextStepEnhancer(); });
+  setTimeout(installDetailNextStepEnhancer, 0);
+  setTimeout(installDetailNextStepEnhancer, 50);
+}
