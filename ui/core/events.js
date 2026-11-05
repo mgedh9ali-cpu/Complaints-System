@@ -80,6 +80,16 @@ case 'new-complaint':newComplaint();break;
 case 'save-complaint':await withButtonLock(el,()=>createComplaint());break;
 case 'save-incomplete':await withButtonLock(el,()=>createComplaint(true));break;
 case 'detail':recentComplaintIds=[id,...recentComplaintIds.filter(x=>x!==id)].slice(0,8);detailModal(id);break;
+case 'detail-section':{
+ const section=document.getElementById(el.dataset.target||'');
+ const article=$('.complaint-page');
+ if(section&&article?.contains(section)){
+  $$('.complaint-page-tabs button').forEach(button=>button.setAttribute('aria-pressed',String(button===el)));
+  section.setAttribute('tabindex','-1');section.focus({preventScroll:true});
+  section.scrollIntoView({behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+ }
+ break;
+}
 case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailReturnPage);break;
 case 'change-status':await withButtonLock(el,()=>changeStatus(id));break;
 case 'assign-owner':await withButtonLock(el,()=>assignOwner(id));break;

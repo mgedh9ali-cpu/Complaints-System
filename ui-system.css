@@ -108,11 +108,11 @@ html[data-theme="dark"] .nav-link.active { color: var(--on-forest); }
   border-radius: var(--r-ctl); background: rgb(233 239 230 / .08); }
 .avatar { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%;
   background: var(--nav-active-bg); color: var(--forest-deep); font-weight: 700; }
-.main, .main-area { min-width: 0; display: flex; flex-direction: column; }
-.content { padding: var(--s5); max-inline-size: 1480px; width: 100%; margin-inline: auto; display: grid; gap: var(--s5); }
+.main, .main-area { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.content { padding: var(--s5); max-inline-size: none; width: 100%; margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: var(--s5); }
 
 /* الشريط العلوي: الزجاج هنا فقط */
-.topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--s4);
+.topbar { height: auto; position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--s4);
   padding: var(--s3) var(--s5); min-height: 64px; background: var(--surface); border-bottom: 1px solid var(--line); }
 @supports (backdrop-filter: blur(1px)) {
   @media (prefers-reduced-transparency: no-preference) {
@@ -190,7 +190,7 @@ tbody tr:focus-within { background: color-mix(in srgb, var(--forest) 9%, var(--s
   border: 1px dashed var(--line-strong); border-radius: var(--r-panel); }
 .callout, .risk-note { padding: var(--s3) var(--s4); border-radius: var(--r-ctl); border-inline-start: 4px solid var(--sla-warn);
   background: var(--st-wait-bg); color: var(--st-wait-fg); }
-.progress, .daily-track { height: 8px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+.progress { height: 8px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
 .daily-fill, .progress > * { height: 100%; background: var(--forest); border-radius: inherit; }
 
 /* ───────── 7. الحالات والأولويات و SLA ───────── */
@@ -304,10 +304,22 @@ body::before, body::after, .app-shell::before, .triage-list::before, .panel::bef
 .account-menu-panel { position: absolute; inset-inline-end: 0; top: 100%; z-index: 30; width: 240px; display: grid; gap: var(--s2); }
 .workspace-shortcuts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); padding: var(--s3) var(--s5); background: var(--surface); border-bottom: 1px solid var(--line); }
 .workspace-shortcuts button, .ui-tool-button, .action-cell button { min-height: 44px; padding: var(--s2) var(--s3); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink); cursor: pointer; }
-.triage-list { min-width: 0; padding: 0; background: transparent; border: 0; box-shadow: none; border-radius: 0; }
+.triage-list { container-type: normal; width: 100%; min-width: 0; padding: 0; background: transparent; border: 0; box-shadow: none; border-radius: 0; }
 .triage-list > * + * { margin-top: var(--s4); }
-.triage-split.is-open { grid-template-columns: minmax(0, 1fr) minmax(320px, 390px); gap: var(--s4); }
-.triage-split .complaint-page { width: auto; min-width: 0; padding: var(--s4); top: 80px; background: var(--surface); color: var(--ink); border-radius: var(--r-panel); }
+/* The case file owns the workspace; do not squeeze it beside the registry. */
+.detail-workspace { min-width: 0; width: 100%; }
+.detail-workspace .complaint-page { width: 100%; max-width: none; min-width: 0; padding: var(--s5); margin: 0; position: static; max-height: none; overflow: visible; background: var(--surface); color: var(--ink); border-radius: var(--r-panel); }
+.detail-workspace .complaint-page-content { min-width: 0; border: 0; padding: 0; background: transparent; }
+.detail-workspace .detail-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; }
+.detail-workspace .detail-grid > div { min-width: 0; display: grid; gap: var(--s4); align-content: start; }
+.detail-workspace .detail-top { display: flex; justify-content: flex-end; }
+.detail-workspace .detail-top > div:first-child { display: none; }
+.detail-workspace .detail-section { min-width: 0; margin: 0; scroll-margin-block-start: 110px; }
+.detail-workspace .complaint-page-heading { min-width: 0; }
+.detail-workspace .complaint-page-heading h1 { color: var(--ink); overflow-wrap: break-word; }
+.detail-workspace .detail-field { display: grid; grid-template-columns: minmax(100px, .7fr) minmax(0, 1fr); align-items: start; gap: var(--s3); }
+.detail-workspace .detail-field > span { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.detail-workspace .detail-section h3 { color: var(--ink); }
 .complaint-page > * + * { margin-top: var(--s3); }
 .panel, .stat-card, .stat-item, .mini-card, .dashboard-stats { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
 .row-sub { display: block; }
@@ -347,3 +359,58 @@ html[data-theme="dark"] .nav-link[aria-current="page"] { color: var(--on-forest)
 @media (max-width: 960px) { .sidebar { top: 0; width: min(300px, 86vw); } .sidebar.open { transform: none; } }
 @media (max-width: 600px) { .content { padding: var(--s3); } .form-grid, .detail-grid { grid-template-columns: minmax(0, 1fr); } .panel-header, .panel-body, .modal-body { padding: var(--s3); } .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-item { padding: var(--s3); } .workspace-shortcuts { padding: var(--s3); } .top-user > #topUserName { display: none; } }
 @media print { .workspace-shortcuts, .bulk-bar, .nav-backdrop, .login-overlay { display: none !important; } .triage-split.is-open { display: block; } .triage-split:has(.complaint-page) .triage-list { display: none; } .triage-split .complaint-page { max-height: none; position: static; } .detail-section[hidden] { display: block !important; } }
+
+/* Intrinsic sizing: fill the available work area at any browser zoom. */
+#root { width: 100%; max-width: none; margin: 0; padding: 0; text-align: start; }
+.app-shell { width: 100%; max-width: none; align-items: start; }
+.app-shell > :is(.main, .main-area) { min-height: 100dvh; width: 100%; max-width: none; min-width: 0; margin: 0; }
+.content { min-width: 0; max-width: none; justify-items: stretch; }
+.content > *, .triage-list > *, .panel-body > * { min-width: 0; }
+.topbar { flex-wrap: wrap; flex-shrink: 0; }
+.topbar .page-heading { flex: 1 1 220px; margin: 0; }
+.top-actions { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+.top-user { min-width: 0; max-width: 100%; }
+.workspace-shortcuts { margin: 0; border-radius: 0; }
+.workspace-shortcuts .btn { flex: 0 0 auto; }
+/* Icon dimensions must not depend on the optional ui-svg-icon class. */
+.app-shell svg, .account-menu svg { display: block; width: 20px; height: 20px; inline-size: 20px; block-size: 20px; max-width: 100%; flex: 0 0 auto; }
+.app-shell .brand-mark svg { width: 28px; height: 28px; inline-size: 28px; block-size: 28px; }
+.account-menu:not([open]) > .account-menu-panel { display: none; }
+.account-menu > summary { list-style: none; }
+.account-menu > summary::-webkit-details-marker { display: none; }
+.account-menu-panel { max-width: calc(100vw - 32px); max-height: min(70dvh, 560px); overflow-y: auto; }
+.account-menu-panel > :is(button, .btn) { width: 100%; white-space: normal; text-align: start; justify-content: flex-start; }
+/* A single timeline rail with normal flowing text; no overlapping legacy rail. */
+.timeline { position: relative; width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); padding: 0; padding-inline-start: var(--s5); }
+.timeline::before { display: none; }
+.timeline-item { display: block; width: 100%; min-width: 0; padding: 0 0 var(--s3); }
+.timeline-item::before { right: auto; left: auto; inset-inline-start: calc(-1 * var(--s5) - 6px); }
+.timeline-item :is(strong, p, small) { position: static; display: block; width: auto; max-width: none; margin: 0; white-space: normal; word-break: normal; overflow-wrap: anywhere; line-height: 1.8; }
+.timeline-item strong { font-size: var(--t-sm); }
+.timeline-item p { font-size: var(--t-sm); color: var(--ink); margin-block: var(--s1); }
+.timeline-item small { font-size: var(--t-xs); color: var(--ink-2); }
+/* Daily histogram tracks are independent from the thin progress component. */
+.daily-chart { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); align-items: end; gap: clamp(3px, 1vw, 14px); min-height: 200px; }
+.daily-bar-item { min-width: 0; height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.daily-track { height: 140px; width: min(100%, 38px); display: flex; align-items: flex-end; border-radius: 6px 6px 0 0; background: var(--line); overflow: hidden; }
+.daily-fill { display: block; flex: 0 0 100%; background: var(--forest); border-radius: inherit; }
+.daily-label, .daily-count { font-size: var(--t-xs); line-height: 1.5; color: var(--ink-2); }
+.daily-label { direction: ltr; white-space: nowrap; }
+.compliance-ring { flex: none; width: 112px; height: 112px; background: conic-gradient(var(--forest) calc(var(--value) * 1%), var(--line) 0); }
+.compliance-ring strong { background: var(--surface); color: var(--ink); }
+.report-rank-item .progress > span { background: var(--forest); }
+@media (max-width: 1100px) { .detail-workspace .detail-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) {
+ .detail-workspace .complaint-page { padding: var(--s3); }
+ .detail-workspace .detail-field { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
+ .top-actions { margin-inline-start: 0; width: 100%; gap: var(--s2); }
+ .top-actions > .btn { flex: 1 1 auto; }
+ .account-menu-panel { position: fixed; inset-inline: var(--s4); top: 88px; width: auto; }
+ .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .daily-label, .daily-count { font-size: 10px; }
+}
+@media print {
+ .detail-workspace .complaint-page { padding: 0; box-shadow: none; border: 0; }
+ .detail-workspace .detail-grid { display: block; }
+ .detail-workspace .detail-section { break-inside: avoid; margin-block-end: 12px; }
+}

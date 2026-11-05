@@ -99,7 +99,8 @@ test('UI loads server state then opens complaint as an independent accessible wo
  ui.click('detail','SY-2026-10001');
  const page=ui.node('#content').innerHTML;
  assert.match(page,/class="complaint-page/);
- assert.match(page,/triage-split is-open/);
+ assert.match(page,/detail-workspace/);
+ assert.doesNotMatch(page,/triage-split|id="complaintSearch"/);
  assert.match(page,/data-complaint-id="SY-2026-10001"/);
  assert.match(page,/id="complaint-summary"/);
  assert.match(page,/id="complaint-actions"/);
