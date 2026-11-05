@@ -70,10 +70,10 @@ test('real build file matcher admits sources and excludes private runtime files'
 test('Excel list, empty and detail workbooks roundtrip after dependency replacement',async()=>{
  const Excel=require('exceljs'),{buildComplaintsWorkbook,buildSingleComplaintWorkbook}=require('../lib/excel-export');
  const c={id:'SY-2026-000001',summary:'=SUM(1,2)',details:'تفاصيل كاملة',name:'اختبار',timeline:[{event:'إنشاء',by:'موظف',at:'2026-11-01T00:00:00Z',detail:'تفصيل'}]};
- for(const [buffer,count] of [[await buildComplaintsWorkbook([c]),1],[await buildComplaintsWorkbook([]),1],[await buildSingleComplaintWorkbook(c),2]]){
+ for(const [buffer,count] of [[await buildComplaintsWorkbook([c]),3],[await buildComplaintsWorkbook([]),3],[await buildSingleComplaintWorkbook(c),2]]){
   const wb=new Excel.Workbook();await wb.xlsx.load(buffer);assert.equal(wb.worksheets.length,count);assert.equal(wb.worksheets[0].views[0].rightToLeft,true);
  }
- const wb=new Excel.Workbook();await wb.xlsx.load(await buildComplaintsWorkbook([c]));assert.equal(wb.worksheets[0].getCell('I4').value,'=SUM(1,2)');assert.equal(wb.worksheets[0].getCell('I4').type,Excel.ValueType.String);
+ const wb=new Excel.Workbook();await wb.xlsx.load(await buildComplaintsWorkbook([c]));assert.equal(wb.getWorksheet('تفاصيل الشكاوى').getCell('I4').value,'=SUM(1,2)');assert.equal(wb.getWorksheet('تفاصيل الشكاوى').getCell('I4').type,Excel.ValueType.String);
 });
 
 

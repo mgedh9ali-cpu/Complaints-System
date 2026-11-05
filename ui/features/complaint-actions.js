@@ -68,11 +68,18 @@ async function saveDetailChange(id,change,success){
 async function assignOwner(id){
  const owner=$('#assignOwner')?.value;
  if(!owner)return toast('حدد المسؤول أولاً.','warn');
- await saveDetailChange(id,c=>{
-  if(c.owner===owner)return;
-  c.owner=owner;
-  logEvent(c,'تغيير المسؤول','تم إسناد السجل إلى '+owner+'.');
- },'تم تأكيد الإسناد في قاعدة البيانات.');
+ if(!uiCan('complaints.assign'))return toast('لا تملك صلاحية الإسناد.','error');
+ try{
+  const pending=Boolean(persistTimer);
+  if(persistTimer){clearTimeout(persistTimer);persistTimer=null;}
+  await persistQueue;
+  if(pending)await persistUiNow();
+  await api('/api/complaints/'+encodeURIComponent(id),{
+   method:'PATCH',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify({owner})
+  });
+  await loadDb();detailModal(id);toast('تم تأكيد الإسناد في قاعدة البيانات.');
+ }catch(error){toast('تعذر حفظ الإسناد: '+error.message,'error');}
+
 }
 async function changePriority(id){
  const priority=$('#detailPriority')?.value;

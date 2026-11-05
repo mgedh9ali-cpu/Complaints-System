@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
 test('Thmanyah Sans is the first Arabic UI font and uses only local installed faces', () => {
-  const faces = read('thmanyah-fonts.css');
+  const faces = read('thmanyah-fonts.css').replace(/\/\*[\s\S]*?\*\//g, '');
   const ui = read('ui-enhancements.css');
   const styles = read('styles.css');
   const html = read('index.html');

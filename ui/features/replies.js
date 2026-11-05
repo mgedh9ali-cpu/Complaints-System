@@ -44,6 +44,7 @@ async function replyAction(id,action){
  if(action==='reply-review'&&status!=='draft')return toast('المسودة غير جاهزة للمراجعة.','error');
  if(action==='reply-approve'){
   if(!uiCan('replies.approve'))return toast('الاعتماد يتطلب صلاحية مستقلة.','error');
+  if(c.reply.authorId===authenticatedUser.id||c.reply.editedById===authenticatedUser.id||c.reply.author===authenticatedUser.username)return toast('لا يمكن للكاتب أو آخر معدّل اعتماد الرد.','error');
   if(!['draft','review','approval'].includes(status))return toast('لا يمكن اعتماد الرد في مرحلته الحالية.','error');
  }
  if(action==='reply-sent'&&status!=='approved')return toast('يجب اعتماد الرد قبل توثيق الإرسال.','error');

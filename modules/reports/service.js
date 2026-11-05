@@ -90,12 +90,15 @@ function createReportsService({ complaintsService }) {
       const cat = c.category || '—';
       byCategory[cat] = (byCategory[cat] || 0) + 1;
     }
+    const slaApproved = complaintsService.readState().state.settings?.slaApproved === true;
+    const now = Date.now();
+    const late = slaApproved ? complaints.filter(c => !['draft', 'closed', 'cancelled'].includes(c.status) && Number.isFinite(Date.parse(c.due)) && Date.parse(c.due) < now).length : 0;
     return {
-      reportNumber: 'SUM-' + new Date().toISOString().slice(0, 10),
+      reportNumber: 'RPT-' + dayKey(new Date()) + '-' + crypto.randomUUID(),
       generatedAt: new Date().toISOString(),
       generatedBy: generatedBy || 'system',
       filters,
-      totals: { all: complaints.length, byStatus, byProvince, byCategory },
+      totals: { all: complaints.length, byStatus, byProvince, byCategory, late },
       complaints: complaints.map((c) => ({
         id: c.id,
         name: c.name,
