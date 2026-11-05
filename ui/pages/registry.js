@@ -40,6 +40,7 @@ function filters(){
   '</select>'+
   '<input class="field" id="dateFrom" type="date" aria-label="من تاريخ" value="'+esc(dateFrom||'')+'">'+
   '<input class="field" id="dateTo" type="date" aria-label="إلى تاريخ" value="'+esc(dateTo||'')+'">'+
+  '<button class="btn btn-primary" type="button" data-action="global-search">بحث عام</button>'+
   '<button class="btn" data-action="clear-filters">مسح المرشحات</button></div>';
 }
 
@@ -66,7 +67,7 @@ function complaintsPage(){
   const totalPages=Math.max(1,Math.ceil(rows.length/50));
   registryPage=Math.min(Math.max(1,registryPage),totalPages);
   const visibleRows=rows.slice((registryPage-1)*50,registryPage*50);
-  return heading('سجل الشكاوى والاستفسارات','ابحث بالعربية مع تجاهل التشكيل. صفّ حسب نوع التاريخ والفترة دون تكرار الشكاوى.',(!uiCan('complaints.create')?'':btn('＋ تسجيل شكوى جديدة','new-complaint','btn-primary'))+(selectedIds.size?btn('إجراءات جماعية','bulk-open'):''))+
+  return heading('سجل الشكاوى والاستفسارات','ابحث بالعربية مع تجاهل التشكيل. زر «بحث عام» لأي رقم أو اسم أو هاتف.',(!uiCan('complaints.create')?'':btn('＋ تسجيل شكوى جديدة','new-complaint','btn-primary'))+(selectedIds.size?btn('إجراءات جماعية','bulk-open'):''))+
   '<div class="filters-row" style="margin-bottom:13px"><button class="filter-chip '+(quickView==='all'?'active':'')+'" data-action="quick-filter" data-value="all">كل السجلات</button><button class="filter-chip '+(quickView==='mine'?'active':'')+'" data-action="my-complaints">شكاواي</button><button class="filter-chip '+(quickView==='urgent-no-reply'?'active':'')+'" data-action="urgent-no-reply">عاجلة بلا رد</button><button class="filter-chip" data-goto="replies">تنتظر الاعتماد</button><button class="filter-chip '+(quickView==='late'?'active':'')+'" data-action="filter-late">متجاوزة المهلة</button></div>'+
   '<div class="footer-actions"><button class="btn btn-sm" data-action="quick-filter" data-value="missing">بيانات غير مكتملة</button><button class="btn btn-sm" data-action="quick-filter" data-value="archived">الأرشيف</button></div><section class="panel table-panel">'+filters()+'<div id="bulkMount">'+(selectedIds.size?'<div class="bulk-bar"><span>تم تحديد '+selectedIds.size+' سجلًا</span><div class="footer-actions"><button class="btn btn-sm" data-action="bulk-assign">إسناد المسؤول</button><button class="btn btn-sm" data-action="bulk-priority">تغيير الأولوية</button><button class="btn btn-sm" data-action="export-selected">تصدير المحدد</button><button class="btn btn-sm btn-quiet" data-action="clear-selection">إلغاء التحديد</button></div></div>':'')+'</div>'+complaintTable(visibleRows,{select:true,emptyMessage:db.complaints.length?'لا توجد شكاوى تطابق المرشحات الحالية. امسح المرشحات لعرض السجل.':'لا توجد شكاوى مسجلة بعد. يمكنك تسجيل شكوى جديدة.'})+'<div class="table-footer"><span>صفحة '+registryPage+' من '+totalPages+' · '+rows.length+' سجلًا</span><div><button class="btn btn-sm" data-action="registry-prev" '+(registryPage<=1?'disabled':'')+'>السابق</button> <button class="btn btn-sm" data-action="registry-next" '+(registryPage>=totalPages?'disabled':'')+'>التالي</button></div></div></section>';
 }
