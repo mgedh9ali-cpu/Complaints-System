@@ -313,6 +313,7 @@
     function closeMenu(restoreFocus = false) {
       if (!sidebar.classList.contains('open')) return;
       sidebar.classList.remove('open');
+      backdrop.hidden = true;
       toggle.setAttribute('aria-expanded', 'false');
       if (restoreFocus) toggle.focus();
     }

@@ -29,11 +29,11 @@ test('registration control is role-bound and not shown before login',()=>{
  assert.match(app, /aria-current/);
 });
 test('new visual system is served locally and respects right-to-left and reduced motion',()=>{
- const css=read('redesign.css'),server=read('server.js'),sw=read('sw.js'),html=read('index.html');
+ const css=read('ui-system.css'),server=read('server.js'),sw=read('sw.js'),html=read('index.html');
  assert.match(html, /lang="ar" dir="rtl"/);
- assert.match(html, /href="redesign\.css"/);
- assert.match(server, /'\/redesign\.css': 'redesign\.css'/);
- assert.match(sw, /'\/redesign\.css'/);
+ assert.match(html, /href="ui-system\.css"/);
+ assert.match(server, /'\/ui-system\.css': 'ui-system\.css'/);
+ assert.match(sw, /'\/ui-system\.css'/);
  assert.match(css,/prefers-reduced-motion/);
  assert.match(css,/html\[data-theme="dark"\]/);
  assert.match(css,/\.nav-group-label/);

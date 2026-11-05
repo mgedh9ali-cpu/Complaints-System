@@ -204,6 +204,8 @@ app.get('/app.bundle.js',(req,res)=>{
 const PUBLIC_FILES = {
   '/': 'index.html',
   '/index.html': 'index.html',
+  '/ui-system.css': 'ui-system.css',
+  '/ui-compat.css': 'ui-compat.css',
   '/styles.css': 'styles.css',
   '/ui-enhancements.css': 'ui-enhancements.css',
   '/redesign.css': 'redesign.css',

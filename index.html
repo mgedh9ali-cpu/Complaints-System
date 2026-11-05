@@ -9,14 +9,11 @@
     <title>شعبة الاستفسارات والشكاوى | تشغيل محلي</title>
     <link rel="stylesheet" href="thmanyah-fonts.css" />
     <link rel="stylesheet" href="fallback-font.css" />
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="ui-enhancements.css" />
-    <link rel="stylesheet" href="redesign.css" />
-    <link rel="stylesheet" href="palette.css" />
-    <link rel="stylesheet" href="ui-layout.css" />
-    <link rel="stylesheet" href="ui-prod.css" />
+    <link rel="stylesheet" href="ui-compat.css" />
+    <link rel="stylesheet" href="ui-system.css" />
   </head>
   <body>
+    <a class="skip-link" href="#content">الانتقال إلى المحتوى</a>
     <div class="app-shell" id="appShell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
@@ -98,10 +95,10 @@
     </div>
     <div id="modalRoot"></div>
     <div id="toastRegion" class="toast-region" aria-live="polite"></div>
-    <script src="app.js"></script>
-    <script src="ui-enhancements.js"></script>
-    <script src="attachments-ui-bridge.js"></script>
-    <script src="sw-register.js"></script>
+    <script defer src="app.js"></script>
+    <script defer src="ui-enhancements.js"></script>
+    <script defer src="attachments-ui-bridge.js"></script>
+    <script defer src="sw-register.js"></script>
 
 <div id="loginOverlay" class="login-overlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <div class="login-card">
@@ -127,6 +124,9 @@
           <input class="field" id="loginPassword" name="password" type="password" required autocomplete="current-password" />
         </div>
       </div>
+      <label class="login-remember"><input type="checkbox" id="loginRemember" name="rememberMe" aria-describedby="rememberHelp"> البقاء مسجّلًا على هذا الجهاز</label>
+      <small id="rememberHelp">لمدة تصل إلى 30 يومًا. استخدمه على جهاز موثوق فقط.</small>
+      <p id="loginError" class="login-error" role="alert" aria-live="assertive" hidden></p>
       <button type="submit" class="btn btn-primary login-submit">دخول</button>
     </form>
   </div>
