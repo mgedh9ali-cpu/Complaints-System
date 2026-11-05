@@ -7,14 +7,14 @@ function settingsPageBase(){
     const rows=items.map(item=>{const value=type==='priorities'?item.value:item,label=type==='priorities'?item.label:item,description=descriptionKey?(db.settings[descriptionKey][value]||'لا يوجد وصف'):'قيمة متاحة لنموذج الشكوى';return '<div class="setting-row"><div><strong>'+esc(label)+'</strong><small>'+esc(description)+'</small></div><div class="footer-actions"><button class="btn btn-sm" data-action="edit-setting" data-type="'+type+'" data-value="'+esc(value)+'">تعديل</button><button class="btn btn-sm btn-danger" data-action="delete-setting" data-type="'+type+'" data-value="'+esc(value)+'">حذف</button></div></div>';}).join('');
     return '<div class="settings-list">'+(rows||'<p class="small-copy">لا توجد عناصر. أضف قيمة جديدة أو استعد القائمة الافتراضية.</p>')+'</div><button class="btn" style="margin-top:12px" data-action="add-setting" data-type="'+type+'">＋ إضافة '+(labels[type]||type)+'</button>';
   };
+  const protectionSection = (typeof renderDataProtectionCenter === 'function')
+    ? renderDataProtectionCenter(typeof _protectionStatus !== 'undefined' ? _protectionStatus : null)
+    : '<section class="panel backup-panel"><div class="panel-header"><div><h2>النسخ الاحتياطي والتحديث</h2><p>احفظ بياناتك بوضوح قبل أي تحديث أو نقل</p></div></div><div class="panel-body"><div class="footer-actions"><button class="btn btn-primary btn-backup" data-action="database-backup">نسخة احتياطية كاملة (مع المرفقات)</button><button class="btn" data-action="backup-database-only">نسخة قاعدة البيانات فقط</button><button class="btn" data-action="show-update-help">كيفية تحديث البرنامج</button></div><p class="small-copy">النسخة الكاملة موصى بها قبل التحديث.</p></div></section>';
+  if (typeof loadProtectionStatus === 'function' && (!_protectionStatus || Date.now() - (_protectionStatusLoadedAt||0) > 60000)) {
+    loadProtectionStatus(false).then(()=>{ if (typeof page !== 'undefined' && page === 'settings' && typeof render === 'function') render(); }).catch(()=>{});
+  }
   return heading('القوائم والإعدادات','إدارة القيم ومهل المتابعة وإعدادات التشغيل والنسخ الاحتياطي.',btn('إضافة تصنيف','add-category'))+
-  '<section class="panel backup-panel"><div class="panel-header"><div><h2>النسخ الاحتياطي والتحديث</h2><p>احفظ بياناتك بوضوح قبل أي تحديث أو نقل</p></div></div><div class="panel-body">'+
-  '<div class="footer-actions">'+
-  '<button class="btn btn-primary btn-backup" data-action="database-backup">نسخة احتياطية كاملة (مع المرفقات)</button>'+
-  '<button class="btn" data-action="backup-database-only">نسخة قاعدة البيانات فقط</button>'+
-  '<button class="btn" data-action="show-update-help">كيفية تحديث البرنامج</button>'+
-  '</div>'+
-  '<p class="small-copy">النسخة الكاملة موصى بها قبل التحديث. التحديث يتم عبر ملف EXE معتمد فقط — لا تحديث تلقائي من الإنترنت.</p></div></section>'+
+  protectionSection+
   '<section class="panel"><div class="panel-body"><h2>العرض والأداء</h2><button class="btn" data-action="verify-document-dialog">التحقق من مستند مطبوع</button><label><input type="checkbox" id="reduceTransparency" '+(glassPreference()?'checked':'')+'> تقليل الشفافية</label><p class="small-copy">يلغي التمويه ويستخدم أسطحاً مصمتة. يُحفظ لهذا الجهاز.</p></div></section>'+
   '<section class="panel" style="margin-bottom:16px"><div class="panel-header"><div><h2>المزامنة اليدوية بين النسختين</h2><p>نقل يدوي فقط، دون اتصال بين الجهازين</p></div></div><div class="panel-body"><p>صدّر ملفًا مشفرًا بعبارة مرور وانقله يدويًا إلى الجهاز الآخر. الاستيراد يستبدل بيانات النسخة الحالية؛ احتفظ بنسخة احتياطية أولًا.</p><div class="footer-actions"><button class="btn btn-primary" data-action="sync-export">تصدير ملف المزامنة</button><button class="btn" data-action="sync-import">استيراد ملف مزامنة</button><input id="syncImportFile" type="file" accept="application/json,.json" hidden></div><p class="small-copy">ينقل الملف بيانات العمل يدويًا. يتضمن المرفقات ضمن حد حجم الحزمة.</p></div></section>'+
   '<div class="risk-note">المهل والتصعيد التلقائي معطلان حتى تعتمد الجهة المدة الرسمية.</div>'+

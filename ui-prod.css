@@ -164,3 +164,58 @@
     width: 100%;
   }
 }
+
+/* مركز حماية البيانات */
+.data-protection-center .dp-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.dp-status-card {
+  background: #f7f8f3;
+  border: 1px solid #c7cbb8;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dp-status-card .dp-status-label {
+  font-size: 11px;
+  color: #3d4337;
+  opacity: 0.85;
+}
+.dp-status-card .dp-status-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f1f17;
+}
+.dp-status-card small {
+  font-size: 11px;
+  color: #3d4337;
+}
+.dp-status-ok {
+  border-color: #3e5a3f;
+  background: linear-gradient(180deg, #eef3ea, #f7f8f3);
+}
+.dp-status-ok .dp-status-value { color: #1e3a2e; }
+.dp-status-attention {
+  border-color: #b89a3e;
+  background: linear-gradient(180deg, #fbf6e8, #f7f8f3);
+}
+.dp-status-attention .dp-status-value { color: #7a6a3a; }
+.dp-status-failed {
+  border-color: #a04848;
+  background: linear-gradient(180deg, #f8ecec, #f7f8f3);
+}
+.dp-status-failed .dp-status-value { color: #7a3030; }
+.dp-status-running .dp-status-value { color: #1e3a2e; }
+.dp-error-note { margin-bottom: 12px; }
+.dp-actions { flex-wrap: wrap; gap: 8px; }
+.restore-steps code {
+  font-size: 12px;
+  background: #e8ebe0;
+  padding: 1px 6px;
+  border-radius: 4px;
+}

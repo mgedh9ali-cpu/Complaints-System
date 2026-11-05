@@ -49,6 +49,8 @@ case 'audit-verify':await withButtonLock(el,()=>runAuditIntegrityCheck());break;
 case 'database-backup':await withButtonLock(el,()=>runDatabaseBackup());break;
 case 'backup-database-only':await withButtonLock(el,()=>runDatabaseOnlyBackup());break;
 case 'show-update-help':showUpdateHelp();break;
+case 'show-restore-guide':showRestoreGuide();break;
+case 'refresh-protection-status':await withButtonLock(el,()=>refreshProtectionStatusAndRender());break;
 case 'logout':await logout();break;
 case 'read-notice':{
   const n=(db.notifications||[]).find(x=>String(x.id)===String(id));
