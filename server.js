@@ -184,7 +184,7 @@ app.use(
 );
 app.use('/api', createReportsRouter({ reportsService, middleware, audit, rolesService }));
 app.use('/api', createSettingsRouter({ settingsService, middleware, audit, logger, rolesService }));
-app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesService }));
+app.use('/api', createBackupRouter({ backupService, middleware, audit, rolesService, backupScheduler }));
 app.use('/api', createAuditRouter({ auditService, middleware, rolesService, complaintsService }));
 app.use('/api', createSyncRouter({ syncService, middleware, auditService, rolesService, backupService, complaintsService }));
 
