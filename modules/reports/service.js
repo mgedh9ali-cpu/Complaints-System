@@ -1,11 +1,12 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const {complaintDocument}=require('../../lib/complaint-document');
 const {dayBoundary,dayKey}=require('../../lib/work-time');
 
 const CSV_HEADERS = [
   'id', 'name', 'phone', 'province', 'entity', 'category',
-  'priority', 'status', 'summary', 'created', 'updated', 'due', 'owner'
+  'priority', 'status', 'summary', 'created', 'updated', 'due', 'owner', 'firstContactDate'
 ];
 
 const STATUS_LABELS = Object.freeze({
@@ -158,13 +159,7 @@ function createReportsService({ complaintsService }) {
   function integrityFor(complaint) {
     return crypto
       .createHash('sha256')
-      .update(JSON.stringify({
-        id: complaint.id,
-        summary: complaint.summary,
-        status: complaint.status,
-        created: complaint.created,
-        updated: complaint.updated
-      }))
+      .update(JSON.stringify(complaint))
       .digest('hex');
   }
 
@@ -182,23 +177,12 @@ function createReportsService({ complaintsService }) {
           'المحافظة: ' + (complaint.province || '—'),
           'التصنيف: ' + (complaint.category || '—'),
           'الموضوع: ' + (complaint.summary || ''),
+          'تاريخ أول تواصل: ' + (complaint.firstContactDate || 'غير مسجل'),
           'تاريخ التسجيل: ' + (complaint.created || ''),
           'الحالة: ' + (STATUS_LABELS[complaint.status] || complaint.status || ''),
           'مُصدر بواسطة: ' + (generatedBy || 'system')
         ]
-      : [
-          'تقرير شكوى فردية',
-          'الرقم: ' + (complaint.id || ''),
-          'الاسم: ' + (complaint.name || ''),
-          'الحالة: ' + (STATUS_LABELS[complaint.status] || complaint.status || ''),
-          'المحافظة: ' + (complaint.province || ''),
-          'التصنيف: ' + (complaint.category || ''),
-          'الملخص: ' + (complaint.summary || ''),
-          'التفاصيل: ' + (complaint.details || ''),
-          'تاريخ الإنشاء: ' + (complaint.created || ''),
-          'المسؤول: ' + (complaint.owner || ''),
-          'مُصدر بواسطة: ' + (generatedBy || 'system')
-        ];
+      : complaintDocument(complaint, generatedBy).lines;
     const { buildSimplePdf } = require('../../lib/simple-pdf');
     const buffer = await buildSimplePdf({
       title: kind === 'receipt' ? 'إيصال استلام · ' + (complaint.id || '') : 'شكوى ' + (complaint.id || ''),
@@ -212,7 +196,17 @@ function createReportsService({ complaintsService }) {
     };
   }
 
+  async function buildSingleDocx(id, generatedBy) {
+    const complaint = findComplaint(id);
+    if (!complaint) return null;
+    const integrityHash = integrityFor(complaint);
+    const { buildWordDocument } = require('../../lib/word-export');
+    const buffer = await buildWordDocument({ ...complaintDocument(complaint, generatedBy), integrityHash });
+    return { buffer, filename: 'شكوى-' + id + '.docx', integrityHash };
+  }
+
   return {
+    buildSingleDocx,
     listComplaints,
     findComplaint,
     applyFilters,

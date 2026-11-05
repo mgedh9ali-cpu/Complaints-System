@@ -569,3 +569,8 @@ html{scroll-behavior:auto}
 
 .sidebar .side-user .avatar{color:var(--nav-active-fg)}
 .modal-close{display:grid;place-items:center;border:0;background:transparent;color:var(--ink);width:36px;height:36px;cursor:pointer;font-size:24px}
+
+/* Individual complaint actions remain visible after intake and in the registry. */
+.complaint-record-actions,.action-cell{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.action-cell{min-width:180px;max-width:280px}.action-cell .btn{min-height:34px;font-size:var(--t-xs);padding:var(--s1) var(--s2)}
+@media print{.complaint-record-actions,.action-cell{display:none}}

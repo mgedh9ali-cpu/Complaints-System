@@ -4,6 +4,7 @@ let dateFrom='';
 let dateTo='';
 
 function complaintDateValue(c, type){
+  if(type==='first_contact') return c.firstContactDate || '';
   if(type==='updated') return c.updated || c.created || '';
   if(type==='due') return c.due || '';
   if(type==='closed') return c.closedAt || c.closed || '';
@@ -35,7 +36,7 @@ function filters(){
   '<select class="select-field" id="categoryFilter" aria-label="تصفية حسب التصنيف"><option value="all">كل التصنيفات</option>'+cats.map(c=>'<option value="'+esc(c)+'" '+(categoryFilter===c?'selected':'')+'>'+esc(c)+'</option>').join('')+'</select>'+
   '<select class="select-field" id="natureFilter" aria-label="تصفية حسب طبيعة الشكاوي"><option value="all">كل الطبائع</option>'+natures.map(n=>'<option value="'+esc(n)+'" '+(natureFilter===n?'selected':'')+'>'+esc(n)+'</option>').join('')+'</select>'+
   '<select class="select-field" id="dateTypeFilter" aria-label="نوع التاريخ">'+
-  [['created','تاريخ التسجيل'],['updated','آخر تحديث'],['due','موعد المتابعة'],['referral_sent','إرسال إحالة'],['closed','تاريخ الإغلاق']].map(([v,l])=>'<option value="'+v+'" '+(dateTypeFilter===v?'selected':'')+'>'+l+'</option>').join('')+
+  [['first_contact','تاريخ أول تواصل'],['created','تاريخ التسجيل'],['updated','آخر تحديث'],['due','موعد المتابعة'],['referral_sent','إرسال إحالة'],['closed','تاريخ الإغلاق']].map(([v,l])=>'<option value="'+v+'" '+(dateTypeFilter===v?'selected':'')+'>'+l+'</option>').join('')+
   '</select>'+
   '<input class="field" id="dateFrom" type="date" aria-label="من تاريخ" value="'+esc(dateFrom||'')+'">'+
   '<input class="field" id="dateTo" type="date" aria-label="إلى تاريخ" value="'+esc(dateTo||'')+'">'+

@@ -132,3 +132,31 @@ function printComplaintCover(id){
   w.document.close();
   toast('تم فتح غلاف الشكوى للطباعة.');
 }
+
+function complaintRecordActions(c,withView=true){
+ const action=(label,name,extra='')=>'<button type="button" class="btn btn-sm '+extra+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
+ let html=withView?action('عرض','detail'):'';
+ if(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status))html+=action('تعديل','edit-complaint');
+ if(uiCan('approvals.request')&&!c.archivedAt)html+=action('حذف','request-complaint-delete','btn-danger');
+ if(uiCan('export.xlsx')&&!c.archivedAt)html+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
+ return html;
+}
+function requestComplaintDeletion(id){
+ const c=db.complaints.find(item=>item.id===id);
+ if(!c||c.archivedAt||!uiCan('approvals.request'))return toast('لا تملك صلاحية طلب حذف هذه الشكوى.','error');
+ approvalRequestModal('complaint_archive',id);
+ const description=$('#modalDescription');if(description)description.textContent='حذف الشكوى من السجل النشط يتطلب موافقة مدير آخر، مع الاحتفاظ بالأدلة في الأرشيف.';
+}
+async function exportComplaintDocument(id,format){
+ if(!uiCan('export.xlsx'))return toast('لا تملك صلاحية تصدير هذه الشكوى.','error');
+ if(!['pdf','docx'].includes(format))return;
+ try{
+  await flushUiBeforeAction();
+  const response=await fetch('/api/export/'+format+'/'+encodeURIComponent(id),{credentials:'same-origin'});
+  if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.error||'تعذر إنشاء الملف.');}
+  const blob=await response.blob();if(!blob.size)throw new Error('الملف الناتج فارغ.');
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='شكوى-'+id+'.'+format;document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);toast('تم تصدير الشكوى '+(format==='docx'?'Word':'PDF')+'.');
+ }catch(error){toast(error.message||'تعذر تصدير الشكوى.','error');}
+}

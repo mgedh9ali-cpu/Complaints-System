@@ -5,7 +5,7 @@ const permissionNames={
  'complaints.read':'عرض الشكاوى','complaints.assign':'الإسناد والمساعدون','complaints.reopen':'إعادة الفتح',
  'complaints.closeException':'استثناء الإغلاق','attachments.upload':'رفع المرفقات','attachments.read':'قراءة المرفقات',
  'replies.draft':'صياغة ومراجعة الرد','replies.approve':'اعتماد الرد','replies.send':'توثيق الإرسال',
- 'approvals.request':'طلب الحذف أو الإلغاء','export.csv':'تصدير CSV','export.xlsx':'تصدير Excel وPDF',
+ 'approvals.request':'طلب الحذف أو الإلغاء','export.csv':'تصدير CSV','export.xlsx':'تصدير Excel وPDF وWord',
  'dashboard.view':'لوحة المتابعة','audit.read':'عرض التدقيق','sync.export':'تصدير المزامنة'
 };
 const approvalKindName={complaint_archive:'أرشفة شكوى',complaint_cancel:'إلغاء بعد إجراء رسمي',attachment_delete:'حذف مرفق إلى الأرشيف',complaint_duplicate:'ربط شكوى مكررة'};
