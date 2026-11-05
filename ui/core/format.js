@@ -58,6 +58,7 @@ function csvSafe(value){if(value==null)return "";const s=String(value);return /^
 function exportCsv(ids){const rows=Array.isArray(ids)&&ids.length?db.complaints.filter(c=>ids.includes(c.id)):db.complaints.filter(c=>!c.archivedAt);const headers=['id','name','phone','province','category','nature','status','priority','owner','summary','created'];const lines=[headers.join(',')];for(const c of rows){lines.push(headers.map(h=>'"'+csvSafe(c[h]??'').replace(/"/g,'""')+'"').join(','));}const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='complaints-export.csv';a.click();URL.revokeObjectURL(a.href);}
 function exportSelected(){if(!selectedIds.size)return;return exportCsv([...selectedIds]);}
 async function exportXlsx(){
+  if(page==='reports')return exportReport('xlsx');
   try{
     const params=new URLSearchParams();
     const from=$('#reportFrom')?.value?.trim();

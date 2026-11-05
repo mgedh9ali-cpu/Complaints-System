@@ -59,6 +59,9 @@ function createReportsService({ complaintsService }) {
       const o = String(filters.owner).trim();
       rows = rows.filter((c) => c && c.owner === o);
     }
+    for (const key of ['category', 'priority']) {
+      if (filters[key]) rows = rows.filter(c => c && c[key] === String(filters[key]).trim());
+    }
     const fromMs = parseDayBound(filters.from, false);
     const toMs = parseDayBound(filters.to, true);
     if (fromMs != null || toMs != null) {

@@ -78,8 +78,9 @@ test('new interface formats dates with consistent Latin digits and keeps server 
   const format = read('ui/core/format.js');
   assert.match(format, /ar-SY-u-nu-latn/);
   assert.doesNotMatch(reportsScript, /https?:\/\//);
-  const { validateUiBundle } = require('../lib/ui-bundle');
-  assert.equal(validateUiBundle().files, 16);
+  const { validateUiBundle, SOURCE_FILES } = require('../lib/ui-bundle');
+  assert.ok(SOURCE_FILES.includes('ui/pages/reports.js'));
+  assert.equal(validateUiBundle().files, SOURCE_FILES.length);
 });
 
 
