@@ -2,13 +2,51 @@
 
 const express = require('express');
 
-function createBackupRouter({ backupService, middleware, audit, rolesService }) {
+function createBackupRouter({ backupService, middleware, audit, rolesService, backupScheduler }) {
   const router = express.Router();
   const { requireAuth } = middleware;
   if (!rolesService || typeof rolesService.requirePermission !== 'function') {
     throw new Error('Role enforcement service is required for protected routes.');
   }
   const requirePermission = (action) => rolesService.requirePermission(action);
+
+  router.get(
+    '/backup/status',
+    requireAuth,
+    requirePermission('backup.database'),
+    (req, res) => {
+      const directory =
+        backupScheduler?.status?.()?.directory ||
+        backupService.defaultBackupDirectory?.() ||
+        null;
+      const auto = backupScheduler?.status?.() || null;
+      const backups = backupService.listBackups
+        ? backupService.listBackups(directory, 40)
+        : [];
+      res.json({
+        automatic: auto,
+        directory,
+        backups,
+        count: backups.length
+      });
+    }
+  );
+
+  router.get(
+    '/backup/history',
+    requireAuth,
+    requirePermission('backup.database'),
+    (req, res) => {
+      const directory =
+        backupScheduler?.status?.()?.directory ||
+        backupService.defaultBackupDirectory?.() ||
+        null;
+      const backups = backupService.listBackups
+        ? backupService.listBackups(directory, 50)
+        : [];
+      res.json({ directory, backups });
+    }
+  );
 
   router.get(
     '/backup/database',
@@ -68,6 +106,9 @@ function createBackupRouter({ backupService, middleware, audit, rolesService }) 
         res.setHeader('Cache-Control', 'no-store');
         res.setHeader('X-Backup-Encrypted', '1');
         res.setHeader('X-Backup-Includes-Attachments', '1');
+        if (result.attachmentCount != null) {
+          res.setHeader('X-Backup-Attachment-Count', String(result.attachmentCount));
+        }
         res.sendFile(result.destination, (error) => {
           backupService.cleanupBackupDir(backupDir);
           if (error && !res.headersSent) next(error);

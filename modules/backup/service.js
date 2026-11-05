@@ -102,7 +102,46 @@ function createBackupService({ databasePath, sessionSecret }) {
     } finally { if (backup) cleanupBackupDir(backup.backupDir); }
   }
 
-  return { createVerifiedBackup, createCompleteBackup, persistCompleteBackup, cleanupBackupDir };
+  return {
+    createVerifiedBackup,
+    createCompleteBackup,
+    persistCompleteBackup,
+    cleanupBackupDir,
+    listBackups(directory, limit) {
+      return listStoredBackups(directory || path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(path.resolve(databasePath)), 'backups')), limit);
+    },
+    defaultBackupDirectory() {
+      return path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(path.resolve(databasePath)), 'backups'));
+    }
+  };
 }
 
-module.exports = { createBackupService };
+function listStoredBackups(directory, limit = 50) {
+  if (!directory || !fs.existsSync(directory)) return [];
+  const entries = [];
+  let names;
+  try { names = fs.readdirSync(directory); } catch { return []; }
+  for (const name of names) {
+    if (name === 'backup-status.json') continue;
+    if (!/\.(csb|sqlite|enc)$/i.test(name) && !name.endsWith('.sqlite.enc')) continue;
+    const full = path.join(directory, name);
+    let stat;
+    try { stat = fs.statSync(full); } catch { continue; }
+    if (!stat.isFile() || !Number.isSafeInteger(stat.size)) continue;
+    const kind = name.startsWith('automatic-') ? 'automatic'
+      : name.startsWith('before-') ? 'pre-change'
+      : /\.csb$/i.test(name) ? 'manual-complete'
+      : 'database';
+    entries.push({
+      name,
+      size: stat.size,
+      mtime: new Date(stat.mtimeMs).toISOString(),
+      kind,
+      verified: kind === 'automatic' || /\.csb$/i.test(name)
+    });
+  }
+  entries.sort((a, b) => (a.mtime < b.mtime ? 1 : -1));
+  return entries.slice(0, Math.max(1, Math.min(100, limit | 0)));
+}
+
+module.exports = { createBackupService, listStoredBackups };
