@@ -361,8 +361,19 @@ test('recovered account creation and approval requests call authenticated APIs w
 test('login submits a supplied second factor code to the existing authentication endpoint',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.node('#loginUsername').value='admin';ui.node('#loginPassword').value='Synthetic-password-2026';ui.node('#loginCode').value='123456';
+ ui.node('#loginPassword').type='text';
  await ui.events.get('#loginForm:submit')({target:{id:'loginForm'},preventDefault(){}});
  const request=ui.calls.find(c=>c.url==='/api/auth/login'&&c.method==='POST');assert.ok(request);assert.equal(JSON.parse(request.body).code,'123456');
+ assert.equal(ui.node('#loginPassword').value,'');assert.equal(ui.node('#loginPassword').type,'password');
+});
+
+test('login password visibility toggle is reversible and exposes its state to assistive technology',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ const input=ui.node('#loginPassword'),toggle=ui.node('#loginPasswordToggle'),attributes={};
+ input.type='password';toggle.setAttribute=(name,value)=>{attributes[name]=String(value);};toggle.getAttribute=name=>attributes[name]??null;
+ const activate=ui.events.get('#loginPasswordToggle:click');assert.equal(typeof activate,'function');
+ activate({preventDefault(){}});assert.equal(input.type,'text');assert.equal(toggle.getAttribute('aria-pressed'),'true');assert.equal(toggle.getAttribute('aria-label'),'إخفاء كلمة المرور');
+ activate({preventDefault(){}});assert.equal(input.type,'password');assert.equal(toggle.getAttribute('aria-pressed'),'false');assert.equal(toggle.getAttribute('aria-label'),'إظهار كلمة المرور');
 });
 
 

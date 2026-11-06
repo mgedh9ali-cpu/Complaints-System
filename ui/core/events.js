@@ -204,6 +204,16 @@ document.addEventListener('keydown',e=>{
 if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));if($('#navBackdrop'))$('#navBackdrop').hidden=!open;});
 
 let loginPending=false;
+function setLoginPasswordVisibility(visible){
+ const input=$('#loginPassword'),toggle=$('#loginPasswordToggle');
+ if(!input||!toggle)return;
+ input.type=visible?'text':'password';
+ toggle.setAttribute('aria-pressed',String(visible));
+ toggle.setAttribute('aria-label',visible?'إخفاء كلمة المرور':'إظهار كلمة المرور');
+}
+if($('#loginPasswordToggle'))$('#loginPasswordToggle').addEventListener('click',()=>{
+ const input=$('#loginPassword');if(input)setLoginPasswordVisibility(input.type!=='text');
+});
 async function submitLogin(e){
  e?.preventDefault?.();if(loginPending)return;
  const username=$('#loginUsername')?.value?.trim(),password=$('#loginPassword')?.value||'';
@@ -214,7 +224,7 @@ async function submitLogin(e){
  try{
   const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password,code:$('#loginCode')?.value.trim()||undefined,rememberMe:$('#loginRemember')?.checked===true})});
   authenticatedUser=data.user||data;await loadDb();updateSignedInUi();
-  if($('#loginPassword'))$('#loginPassword').value='';
+  if($('#loginPassword'))$('#loginPassword').value='';setLoginPasswordVisibility(false);
   if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();toast('تم تسجيل الدخول.');
  }catch(err){if(error){error.textContent=err.message||'فشل تسجيل الدخول';error.hidden=false;}$('#loginPassword')?.focus();}
  finally{loginPending=false;if(button){button.disabled=false;button.textContent='دخول';}$('#loginForm')?.removeAttribute('aria-busy');}
