@@ -58,6 +58,7 @@ function filteredComplaints(){
     inDateRange(c)&&
     (quickView==='all'||quickView==='archived'||
       (quickView==='late'&&isLate(c))||
+      (quickView==='due-soon'&&isDueSoon(c))||
       (quickView==='missing'&&isIncomplete(c))||
       (quickView==='mine'&&c.owner===(authenticatedUser?.name||authenticatedUser?.username))||
       (quickView==='urgent-no-reply'&&c.priority==='urgent'&&!c.reply))

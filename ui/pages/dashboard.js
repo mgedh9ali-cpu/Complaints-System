@@ -46,6 +46,7 @@ function slaIndicator(c){
 function dashboard(){
   const late=lateComplaints(),approvals=pendingApprovals();
   const open=db.complaints.filter(c=>!c.archivedAt&&!['closed','cancelled'].includes(c.status));
+  const dueSoon=open.filter(c=>isDueSoon(c));
   const missing=open.filter(isIncomplete);
   const pendingReferrals=referralList().filter(r=>!r.response);
   const priority=[...open].sort((a,b)=>{
@@ -55,6 +56,7 @@ function dashboard(){
   }).slice(0,5);
   const tasks=[
     [late.length,'red','!','شكاوى متجاوزة للمهلة','وفق المهلة المعتمدة','filter-late',null],
+    [dueSoon.length,'amber','◷','مهل تستحق خلال 48 ساعة','ابدأ المتابعة قبل تجاوز المهلة','filter-due-soon',null],
     [approvals.length,'amber','✓','ردود تنتظر الاعتماد','اعتماد الرد من مستخدم مخوّل','', 'replies'],
     [pendingReferrals.length,'blue','↗','إحالات لم يصل ردها','تابع الجهات المحال إليها','', 'referrals'],
     [missing.length,'amber','≡','سجلات تحتاج استكمالًا','نقص في الحقول الأساسية','filter-missing',null]

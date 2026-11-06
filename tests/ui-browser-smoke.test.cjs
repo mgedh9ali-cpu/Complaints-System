@@ -112,6 +112,25 @@ test('dashboard quick links navigate to their requested page',async()=>{
  assert.match(ui.node('#pageCrumb').textContent,/سجل الشكاوى/);
 });
 
+test('dashboard surfaces approved deadlines within 48 hours and opens only matching records',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ const now=Date.now();
+ ui.state.settings.slaApproved=true;
+ ui.state.complaints[0].due=new Date(now+24*60*60*1000).toISOString();
+ ui.state.complaints.push({...ui.state.complaints[0],id:'SY-2026-10002',status:'closed',due:new Date(now+12*60*60*1000).toISOString()});
+ ui.state.complaints.push({...ui.state.complaints[0],id:'SY-2026-10003',status:'in_progress',due:new Date(now+72*60*60*1000).toISOString()});
+ ui.goto('dashboard');
+ assert.match(ui.node('#content').innerHTML,/مهل تستحق خلال 48 ساعة/);
+ assert.match(ui.node('#content').innerHTML,/data-action="filter-due-soon"/);
+ ui.click('filter-due-soon');
+ const page=ui.node('#content').innerHTML;
+ assert.match(page,/SY-2026-10001/);
+ assert.doesNotMatch(page,/SY-2026-10002|SY-2026-10003/);
+ ui.state.settings.slaApproved=false;
+ ui.goto('dashboard');
+ assert.doesNotMatch(ui.node('#content').innerHTML,/مهل تستحق خلال 48 ساعة/);
+});
+
 test('complaint drafts are scoped to the authenticated user and legacy unscoped drafts are ignored',async()=>{
  const shared=new Map([
   ['complaints-draft-v1',JSON.stringify({cSummary:'مسودة قديمة غير مرتبطة بحساب'})],
