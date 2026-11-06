@@ -4,14 +4,7 @@
  * Server APIs stay intact; only the operator UI is simplified.
  */
 (function singleUserMode(){
-  const NOTE =
-    '<section class="panel" style="margin-top:16px">' +
-    '<div class="panel-header"><div><h2>تشغيل فردي</h2>' +
-    '<p>هذا الجهاز مُعدّ لمستخدم واحد — أنت المسؤول عن كل العمليات</p></div></div>' +
-    '<div class="panel-body">' +
-    '<p class="small-copy">تم إخفاء إنشاء الحسابات وإدارة الأعضاء لأن النظام لا يُستخدم من عدة أشخاص. ' +
-    'كلمة المرور محلية على هذا الجهاز فقط. النسخ الاحتياطي والتقارير من مركز حماية البيانات وقائمة التقارير.</p>' +
-    '</div></section>';
+  const NOTE = ''; // لوحة تشغيل فردي مخفية بطلب المستخدم
 
   function stripMultiUserFromSettingsHtml(html){
     if(typeof html !== 'string') return html;
@@ -35,7 +28,7 @@
       'استخدمه فقط إذا أردت نقل نسختك لجهاز آخر تملكه. احتفظ بنسخة احتياطية أولًا.'
     );
     // Insert single-user note once near top of settings content
-    if(html.indexOf('تشغيل فردي') < 0){
+    if(NOTE && html.indexOf('تشغيل فردي') < 0){
       const marker = '<section class="panel"';
       const idx = html.indexOf(marker);
       if(idx >= 0) html = html.slice(0, idx) + NOTE + html.slice(idx);

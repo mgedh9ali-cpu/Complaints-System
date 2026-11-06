@@ -1,4 +1,4 @@
-function heading(title,desc,actions=''){return '<div class="page-heading"><div><div class="eyebrow">الاستفسارات والشكاوى</div><h1>'+title+'</h1><p>'+desc+'</p></div><div class="heading-actions">'+actions+'</div></div>';}
+function heading(title,desc,actions=''){return '<div class="page-heading"><div><h1>'+title+'</h1><p>'+desc+'</p></div><div class="heading-actions">'+actions+'</div></div>';}
 function btn(label,action,kind=''){return '<button class="btn '+kind+'" data-action="'+action+'">'+label+'</button>';}
 
 function isInquiryRecord(c){
