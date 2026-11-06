@@ -18,7 +18,7 @@ jobs:
           node-version: 24
           cache: npm
       - name: Install dependencies without Electron ABI rebuild
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Verify installed dependency tree
         run: npm ls --all
 
