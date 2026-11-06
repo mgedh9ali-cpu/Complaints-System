@@ -609,3 +609,33 @@ html body::before { content:""; position:fixed; inset:0; pointer-events:none; op
 html[data-theme="dark"] .approval-stamp { color:#caffdf; border-color:#8ee0b6; }
 body:has(.bulk-bar) :is(.sidebar,.topbar),body:has(.account-menu[open]) .sidebar { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; background:var(--solid); }
 @media(forced-colors:active),print { html body::before { display:none; } }
+
+
+/* Sign-in clarity and accessible feedback. */
+.login-remember { display:flex; align-items:flex-start; gap:11px; margin:4px 0 18px; padding:13px 14px; border:1px solid var(--line); border-radius:12px; background:var(--paper); cursor:pointer; }
+.login-remember input { width:18px; height:18px; flex:none; margin:2px 0 0; accent-color:var(--green-800); }
+.login-remember span { display:grid; gap:4px; }
+.login-remember strong { color:var(--ink); font-size:13px; }
+.login-remember small { color:var(--muted); font-size:11px; line-height:1.6; }
+.login-error { margin:0 0 14px; padding:11px 13px; border:1px solid #e2aaa5; border-radius:10px; background:#fff2f0; color:#8c2822 !important; font-size:13px; line-height:1.7; }
+.login-error[hidden] { display:none; }
+.login-submit[aria-busy="true"] { cursor:wait; opacity:.8; }
+html[data-theme="dark"] .login-error { background:#402523; border-color:#78413c; color:#ffd3ce !important; }
+@media(max-width:520px) {
+  .login-overlay { padding:14px !important; }
+  .login-card { width:min(100%,440px) !important; }
+  .login-remember { padding:11px 12px; }
+}
+@media(prefers-reduced-motion:reduce) { .login-card,.login-submit { transition:none !important; animation:none !important; } }
+
+
+/* Interaction states for complaint navigation and individual access controls. */
+.complaint-page-tabs button[aria-current="location"]{background:var(--green-800);color:#fff;border-color:var(--green-800);box-shadow:0 0 0 2px color-mix(in srgb,var(--green-800) 22%,transparent)}
+.complaint-page-tabs button:focus-visible,.glass-steps button:focus-visible{outline:3px solid var(--green-800);outline-offset:2px}
+.permission-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;max-height:min(58vh,520px);overflow:auto;padding:2px}
+.permission-option{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);cursor:pointer;min-height:48px}
+.permission-option input{margin:3px 0 0;accent-color:var(--green-800);width:18px;height:18px;flex:0 0 auto}
+.permission-option span{font-weight:700;font-size:12px}
+.permission-option small{display:block;color:var(--muted);font-weight:400;font-size:10px;margin-top:3px}
+@media(max-width:620px){.permission-list{grid-template-columns:1fr;max-height:55vh}.permission-option{min-height:50px}}
+@media(prefers-reduced-motion:reduce){.complaint-page-tabs button,.glass-steps button{scroll-behavior:auto;transition:none!important}}

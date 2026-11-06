@@ -1,19 +1,23 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const MAX_AUTOMATIC_RETENTION_DAYS = 7;
 
-function pruneBackups(directory, now = Date.now(), retentionDays = 30) {
+function pruneBackups(directory, now = Date.now(), retentionDays = MAX_AUTOMATIC_RETENTION_DAYS) {
   if (!fs.existsSync(directory)) return;
-  const keepMs = Math.max(1, retentionDays) * 86400000;
+  const days = Number.isFinite(Number(retentionDays)) ? Math.max(1, Math.min(MAX_AUTOMATIC_RETENTION_DAYS, Math.floor(Number(retentionDays)))) : MAX_AUTOMATIC_RETENTION_DAYS;
+  const keepMs = days * 86400000;
   const snapshots = fs.readdirSync(directory).filter(n => /^automatic-.*\.csb$/.test(n))
-    .map(name => ({ name, mtime: fs.statSync(path.join(directory, name)).mtimeMs }))
+    .map(name => {
+      try { const stat = fs.lstatSync(path.join(directory, name)); return stat.isFile() ? { name, mtime: stat.mtimeMs } : null; }
+      catch (_) { return null; }
+    }).filter(Boolean)
     .sort((a, b) => b.mtime - a.mtime);
-  const days = new Set();
   for (const file of snapshots) {
-    const day = new Date(file.mtime).toISOString().slice(0, 10);
-    const keep = now - file.mtime < 86400000 || (now - file.mtime < keepMs && !days.has(day));
-    if (keep) days.add(day);
-    else fs.unlinkSync(path.join(directory, file.name));
+    if (file.mtime < now - keepMs) {
+      try { fs.unlinkSync(path.join(directory, file.name)); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
   }
 }
 
@@ -29,16 +33,15 @@ function createBackupScheduler({ backupService, directory, logger, intervalMs = 
     lastRestoreTestFile: null,
     running: false,
     intervalMinutes: interval / 60000,
-    retentionDays: 30
+    retentionDays: MAX_AUTOMATIC_RETENTION_DAYS
   };
   let statusPath = path.join(directory, 'backup-status.json');
   try {
     const loaded = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
-    status = { ...status, ...loaded, running: false };
+    status = { ...status, ...loaded, retentionDays: MAX_AUTOMATIC_RETENTION_DAYS, running: false };
     if (Number.isFinite(status.intervalMinutes) && status.intervalMinutes >= 5) {
       interval = status.intervalMinutes * 60000;
     }
-    if (!Number.isFinite(status.retentionDays) || status.retentionDays < 1) status.retentionDays = 30;
   } catch (_) {}
   function persist() {
     fs.mkdirSync(path.dirname(statusPath), { recursive: true, mode: 0o700 });
@@ -95,8 +98,8 @@ function createBackupScheduler({ backupService, directory, logger, intervalMs = 
       }
       if (retentionDays != null) {
         const d = Number(retentionDays);
-        if (!Number.isFinite(d) || d < 1 || d > 365) throw new Error('أيام الاحتفاظ يجب أن تكون بين 1 و 365.');
-        status.retentionDays = Math.round(d);
+        if (!Number.isFinite(d) || d !== MAX_AUTOMATIC_RETENTION_DAYS) throw new Error('سياسة النسخ التلقائي ثابتة: الاحتفاظ بآخر 7 أيام فقط.');
+        status.retentionDays = MAX_AUTOMATIC_RETENTION_DAYS;
       }
       persist();
       return this.status();

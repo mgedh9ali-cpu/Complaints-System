@@ -13,7 +13,9 @@ function createSessionMiddleware({ sessionSecret, sessionsDir, cookieSecure }) {
     saveUninitialized: false,
     store: new FileStore({
       path: sessionsDir,
-      ttl: 30 * 60,
+      // The per-session cookie controls browser access (30 minutes by default,
+      // up to 30 days when explicitly requested at login).
+      ttl: 30 * 24 * 60 * 60,
       retries: 1,
       logFn: function () {}
     }),

@@ -124,8 +124,11 @@
         </div>
       </div>
       <div class="form-field"><label for="loginCode">رمز التحقق الثنائي (إن كان مفعّلًا)</label><input class="field" id="loginCode" name="code" autocomplete="one-time-code" maxlength="40" dir="ltr"></div>
-      <label class="login-remember"><input type="checkbox" id="loginRemember" name="rememberMe" aria-describedby="rememberHelp"> البقاء مسجّلًا على هذا الجهاز</label>
-      <small id="rememberHelp">لمدة تصل إلى 30 يومًا. استخدمه على جهاز موثوق فقط.</small>
+      <label class="login-remember" for="loginRemember">
+        <input id="loginRemember" name="rememberMe" type="checkbox" aria-describedby="rememberHelp" />
+        <span><strong>البقاء مسجّلًا على هذا الجهاز</strong><small>لمدة تصل إلى 30 يومًا — استخدمه على جهاز موثوق فقط.</small></span>
+      </label>
+      <small id="rememberHelp" class="sr-only">تذكر الجلسة لمدة تصل إلى 30 يومًا على جهاز موثوق فقط.</small>
       <p id="loginError" class="login-error" role="alert" aria-live="assertive" hidden></p>
       <button type="submit" class="btn btn-primary login-submit">دخول</button>
     </form>

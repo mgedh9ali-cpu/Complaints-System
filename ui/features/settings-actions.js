@@ -127,3 +127,49 @@ async function confirmSyncPassword(){
   finally{finishSyncImportWait();}
 }
 function cancelPendingSyncImport(){pendingSyncPackage=null;if(syncImportTarget){try{syncImportTarget.value='';}catch(_){}}syncImportTarget=null;finishSyncImportWait();}
+
+
+async function createLocalUser(){
+ if(authenticatedUser?.role!=='admin')return toast('إنشاء الحسابات متاح للمدير فقط.','error');
+ const form=$('#localUserForm');if(!form?.reportValidity())return;
+ const username=$('#newLocalUsername')?.value.trim(),password=$('#newLocalPassword')?.value||'',role=$('#newLocalRole')?.value;
+ if(!username||!password||!['admin','staff','reviewer'].includes(role))return toast('أكمل بيانات الحساب واختر دورًا صحيحًا.','warn');
+ if(role==='admin'&&!confirm('إنشاء حساب مدير جديد يمنحه صلاحيات كاملة. هل تريد المتابعة؟'))return;
+ const button=$('[data-action="create-local-user"]');if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
+ try{
+  await api('/api/users',{method:'POST',body:JSON.stringify({username,password,role})});
+  form.reset();await refreshManagedUsers();toast('تم إنشاء الحساب. سلّم كلمة المرور المؤقتة للمستخدم عبر قناة آمنة.');
+ }catch(error){toast('تعذر إنشاء الحساب: '+error.message,'error');}
+ finally{if(button){button.disabled=false;button.removeAttribute('aria-busy');}}
+}
+async function toggleLocalUser(id,active){
+ if(authenticatedUser?.role!=='admin')return toast('إدارة الحسابات متاحة للمدير فقط.','error');
+ if(typeof active!=='boolean')return toast('حالة الحساب المطلوبة غير صالحة.','error');
+ const user=managedUsers.find(item=>item.id===id);if(!user)return toast('تعذر العثور على الحساب؛ حدّث القائمة.','warn');
+ if(!confirm((active?'تفعيل':'تعطيل')+' حساب «'+user.username+'»؟ '+(!active?'سيُلغى وصوله وتُبطل جلساته الحالية.':'')))return;
+ try{const result=await api('/api/users/'+encodeURIComponent(id)+'/active',{method:'PATCH',body:JSON.stringify({active})});await refreshManagedUsers();toast(active?'تم تفعيل الحساب.':'تم تعطيل الحساب وإبطال '+(result.sessionsRevoked||0)+' جلسة.');}
+ catch(error){toast('تعذر تحديث الحساب: '+error.message,'error');}
+}
+const permissionLabels={
+ 'complaints.create':'تسجيل الشكاوى','complaints.update':'تعديل بيانات الشكاوى','complaints.status':'تغيير الحالات','complaints.read':'قراءة الشكاوى',
+ 'complaints.assign':'إسناد المسؤول','complaints.reopen':'إعادة فتح المغلق','complaints.closeException':'اعتماد استثناء الإغلاق',
+ 'attachments.upload':'رفع المرفقات','attachments.read':'قراءة المرفقات','export.csv':'تصدير CSV','export.xlsx':'تصدير Excel',
+ 'replies.draft':'صياغة الردود','replies.approve':'اعتماد الردود','replies.send':'إرسال الردود','approvals.request':'طلب الاعتماد',
+ 'dashboard.view':'عرض لوحة العمل','audit.read':'قراءة سجل التدقيق','sync.export':'تصدير المزامنة'
+};
+function editUserPermissions(id){
+ if(authenticatedUser?.role!=='admin')return toast('تخصيص الصلاحيات متاح للمدير فقط.','error');
+ const user=managedUsers.find(item=>item.id===id);if(!user||user.role==='admin')return toast('هذا الحساب غير متاح لتخصيص الصلاحيات.','warn');
+ const permissions=customizablePermissions.length?customizablePermissions:Object.keys(permissionLabels);
+ const body='<form id="userPermissionsForm"><p class="small-copy">تفعيل صلاحية قد يمنح إمكانات تتجاوز الدور الأساسي. امنح أقل صلاحيات لازمة وراجع التغيير قبل الحفظ.</p><div class="permission-list">'+permissions.map(permission=>'<label class="permission-option"><input type="checkbox" class="permission-override" value="'+esc(permission)+'" '+((user.permissions||[]).includes(permission)?'checked':'')+'><span>'+esc(permissionLabels[permission]||permission)+'<small dir="ltr">'+esc(permission)+'</small></span></label>').join('')+'</div></form>';
+ modal('صلاحيات '+esc(user.username),'الدور الأساسي: '+esc(user.role==='staff'?'موظف':'مراجع')+'. سيُطلب تسجيل الدخول مجددًا بعد حفظ التغييرات.',body,'<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-user-permissions" data-id="'+esc(id)+'">حفظ الصلاحيات</button>',true);
+}
+async function saveUserPermissions(id){
+ if(authenticatedUser?.role!=='admin')return toast('تخصيص الصلاحيات متاح للمدير فقط.','error');
+ const user=managedUsers.find(item=>item.id===id);if(!user||user.role==='admin')return toast('هذا الحساب غير متاح لتخصيص الصلاحيات.','warn');
+ const overrides={};$$('.permission-override').forEach(input=>{overrides[input.value]=Boolean(input.checked);});
+ const button=$('[data-action="save-user-permissions"]');if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
+ try{await api('/api/users/'+encodeURIComponent(id)+'/permissions',{method:'PATCH',body:JSON.stringify({overrides})});closeModal();await refreshManagedUsers();toast('تم حفظ الصلاحيات وإبطال الجلسات السابقة للحساب.');}
+ catch(error){toast('تعذر حفظ الصلاحيات: '+error.message,'error');}
+ finally{if(button){button.disabled=false;button.removeAttribute('aria-busy');}}
+}

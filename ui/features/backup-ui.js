@@ -137,20 +137,17 @@ function renderBackupHistoryTable(history) {
 
 function renderBackupSettingsForm(auto) {
   const interval = auto?.intervalMinutes != null ? auto.intervalMinutes : 15;
-  const retention = auto?.retentionDays != null ? auto.retentionDays : 30;
   return (
     '<div class="dp-settings-box">' +
     '<h3 class="subheading">إعدادات النسخ التلقائي</h3>' +
     '<div class="form-grid dp-settings-grid">' +
     '<div class="form-field"><label for="dpIntervalMinutes">الفاصل (دقيقة، من 5 إلى 1440)</label>' +
     '<input class="field" id="dpIntervalMinutes" type="number" min="5" max="1440" value="' + esc(String(interval)) + '"></div>' +
-    '<div class="form-field"><label for="dpRetentionDays">أيام الاحتفاظ (1–365)</label>' +
-    '<input class="field" id="dpRetentionDays" type="number" min="1" max="365" value="' + esc(String(retention)) + '"></div>' +
     '</div>' +
     '<div class="footer-actions" style="margin-top:10px">' +
     '<button type="button" class="btn btn-primary" data-action="save-backup-settings">حفظ إعدادات النسخ</button>' +
     '</div>' +
-    '<p class="small-copy">الجدولة تعمل أثناء تشغيل التطبيق. النسخ على الجهاز نفسه لا يغني عن وجهة خارجية.</p>' +
+    '<p class="small-copy">النسخ التلقائي يحتفظ بآخر 7 أيام فقط ويُنظّف الأقدم بعد اكتمال نسخة جديدة متحققة. ملفات النسخ اليدوية وما قبل التغيير لا تُحذف تلقائيًا. تعمل الجدولة أثناء تشغيل التطبيق؛ والنسخ على الجهاز نفسه لا يغني عن وجهة خارجية.</p>' +
     '</div>'
   );
 }
@@ -166,7 +163,7 @@ function renderDataProtectionCenter(metrics, history) {
       ? 'فشل'
       : 'لم يُختبر';
   const interval = auto?.intervalMinutes != null ? auto.intervalMinutes + ' دقيقة' : 'كل 15 دقيقة';
-  const retention = auto?.retentionDays != null ? auto.retentionDays + ' يوم' : '30 يوم';
+  const retention = 'آخر 7 أيام';
   const lastErr = auto?.lastError ? esc(auto.lastError) : '';
   const integrity = metrics?.integrity === 'ok' ? 'سليمة' : (metrics?.integrity || 'غير مفحوصة');
   const dbBytes = metrics?.databaseBytes != null
@@ -197,10 +194,10 @@ function renderDataProtectionCenter(metrics, history) {
     '<small>' + esc(restoreResult) +
     (auto?.lastRestoreTestFile ? ' · ' + esc(auto.lastRestoreTestFile) : '') +
     '</small></div>' +
-    '<div class="dp-status-card">' +
+    '<div class="dp-status-card dp-retention-card">' +
     '<span class="dp-status-label">الجدولة</span>' +
     '<strong class="dp-status-value">' + esc(interval) + '</strong>' +
-    '<small>احتفاظ ' + esc(retention) + '</small></div>' +
+    '<small>النسخ التلقائي فقط</small></div>' +
     '<div class="dp-status-card">' +
     '<span class="dp-status-label">سلامة القاعدة</span>' +
     '<strong class="dp-status-value">' + esc(integrity) + '</strong>' +
@@ -275,10 +272,9 @@ function runDatabaseOnlyBackup() { return downloadBackup('database'); }
 
 async function saveBackupSettings() {
   const intervalMinutes = Number($('#dpIntervalMinutes')?.value);
-  const retentionDays = Number($('#dpRetentionDays')?.value);
   const data = await api('/api/backup/settings', {
     method: 'PATCH',
-    body: JSON.stringify({ intervalMinutes, retentionDays })
+    body: JSON.stringify({ intervalMinutes })
   });
   toast('تم حفظ إعدادات النسخ التلقائي.');
   _protectionStatusLoadedAt = 0; _backupHistoryLoadedAt = 0;

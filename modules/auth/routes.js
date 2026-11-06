@@ -45,6 +45,10 @@ function createAuthRouter({ authService, middleware, audit, rolesService }) {
       if (err) return next(err);
       req.session.cookie.maxAge = req.body.rememberMe === true ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
       req.session.user = { id: result.user.id, version: result.user.sessionVersion || 0 };
+      // Persist only the signed session cookie, never the user's credentials.
+      req.session.cookie.maxAge = req.body?.rememberMe === true
+        ? 30 * 24 * 60 * 60 * 1000
+        : 30 * 60 * 1000;
       if (!req.session.csrfToken) {
         const crypto = require('node:crypto');
         req.session.csrfToken = crypto.randomBytes(32).toString('hex');

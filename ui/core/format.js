@@ -42,6 +42,28 @@ function enhanceGlassDetail(){
  if($('#detailStatus'))updateReasonSheet();
 }
 function updateReasonSheet(){const reason=$('#statusReason');if(reason){const required=['closed','cancelled'].includes($('#detailStatus')?.value);reason.required=required;const wrap=reason.closest?.('.form-field');if(wrap)wrap.hidden=!required;}}
+function scrollComplaintSection(target,source){
+ const allowed=new Set(['complaint-summary','complaint-attachments','complaint-actions','complaint-reply','complaint-referrals','complaint-timeline','complaint-notes']);
+ if(!allowed.has(target))return;
+ const section=document.getElementById(target);if(!section)return;
+ $$('[data-action="detail-section"]').forEach(tab=>{if(tab===source)tab.setAttribute('aria-current','location');else tab.removeAttribute('aria-current');});
+ section.scrollIntoView?.({behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+ section.setAttribute('tabindex','-1');section.focus?.({preventScroll:true});
+}
+async function chooseWorkflowStep(status){
+ const complaint=db.complaints.find(item=>item.id===currentId),select=$('#detailStatus');
+ if(!complaint||!select||!uiCan('complaints.status'))return toast('لا تملك صلاحية تغيير حالة الشكوى.','error');
+ const allowed={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]};
+ if(!(allowed[complaint.status]||[]).includes(status))return toast('انتقال الحالة غير مسموح.','error');
+ select.value=status;updateReasonSheet();
+ if(['closed','cancelled'].includes(status)){
+  scrollComplaintSection('complaint-actions');
+  const reason=$('#statusReason');
+  if(!reason?.value.trim()){reason?.focus();return toast('اكتب سبب الإغلاق أو الإلغاء، ثم أكد الانتقال.','warn');}
+  if(!confirm('تأكيد '+statusLabel(status)+' الشكوى؟ سيتم توثيق السبب في سجل التدقيق.'))return;
+ }
+ await changeStatus(currentId);
+}
 function commandPalette(){
  if(!authenticatedUser)return;
  modal('لوحة الأوامر','ابحث في الشكاوى والصفحات والإجراءات — Ctrl+K','<input class="field" id="commandQuery" aria-label="بحث الأوامر" autocomplete="off" placeholder="رقم الشكوى أو الاسم أو الإجراء"><div class="command-list" id="commandResults"></div>');

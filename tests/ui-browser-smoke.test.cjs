@@ -8,17 +8,17 @@ function createFakeBrowser(role='admin',initialReply=null){
  const events=new Map(),windowEvents=new Map(),nodes=new Map(),historyEntries=[],downloads=[];
  function node(key){
   if(!nodes.has(key))nodes.set(key,{
-   id:key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
+   id:key.startsWith('#')?key.slice(1):key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
    classList:{add(){},remove(){},toggle(){return true},contains(){return false}},
-   getAttribute(){return null;},setAttribute(){},removeAttribute(){},click(){downloads.push(this.download);},focus(){},addEventListener(type,fn){events.set(key+':'+type,fn);},append(){},appendChild(){},remove(){},
-   querySelector(){return node('mock-dialog')},querySelectorAll(){return []},reportValidity(){return true}
+   getAttribute(){return null;},setAttribute(){},removeAttribute(){},click(){downloads.push(this.download);},focus(){},scrollIntoView(){this.scrolled=true;},addEventListener(type,fn){events.set(key+':'+type,fn);},append(){},appendChild(){},remove(){},reset(){this.resetCalled=true;},
+   querySelector(){return node('mock-dialog')},querySelectorAll(){return key==='#newComplaintForm'?[...nodes.values()].filter(item=>/^(?:cName|cPhone|cSource|cFirstContactDate|cCategory|cNature|cEntity|cProvince|cPriority|cOwner|cSummary|cDetails)$/.test(item.id)):[]},reportValidity(){return true}
   });
   return nodes.get(key);
  }
  const document={
   body:{dataset:{},prepend(){},append(){},appendChild(){}},activeElement:null,
   querySelector(selector){if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
-  querySelectorAll(selector){return selector==='.nav-link'?[node('nav-dashboard'),node('nav-registry')]:[];},
+  querySelectorAll(selector){if(selector==='.nav-link')return[node('nav-dashboard'),node('nav-registry')];if(selector==='.row-check'){const a=node('row-check-a'),b=node('row-check-b');a.dataset.id='SY-2026-10001';b.dataset.id='SY-2026-10002';return[a,b];}return[];},
   addEventListener(type,fn){const previous=events.get(type);events.set(type,previous?event=>{previous(event);return fn(event);}:fn);},
   getElementById(id){return node('#'+id);},
   createElement(){return node('created-node');},
@@ -79,11 +79,12 @@ function createFakeBrowser(role='admin',initialReply=null){
  };
  vm.runInNewContext(assembleUiBundle(),context,{filename:'app.bundle.js',timeout:4000});
  function click(action,id,dataset={}){
+  const actionEl=node('action-'+action);actionEl.dataset={action,id,...dataset};actionEl.checked=dataset.checked;
   const target={closest(selector){
-   if(selector==='[data-action]'){const button=node('action-'+action);button.dataset={action,id,...dataset};return button;}
+   if(selector==='[data-action]')return actionEl;
    return null;
   }};
-  events.get('click')({target,preventDefault(){},stopPropagation(){}});
+  return events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
  function navigate(page){
   const target={closest(selector){
@@ -92,8 +93,44 @@ function createFakeBrowser(role='admin',initialReply=null){
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click,navigate,calls,state,window,downloads};
+ function goto(page){
+  const target={closest(selector){
+   if(selector==='[data-goto]')return{dataset:{goto:page}};
+   return null;
+  }};
+  events.get('click')({target,preventDefault(){},stopPropagation(){}});
+ }
+ return {node,events,windowEvents,location,historyEntries,click,navigate,goto,calls,state,window,downloads};
 }
+
+test('dashboard quick links navigate to their requested page',async()=>{
+ const ui=createFakeBrowser();
+ for(let i=0;i<20;i++)await Promise.resolve();
+ ui.goto('complaints');
+ assert.equal(ui.location.hash,'#complaints');
+ assert.match(ui.node('#pageCrumb').textContent,/سجل الشكاوى/);
+});
+
+test('complaint section tabs scroll to the matching section',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('detail','SY-2026-10001');ui.click('detail-section',undefined,{target:'complaint-actions'});
+ assert.equal(ui.node('#complaint-actions').scrolled,true);
+});
+
+test('workflow step shortcut persists allowed transitions through the status API',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('detail','SY-2026-10001');ui.click('glass-step',undefined,{status:'in_progress'});
+ for(let i=0;i<30;i++)await Promise.resolve();
+ assert.ok(ui.calls.some(call=>call.url.endsWith('/status')&&call.method==='PATCH'));
+ assert.match(ui.node('#content').innerHTML,/قيد المعالجة/);
+});
+
+test('select all marks visible complaint rows and reveals bulk actions',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
+ ui.goto('complaints');ui.click('select-all',undefined,{checked:true});
+ assert.match(ui.node('#content').innerHTML,/تم تحديد 2 سجلًا/);
+ assert.match(ui.node('#content').innerHTML,/bulk-assign/);
+});
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
  const ui=createFakeBrowser();
@@ -166,12 +203,12 @@ test('new complaint uses the authenticated creation endpoint and CSRF token',asy
  const ui=createFakeBrowser();
  for(let i=0;i<20;i++)await Promise.resolve();
  ui.click('new-complaint');
- const form=ui.node('#modalRoot').innerHTML;
- assert.match(form,/id="newComplaintForm"/);
- const values={cName:'مواطن اختباري',cPhone:'0912345678',cProvince:'دمشق',
-  cCategory:'خدمات عامة',cEntity:'مديرية الخدمات العامة',cPriority:'normal',
-  cFirstContactDate:'2026-10-19',cOwner:'admin',cSummary:'بلاغ جديد للاختبار',cDetails:'بيانات وهمية'};
- for(const [key,val] of Object.entries(values))ui.node('#'+key).value=val;
+ ui.click('intake-pick-type',undefined,{type:'complaint'});
+ ui.node('#cSummary').value='بلاغ جديد للاختبار';ui.node('#cDetails').value='بيانات وهمية';const fields=ui.node('#newComplaintForm').querySelectorAll('input, select, textarea');assert.ok(fields.some(field=>field.id==='cSummary'&&field.value==='بلاغ جديد للاختبار'),'summary control must be visible to the form reader');ui.click('intake-next');
+ ui.node('#cProvince').value='دمشق';ui.node('#cCategory').value='خدمات عامة';ui.node('#cEntity').value='مديرية الخدمات العامة';ui.click('intake-next');
+ ui.node('#cName').value='مواطن اختباري';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-10-19';ui.click('intake-next');
+ const values={cPriority:'normal',cOwner:'admin'};for(const [key,val] of Object.entries(values))ui.node('#'+key).value=val;
+ const form=ui.node('#modalRoot').innerHTML;assert.match(form,/id="newComplaintForm"/);assert.match(form,/data-action="save-complaint"/);
  ui.click('save-complaint');
  for(let i=0;i<50;i++)await Promise.resolve();
  const request=ui.calls.find(x=>x.url==='/api/complaints'&&x.method==='POST');
@@ -270,6 +307,7 @@ test('legacy empty intake lists display local defaults without rewriting synchro
  ui.state.settings.provinces=[];ui.state.settings.categories=[];ui.state.settings.entities=[];
  const settings=structuredClone(ui.state.settings);
  ui.click('new-complaint');
+ ui.click('intake-pick-type',undefined,{type:'complaint'});ui.click('intake-next');
  const html=ui.node('#modalRoot').innerHTML;
  assert.match(html,/<option value="دمشق"/);
  assert.match(html,/<option value="خدمات عامة"/);

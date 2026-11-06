@@ -111,9 +111,24 @@ test(
       body: JSON.stringify({
         username: "localadmin",
         password: "Test-admin-password-2026",
+        rememberMe: true,
       }),
     });
     assert.equal(adminLogin.status, 200);
+    const rememberCookie = adminLogin.headers.get("set-cookie") || "";
+    const rememberExpiry = rememberCookie.match(/Expires=([^;]+)/i);
+    assert.ok(rememberExpiry, "remember-me login should issue a persistent session cookie");
+    assert.ok(Date.parse(rememberExpiry[1]) - Date.now() > 29 * 24 * 60 * 60 * 1000);
+    const shortLogin = await fetch(baseUrl + "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "localadmin", password: "Test-admin-password-2026", rememberMe: false }),
+    });
+    assert.equal(shortLogin.status, 200);
+    const shortExpiry = (shortLogin.headers.get("set-cookie") || "").match(/Expires=([^;]+)/i);
+    assert.ok(shortExpiry, "ordinary login should issue a short-lived persistent cookie");
+    const shortLifetime = Date.parse(shortExpiry[1]) - Date.now();
+    assert.ok(shortLifetime > 29 * 60 * 1000 && shortLifetime < 31 * 60 * 1000);
     const adminCookie = cookieFrom(adminLogin);
     const adminCsrf = await csrfToken(baseUrl, adminCookie);
     const adminFetch = (url, options = {}) =>

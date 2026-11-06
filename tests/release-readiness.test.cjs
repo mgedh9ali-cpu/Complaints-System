@@ -222,18 +222,46 @@ test('automatic backups do not overlap, verify their output and expose failures'
   assert.equal(await failed.runOnce(),false);assert.equal(failed.status().lastError,'disk full');
 });
 
-test('retention keeps recent snapshots and one successful daily copy for thirty days', t => {
+test('automatic retention keeps only the rolling last seven days and preserves non-automatic archives', t => {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'backup-retention-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const now=Date.now();
-  for(const [name,age] of [['recent',1],['day-new',2*86400],['day-old',2*86400+60],['expired',31*86400]]){
+  for(const [name,age] of [['recent',1],['six-days',6*86400],['last-second',7*86400-1],['just-outside',7*86400+2],['expired',31*86400]]){
     const file=path.join(dir,'automatic-'+name+'.csb');fs.writeFileSync(file,'test');fs.utimesSync(file,new Date(now-age*1000),new Date(now-age*1000));
   }
   fs.writeFileSync(path.join(dir,'before-import-retained.csb'),'test');
+  fs.writeFileSync(path.join(dir,'manual-retained.csb'),'test');
   pruneBackups(dir,now);
   assert.equal(fs.existsSync(path.join(dir,'automatic-expired.csb')),false);
-  assert.equal(fs.existsSync(path.join(dir,'automatic-day-old.csb')),false);
+  assert.equal(fs.existsSync(path.join(dir,'automatic-just-outside.csb')),false);
   assert.equal(fs.existsSync(path.join(dir,'automatic-recent.csb')),true);
+  assert.equal(fs.existsSync(path.join(dir,'automatic-six-days.csb')),true);
+  assert.equal(fs.existsSync(path.join(dir,'automatic-last-second.csb')),true);
   assert.equal(fs.existsSync(path.join(dir,'before-import-retained.csb')),true);
+  assert.equal(fs.existsSync(path.join(dir,'manual-retained.csb')),true);
+});
+
+test('automatic retention policy cannot be expanded beyond seven days', t => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'backup-policy-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  fs.mkdirSync(path.join(dir,'backups'));
+  fs.writeFileSync(path.join(dir,'backups','backup-status.json'),JSON.stringify({retentionDays:30}));
+  const scheduler=createBackupScheduler({directory:path.join(dir,'backups'),backupService:{async createCompleteBackup(){throw new Error('fixture');},cleanupBackupDir(){}}});
+  assert.equal(scheduler.status().retentionDays,7);
+  assert.throws(()=>scheduler.configure({retentionDays:8}),/آخر 7 أيام/);
+  assert.equal(scheduler.configure({intervalMinutes:15}).retentionDays,7);
+});
+
+test('automatic backup failure never prunes older snapshots; success prunes only automatic snapshots', async t => {
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'backup-safe-prune-test-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const directory=path.join(root,'backups');fs.mkdirSync(directory);
+  const now=Date.now();
+  const expired=path.join(directory,'automatic-expired.csb');fs.writeFileSync(expired,'old');fs.utimesSync(expired,new Date(now-8*86400000),new Date(now-8*86400000));
+  const manual=path.join(directory,'manual-archive.csb');fs.writeFileSync(manual,'manual');fs.utimesSync(manual,new Date(now-40*86400000),new Date(now-40*86400000));
+  const source=path.join(root,'verified.csb');fs.writeFileSync(source,'verified fixture');
+  const failing=createBackupScheduler({directory,now:()=>new Date(now),backupService:{async createCompleteBackup(){throw new Error('verification failed');},cleanupBackupDir(){}}});
+  assert.equal(await failing.runOnce(),false);assert.equal(fs.existsSync(expired),true);
+  const working=createBackupScheduler({directory,now:()=>new Date(now),backupService:{async createCompleteBackup(){return{destination:source,backupDir:root};},cleanupBackupDir(){}}});
+  assert.equal(await working.runOnce(),true);assert.equal(fs.existsSync(expired),false);
+  assert.equal(fs.existsSync(manual),true);assert.equal(fs.existsSync(path.join(directory,'automatic-'+new Date(now).toISOString().replace(/[:.]/g,'-')+'.csb')),true);
 });
 
 test('server reminders repeat after the configured period and respect stop and closed status', t => {

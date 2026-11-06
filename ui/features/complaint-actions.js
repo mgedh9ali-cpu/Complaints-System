@@ -173,3 +173,52 @@ function showStatusUndo(id,token,expiresAt){
   const stored=await api('/api/state');db=stored.state;stateRevision=stored.revision;stateConflict=false;render();toast('تم التراجع وتوثيقه في سجل التدقيق.');
  }catch(error){toast(error.message,'error');}finally{clearTimeout(timer);node.remove();}});
 }
+
+
+function bulkEligibleComplaints(){
+ return [...selectedIds].map(id=>db.complaints.find(c=>c?.id===id)).filter(c=>c&&!c.archivedAt&&!['closed','cancelled'].includes(c.status));
+}
+function bulkOpen(){
+ const total=selectedIds.size,eligible=bulkEligibleComplaints().length;
+ if(!total)return toast('حدد شكوى واحدة على الأقل أولًا.','warn');
+ modal('إجراءات الشكاوى المحددة','حدد الإجراء. تُحفظ كل شكوى عبر مسار الخادم وتسجل في سجل التدقيق.','<p>المحدد: '+total+' · القابل للتعديل: '+eligible+' · المغلق أو المؤرشف لن يتغير.</p>',
+  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn" data-action="bulk-assign">إسناد المسؤول</button><button class="btn" data-action="bulk-priority">تغيير الأولوية</button><button class="btn" data-action="export-selected">تصدير المحدد</button>',true);
+}
+function bulkChangeModal(field){
+ if(!['owner','priority'].includes(field))return;
+ const eligible=bulkEligibleComplaints();
+ if(!eligible.length)return toast('لا توجد شكاوى مفتوحة قابلة للتعديل ضمن التحديد.','warn');
+ if(field==='owner'&&!uiCan('complaints.assign'))return toast('ليس لديك صلاحية إسناد الشكاوى.','error');
+ if(field==='priority'&&!uiCan('complaints.update'))return toast('ليس لديك صلاحية تعديل الأولوية.','error');
+ const options=field==='owner'?availableOwners().map(value=>({value,label:value})):db.settings.priorities.map(item=>({value:item.value,label:item.label}));
+ const id=field==='owner'?'bulkOwner':'bulkPriority';
+ const label=field==='owner'?'المسؤول الجديد':'الأولوية الجديدة';
+ modal(field==='owner'?'إسناد المسؤول':'تغيير الأولوية','سيُطبق التغيير على '+eligible.length+' شكوى مفتوحة؛ تُعالج السجلات المغلقة أو المؤرشفة دون تغيير.',selectField(label,id,options,'',true),
+  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-apply" data-field="'+field+'">تطبيق على المحدد</button>');
+}
+async function applyBulkChange(field){
+ if(!['owner','priority'].includes(field))return;
+ const value=$('#'+(field==='owner'?'bulkOwner':'bulkPriority'))?.value;
+ if(!value)return toast('اختر قيمة قبل التطبيق.','warn');
+ const permission=field==='owner'?'complaints.assign':'complaints.update';
+ if(!uiCan(permission))return toast('ليس لديك صلاحية تنفيذ هذا الإجراء.','error');
+ const eligible=bulkEligibleComplaints();
+ if(!eligible.length)return toast('لا توجد شكاوى مفتوحة قابلة للتعديل.','warn');
+ const label=field==='owner'?'إسناد '+value:'تغيير الأولوية إلى '+priorityLabel(value);
+ if(!confirm('تأكيد '+label+' على '+eligible.length+' شكوى مفتوحة؟'))return;
+ const button=$('[data-action="bulk-apply"]');if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
+ let succeeded=0;const failed=[];
+ for(const complaint of eligible){
+  try{
+   await api('/api/complaints/'+encodeURIComponent(complaint.id),{method:'PATCH',body:JSON.stringify({[field]:value})});
+   succeeded++;selectedIds.delete(complaint.id);
+  }catch(error){failed.push({id:complaint.id,error:error.message});}
+ }
+ try{
+  const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number(stored.revision)||0;stateLoaded=true;stateConflict=false;
+ }catch(error){toast('حُفظ '+succeeded+' سجلًا، لكن تعذر تحديث العرض من الخادم: '+error.message,'error');}
+ closeModal();render();
+ if(failed.length)toast('تم حفظ '+succeeded+' من '+eligible.length+'؛ بقي '+failed.length+' دون تغيير ومحددًا للمراجعة.','warn');
+ else toast('تم تحديث '+succeeded+' شكوى وتسجيل التغييرات في سجل التدقيق.');
+ if(button){button.disabled=false;button.removeAttribute('aria-busy');}
+}
