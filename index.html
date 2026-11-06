@@ -52,19 +52,18 @@
       <div class="nav-backdrop" id="navBackdrop" hidden></div>
       <main class="main">
         <header class="topbar">
-          <button type="button" class="icon-btn menu-toggle" id="menuToggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="sidebar">☰</button>
+          <button type="button" class="icon-btn menu-toggle" id="menuToggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="sidebar">القائمة</button>
           <div class="page-heading">
             <p class="eyebrow" id="pageCrumb">لوحة المتابعة</p>
             <h1>نظام الشكاوى المحلي</h1>
           </div>
           <div class="top-actions">
-            <button type="button" class="btn btn-primary top-create-button" id="headerCreateButton" data-action="new-complaint" hidden>＋ <span>تسجيل شكوى</span></button>
-            <!-- backup/update: settings + account menu only -->
-            <button type="button" class="icon-btn" data-page="notifications" aria-label="الإشعارات"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><i id="topUnread"></i></button>
+            <button type="button" class="btn btn-primary top-create-button" id="headerCreateButton" data-action="new-complaint" hidden><span>تسجيل شكوى</span></button>
+            <i id="topUnread" hidden></i>
             <div class="top-user">
-              <span class="avatar small" aria-hidden="true">م</span><span id="topUserName">غير مسجل</span>
+              <span id="topUserName">غير مسجل</span>
               <details class="account-menu" id="accountMenu">
-                <summary aria-label="فتح قائمة الحساب" title="خيارات الحساب"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M12 12v.01M12 16v.01"/></svg></summary>
+                <summary aria-label="فتح قائمة الحساب" title="خيارات الحساب">الحساب</summary>
                 <div class="account-menu-panel" aria-label="إجراءات الحساب">
                   <span class="account-menu-caption">إجراءات الحساب</span>
                   <button type="button" class="btn" id="databaseBackupButton" data-action="database-backup" hidden>إنشاء نسخة احتياطية</button>
