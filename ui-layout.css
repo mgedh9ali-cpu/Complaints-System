@@ -13,6 +13,7 @@
   --sla-warn: #a67c2a;
   --sla-late: #8b3a3a;
   --filter-bg: #f7f8f2;
+  --topbar-h: 64px;
 }
 
 html, body, button, input, select, textarea {
@@ -42,9 +43,25 @@ thead th {
   box-shadow: 0 4px 16px rgba(15, 31, 23, 0.06) !important;
 }
 
+/* شريط علوي ثابت أثناء التمرير */
+.main {
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
 .topbar {
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  flex-shrink: 0 !important;
+  min-height: var(--topbar-h) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-bottom: 1px solid var(--line, #b8bda8) !important;
+  box-shadow: 0 2px 12px rgba(15, 31, 23, 0.08) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+html[data-theme="dark"] .topbar {
+  background: rgba(20, 32, 26, 0.96) !important;
 }
 .modal-backdrop {
   backdrop-filter: blur(6px) !important;
