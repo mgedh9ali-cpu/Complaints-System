@@ -36,7 +36,6 @@ function updateSignedInUi(){
   const headerCreate=$('#headerCreateButton');if(headerCreate)headerCreate.hidden=!uiCan('complaints.create');
   const canBackup=uiCan('backup.database')||authenticatedUser?.role==='admin';
   ['#topBackupButton','#databaseBackupButton','#databaseOnlyBackupButton'].forEach(sel=>{const b=$(sel);if(b)b.hidden=!canBackup;});
-  const upd=$('#topUpdateHelpButton');if(upd)upd.hidden=!authenticatedUser;
   const logout=$('#logoutButton');if(logout)logout.hidden=!authenticatedUser;
   const csv=$('#csvExportButton');if(csv)csv.hidden=!uiCan('export.csv');
   document.body.dataset.signedIn=authenticatedUser?'true':'false';
