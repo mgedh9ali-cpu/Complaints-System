@@ -22,7 +22,7 @@ function countStatus(s){return db.complaints.filter(c=>!c.archivedAt&&c.status==
 function pendingApprovals(){return db.complaints.filter(c=>!c.archivedAt&&c.reply&&['review','approval'].includes(c.reply.status));}
 function lateComplaints(){return db.complaints.filter(isLate);}
 function referralList(){return db.complaints.filter(c=>!c.archivedAt).flatMap(c=>(c.referrals||[]).map((r,i)=>({...r,complaintId:c.id,complaintSummary:c.summary,owner:c.owner,refIndex:i})));}
-function pageTitle(){return ({dashboard:'لوحة المتابعة',complaints:'سجل الشكاوى والاستفسارات',referrals:'إدارة الإحالات',replies:'الردود والاعتماد',notifications:'مركز الإشعارات',reports:'التقارير التشغيلية',settings:'القوائم والإعدادات','complaint-detail':'ملف الشكوى'})[page]||'لوحة المتابعة';}
+function pageTitle(){return ({dashboard:'لوحة المتابعة',complaints:'سجل الشكاوى والاستفسارات',referrals:'إدارة الإحالات',replies:'الردود والاعتماد',notifications:'مركز الإشعارات',reports:'التقارير التشغيلية',settings:'الإعدادات','complaint-detail':'ملف الشكوى'})[page]||'لوحة المتابعة';}
 function navCounts(){$('#navComplaintsCount').textContent=db.complaints.length;$('#navReferralsCount').textContent=referralList().filter(r=>!r.response).length;$('#navNotificationsCount').textContent=db.notifications.filter(n=>!n.read).length;$('#topUnread').style.display=db.notifications.some(n=>!n.read)?'block':'none';}
 
 function glassPreference(){try{return localStorage.getItem('complaints-reduce-transparency')==='true';}catch(_){return false;}}
