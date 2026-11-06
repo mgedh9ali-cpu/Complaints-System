@@ -4,6 +4,10 @@ const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 const STORAGE_KEY = 'complaints-demo-v1';
 const DRAFT_KEY = 'complaints-draft-v1';
+function complaintDraftStorageKey(){
+  const userId=String(authenticatedUser?.id||'').trim();
+  return userId?DRAFT_KEY+':'+encodeURIComponent(userId):null;
+}
 const seed = {
   complaints: [],
   notifications: [],
@@ -41,9 +45,10 @@ function updateSignedInUi(){
 }
 function showLogin(){const overlay=$('#loginOverlay');if(overlay)overlay.hidden=false;$('#appShell')&&($('#appShell').hidden=true);document.body.dataset.signedIn='false';}
 async function logout(){
+  const draftKey=complaintDraftStorageKey();
   try{await api('/api/auth/logout',{method:'POST',body:'{}'});}catch(_){}
   authenticatedUser=null;stateLoaded=false;db=cleanState();
-  try{sessionStorage.removeItem(DRAFT_KEY);}catch(_){}
+  try{if(draftKey)sessionStorage.removeItem(draftKey);sessionStorage.removeItem(DRAFT_KEY);localStorage.removeItem(DRAFT_KEY);}catch(_){}
   updateSignedInUi();showLogin();
 }
 async function refreshAssignees(){try{const r=await api('/api/users');managedUsers=r.users||[];assignees=(r.users||[]).filter(u=>u.active&&u.role!=='reviewer');}catch(_){}}

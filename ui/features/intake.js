@@ -200,7 +200,7 @@ function intakeSubtitle() {
 
 function renderIntakeWizard() {
   const draftBanner = hasComplaintDraft()
-    ? '<div class="risk-note" id="draftBanner" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between"><span><strong>مسودة غير محفوظة:</strong> يوجد نص محفوظ سابقاً من جلسة سابقة.</span><span class="right-actions" style="gap:6px"><button type="button" class="btn btn-sm btn-primary" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></span></div>'
+    ? '<div class="risk-note" id="draftBanner" role="status" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between"><span><strong>مسودة محلية لهذا الحساب:</strong> لا تدخل في قاعدة الشكاوى أو النسخ الاحتياطية حتى تضغط «حفظ».</span><span class="right-actions" style="gap:6px"><button type="button" class="btn btn-sm btn-primary" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></span></div>'
     : '';
   const body = draftBanner +
     '<form id="newComplaintForm" onsubmit="return false">' +
@@ -256,37 +256,49 @@ function intakeSkip() {
 }
 
 function hasComplaintDraft() {
+  const key=complaintDraftStorageKey();
+  if(!key)return false;
   try {
-    const raw = localStorage.getItem(DRAFT_KEY) || sessionStorage.getItem(DRAFT_KEY);
+    localStorage.removeItem(DRAFT_KEY);
+    sessionStorage.removeItem(DRAFT_KEY);
+    const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
     if (!raw) return false;
     const d = JSON.parse(raw);
-    return d && typeof d === 'object' && Object.values(d).some(v => String(v || '').trim());
+    return d && typeof d === 'object' && d._ownerUserId === String(authenticatedUser?.id || '') && Object.values(d).some(v => String(v || '').trim());
   } catch (_) {
     return false;
   }
 }
 
 function saveComplaintDraft() {
+  const key=complaintDraftStorageKey();
+  if(!key)return;
   intakeCollectVisible();
   const draft = Object.assign({}, intakeWizard.data, {
     _recordType: intakeWizard.recordType || '',
-    _step: intakeWizard.step
+    _step: intakeWizard.step,
+    _ownerUserId: String(authenticatedUser.id),
+    _savedAt: Date.now()
   });
   ['cName', 'cPhone', 'cFirstContactDate', 'cProvince', 'cCategory', 'cNature', 'cEntity', 'cPriority', 'cOwner', 'cSummary', 'cDetails', 'cSource', 'cRelatedToCurrent'].forEach(id => {
     const el = $('#' + id);
     if (el) draft[id] = el.type === 'checkbox' ? el.checked : el.value;
   });
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    localStorage.setItem(key, JSON.stringify(draft));
+    sessionStorage.setItem(key, JSON.stringify(draft));
   } catch (e) {}
 }
 
 function restoreComplaintDraft(force) {
+  const key=complaintDraftStorageKey();
+  if(!key)return;
   try {
-    const raw = localStorage.getItem(DRAFT_KEY) || sessionStorage.getItem(DRAFT_KEY);
+    localStorage.removeItem(DRAFT_KEY);
+    sessionStorage.removeItem(DRAFT_KEY);
+    const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
     const draft = JSON.parse(raw || 'null');
-    if (!draft) return;
+    if (!draft || draft._ownerUserId !== String(authenticatedUser?.id || '')) return;
     if (!force && !hasComplaintDraft()) return;
     intakeWizard.data = Object.assign({}, draft);
     if (draft._recordType === 'complaint' || draft._recordType === 'inquiry') {
@@ -386,6 +398,8 @@ async function createComplaint(asDraft = false) {
     stateLoaded = true;
     intakeDefaults = { cProvince: body.province, cCategory: body.category, cEntity: body.entity };
     try {
+      const draftKey=complaintDraftStorageKey();
+      if(draftKey){localStorage.removeItem(draftKey);sessionStorage.removeItem(draftKey);}
       localStorage.removeItem(DRAFT_KEY);
       sessionStorage.removeItem(DRAFT_KEY);
     } catch (e) {}

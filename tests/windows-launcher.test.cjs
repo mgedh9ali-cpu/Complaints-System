@@ -57,7 +57,7 @@ test("Windows launcher checks Node.js and initializes configuration locally on f
   );
 });
 
-test("Windows launcher is offline-safe and runs tests before starting the server", () => {
+test("Windows launcher is offline-safe and starts without running the test suite", () => {
   const source = fs.readFileSync(launcherPath, "utf8");
 
   assert.match(source, /will NOT download packages or access the internet/i);
@@ -72,14 +72,17 @@ test("Windows launcher is offline-safe and runs tests before starting the server
     "launcher must not contain common network download commands",
   );
 
-  const testIndex = source.indexOf("call npm test");
   const startIndex = source.indexOf("call npm start");
   const browserHelperIndex = source.indexOf('start "" /b powershell.exe');
-  assert.notEqual(testIndex, -1, "launcher must run automated tests");
+  assert.doesNotMatch(
+    source,
+    /\bcall\s+npm\s+test\b/i,
+    "the full test suite belongs in CI, not every user launch",
+  );
   assert.notEqual(startIndex, -1, "launcher must start the server");
   assert.ok(
-    testIndex < browserHelperIndex && browserHelperIndex < startIndex,
-    "browser readiness watcher must start after tests and before the server",
+    browserHelperIndex < startIndex,
+    "browser readiness watcher must start before the server",
   );
   assert.match(
     source,

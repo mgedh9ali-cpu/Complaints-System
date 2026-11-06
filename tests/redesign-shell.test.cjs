@@ -47,6 +47,7 @@ test('mobile navigation closes from backdrop and Escape without changing complai
  assert.match(js,/closeMenu\(true\)/);
  assert.match(js,/event\.key === 'Escape'/);
  assert.match(js,/document\.body\.dataset\.signedIn === 'true'/);
+ assert.ok(js.includes("sidebar.querySelector('.nav-link:not([hidden])')?.focus();"),'opening the mobile menu must move keyboard focus into navigation');
  assert.match(css,/\.sidebar\.open \+ \.nav-backdrop/);
 });
 

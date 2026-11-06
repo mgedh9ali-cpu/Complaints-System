@@ -4,8 +4,9 @@ const test=require('node:test');
 const vm=require('node:vm');
 const {assembleUiBundle}=require('../lib/ui-bundle');
 
-function createFakeBrowser(role='admin',initialReply=null){
+function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLocalStorage=new Map()){
  const events=new Map(),windowEvents=new Map(),nodes=new Map(),historyEntries=[],downloads=[];
+ const localStorage=sharedLocalStorage,sessionStorage=new Map();
  function node(key){
   if(!nodes.has(key))nodes.set(key,{
    id:key.startsWith('#')?key.slice(1):key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
@@ -42,7 +43,7 @@ function createFakeBrowser(role='admin',initialReply=null){
  const fetch=async (url,options={})=>{
   calls.push({url,method:options.method||'GET',headers:options.headers||{},body:options.body});
   let response;
-  if(url==='/api/auth/me')response={user:{id:'u1',username:role,role}};
+  if(url==='/api/auth/me')response={user:{id:userId,username:role,role}};
   else if(url==='/api/state'){
    if(options.method==='PUT')revision+=1;
    response=options.method==='PUT'?{saved:true,revision}:{state,revision};
@@ -71,8 +72,8 @@ function createFakeBrowser(role='admin',initialReply=null){
  };
  const context={
   document,window,history,location,fetch,
-  sessionStorage:{getItem(){return null},setItem(){},removeItem(){}},
-  localStorage:{getItem(){return null},setItem(){}},
+  sessionStorage:{getItem(key){return sessionStorage.get(key)||null},setItem(key,value){sessionStorage.set(key,String(value))},removeItem(key){sessionStorage.delete(key)}},
+  localStorage:{getItem(key){return localStorage.get(key)||null},setItem(key,value){localStorage.set(key,String(value))},removeItem(key){localStorage.delete(key)}},
   structuredClone,URL,Date,Intl,console:{log(){},warn(){},error(){}},
   setTimeout:()=>0,clearTimeout(){},confirm:()=>true,
   CustomEvent:class{constructor(type,options){this.type=type;this.detail=options?.detail;}}
@@ -100,7 +101,7 @@ function createFakeBrowser(role='admin',initialReply=null){
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click,navigate,goto,calls,state,window,downloads};
+ return {node,events,windowEvents,location,historyEntries,click,navigate,goto,calls,state,window,downloads,localStorage,sessionStorage};
 }
 
 test('dashboard quick links navigate to their requested page',async()=>{
@@ -109,6 +110,20 @@ test('dashboard quick links navigate to their requested page',async()=>{
  ui.goto('complaints');
  assert.equal(ui.location.hash,'#complaints');
  assert.match(ui.node('#pageCrumb').textContent,/سجل الشكاوى/);
+});
+
+test('complaint drafts are scoped to the authenticated user and legacy unscoped drafts are ignored',async()=>{
+ const shared=new Map([
+  ['complaints-draft-v1',JSON.stringify({cSummary:'مسودة قديمة غير مرتبطة بحساب'})],
+  ['complaints-draft-v1:u1',JSON.stringify({_ownerUserId:'u1',_savedAt:Date.now(),cSummary:'مسودة الحساب الأول'})]
+ ]);
+ const other=createFakeBrowser('admin',null,'u2',shared);for(let i=0;i<20;i++)await Promise.resolve();
+ await other.click('new-complaint');
+ assert.doesNotMatch(other.node('#modalRoot').innerHTML,/استعادة المسودة/);
+ assert.equal(shared.has('complaints-draft-v1'),false,'legacy drafts must not remain globally visible');
+ const owner=createFakeBrowser('admin',null,'u1',shared);for(let i=0;i<20;i++)await Promise.resolve();
+ await owner.click('new-complaint');
+ assert.match(owner.node('#modalRoot').innerHTML,/استعادة المسودة/);
 });
 
 test('complaint section tabs scroll to the matching section',async()=>{

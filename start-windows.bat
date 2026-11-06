@@ -48,14 +48,6 @@ if not exist "open-local-browser.ps1" (
   exit /b 1
 )
 
-echo Running automated tests before startup...
-call npm test
-if errorlevel 1 (
-  echo ERROR: Tests failed. The server will not be started.
-  pause
-  exit /b 1
-)
-
 echo.
 echo Starting the local server.
 echo The browser will open automatically when http://127.0.0.1:3000 is ready.

@@ -154,7 +154,7 @@ case 'sync-import':$('#syncImportFile')?.click();break;
 case 'sync-export':toast('استخدم تصدير المزامنة من لوحة الإعدادات مع عبارة مرور.','warn');break;
 case 'confirm-sync-password':await confirmSyncPassword();break;
 case 'restore-draft':restoreComplaintDraft(true);break;
-case 'discard-draft':try{localStorage.removeItem(DRAFT_KEY);sessionStorage.removeItem(DRAFT_KEY);}catch(_){} $('#draftBanner')?.remove();toast('تم تجاهل المسودة.');break;
+case 'discard-draft':try{const draftKey=complaintDraftStorageKey();if(draftKey){localStorage.removeItem(draftKey);sessionStorage.removeItem(draftKey);}localStorage.removeItem(DRAFT_KEY);sessionStorage.removeItem(DRAFT_KEY);}catch(_){} $('#draftBanner')?.remove();toast('تم تجاهل المسودة.');break;
 case 'add-setting':addSetting(el.dataset.type);break;
 case 'edit-setting':addSetting(el.dataset.type,el.dataset.value);break;
 case 'delete-setting':await deleteSetting(el.dataset.type,el.dataset.value);break;

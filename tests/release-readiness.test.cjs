@@ -47,6 +47,12 @@ function fixture(t, encrypted = false) {
 const admin = { id:'a1',username:'director',role:'admin' };
 const otherAdmin = { id:'a2',username:'manager',role:'admin' };
 
+test('SQLite uses FULL synchronous durability with WAL', t => {
+  const f=fixture(t);
+  assert.equal(f.db.pragma('journal_mode',{simple:true}),'wal');
+  assert.equal(f.db.pragma('synchronous',{simple:true}),2);
+});
+
 test('storage encryption authenticates bytes and binds them to their row or file', () => {
   const codec = createStorageCodec(KEY);
   const value = codec.encodeJson({secret:'citizen-private'}, 'complaint:A');

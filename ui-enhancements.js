@@ -317,6 +317,9 @@
       toggle.setAttribute('aria-expanded', 'false');
       if (restoreFocus) toggle.focus();
     }
+    toggle.addEventListener('click', () => {
+      if (sidebar.classList.contains('open')) sidebar.querySelector('.nav-link:not([hidden])')?.focus();
+    });
     backdrop.addEventListener('click', () => closeMenu(true));
     const accountMenu = $('#accountMenu');
     const desktopAccountHost = $('.top-user');
