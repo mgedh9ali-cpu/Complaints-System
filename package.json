@@ -1,1 +1,136 @@
-PLACEHOLDER
+{
+  "name": "complaints-local-system",
+  "version": "1.0.0-rc.4",
+  "private": true,
+  "description": "Local-first Arabic complaints system for private office use",
+  "main": "desktop/main.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "start:desktop": "electron .",
+    "test": "node --test --test-concurrency=4",
+    "check": "node scripts/check-source.js",
+    "check:sqlite": "node -e \"const Database = require('better-sqlite3'); const db = new Database(':memory:'); console.log(db.prepare('SELECT sqlite_version() AS version').get()); db.close();\"",
+    "postinstall": "electron-builder install-app-deps",
+    "verify-audit": "node scripts/verify-audit-log.js",
+    "backup": "node scripts/backup-database.js",
+    "dist:win": "electron-builder --win portable --x64"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^13.0.3",
+    "call-bind-apply-helpers": "^1.0.2",
+    "exceljs": "^4.4.0",
+    "jszip": "3.10.2",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-session": "^1.18.1",
+    "helmet": "^8.1.0",
+    "multer": "^2.5.0",
+    "pdfkit": "^0.20.2",
+    "session-file-store": "^1.5.0",
+    "glob": "file:vendor/glob-compat",
+    "minimatch": "file:vendor/minimatch-compat",
+    "rimraf": "file:vendor/rimraf-compat"
+  },
+  "devDependencies": {
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "local.complaints.system",
+    "productName": "نظام الشكاوى",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node",
+      "**/better-sqlite3/**/*"
+    ],
+    "npmRebuild": true,
+    "files": [
+      "server.js",
+      "package.json",
+      "index.html",
+      "app.js",
+      "attachments-ui-bridge.js",
+      "ui-enhancements.js",
+      "sw.js",
+      "sw-register.js",
+      "manifest.json",
+      "*.css",
+      "ui/**/*.js",
+      "config/**/*.js",
+      "lib/**/*.js",
+      "modules/**/*.js",
+      "scripts/**/*.js",
+      "desktop/**/*.js",
+      "desktop/splash.html",
+      "assets/NotoSansArabic.ttf",
+      "assets/NotoSansArabic-OFL.txt",
+      "assets/fonts/**",
+      "!tests/**/*",
+      "!.github/**/*",
+      "!fonts/**/*",
+      "!fonts-src/**/*",
+      "!.env",
+      "!.env.*",
+      "!data/**/*",
+      "!attachments/**/*",
+      "!sessions/**/*",
+      "!backups/**/*",
+      "!*.sqlite",
+      "!*.sqlite-*",
+      "!*.sqlite3",
+      "!*.db",
+      "!*.db-*",
+      "!*.csb",
+      "!*.enc",
+      "!*.log",
+      "!audit-head.hash",
+      "!dist-desktop/**/*",
+      "!coverage/**/*",
+      "!.git/**/*",
+      "!.circleci/**/*",
+      "!docs/**/*",
+      "!*.zip",
+      "!*.bak",
+      "!**/storage-key",
+      "!retired-attachments/**/*",
+      "vendor/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "complaints-system-${version}-portable.${ext}",
+      "icon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "complaints-system-${version}-portable.exe"
+    }
+  },
+  "overrides": {
+    "uuid": "^11.1.1",
+    "glob": "$glob",
+    "minimatch": "$minimatch",
+    "rimraf": "$rimraf",
+    "global-agent": "4.1.6",
+    "fast-csv": "5.0.7",
+    "unzipper": "0.12.5",
+    "glob-patched": {
+      "minimatch": "11.0.3"
+    }
+  },
+  "author": {
+    "name": "mgedh9ali-cpu"
+  }
+}
