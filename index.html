@@ -28,7 +28,7 @@
           </div>
         </div>
         <div class="prototype-note" role="status">
-          <span class="status-dot"></span> قاعدة بيانات محلية · تسجيل دخول مطلوب
+          <span class="status-dot"></span> تشغيل فردي محلي · بيانات على هذا الجهاز فقط
         </div>
         <nav class="main-nav" aria-label="التنقل الرئيسي">
           <p class="nav-group-label" id="navWorkspace">مساحة العمل</p>
@@ -59,8 +59,7 @@
           </div>
           <div class="top-actions">
             <button type="button" class="btn btn-primary top-create-button" id="headerCreateButton" data-action="new-complaint" hidden>＋ <span>تسجيل شكوى</span></button>
-            <button type="button" class="btn btn-backup" id="topBackupButton" data-action="database-backup" hidden title="نسخة احتياطية كاملة">نسخة احتياطية</button>
-            <button type="button" class="btn btn-sm" id="topUpdateHelpButton" data-action="show-update-help" hidden title="كيفية تحديث البرنامج">تحديث</button>
+            <!-- backup/update: settings + account menu only -->
             <button type="button" class="icon-btn" data-page="notifications" aria-label="الإشعارات"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><i id="topUnread"></i></button>
             <div class="top-user">
               <span class="avatar small" aria-hidden="true">م</span><span id="topUserName">غير مسجل</span>
@@ -112,7 +111,7 @@
     </div>
     <form id="loginForm" class="login-fields" autocomplete="on">
       <h1 id="loginTitle">تسجيل الدخول</h1>
-      <p class="login-subtitle">يتطلب حساباً صالحاً للمتابعة</p>
+      <p class="login-subtitle">حساب المدير المحلي على هذا الجهاز فقط — لا يوجد اتصال خارجي</p>
       <div class="form-field">
         <label for="loginUsername">اسم المستخدم</label>
         <input class="field" id="loginUsername" name="username" type="text" required autocomplete="username" />
