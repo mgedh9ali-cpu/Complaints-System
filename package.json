@@ -10,13 +10,13 @@
     "test": "node --test --test-concurrency=4",
     "check": "node scripts/check-source.js",
     "check:sqlite": "node -e \"const Database = require('better-sqlite3'); const db = new Database(':memory:'); console.log(db.prepare('SELECT sqlite_version() AS version').get()); db.close();\"",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "node -e \"try{require('child_process').execSync('npx electron-builder install-app-deps',{stdio:'inherit',shell:true})}catch(e){console.warn('[postinstall] Electron native rebuild skipped:', e.message); process.exit(0)}\"",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js",
     "dist:win": "electron-builder --win portable --x64"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22 <26"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -50,57 +50,29 @@
       "**/*.node",
       "**/better-sqlite3/**/*"
     ],
-    "npmRebuild": true,
     "files": [
+      "desktop/**/*",
+      "modules/**/*",
+      "lib/**/*",
+      "config/**/*",
+      "ui/**/*",
+      "scripts/**/*",
+      "vendor/**/*",
+      "assets/**/*",
       "server.js",
-      "package.json",
-      "index.html",
       "app.js",
-      "attachments-ui-bridge.js",
-      "ui-enhancements.js",
+      "index.html",
+      "manifest.json",
+      "package.json",
+      "*.css",
       "sw.js",
       "sw-register.js",
-      "manifest.json",
-      "*.css",
-      "ui/**/*.js",
-      "config/**/*.js",
-      "lib/**/*.js",
-      "modules/**/*.js",
-      "scripts/**/*.js",
-      "desktop/**/*.js",
-      "desktop/splash.html",
-      "assets/NotoSansArabic.ttf",
-      "assets/NotoSansArabic-OFL.txt",
-      "assets/fonts/**",
-      "!tests/**/*",
-      "!.github/**/*",
-      "!fonts/**/*",
-      "!fonts-src/**/*",
-      "!.env",
-      "!.env.*",
-      "!data/**/*",
-      "!attachments/**/*",
-      "!sessions/**/*",
-      "!backups/**/*",
-      "!*.sqlite",
-      "!*.sqlite-*",
-      "!*.sqlite3",
-      "!*.db",
-      "!*.db-*",
-      "!*.csb",
-      "!*.enc",
-      "!*.log",
-      "!audit-head.hash",
-      "!dist-desktop/**/*",
-      "!coverage/**/*",
-      "!.git/**/*",
-      "!.circleci/**/*",
-      "!docs/**/*",
-      "!*.zip",
-      "!*.bak",
-      "!**/storage-key",
-      "!retired-attachments/**/*",
-      "vendor/**/*"
+      "ui-enhancements.js",
+      "attachments-ui-bridge.js",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/.bin",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!dist-desktop"
     ],
     "win": {
       "target": [
@@ -111,26 +83,7 @@
           ]
         }
       ],
-      "artifactName": "complaints-system-${version}-portable.${ext}",
-      "icon": "build/icon.ico"
-    },
-    "portable": {
-      "artifactName": "complaints-system-${version}-portable.exe"
+      "artifactName": "Complaints-System-Portable.${ext}"
     }
-  },
-  "overrides": {
-    "uuid": "^11.1.1",
-    "glob": "$glob",
-    "minimatch": "$minimatch",
-    "rimraf": "$rimraf",
-    "global-agent": "4.1.6",
-    "fast-csv": "5.0.7",
-    "unzipper": "0.12.5",
-    "glob-patched": {
-      "minimatch": "11.0.3"
-    }
-  },
-  "author": {
-    "name": "mgedh9ali-cpu"
   }
 }

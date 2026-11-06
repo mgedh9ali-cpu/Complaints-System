@@ -3,15 +3,33 @@ setlocal
 cd /d "%~dp0"
 
 echo ==========================================
-echo   نظام الشكاوى - تطبيق سطح المكتب
-echo   Local desktop shell (Electron)
+echo   Complaints System - Desktop (Electron)
+echo   Local only on this computer
 echo ==========================================
 echo.
 
 where node >nul 2>nul
 if errorlevel 1 (
   echo ERROR: Node.js is not installed.
-  echo Install Node.js 22.0+ then run npm install and retry.
+  echo Install Node.js 22 LTS from https://nodejs.org then retry.
+  pause
+  exit /b 1
+)
+
+node -e "const v=process.versions.node.split('.').map(Number); if(v[0]<22||v[0]>=26) process.exit(1)"
+if errorlevel 1 (
+  echo ERROR: Use Node.js 22 or 24 LTS. Node 26 is too new for native modules.
+  node --version
+  echo Download Node 22 LTS, uninstall Node 26, then open a NEW cmd window.
+  pause
+  exit /b 1
+)
+
+echo %CD% | findstr /C:" " >nul
+if not errorlevel 1 (
+  echo ERROR: Project path contains spaces. node-gyp cannot build better-sqlite3.
+  echo Move the folder to a path without spaces, e.g. E:\Complaints-System
+  echo Current: %CD%
   pause
   exit /b 1
 )
