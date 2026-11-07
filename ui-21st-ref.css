@@ -122,3 +122,39 @@ html.glass-off .login-card {
   border-color: var(--forest, #0B7A5E);
   color: var(--forest, #0B7A5E);
 }
+
+/* أيقونة الثيم */
+.theme-icon-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line, #d3e2da);
+  background: color-mix(in srgb, var(--surface, #fff) 88%, transparent);
+  color: var(--ink, #0f2a23);
+  cursor: pointer;
+}
+.theme-icon-toggle:hover {
+  border-color: var(--forest, #0B7A5E);
+  color: var(--forest, #0B7A5E);
+}
+.theme-icon-toggle:focus-visible {
+  outline: 2px solid var(--forest, #0B7A5E);
+  outline-offset: 2px;
+}
+.theme-icon-toggle.is-dark {
+  background: color-mix(in srgb, var(--forest, #0B7A5E) 18%, var(--surface, #fff));
+}
+
+.btn-copy {
+  background: color-mix(in srgb, var(--paper, #f2f7f3) 80%, #fff);
+  border: 1px solid var(--line, #d3e2da);
+  color: var(--ink, #0f2a23);
+}
+.btn-copy:hover {
+  border-color: var(--forest, #0B7A5E);
+  color: var(--forest, #0B7A5E);
+}
