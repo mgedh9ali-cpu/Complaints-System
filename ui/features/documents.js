@@ -136,6 +136,7 @@ function printComplaintCover(id){
 function complaintRecordActions(c,withView=true){
  const action=(label,name,extra='')=>'<button type="button" class="btn btn-sm '+extra+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
  let html=withView?action('عرض','detail'):'';
+ html+=action('طباعة','print-complaint-cover','btn-print');
  if(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status))html+=action('تعديل','edit-complaint');
  if(uiCan('approvals.request')&&!c.archivedAt)html+=action('حذف','request-complaint-delete','btn-danger');
  if(uiCan('export.xlsx')&&!c.archivedAt)html+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
