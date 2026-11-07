@@ -1,0 +1,139 @@
+/* ui-icon-motion.css — icon motion + visual performance
+ * Uses tokens from ui-transitions.css when present; safe fallbacks below.
+ */
+:root {
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --sla-ok: #2F7A4F;
+}
+
+.nav-icon,
+.ui-svg-icon,
+.icon-btn svg,
+.icon-button svg,
+.theme-icon-toggle svg,
+.login-password-toggle svg,
+.brand-mark svg {
+  transform-origin: center;
+  transition:
+    transform var(--duration-fast) var(--ease-smooth-out),
+    opacity var(--duration-quick) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    stroke var(--duration-fast) var(--ease-out);
+  will-change: transform;
+}
+
+.nav-link:hover .nav-icon,
+.nav-link:hover .ui-svg-icon {
+  transform: scale(1.08) translateY(-0.5px);
+}
+.nav-link:active .nav-icon,
+.nav-link:active .ui-svg-icon {
+  transform: scale(0.92);
+}
+.nav-link.active .nav-icon,
+.nav-link[aria-current="page"] .nav-icon {
+  transform: scale(1.06);
+}
+
+.icon-btn:hover svg,
+.icon-button:hover svg,
+.theme-icon-toggle:hover svg {
+  transform: scale(1.12) rotate(-6deg);
+}
+.icon-btn:active svg,
+.icon-button:active svg,
+.theme-icon-toggle:active svg {
+  transform: scale(0.9) rotate(0deg);
+  transition-duration: var(--duration-micro);
+}
+
+.login-password-toggle:hover svg {
+  transform: scale(1.1);
+}
+.login-password-toggle[aria-pressed="true"] svg {
+  transform: scale(1.05);
+  opacity: 0.85;
+}
+
+.login-brand svg {
+  animation: t-icon-breathe 3.2s var(--ease-in-out) infinite;
+}
+@keyframes t-icon-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.04); opacity: 0.92; }
+}
+
+.sla-ring[data-level="late"] {
+  animation: t-sla-pulse 1.6s var(--ease-in-out) infinite;
+}
+@keyframes t-sla-pulse {
+  0%, 100% { filter: brightness(1); transform: scale(1); }
+  50% { filter: brightness(1.08); transform: scale(1.05); }
+}
+
+.content[data-enter] .pill::before {
+  animation: t-dot-pop var(--duration-medium) var(--ease-bounce) both;
+}
+@keyframes t-dot-pop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.avatar {
+  transition: transform var(--duration-fast) var(--ease-smooth-out),
+              box-shadow var(--duration-fast) var(--ease-smooth-out);
+}
+.side-user:hover .avatar {
+  transform: scale(1.06);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sla-ok, #2F7A4F);
+  animation: t-status-live 2s var(--ease-in-out) infinite;
+}
+@keyframes t-status-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+
+.btn,
+.nav-link,
+.icon-btn,
+.theme-icon-toggle {
+  contain: layout style;
+}
+tbody tr {
+  contain: layout style;
+}
+.modal,
+.toast-region .toast {
+  backface-visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-icon,
+  .ui-svg-icon,
+  .icon-btn svg,
+  .theme-icon-toggle svg,
+  .login-password-toggle svg,
+  .login-brand svg,
+  .sla-ring[data-level="late"],
+  .status-dot,
+  .avatar,
+  .content[data-enter] .pill::before {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
