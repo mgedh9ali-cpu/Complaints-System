@@ -74,7 +74,12 @@
                                 "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
                                 "!dist-desktop",
                                 "!.env",
-                                "!.env.*"
+                                "!.env.*",
+                                "!data/**/*",
+                                "!*.db",
+                                "!*.sqlite",
+                                "!logs/**/*",
+                                "!backups/**/*"
                             ],
                   "win":  {
                               "target":  [

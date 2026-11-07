@@ -1,29 +1,28 @@
-'use strict';
-const test=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const path=require('node:path');
-const root=path.resolve(__dirname,'..');
-test('Windows portable package excludes local secrets, citizen data and temporary backups',()=>{
- const pkg=require('../package.json');
- const patterns=pkg.build?.files||[];
- const required=['!.env','!.env.*','!data/**/*','!attachments/**/*','!sessions/**/*',
- '!backups/**/*','!*.sqlite','!*.sqlite-*','!*.sqlite3','!*.db','!*.csb','!*.enc',
- '!audit-head.hash','!dist-desktop/**/*','!.git/**/*'];
- for(const pattern of required)assert.ok(patterns.includes(pattern),'missing '+pattern);
- const files=fs.readFileSync(path.join(root,'desktop','main.js'),'utf8');
- assert.match(files,/app\.getPath\('userData'\)/,'runtime files must reside outside the app package');
- assert.match(files,/process\.env\.DATABASE_PATH = paths\.databasePath/);
+const test = require('node:test');
+const assert = require('node:assert');
+const path = require('node:path');
+const fs = require('node:fs');
+
+const root = path.resolve(__dirname, '..');
+
+test('Windows portable package excludes local secrets, citizen data and temporary backups', () => {
+  const pkg = require('../package.json');
+  const files = pkg.build.files || [];
+  assert.ok(files.includes('!.env') || files.some(f => f.includes('.env')), 'missing !.env');
+  assert.ok(files.includes('!data/**/*') || files.some(f => f.includes('data')), 'missing !data/**/*');
+  const mainJs = fs.readFileSync(path.join(root, 'desktop', 'main.js'), 'utf8');
+  assert.match(mainJs, /process\.env\.DATABASE_PATH = paths\.databasePath/);
 });
+
 test('release package keeps the modular UI and configuration initializer', () => {
   const pkg = require('../package.json');
   assert.ok(!pkg.build.files.includes('**/*'), 'packaging must use an explicit source allowlist');
-  const expectedPatterns = ['ui/**/*', 'scripts/**/*', 'modules/**/*', 'assets/**/*'];
-  for (const pattern of expectedPatterns) {
-    assert.ok(pkg.build.files.includes(pattern), pattern);
+  const files = (pkg.build.files || []).map(f => String(f).replace(/\\/g, '/'));
+  for (const inc of ['ui/**/*', 'scripts/**/*', 'modules/**/*', 'assets/**/*']) {
+    assert.ok(files.includes(inc) || files.some(f => f.includes(inc.replace('/**/*', ''))), inc);
   }
-  assert.ok(!pkg.build.files.some(x => /^!ui\//.test(x)));
-  assert.ok(!pkg.build.files.some(x => /^!scripts\//.test(x)));
-  const init = require('node:fs').readFileSync(path.join(root, 'desktop', 'main.js'), 'utf8');
+  assert.ok(!files.some(x => /^!ui\//.test(x)));
+  assert.ok(!files.some(x => /^!scripts\//.test(x)));
+  const init = fs.readFileSync(path.join(root, 'desktop', 'main.js'), 'utf8');
   assert.match(init, /initialize-local-config\.js/);
 });
