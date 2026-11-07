@@ -15,10 +15,15 @@ test('Windows portable package excludes local secrets, citizen data and temporar
  assert.match(files,/app\.getPath\('userData'\)/,'runtime files must reside outside the app package');
  assert.match(files,/process\.env\.DATABASE_PATH = paths\.databasePath/);
 });
-test('release package keeps the modular UI and configuration initializer',()=>{
-  const pkg=require('../package.json');
-  assert.ok(!pkg.build.files.includes('**/*'),'packaging must use an explicit source allowlist');
-  const norm=(pkg.build.files||[]).map(x=>String(x).split('\\').join('/'));
-  for(const inc of ['ui/**/*.js','scripts/**/*.js','modules/**/*.js','assets/NotoSansArabic.ttf']) assert.ok(norm.some(x=>x===inc||x.includes(inc.split('/').pop())), inc);
- assert.match(init,/initialize-local-config\.js/);
+test('release package keeps the modular UI and configuration initializer', () => {
+  const pkg = require('../package.json');
+  assert.ok(!pkg.build.files.includes('**/*'), 'packaging must use an explicit source allowlist');
+  const expectedPatterns = ['ui/**/*', 'scripts/**/*', 'modules/**/*', 'assets/**/*'];
+  for (const pattern of expectedPatterns) {
+    assert.ok(pkg.build.files.includes(pattern), pattern);
+  }
+  assert.ok(!pkg.build.files.some(x => /^!ui\//.test(x)));
+  assert.ok(!pkg.build.files.some(x => /^!scripts\//.test(x)));
+  const init = require('node:fs').readFileSync(path.join(root, 'desktop', 'main.js'), 'utf8');
+  assert.match(init, /initialize-local-config\.js/);
 });
