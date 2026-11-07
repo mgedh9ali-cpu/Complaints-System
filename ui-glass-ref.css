@@ -1,30 +1,24 @@
-/* ui-glass-ref.css — مرجع تصميم من Adjustable Glass Dashboard (21st.dev / troyjlorents-gh)
- * يُطبَّق فوق ui-system بدون كسر القراءة الرسمية.
- * الزجاج مضبوط: blur / opacity / saturation / edge lighting على الشريط والبطاقات والنوافذ فقط.
- * الجداول والنماذج تبقى أسطحًا صلبة.
+/* ui-glass-ref.css — light glass (performance-tuned)
+ * blur capped; tables stay solid; no continuous animation cost
  */
 
 :root {
-  /* معاملات الزجاج المستوحاة من المرجع (قابلة للضبط لاحقًا) */
-  --gw-blur: 18px;
-  --gw-opacity: 0.72;
-  --gw-sat: 1.15;
-  --gw-edge: 0.55;
-  --gw-tint: color-mix(in srgb, var(--forest) 12%, transparent);
+  --gw-blur: 6px;
+  --gw-opacity: 0.85;
+  --gw-sat: 1.05;
+  --gw-edge: 0.4;
+  --gw-tint: color-mix(in srgb, var(--forest) 10%, transparent);
   --gw-edge-light: color-mix(in srgb, #fff calc(var(--gw-edge) * 100%), transparent);
-  --gw-panel-shadow: 0 8px 28px color-mix(in srgb, var(--forest-deep) 18%, transparent),
-                     0 1px 0 var(--gw-edge-light) inset;
-  --gw-soft-shadow: 0 4px 16px color-mix(in srgb, var(--forest-deep) 10%, transparent);
+  --gw-panel-shadow: 0 4px 16px color-mix(in srgb, var(--forest-deep) 12%, transparent);
+  --gw-soft-shadow: 0 2px 8px color-mix(in srgb, var(--forest-deep) 8%, transparent);
 }
 
 html[data-theme="dark"] {
-  --gw-opacity: 0.55;
-  --gw-tint: color-mix(in srgb, var(--forest) 18%, transparent);
-  --gw-edge-light: color-mix(in srgb, #fff calc(var(--gw-edge) * 28%), transparent);
-  --gw-panel-shadow: 0 10px 32px rgb(0 0 0 / .45), 0 1px 0 var(--gw-edge-light) inset;
+  --gw-opacity: 0.7;
+  --gw-tint: color-mix(in srgb, var(--forest) 14%, transparent);
 }
 
-/* الشريط العلوي — زجاج أوضح مع حافة ضوئية */
+/* Topbar only — modest blur */
 @supports (backdrop-filter: blur(1px)) {
   @media (prefers-reduced-transparency: no-preference) {
     .topbar {
@@ -32,99 +26,64 @@ html[data-theme="dark"] {
       backdrop-filter: blur(var(--gw-blur)) saturate(var(--gw-sat));
       -webkit-backdrop-filter: blur(var(--gw-blur)) saturate(var(--gw-sat));
       border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent);
-      box-shadow: 0 1px 0 var(--gw-edge-light) inset, var(--gw-soft-shadow);
     }
   }
 }
 
-/* بطاقات الإحصائيات واللوحات الصغيرة — لمسة زجاج خفيفة */
-@supports (backdrop-filter: blur(1px)) {
-  @media (prefers-reduced-transparency: no-preference) {
-    .stat-item,
-    .mini-card,
-    .dashboard-stats .panel {
-      background: color-mix(in srgb, var(--surface) 88%, var(--gw-tint));
-      backdrop-filter: blur(10px) saturate(1.08);
-      -webkit-backdrop-filter: blur(10px) saturate(1.08);
-      border-color: color-mix(in srgb, var(--line) 80%, var(--forest) 12%);
-      box-shadow: var(--gw-soft-shadow), 0 1px 0 var(--gw-edge-light) inset;
-      transition: transform var(--d1) var(--ease), box-shadow var(--d2) var(--ease);
-    }
-    .stat-item:hover,
-    .mini-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--gw-panel-shadow);
-    }
-  }
+/* Cards — solid surface preferred (no per-card backdrop-filter) */
+.stat-item,
+.mini-card {
+  background: var(--surface);
+  box-shadow: var(--gw-soft-shadow);
 }
 
-/* نوافذ الحوار — زجاج أقوى مع حافة */
+/* Modal backdrop — single blur layer ok */
 @supports (backdrop-filter: blur(1px)) {
   @media (prefers-reduced-transparency: no-preference) {
-    .modal-panel,
-    .modal .panel,
-    .dialog-panel,
-    [role="dialog"] > .panel,
-    .login-card {
-      background: color-mix(in srgb, var(--surface) calc(var(--gw-opacity) * 100% + 8%), transparent);
-      backdrop-filter: blur(calc(var(--gw-blur) + 6px)) saturate(var(--gw-sat));
-      -webkit-backdrop-filter: blur(calc(var(--gw-blur) + 6px)) saturate(var(--gw-sat));
-      border: 1px solid color-mix(in srgb, var(--line) 60%, #fff 20%);
-      box-shadow: var(--gw-panel-shadow);
-    }
     .modal-backdrop,
     .login-overlay {
-      backdrop-filter: blur(8px) saturate(1.05);
-      -webkit-backdrop-filter: blur(8px) saturate(1.05);
-      background: color-mix(in srgb, var(--forest-deep) 35%, transparent);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      background: color-mix(in srgb, var(--forest-deep) 40%, transparent);
     }
-  }
-}
-
-/* قائمة الحساب المنسدلة */
-@supports (backdrop-filter: blur(1px)) {
-  @media (prefers-reduced-transparency: no-preference) {
+    .login-card,
     .account-menu-panel {
-      background: color-mix(in srgb, var(--surface) 90%, transparent);
-      backdrop-filter: blur(14px) saturate(1.1);
-      -webkit-backdrop-filter: blur(14px) saturate(1.1);
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       box-shadow: var(--gw-panel-shadow);
-      border-color: color-mix(in srgb, var(--line) 70%, #fff 15%);
     }
   }
 }
 
-/* شريط الاختصارات السريعة */
-.workspace-shortcuts {
-  background: color-mix(in srgb, var(--paper) 70%, var(--surface));
-  border-bottom: 1px solid var(--line);
-}
-@supports (backdrop-filter: blur(1px)) {
-  @media (prefers-reduced-transparency: no-preference) {
-    .workspace-shortcuts {
-      background: color-mix(in srgb, var(--surface) 75%, transparent);
-      backdrop-filter: blur(10px) saturate(1.05);
-      -webkit-backdrop-filter: blur(10px) saturate(1.05);
-    }
-  }
+/* Never glass dense surfaces */
+.registry-table-wrap,
+.table-panel,
+.table-wrap,
+tbody,
+.content table,
+.panel.table-panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
 }
 
-/* احترام تقليل الشفافية والحركة */
 @media (prefers-reduced-transparency: reduce) {
   .topbar,
-  .stat-item,
-  .mini-card,
-  .modal-panel,
   .login-card,
   .account-menu-panel,
-  .workspace-shortcuts {
+  .modal-backdrop,
+  .login-overlay {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+  }
+  .topbar,
+  .login-card,
+  .account-menu-panel {
     background: var(--surface);
   }
   .modal-backdrop,
   .login-overlay {
-    backdrop-filter: none !important;
     background: color-mix(in srgb, var(--forest-deep) 55%, #000);
   }
 }
