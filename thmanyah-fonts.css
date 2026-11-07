@@ -1,34 +1,119 @@
-/* Thmanyah Sans — local install only (license forbids redistributing font files).
- * Install OTF from https://font.thmanyah.com/ then restart the app.
- * Noto Sans Arabic (assets/) is always loaded via fallback-font.css.
+/* Thmanyah font family integration.
+ * The font license permits use in projects but forbids redistributing/hosting the font files.
+ * Therefore this stylesheet only references fonts installed locally on the device.
+ * Cairo and Noto Sans Arabic remain bundled offline fallbacks.
  */
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: local("Thmanyah Sans Light"), local("ThmanyahSans-Light");
+}
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: local("Thmanyah Sans Regular"),
-       local("ThmanyahSans-Regular"),
-       local("Thmanyah Sans");
+  src: local("Thmanyah Sans Regular"), local("ThmanyahSans-Regular"), local("Thmanyah Sans");
 }
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: local("Thmanyah Sans Medium"),
-       local("ThmanyahSans-Medium");
+  src: local("Thmanyah Sans Medium"), local("ThmanyahSans-Medium");
 }
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: local("Thmanyah Sans Bold"),
-       local("ThmanyahSans-Bold");
+  src: local("Thmanyah Sans Bold"), local("ThmanyahSans-Bold");
+}
+@font-face {
+  font-family: "Thmanyah Sans";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: local("Thmanyah Sans Black"), local("ThmanyahSans-Black");
 }
 
-/* Prefer Thmanyah when present; Noto is guaranteed offline fallback */
+@font-face {
+  font-family: "Thmanyah Serif Text";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: local("Thmanyah Serif Text Light"), local("ThmanyahSerifText-Light");
+}
+@font-face {
+  font-family: "Thmanyah Serif Text";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Thmanyah Serif Text Regular"), local("ThmanyahSerifText-Regular"), local("Thmanyah Serif Text");
+}
+@font-face {
+  font-family: "Thmanyah Serif Text";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Thmanyah Serif Text Medium"), local("ThmanyahSerifText-Medium");
+}
+@font-face {
+  font-family: "Thmanyah Serif Text";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Thmanyah Serif Text Bold"), local("ThmanyahSerifText-Bold");
+}
+@font-face {
+  font-family: "Thmanyah Serif Text";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: local("Thmanyah Serif Text Black"), local("ThmanyahSerifText-Black");
+}
+
+@font-face {
+  font-family: "Thmanyah Serif Display";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: local("Thmanyah Serif Display Light"), local("ThmanyahSerifDisplay-Light");
+}
+@font-face {
+  font-family: "Thmanyah Serif Display";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Thmanyah Serif Display Regular"), local("ThmanyahSerifDisplay-Regular"), local("Thmanyah Serif Display");
+}
+@font-face {
+  font-family: "Thmanyah Serif Display";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Thmanyah Serif Display Medium"), local("ThmanyahSerifDisplay-Medium");
+}
+@font-face {
+  font-family: "Thmanyah Serif Display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Thmanyah Serif Display Bold"), local("ThmanyahSerifDisplay-Bold");
+}
+@font-face {
+  font-family: "Thmanyah Serif Display";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: local("Thmanyah Serif Display Black"), local("ThmanyahSerifDisplay-Black");
+}
+
 :root {
-  --ui-font: "Thmanyah Sans", "ThmanyahSans", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  --ui-font: "Thmanyah Sans", "ThmanyahSans", "Cairo", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  --serif-text-font: "Thmanyah Serif Text", "ThmanyahSerifText", "Noto Sans Arabic", Tahoma, serif;
+  --serif-display-font: "Thmanyah Serif Display", "ThmanyahSerifDisplay", "Noto Sans Arabic", Tahoma, serif;
 }
