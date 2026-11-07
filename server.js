@@ -215,6 +215,7 @@ const PUBLIC_FILES = {
   '/ui-glass-ref.css': 'ui-glass-ref.css',
   '/ui-complaints-view.css': 'ui-complaints-view.css',
   '/ui-21st-ref.css': 'ui-21st-ref.css',
+  '/ui-transitions.css': 'ui-transitions.css',
   '/ui-prod.css': 'ui-prod.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/assets/fonts/cairo-arabic-wght-normal.woff2': 'assets/fonts/cairo-arabic-wght-normal.woff2',
