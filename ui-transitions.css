@@ -1,0 +1,238 @@
+/* ui-transitions.css — motion tokens + patterns from transitions.dev (Jakubantalik)
+ * Adapted to existing Complaints-System selectors. prefers-reduced-motion respected.
+ */
+
+:root {
+  --duration-stagger: 40ms;
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --duration-very-slow: 500ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --ease-out: ease-out;
+  --ease-linear: linear;
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --distance-micro: 4px;
+  --distance-small: 6px;
+  --distance-base: 8px;
+  --distance-medium: 12px;
+  --scale-large: 0.96;
+  --scale-medium: 0.97;
+  --blur-small: 2px;
+  --blur-medium: 3px;
+
+  --modal-open-dur: var(--duration-fast);
+  --modal-close-dur: var(--duration-quick);
+  --modal-scale: var(--scale-large);
+  --modal-ease: var(--ease-smooth-out);
+
+  --toast-open: var(--duration-medium);
+  --toast-close: var(--duration-fast);
+  --toast-distance: 16px;
+  --toast-blur: var(--blur-small);
+  --toast-scale: var(--scale-medium);
+  --toast-ease: var(--ease-smooth-out);
+
+  --badge-pop-dur: var(--duration-very-slow);
+  --badge-pop-ease: var(--ease-bounce);
+
+  --tabs-dur: var(--duration-fast);
+  --tabs-ease: var(--ease-smooth-out);
+
+  --page-dur: var(--duration-fast);
+  --page-distance: var(--distance-base);
+  --page-blur: var(--blur-medium);
+  --page-ease: var(--ease-smooth-out);
+}
+
+.modal-backdrop {
+  opacity: 0;
+  animation: t-backdrop-in var(--modal-open-dur) var(--modal-ease) forwards;
+}
+@keyframes t-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.modal {
+  transform-origin: center;
+  transform: scale(var(--modal-scale)) translateY(6px);
+  opacity: 0;
+  animation: t-modal-in var(--modal-open-dur) var(--modal-ease) forwards;
+}
+@keyframes t-modal-in {
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.toast-region .toast,
+.toast-region .alarm-toast,
+.toast-region .notif-alert {
+  opacity: 0;
+  transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+  filter: blur(var(--toast-blur));
+  animation: t-toast-in var(--toast-open) var(--toast-ease) forwards;
+}
+.toast.is-leaving,
+.alarm-toast.is-leaving,
+.notif-alert.is-leaving {
+  opacity: 0 !important;
+  transform: translateY(8px) scale(0.98) !important;
+  filter: blur(var(--toast-blur)) !important;
+  transition:
+    opacity var(--toast-close) var(--toast-ease),
+    transform var(--toast-close) var(--toast-ease),
+    filter var(--toast-close) var(--toast-ease) !important;
+  animation: none !important;
+}
+@keyframes t-toast-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.nav-count:not(:empty) {
+  transform-origin: center;
+  transition: transform var(--badge-pop-dur) var(--badge-pop-ease),
+              opacity var(--duration-medium) var(--badge-pop-ease);
+}
+.nav-count:not(:empty):not([data-zero="true"]) {
+  animation: t-badge-pop var(--badge-pop-dur) var(--badge-pop-ease);
+}
+@keyframes t-badge-pop {
+  0% { transform: scale(0.6); opacity: 0.4; }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+#topUnread:not([hidden]) {
+  animation: t-badge-pop var(--badge-pop-dur) var(--badge-pop-ease);
+}
+
+.content[data-enter] {
+  animation: t-page-in var(--page-dur) var(--page-ease);
+}
+@keyframes t-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--page-distance));
+    filter: blur(var(--page-blur));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+.complaint-page-tabs button {
+  transition: color var(--tabs-dur) var(--tabs-ease),
+              background var(--tabs-dur) var(--tabs-ease),
+              transform var(--duration-quick) var(--ease-out);
+}
+.complaint-page-tabs button:hover {
+  transform: translateY(-1px);
+}
+
+.btn-success-pulse {
+  animation: t-success-flash var(--duration-very-slow) var(--ease-bounce);
+}
+@keyframes t-success-flash {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.content[data-enter] .stat-item,
+.content[data-enter] .mini-card {
+  animation: t-card-in var(--duration-slow) var(--ease-smooth-out) both;
+}
+.content[data-enter] .stat-item:nth-child(1),
+.content[data-enter] .mini-card:nth-child(1) { animation-delay: 0ms; }
+.content[data-enter] .stat-item:nth-child(2),
+.content[data-enter] .mini-card:nth-child(2) { animation-delay: calc(var(--duration-stagger) * 2); }
+.content[data-enter] .stat-item:nth-child(3),
+.content[data-enter] .mini-card:nth-child(3) { animation-delay: calc(var(--duration-stagger) * 4); }
+.content[data-enter] .stat-item:nth-child(4),
+.content[data-enter] .mini-card:nth-child(4) { animation-delay: calc(var(--duration-stagger) * 6); }
+.content[data-enter] .stat-item:nth-child(5),
+.content[data-enter] .mini-card:nth-child(5) { animation-delay: calc(var(--duration-stagger) * 8); }
+@keyframes t-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(var(--blur-small));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+.content[data-enter] tbody tr {
+  animation: t-row-in var(--duration-medium) var(--ease-smooth-out) both;
+}
+.content[data-enter] tbody tr:nth-child(1) { animation-delay: 20ms; }
+.content[data-enter] tbody tr:nth-child(2) { animation-delay: 40ms; }
+.content[data-enter] tbody tr:nth-child(3) { animation-delay: 60ms; }
+.content[data-enter] tbody tr:nth-child(4) { animation-delay: 80ms; }
+.content[data-enter] tbody tr:nth-child(5) { animation-delay: 100ms; }
+.content[data-enter] tbody tr:nth-child(n+6) { animation-delay: 120ms; }
+@keyframes t-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.login-card {
+  animation: t-modal-in var(--duration-slow) var(--ease-smooth-out) both;
+}
+
+.field.is-error,
+.select-field.is-error,
+.form-field.is-error .field {
+  animation: t-shake 360ms var(--ease-smooth-out);
+}
+@keyframes t-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(calc(var(--distance-small) * -1)); }
+  40% { transform: translateX(var(--distance-small)); }
+  60% { transform: translateX(calc(var(--distance-micro) * -1)); }
+  80% { transform: translateX(var(--distance-micro)); }
+}
+
+.theme-icon-toggle,
+.liquid-glass-toggle {
+  transition: transform var(--duration-quick) var(--ease-out),
+              border-color var(--duration-quick) var(--ease-out),
+              background var(--duration-fast) var(--ease-smooth-out);
+}
+.theme-icon-toggle:active,
+.liquid-glass-toggle:active {
+  transform: scale(0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal,
+  .toast-region .toast,
+  .toast-region .alarm-toast,
+  .toast-region .notif-alert,
+  .nav-count,
+  #topUnread,
+  .content[data-enter],
+  .content[data-enter] .stat-item,
+  .content[data-enter] .mini-card,
+  .content[data-enter] tbody tr,
+  .login-card,
+  .field.is-error,
+  .btn-success-pulse {
+    animation: none !important;
+    transition: none !important;
+    filter: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
