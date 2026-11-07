@@ -137,6 +137,7 @@ function complaintRecordActions(c,withView=true){
  const action=(label,name,extra='')=>'<button type="button" class="btn btn-sm '+extra+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
  let html=withView?action('عرض','detail'):'';
  html+=action('طباعة','print-complaint-cover','btn-print');
+ html+=action('نسخ','copy-complaint','btn-copy');
  if(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status))html+=action('تعديل','edit-complaint');
  if(uiCan('approvals.request')&&!c.archivedAt)html+=action('حذف','request-complaint-delete','btn-danger');
  if(uiCan('export.xlsx')&&!c.archivedAt)html+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
@@ -160,4 +161,43 @@ async function exportComplaintDocument(id,format){
   link.href=url;link.download='شكوى-'+id+'.'+format;document.body.appendChild(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1500);toast('تم تصدير الشكوى '+(format==='docx'?'Word':'PDF')+'.');
  }catch(error){toast(error.message||'تعذر تصدير الشكوى.','error');}
+}
+
+async function copyComplaint(id){
+  const c=db.complaints.find(x=>x?.id===id);
+  if(!c)return toast('الشكوى غير موجودة.','error');
+  if(!uiCan('complaints.create')&&!uiCan('complaints.update'))
+    return toast('لا تملك صلاحية إنشاء شكوى.','error');
+  const body={
+    name:c.name||'',
+    firstContactDate:c.firstContactDate||null,
+    phone:c.phone||'',
+    province:c.province||'غير محددة',
+    category:c.category||'غير مصنفة',
+    nature:c.nature||'',
+    entity:c.entity||'',
+    priority:c.priority||'normal',
+    owner:c.owner||authenticatedUser?.username||'',
+    summary:(c.summary||'')+(c.summary&&!String(c.summary).includes('(نسخة)')?' (نسخة)':''),
+    details:c.details||'',
+    source:c.source||'phone',
+    recordType:c.recordType||(String(c.category||'').includes('استفسار')||String(c.nature||'').includes('استفسار')?'inquiry':'complaint'),
+    relatedToCurrent:c.relatedToCurrent,
+    asDraft:true
+  };
+  try{
+    if(persistTimer){clearTimeout(persistTimer);persistTimer=null;}
+    await persistQueue;
+    const response=await api('/api/complaints',{method:'POST',body:JSON.stringify(body)});
+    const stored=await api('/api/state');
+    db=stored.state||cleanState();
+    stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:(response.revision||stateRevision);
+    stateConflict=false;stateLoaded=true;
+    const newId=response.id||response.complaint?.id||(db.complaints[0]&&db.complaints[0].id);
+    toast('تم إنشاء نسخة مسودة من الشكوى.');
+    if(newId) detailModal(newId);
+    else {page='complaints';render();}
+  }catch(error){
+    toast(error.message||'تعذر نسخ الشكوى.','error');
+  }
 }
