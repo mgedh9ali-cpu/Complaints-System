@@ -11,7 +11,7 @@ function readB64(dir, weight) {
   }
   const prefix = path.join(dir, `ThmanyahSans-${weight}.woff2.p`);
   const parts = [];
-  for (let i = 0; i < 32; i++) {
+  for (let i = 0; i < 64; i++) {
     const p = `${prefix}${String(i).padStart(2, '0')}.txt`;
     if (!fs.existsSync(p)) break;
     parts.push(fs.readFileSync(p, 'utf8').replace(/\s+/g, ''));
