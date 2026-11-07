@@ -1,206 +1,79 @@
-/* ui-icon-motion.css — icon motion + visual performance
- * transitions.dev tokens · GPU-only transforms · reduced-motion safe
- */
+/* ui-icon-motion.css — micro feedback only, no continuous loops */
 :root {
   --duration-micro: 80ms;
-  --duration-quick: 150ms;
-  --duration-fast: 250ms;
-  --duration-medium: 350ms;
-  --duration-slow: 400ms;
-  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-quick: 120ms;
+  --duration-fast: 200ms;
   --ease-out: ease-out;
-  --ease-in-out: ease-in-out;
-  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
-  --sla-ok: #2F7A4F;
-  --sla-warn: #9A6200;
-  --sla-late: #B3261E;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-icon,
 .ui-svg-icon,
 .icon-btn svg,
-.icon-button svg,
 .theme-icon-toggle svg,
-.login-password-toggle svg,
-.brand-mark svg,
-.modal-close,
-.menu-toggle {
+.login-password-toggle svg {
   transform-origin: center;
-  transition:
-    transform var(--duration-fast) var(--ease-smooth-out),
-    opacity var(--duration-quick) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    filter var(--duration-fast) var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-smooth-out);
 }
 
 .nav-link:hover .nav-icon,
 .nav-link:hover .ui-svg-icon {
-  transform: scale(1.1) translateY(-1px);
+  transform: scale(1.06);
 }
-.nav-link:active .nav-icon,
-.nav-link:active .ui-svg-icon {
-  transform: scale(0.9);
+.nav-link:active .nav-icon {
+  transform: scale(0.94);
   transition-duration: var(--duration-micro);
-}
-.nav-link.active .nav-icon,
-.nav-link[aria-current="page"] .nav-icon {
-  transform: scale(1.08);
-  filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 35%, transparent));
-}
-
-.brand-mark svg {
-  transition: transform var(--duration-medium) var(--ease-smooth-out),
-              filter var(--duration-medium) var(--ease-out);
-}
-.brand:hover .brand-mark svg {
-  transform: scale(1.06) rotate(-3deg);
-  filter: drop-shadow(0 2px 6px color-mix(in srgb, currentColor 25%, transparent));
 }
 
 .icon-btn:hover svg,
-.icon-button:hover svg,
 .theme-icon-toggle:hover svg {
-  transform: scale(1.14) rotate(-8deg);
+  transform: scale(1.08);
 }
 .icon-btn:active svg,
-.icon-button:active svg,
 .theme-icon-toggle:active svg {
-  transform: scale(0.88) rotate(0deg);
+  transform: scale(0.92);
   transition-duration: var(--duration-micro);
 }
 
 .menu-toggle {
-  transition: transform var(--duration-fast) var(--ease-smooth-out);
+  transition: transform var(--duration-fast) var(--ease-out);
 }
 .menu-toggle[aria-expanded="true"] {
   transform: rotate(90deg);
 }
 
 .modal-close {
-  transition: transform var(--duration-quick) var(--ease-smooth-out),
-              opacity var(--duration-quick) var(--ease-out),
-              background var(--duration-fast) var(--ease-out);
+  transition: transform var(--duration-quick) var(--ease-out), opacity var(--duration-quick) var(--ease-out);
 }
 .modal-close:hover {
-  transform: rotate(90deg) scale(1.08);
-  opacity: 0.9;
-}
-.modal-close:active {
-  transform: rotate(90deg) scale(0.92);
+  transform: rotate(90deg);
+  opacity: 0.85;
 }
 
 .login-password-toggle:hover svg {
-  transform: scale(1.12);
-}
-.login-password-toggle[aria-pressed="true"] svg {
-  transform: scale(1.06);
-  opacity: 0.88;
-  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 40%, transparent));
-}
-
-.login-brand svg {
-  animation: t-icon-breathe 3.2s var(--ease-in-out) infinite;
-}
-@keyframes t-icon-breathe {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.9; }
-}
-
-.sla-ring {
-  transition: transform var(--duration-fast) var(--ease-smooth-out),
-              filter var(--duration-fast) var(--ease-out);
-}
-.sla-ring[data-level="warn"] {
-  animation: t-sla-warn 2.4s var(--ease-in-out) infinite;
-}
-.sla-ring[data-level="late"] {
-  animation: t-sla-pulse 1.5s var(--ease-in-out) infinite;
-}
-@keyframes t-sla-warn {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.1); }
-}
-@keyframes t-sla-pulse {
-  0%, 100% { filter: brightness(1); transform: scale(1); }
-  50% { filter: brightness(1.12); transform: scale(1.07); }
-}
-
-.content[data-enter] .pill::before {
-  animation: t-dot-pop var(--duration-medium) var(--ease-bounce) both;
-}
-@keyframes t-dot-pop {
-  from { transform: scale(0); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-.avatar {
-  transition: transform var(--duration-fast) var(--ease-smooth-out),
-              box-shadow var(--duration-fast) var(--ease-smooth-out);
-}
-.side-user:hover .avatar {
   transform: scale(1.08);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sla-ok, #2F7A4F) 28%, transparent);
 }
 
+/* Static status dot — no continuous repaint */
 .status-dot {
   display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--sla-ok, #2F7A4F);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--sla-ok, #2F7A4F) 45%, transparent);
-  animation: t-status-live 2s var(--ease-in-out) infinite;
-}
-@keyframes t-status-live {
-  0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--sla-ok, #2F7A4F) 45%, transparent); }
-  70% { opacity: 0.7; transform: scale(0.88); box-shadow: 0 0 0 6px transparent; }
-  100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 transparent; }
 }
 
-.nav-count {
-  transition: transform var(--duration-fast) var(--ease-bounce);
+.avatar {
+  transition: transform var(--duration-fast) var(--ease-out);
 }
-.nav-link:hover .nav-count:not(:empty) {
-  transform: scale(1.08);
-}
-
-.progress > *,
-.daily-track > * {
-  transition: width var(--duration-slow) var(--ease-smooth-out);
-}
-
-.row-actions .btn-sm:hover .ui-svg-icon,
-.row-actions .btn:hover svg {
-  transform: scale(1.12);
-}
-
-.account-menu summary {
-  transition: transform var(--duration-quick) var(--ease-out),
-              opacity var(--duration-quick) var(--ease-out);
-}
-.account-menu[open] summary {
-  opacity: 0.85;
+.side-user:hover .avatar {
+  transform: scale(1.05);
 }
 
 .btn,
 .nav-link,
-.icon-btn,
-.theme-icon-toggle,
-.menu-toggle {
+.icon-btn {
   contain: layout style;
-}
-tbody tr {
-  contain: layout style;
-}
-.modal,
-.toast-region .toast {
-  backface-visibility: hidden;
-}
-.registry-table-wrap,
-.complaints-table-wrap,
-.content table {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 480px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -208,23 +81,10 @@ tbody tr {
   .ui-svg-icon,
   .icon-btn svg,
   .theme-icon-toggle svg,
-  .login-password-toggle svg,
-  .login-brand svg,
-  .brand-mark svg,
-  .modal-close,
   .menu-toggle,
-  .sla-ring,
-  .sla-ring[data-level="warn"],
-  .sla-ring[data-level="late"],
-  .status-dot,
-  .avatar,
-  .nav-count,
-  .content[data-enter] .pill::before,
-  .progress > *,
-  .daily-track > * {
-    animation: none !important;
+  .modal-close,
+  .avatar {
     transition: none !important;
     transform: none !important;
-    filter: none !important;
   }
 }
