@@ -222,8 +222,11 @@ const PUBLIC_FILES = {
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/assets/fonts/cairo-arabic-wght-normal.woff2': 'assets/fonts/cairo-arabic-wght-normal.woff2',
   '/assets/fonts/cairo-latin-wght-normal.woff2': 'assets/fonts/cairo-latin-wght-normal.woff2',
-
-
+  '/assets/fonts/thmanyah/ThmanyahSans-Light.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Light.woff2',
+  '/assets/fonts/thmanyah/ThmanyahSans-Regular.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Regular.woff2',
+  '/assets/fonts/thmanyah/ThmanyahSans-Medium.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Medium.woff2',
+  '/assets/fonts/thmanyah/ThmanyahSans-Bold.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Bold.woff2',
+  '/assets/fonts/thmanyah/ThmanyahSans-Black.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Black.woff2',
   '/ui-enhancements.js': 'ui-enhancements.js',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',
   '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',
@@ -250,6 +253,8 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: status === 413 ? 'حجم الطلب أكبر من المسموح.' :
     status === 400 ? 'بيانات الطلب أو المرفقات غير صالحة.' : 'خطأ داخلي في الخادم.' });
 });
+
+try { require('./scripts/ensure-thmanyah-fonts').ensureThmanyahFonts(); } catch (e) { console.error('Thmanyah font ensure failed', e && e.message); }
 
 app.listen(env.port, env.host, () => {
   backupScheduler.start();
