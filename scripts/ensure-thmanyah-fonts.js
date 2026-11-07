@@ -4,19 +4,32 @@ const path = require('node:path');
 
 const WEIGHTS = ['Light', 'Regular', 'Medium', 'Bold', 'Black'];
 
+function readB64(dir, weight) {
+  const single = path.join(dir, `ThmanyahSans-${weight}.woff2.b64`);
+  if (fs.existsSync(single)) {
+    return fs.readFileSync(single, 'utf8').replace(/\s+/g, '');
+  }
+  const prefix = path.join(dir, `ThmanyahSans-${weight}.woff2.p`);
+  const parts = [];
+  for (let i = 0; i < 32; i++) {
+    const p = `${prefix}${String(i).padStart(2, '0')}.txt`;
+    if (!fs.existsSync(p)) break;
+    parts.push(fs.readFileSync(p, 'utf8').replace(/\s+/g, ''));
+  }
+  return parts.length ? parts.join('') : null;
+}
+
 function ensureThmanyahFonts(rootDir = path.join(__dirname, '..')) {
   const dir = path.join(rootDir, 'assets', 'fonts', 'thmanyah');
   fs.mkdirSync(dir, { recursive: true });
   for (const weight of WEIGHTS) {
+    const b64 = readB64(dir, weight);
+    if (!b64) continue;
     const out = path.join(dir, `ThmanyahSans-${weight}.woff2`);
-    const b64Path = out + '.b64';
-    if (!fs.existsSync(b64Path)) continue;
-    const b64 = fs.readFileSync(b64Path, 'utf8').replace(/\s+/g, '');
     const buf = Buffer.from(b64, 'base64');
     let needsWrite = true;
     if (fs.existsSync(out)) {
-      const existing = fs.readFileSync(out);
-      if (existing.equals(buf)) needsWrite = false;
+      if (fs.readFileSync(out).equals(buf)) needsWrite = false;
     }
     if (needsWrite) fs.writeFileSync(out, buf);
   }
@@ -26,6 +39,5 @@ function ensureThmanyahFonts(rootDir = path.join(__dirname, '..')) {
 module.exports = { ensureThmanyahFonts };
 
 if (require.main === module) {
-  const dir = ensureThmanyahFonts();
-  console.log('Thmanyah fonts ensured in', dir);
+  console.log('Thmanyah fonts ensured in', ensureThmanyahFonts());
 }

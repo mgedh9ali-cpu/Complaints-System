@@ -32,4 +32,5 @@ assets/fonts/*
 !assets/fonts/Cairo-OFL.txt
 !assets/fonts/thmanyah/
 !assets/fonts/thmanyah/*.b64
+!assets/fonts/thmanyah/*.p*.txt
 assets/fonts/thmanyah/*.woff2
