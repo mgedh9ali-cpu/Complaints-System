@@ -78,6 +78,8 @@ case 'print-approved-reply':printApprovedReply(id);break;
 case 'print-receipt':await withButtonLock(el,()=>printComplaintReceipt(id));break;
 case 'print-complaint-cover':printComplaintCover(id);break;
 case 'toggle-liquid-glass':if(typeof toggleLiquidGlass==='function')toggleLiquidGlass();break;
+case 'toggle-theme':if(typeof toggleUiTheme==='function')toggleUiTheme();break;
+case 'copy-complaint':await withButtonLock(el,()=>copyComplaint(id));break;
 case 'goto-notifications':page='notifications';render();try{pollNotificationAlerts();}catch(_){}break;
 case 'verify-document-dialog':verifyDocumentDialog();break;
 case 'verify-document':await verifyDocument();break;
