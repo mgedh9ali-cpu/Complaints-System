@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 async function generateManifest(directory,version,commit){
  if(!/^[a-f0-9]{40}$/.test(commit||''))throw new Error('An immutable source commit is required.');
- const filename='complaints-system-'+version+'-portable.exe',file=path.join(directory,filename);
+ const matched=(fs.existsSync(directory)?fs.readdirSync(directory).find(f=>f.endsWith('.exe')):'');const filename=matched||('complaints-system-'+version+'-portable.exe'),file=path.join(directory,filename);
  const hash=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(file))hash.update(chunk);
  const sha256=hash.digest('hex');
  const manifest={format:'complaints-windows-release-v1',version,commit,filename,bytes:fs.statSync(file).size,sha256,platform:'win32',arch:'x64'};
