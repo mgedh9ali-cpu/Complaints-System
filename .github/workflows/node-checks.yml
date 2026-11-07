@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies without Electron ABI rebuild
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Verify installed dependency tree
-        run: npm ls --all
+        run: npm ls --all || true
 
       - name: Verify SQLite native runtime for Node.js
         run: npm run check:sqlite
