@@ -217,6 +217,7 @@ const PUBLIC_FILES = {
   '/ui-21st-ref.css': 'ui-21st-ref.css',
   '/ui-transitions.css': 'ui-transitions.css',
   '/ui-icon-motion.css': 'ui-icon-motion.css',
+  '/ui-table-motion.css': 'ui-table-motion.css',
   '/ui-prod.css': 'ui-prod.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/assets/fonts/cairo-arabic-wght-normal.woff2': 'assets/fonts/cairo-arabic-wght-normal.woff2',
