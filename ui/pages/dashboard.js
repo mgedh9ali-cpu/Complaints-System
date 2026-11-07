@@ -67,7 +67,7 @@ function dashboard(){
     [missing.length,'amber','≡','سجلات تحتاج استكمالًا','نقص في الحقول الأساسية','filter-missing',null]
   ].filter(task=>task[0]>0);
   const taskHtml=tasks.length?tasks.map(([n,color,icon,label,description,action,dest])=>
-    '<div class="task-row"><div class="task-symbol '+color+'">'+icon+'</div><div class="task-copy"><strong>'+label+'</strong><small>'+description+'</small></div><span class="task-value">'+n+'</span><button class="btn btn-sm" '+(dest?'data-goto="'+dest+'"':'data-action="'+action+'">')+'>مراجعة</button></div>'
+    '<div class="task-row"><div class="task-symbol '+color+'">'+icon+'</div><div class="task-copy"><strong>'+label+'</strong><small>'+description+'</small></div><span class="task-value">'+n+'</span><button class="btn btn-sm" '+(dest?'data-goto="'+dest+'"':'data-action="'+action+'"')+'>مراجعة</button></div>'
   ).join(''):'<div class="empty-state calm-empty">لا شيء يحتاج انتباهك الآن. يمكنك مراجعة السجل أو تسجيل شكوى جديدة.</div>';
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
   return heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.','')+
