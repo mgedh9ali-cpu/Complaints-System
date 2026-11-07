@@ -1,0 +1,124 @@
+/* مراجع 21st.dev:
+ * - liquid-glass-toggle (gughigug)
+ * - neural-access-login (shivendra9795kumar)
+ * - Claude theme tokens (serafimcloud) كمرجع ألوان ثانوي
+ */
+
+:root {
+  --claude-bg: #faf9f5;
+  --claude-surface: #ffffff;
+  --claude-ink: #1a1a1a;
+  --claude-muted: #6b6b6b;
+  --claude-line: #e8e6dc;
+  --claude-accent: #d97757;
+  --claude-accent-soft: color-mix(in srgb, #d97757 14%, transparent);
+}
+
+.liquid-glass-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #d3e2da);
+  background: color-mix(in srgb, var(--surface, #fff) 80%, transparent);
+  color: var(--ink-2, #3e5750);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.liquid-glass-toggle .lgt-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--forest, #0B7A5E) 18%, #cfd8d3);
+  overflow: hidden;
+  transition: background 280ms ease;
+}
+.liquid-glass-toggle .lgt-drop {
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #e8f2ee 45%, #9fb8ae 100%);
+  box-shadow: 0 1px 4px rgb(0 0 0 / .2), inset 0 1px 0 #fff;
+  transition: transform 420ms cubic-bezier(.34,1.4,.64,1);
+}
+.liquid-glass-toggle.is-on .lgt-track {
+  background: color-mix(in srgb, var(--forest, #0B7A5E) 70%, #1a3d32);
+}
+.liquid-glass-toggle.is-on .lgt-drop {
+  transform: translateX(-20px);
+}
+html[dir="rtl"] .liquid-glass-toggle.is-on .lgt-drop {
+  transform: translateX(20px);
+}
+.liquid-glass-toggle:focus-visible {
+  outline: 2px solid var(--forest, #0B7A5E);
+  outline-offset: 2px;
+}
+
+html.glass-off .topbar,
+html.glass-off .stat-item,
+html.glass-off .mini-card,
+html.glass-off .modal-panel,
+html.glass-off .login-card,
+html.glass-off .account-menu-panel,
+html.glass-off .workspace-shortcuts {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.glass-off .topbar,
+html.glass-off .stat-item,
+html.glass-off .login-card {
+  background: var(--surface, #fff) !important;
+}
+
+.login-overlay {
+  background:
+    radial-gradient(1200px 600px at 20% 10%, color-mix(in srgb, var(--forest, #0B7A5E) 22%, transparent), transparent 60%),
+    radial-gradient(900px 500px at 90% 80%, color-mix(in srgb, #1a1a1a 25%, transparent), transparent 55%),
+    linear-gradient(160deg, #0a1210 0%, #12201c 50%, #0d1613 100%);
+}
+.login-card {
+  border: 1px solid color-mix(in srgb, #9fb8ae 35%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 6%, transparent) inset,
+    0 24px 64px rgb(0 0 0 / .45);
+  position: relative;
+  overflow: hidden;
+}
+.login-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--forest, #0B7A5E) 80%, #fff), transparent);
+  opacity: .7;
+}
+.login-card .field:focus {
+  border-color: var(--forest, #0B7A5E);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--forest, #0B7A5E) 22%, transparent);
+}
+.login-submit {
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--forest, #0B7A5E) 35%, transparent);
+}
+
+.notif-alert {
+  border-inline-start: 3px solid var(--forest, #0B7A5E);
+}
+
+.btn-print {
+  background: color-mix(in srgb, var(--paper, #f2f7f3) 80%, #fff);
+  border: 1px solid var(--line, #d3e2da);
+  color: var(--ink, #0f2a23);
+}
+.btn-print:hover {
+  border-color: var(--forest, #0B7A5E);
+  color: var(--forest, #0B7A5E);
+}
