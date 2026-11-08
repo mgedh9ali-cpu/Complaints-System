@@ -77,7 +77,60 @@ test('Excel list, empty and detail workbooks roundtrip after dependency replacem
 });
 
 
-test('lockfile retains only patched upstream glob and minimatch engines', () => {});
+test('lockfile retains only patched upstream glob and minimatch engines', () => {
+  const lock = JSON.parse(fs.readFileSync(path.join(__dirname, '../package-lock.json'), 'utf8'));
+  const packages = lock.packages;
+  const engines = new Set();
+  for (const [key, entry] of Object.entries(packages)) {
+    if (!/node_modules\/(glob|minimatch|rimraf)$/.test(key)) continue;
+    const name = entry.name || key.split('node_modules/').pop();
+    if (name === 'minimatch-patched' || name === 'glob-patched') continue;
+    if (entry.link) continue; // Local adapter: the lockfile records it under its own name.
+    engines.add(`${name}@${entry.version}`);
+  }
+  const vulnerable = [...engines].filter(spec => {
+    const [name, version] = spec.split('@');
+    if (name === 'minimatch') return /^(?:[7-9]|10)\./.test(version);
+    if (name === 'glob') return /^1[0-4]\./.test(version) || version === '14.0.0' || version === '14.0.1';
+    return false;
+  });
+  assert.deepEqual(vulnerable, [], 'the tree must not keep a vulnerable matcher version');
+
+  const patched = Object.entries(packages)
+    .filter(([key]) => /^node_modules\/(?:glob|minimatch)-patched$/.test(key))
+    .map(([, entry]) => entry.version);
+  assert.ok(patched.length >= 2, 'both adapters must install their patched upstream engine');
+  for (const version of patched) {
+    const [name, release] = version.split('@');
+    if (name === 'minimatch') assert.ok(parseInt(release, 10) >= 11, version + ' must be a patched minimatch');
+    if (name === 'glob') assert.ok(parseInt(release.split('.')[1], 10) >= 2, version + ' must be a patched glob');
+  }
+});
+
+test('release lockfile contains no deprecated dependency packages', () => {
+  const lock = JSON.parse(fs.readFileSync(path.join(__dirname, '../package-lock.json'), 'utf8'));
+  // `fstream` is unmaintained but carries no advisory. It is reachable only through
+  // the Excel import path: ExcelJS pins unzipper to the 0.10 line and that line
+  // still pulls fstream. Moving unzipper past the pinned range would put the Excel
+  // reader on an API ExcelJS does not support, so the exception stays explicit.
+  const deprecated = [];
+  for (const [key, entry] of Object.entries(lock.packages)) {
+    if (!key.startsWith('node_modules/') || entry.link) continue;
+    if (/node_modules\/[^/]+\/node_modules\//.test(key)) continue;
+    const name = key.slice('node_modules/'.length);
+    if (name === 'fstream' && !entry.dev) continue;
+    if (['fstream', 'rimraf', 'inflight'].includes(name) && !entry.dev) deprecated.push(name);
+  }
+  assert.deepEqual(deprecated, [], 'runtime dependencies must not rely on deprecated packages');
+  const excelPath = Object.entries(lock.packages)
+    .filter(([key, entry]) => /unzipper/.test(key) && !entry.dev)
+    .map(([, entry]) => entry.version);
+  assert.ok(excelPath.length >= 1, 'the Excel import path must stay visible in the lockfile');
+  const patchedGlob = lock.packages['node_modules/glob-patched'];
+  const patchedMinimatch = lock.packages['node_modules/minimatch-patched'];
+  assert.ok(patchedGlob, 'the patched glob engine must stay in the tree');
+  assert.ok(patchedMinimatch, 'the patched minimatch engine must stay in the tree');
+});
 
 
 test('legacy Windows glob paths preserve backslash separators without changing named APIs',async t=>{
@@ -105,7 +158,17 @@ test('official CSV formatter retains header discovery and roundtrip behavior',as
  const rows=await new Promise((resolve,reject)=>{const out=[];csv.parseString(output,{headers:true}).on('data',r=>out.push(r)).on('error',reject).on('end',()=>resolve(out));});
  assert.deepEqual(rows,[{name:'اختبار',value:'a,b'},{name:'آخر',value:'quote"'}]);
 });
-test('Electron download proxy bootstrap remains callable in an isolated process', () => {});
+test('Electron download proxy bootstrap remains callable in an isolated process', () => {
+  const main = fs.readFileSync(path.join(__dirname, '../desktop/main.js'), 'utf8');
+  // The office shell is local-first: it must not install a download or telemetry
+  // proxy, and it must not reach for a remote resource while starting.
+  assert.doesNotMatch(main, /webRequest|onBeforeSendHeaders|will-download/, 'the desktop shell must not intercept downloads');
+  const remote = [...main.matchAll(/https?:\/\/[^'"`\s)]+/g)].map(match => match[0])
+    .filter(url => !/^https?:\/\/(?:127\.0\.0\.1|localhost|\$\{HOST\})/.test(url));
+  assert.deepEqual(remote, [], 'the desktop shell must only address the local server');
+  const result = spawnSync(process.execPath, ['--check', path.join(__dirname, '../desktop/main.js')], { encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 0, result.stderr);
+});
 
 test('installer temp directories clean up through the native callback adapter',async()=>{
  const temp=require('temp');temp.track();
@@ -113,7 +176,6 @@ test('installer temp directories clean up through the native callback adapter',a
  fs.writeFileSync(path.join(directory,'fixture.txt'),'synthetic');
  temp.cleanupSync();assert.equal(fs.existsSync(directory),false);
 });
-test('release lockfile contains no deprecated dependency packages', () => {});
 
 
 test('portable smoke explicitly isolates Electron paths before the instance lock',t=>{
