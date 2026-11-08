@@ -94,14 +94,17 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/attest@v4
         with:
-          subject-path: dist-desktop/*.exe
+          subject-path: |
+            dist-desktop/*-setup.exe
+            dist-desktop/*-portable.exe
 
       - name: Upload portable application
         uses: actions/upload-artifact@v4
         with:
           name: complaints-system-windows-portable
           path: |
-            dist-desktop/*.exe
+            dist-desktop/*-setup.exe
+            dist-desktop/*-portable.exe
             dist-desktop/SHA256SUMS.txt
             dist-desktop/build-manifest.json
             dist-desktop/startup-*.json

@@ -56,6 +56,7 @@ test('Windows build keeps portable compatibility and adds a per-user installer w
  const {validateConfiguration}=require('app-builder-lib/out/util/config/config');
  await validateConfiguration(pkg.build,{add(){}});
  assert.deepEqual(pkg.build.win.target.map(t=>t.target),['nsis','portable']);
+ assert.match(pkg.scripts['dist:win'],/--publish never(?:\s|$)/);
  assert.equal(pkg.build.nsis.perMachine,false);assert.equal(pkg.build.nsis.deleteAppDataOnUninstall,false);
  assert.equal(pkg.build.nsis.createDesktopShortcut,true);
  assert.equal(pkg.build.appId,'local.complaints.system');assert.equal(pkg.name,'complaints-local-system');

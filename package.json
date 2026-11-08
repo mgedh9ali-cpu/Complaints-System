@@ -13,7 +13,7 @@
     "postinstall": "node -e \"try{require('child_process').execSync('npx electron-builder install-app-deps',{stdio:'inherit',shell:true})}catch(e){console.warn('[postinstall] Electron native rebuild skipped:', e.message); process.exit(0)}\"",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js",
-    "dist:win": "electron-builder --win nsis portable --x64"
+    "dist:win": "electron-builder --win nsis portable --x64 --publish never"
   },
   "engines": {
     "node": ">=22 <26"
