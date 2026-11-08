@@ -65,7 +65,7 @@ jobs:
       - name: Rebuild native SQLite for Electron
         run: npx electron-builder install-app-deps
 
-      - name: Build portable EXE
+      - name: Build installer and portable EXE
         run: npm run dist:win
 
       - name: Smoke test the built portable application
@@ -73,7 +73,19 @@ jobs:
         run: |
           $portable = (Get-ChildItem dist-desktop/*-portable.exe | Select-Object -First 1).FullName
           if (-not $portable) { throw "Portable executable is missing" }
-          node scripts/smoke-packaged.js "$portable"
+          node scripts/smoke-packaged.js "$portable" | Tee-Object -FilePath dist-desktop/startup-portable.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke test the installed application layout
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist-desktop/*-setup.exe | Select-Object -First 1).FullName
+          if (-not $setup) { throw "Setup executable is missing" }
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $executable = Join-Path dist-desktop/win-unpacked ($package.build.productName + '.exe')
+          if (-not (Test-Path $executable)) { throw "Application executable is missing" }
+          node scripts/smoke-packaged.js "$executable" | Tee-Object -FilePath dist-desktop/startup-installed-layout.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Record immutable artifact checksums
         run: node scripts/release-manifest.js
@@ -82,16 +94,17 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/attest@v4
         with:
-          subject-path: dist-desktop/*-portable.exe
+          subject-path: dist-desktop/*.exe
 
       - name: Upload portable application
         uses: actions/upload-artifact@v4
         with:
           name: complaints-system-windows-portable
           path: |
-            dist-desktop/*-portable.exe
+            dist-desktop/*.exe
             dist-desktop/SHA256SUMS.txt
             dist-desktop/build-manifest.json
+            dist-desktop/startup-*.json
           if-no-files-found: error
           retention-days: 14
 

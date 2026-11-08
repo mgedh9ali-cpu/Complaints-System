@@ -2,11 +2,17 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {publish}=require('../scripts/publish-release');
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
-function fixture(t,{existing=false,published=false,mismatch=false,badHost=false,createError=false,wrongTag=false}={}){
+function fixture(t,{existing=false,published=false,mismatch=false,badHost=false,createError=false,wrongTag=false,installer=false}={}){
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'release-publish-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
- const version='1.0.0-rc.3',commit='a'.repeat(40),filename='complaints-system-'+version+'-portable.exe',bytes=Buffer.from('synthetic executable');
+ const version=require('../package.json').version,commit='a'.repeat(40),filename='complaints-system-'+version+'-portable.exe',bytes=Buffer.from('synthetic executable');
  const manifest={version,commit,filename,bytes:bytes.length,sha256:sha(bytes)};
  const files={[filename]:bytes,'SHA256SUMS.txt':Buffer.from(sha(bytes)+'  '+filename+'\n'),'build-manifest.json':Buffer.from(JSON.stringify(manifest))};
+ if(installer){
+  const name='complaints-system-'+version+'-setup.exe',content=Buffer.from('synthetic installer');
+  manifest.artifacts=[{filename,bytes:bytes.length,sha256:sha(bytes)},{filename:name,bytes:content.length,sha256:sha(content)}];
+  files[name]=content;files['build-manifest.json']=Buffer.from(JSON.stringify(manifest));
+  files['SHA256SUMS.txt']=Buffer.from(manifest.artifacts.map(a=>a.sha256+'  '+a.filename+'\n').join(''));
+ }
  for(const [name,content]of Object.entries(files))fs.writeFileSync(path.join(directory,name),content);
  const tag='v'+version+'-build.'+commit,repo='mgedh9ali-cpu/Complaints-System',api='https://api.github.com/repos/'+repo;
  let release=existing?record():null;const calls=[];
@@ -57,4 +63,24 @@ test('wrong existing tag targets and untrusted upload hosts stop publication',as
 test('artifact checksums and branch restrictions are checked before network access',async t=>{
  const f=fixture(t);fs.writeFileSync(path.join(f.options.directory,Object.keys(f.files)[0]),'tampered');await assert.rejects(publish(f.options),/checksum/);assert.equal(f.calls.length,0);
  f.options.env.GITHUB_REF='refs/pull/66/merge';await assert.rejects(publish(f.options),/canonical main/);assert.equal(f.calls.length,0);
+});
+
+test('configured installer and portable filenames pass manifest generation and publish together',async t=>{
+ const f=fixture(t,{installer:true}),pkg=require('../package.json');
+ const {generateManifest}=require('../scripts/release-manifest');
+ const names=[pkg.build.portable.artifactName,pkg.build.nsis.artifactName].map(name=>name.replace('${version}',pkg.version).replace('${ext}','exe'));
+ for(const name of names)assert.ok(fs.existsSync(path.join(f.options.directory,name)));
+ const manifest=await generateManifest(f.options.directory,pkg.version,f.options.env.GITHUB_SHA,{requireInstaller:true});
+ assert.deepEqual(manifest.artifacts.map(a=>a.filename),names);
+ const release=await publish(f.options);assert.equal(release.draft,false);
+ assert.equal(f.calls.filter(c=>c.url.startsWith('https://uploads.github.com/')).length,4);
+});
+
+test('a modified installer or unsafe artifact list stops publication before network access',async t=>{
+ const f=fixture(t,{installer:true});
+ fs.writeFileSync(path.join(f.options.directory,'complaints-system-'+f.options.version+'-setup.exe'),'tampered');
+ await assert.rejects(publish(f.options),/checksum/);assert.equal(f.calls.length,0);
+ const file=path.join(f.options.directory,'build-manifest.json'),manifest=JSON.parse(fs.readFileSync(file));
+ manifest.artifacts[1].filename='../unexpected.exe';fs.writeFileSync(file,JSON.stringify(manifest));
+ await assert.rejects(publish(f.options),/Unexpected release artifact/);assert.equal(f.calls.length,0);
 });

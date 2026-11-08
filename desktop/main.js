@@ -11,6 +11,8 @@ const fs = require('node:fs');
 const net = require('node:net');
 const { app, BrowserWindow, dialog, shell, Menu, Tray, nativeImage, Notification } = require('electron');
 const { isLocalAppUrl, isPermittedExternalUrl } = require('./navigation');
+const bootStartedAt = Date.now();
+const startupTimings = {};
 
 // Use Chromium's hardware defaults. The local server controls asset freshness.
 
@@ -269,14 +271,21 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     try {
+      startupTimings.appReadyMs = Date.now() - bootStartedAt;
       const root = appRoot();
       const paths = ensureUserDataLayout();
       ensureEnvFile(paths.envPath, root);
       // Paint a local window before loading server modules and checking the database.
       await createWindow(paths);
+      startupTimings.windowVisibleMs = Date.now() - bootStartedAt;
       bootServerInProcess(paths, root);
       await waitForServer();
+      startupTimings.serverReadyMs = Date.now() - bootStartedAt;
       await mainWindow.loadURL(APP_URL);
+      startupTimings.loginPageLoadedMs = Date.now() - bootStartedAt;
+      console.info('[startup]', startupTimings);
+      // A bounded, local timing record for diagnosing slow devices; no user data.
+      try { fs.writeFile(path.join(paths.base, 'startup-timings.json'), JSON.stringify(startupTimings, null, 2), {mode:0o600}, () => {}); } catch (_) {}
       installTray(root);
       require('./maintenance').installMaintenanceMenu({app,Menu,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
     } catch (err) {

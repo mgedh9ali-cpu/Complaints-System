@@ -17,6 +17,7 @@ async function smoke(executable,serverScript){
   SESSION_SECRET:crypto.randomBytes(32).toString('hex'),DATA_KEY:crypto.randomBytes(32).toString('hex'),BACKUP_SECRET:crypto.randomBytes(32).toString('hex'),
   DATABASE_PATH:path.join(directory,'data','complaints.sqlite'),SESSIONS_DIR:path.join(directory,'data','sessions'),INSTANCE_ID_PATH:path.join(directory,'data','instance'),BACKUP_DIR:path.join(directory,'backups')};
  if(serverScript)env.ELECTRON_RUN_AS_NODE='1';else delete env.ELECTRON_RUN_AS_NODE;
+ const launchedAt=Date.now();
  const child=spawn(path.resolve(executable),serverScript?[path.resolve(serverScript)]:['--release-smoke'],{env,windowsHide:true,stdio:['ignore','pipe','pipe']});
  let diagnostic='';child.stderr.on('data',b=>{diagnostic=(diagnostic+b).slice(-8000);});
  let spawnError;child.once('error',e=>{spawnError=e;});
@@ -32,6 +33,7 @@ async function smoke(executable,serverScript){
    await new Promise(r=>setTimeout(r,500));
   }
   assert.ok(ready,'Packaged app readiness timed out: '+diagnostic);
+  const startupReadyMs=Date.now()-launchedAt;
   const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'release_admin',password})});
   assert.equal(login.status,200,'Packaged login');
   const cookie=login.headers.get('set-cookie').split(';')[0];
@@ -46,7 +48,7 @@ async function smoke(executable,serverScript){
   const metrics=await(await fetch(base+'/api/health/metrics',{headers:{cookie}})).json();
   assert.equal(metrics.integrity,'ok');assert.equal(metrics.contentEncryptionEnabled,true);
   assert.equal((await fetch(base+'/.env')).status,404);
-  console.log(JSON.stringify({passed:true,platform:process.platform,mode:serverScript?'packaged-server':'portable-application',checks:['startup','login','encrypted-sqlite','complaint-write','arabic-pdf','xlsx','private-config']}));
+  console.log(JSON.stringify({passed:true,platform:process.platform,mode:serverScript?'packaged-server':'desktop-application',startupReadyMs,checks:['startup','login','encrypted-sqlite','complaint-write','arabic-pdf','xlsx','private-config']}));
  }finally{
   if(process.platform==='win32'&&child.pid)spawnSync('taskkill',['/PID',String(child.pid),'/T','/F'],{stdio:'ignore',windowsHide:true});
   else if(child.pid&&child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>{const timer=setTimeout(()=>child.kill('SIGKILL'),2000);child.once('exit',()=>{clearTimeout(timer);resolve();});});}

@@ -22,7 +22,7 @@ function pruneBackups(directory, now = Date.now(), retentionDays = MAX_AUTOMATIC
 }
 
 function createBackupScheduler({ backupService, directory, logger, intervalMs = 15 * 60000, now = () => new Date() }) {
-  let running = false, timer;
+  let running = false, timer, startupTimer;
   let interval = Math.max(5 * 60000, intervalMs | 0);
   let status = {
     lastSuccessfulAt: null,
@@ -49,6 +49,7 @@ function createBackupScheduler({ backupService, directory, logger, intervalMs = 
     fs.renameSync(statusPath + '.tmp', statusPath);
   }
   async function runOnce() {
+    clearTimeout(startupTimer); startupTimer = undefined;
     if (running) return false;
     running = true; status.running = true;
     let backup;
@@ -113,10 +114,17 @@ function createBackupScheduler({ backupService, directory, logger, intervalMs = 
       return this.status();
     },
     start() {
-      runOnce().catch(error => logger?.error('Automatic backup failed', { message: error.message }));
+      if (timer || startupTimer) return;
+      // Let the login window load before snapshotting, encrypting and verifying
+      // the full archive. The regular backup interval remains unchanged.
+      startupTimer = setTimeout(() => {
+        startupTimer = undefined;
+        runOnce().catch(error => logger?.error('Automatic backup failed', { message: error.message }));
+      }, 10000);
+      startupTimer.unref?.();
       restartTimer();
     },
-    stop() { clearInterval(timer); },
+    stop() { clearInterval(timer); clearTimeout(startupTimer); timer = startupTimer = undefined; },
     status() {
       return {
         ...status,

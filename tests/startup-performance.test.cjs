@@ -14,7 +14,7 @@ test('report service startup leaves Excel and PDF engines unloaded until export'
 });
 
 async function desktopBoot(failSplash=false,pathApi=path){
- const events=[],runtime={backupService:{}},app=new EventEmitter();
+ const events=[],runtime={backupService:{}},app=new EventEmitter();let timingRecord=null;
  Object.assign(app,{isPackaged:true,getAppPath:()=>'/project',getPath:()=>'/profile',whenReady:()=>Promise.resolve(),requestSingleInstanceLock:()=>true,quit:()=>events.push('quit')});
  class Window extends EventEmitter{
   constructor(){super();this.webContents=new EventEmitter();this.webContents.setWindowOpenHandler=()=>{};}
@@ -30,7 +30,9 @@ async function desktopBoot(failSplash=false,pathApi=path){
   if(name==='electron')return electron;
   if(name==='node:path')return pathApi;
   if(name==='node:net')return {Socket};
-  if(name==='node:fs')return {existsSync:()=>true,mkdirSync(){},readFileSync:()=>''};
+  if(name==='node:fs')return {existsSync:()=>true,mkdirSync(){},readFileSync:()=>'',writeFile(file,contents,options,done){
+   timingRecord={file,contents,options};done();
+  }};
   if(name==='./navigation')return {isLocalAppUrl:()=>true,isPermittedExternalUrl:()=>false};
   if(name==='./recovery')return {readOptions:()=>({})};
   if(name==='./smoke-profile')return {configureSmokeProfile(){}};
@@ -39,7 +41,14 @@ async function desktopBoot(failSplash=false,pathApi=path){
   throw new Error('Unexpected import '+name);
  }};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../desktop/main.js'),'utf8'),context);
- await new Promise(resolve=>setImmediate(resolve));return events;
+ await new Promise(resolve=>setImmediate(resolve));
+ if(!failSplash){
+  assert.ok(timingRecord);assert.ok(timingRecord.file.endsWith('startup-timings.json'));assert.equal(timingRecord.options.mode,0o600);
+  const timing=JSON.parse(timingRecord.contents);
+  assert.deepEqual(Object.keys(timing),['appReadyMs','windowVisibleMs','serverReadyMs','loginPageLoadedMs']);
+  assert.ok(timing.appReadyMs<=timing.windowVisibleMs);assert.ok(timing.windowVisibleMs<=timing.serverReadyMs);assert.ok(timing.serverReadyMs<=timing.loginPageLoadedMs);
+ }
+ return events;
 }
 test('desktop paints its local startup window before loading the server and attaches maintenance after readiness',async()=>{
  for(const pathApi of [path.posix,path.win32]){

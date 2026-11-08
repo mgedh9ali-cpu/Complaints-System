@@ -11,7 +11,16 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
  if(manifest.commit!==commit||manifest.version!==version||manifest.filename!==filename)throw new Error('Artifact source does not match the publishing commit.');
  const bytes=fs.readFileSync(path.join(directory,filename));
  if(bytes.length!==manifest.bytes||digest(bytes)!=='sha256:'+manifest.sha256)throw new Error('Release artifact checksum mismatch.');
- const files=[filename,'SHA256SUMS.txt','build-manifest.json'].map(name=>({name,bytes:name===filename?bytes:fs.readFileSync(path.join(directory,name))}));
+ const artifacts=manifest.artifacts||[{filename,bytes:manifest.bytes,sha256:manifest.sha256}];
+ const allowed=new Set([filename,'complaints-system-'+version+'-setup.exe']);
+ if(!Array.isArray(artifacts)||!artifacts.length||artifacts.length>2||new Set(artifacts.map(a=>a?.filename)).size!==artifacts.length||!artifacts.some(a=>a?.filename===filename))throw new Error('Invalid release artifact list.');
+ const files=artifacts.map(artifact=>{
+  if(!allowed.has(artifact?.filename))throw new Error('Unexpected release artifact filename.');
+  const content=artifact.filename===filename?bytes:fs.readFileSync(path.join(directory,artifact.filename));
+  if(content.length!==artifact.bytes||digest(content)!=='sha256:'+artifact.sha256)throw new Error('Release artifact checksum mismatch: '+artifact.filename);
+  return {name:artifact.filename,bytes:content};
+ });
+ for(const name of ['SHA256SUMS.txt','build-manifest.json'])files.push({name,bytes:fs.readFileSync(path.join(directory,name))});
  const headers={Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
  async function request(url,options={},allowMissing=false){
   const response=await fetchImpl(url,{...options,headers:{...headers,...options.headers}});
@@ -44,7 +53,7 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
  if(!release){
   try{release=await request(api+'/releases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
    tag_name:tag,target_commitish:commit,name:'نظام الشكاوى '+version+' · '+commit.slice(0,12),draft:true,prerelease:true,
-   body:'نسخة Windows x64 محمولة: نزّل ملف EXE وشغّله دون تثبيت Node.js.\n\nاجتازت اختبارات المصدر والتبعيات واختبار تشغيل الحزمة على Windows. يمكن اختيار مجلد النسخ وحفظ مفتاح الاستعادة والاستعادة من قائمة «النسخ والاستعادة».\n\nللترقية: احفظ نسخة كاملة ومفتاحها، أغلق البرنامج، ثم استبدل EXE. البيانات خارج ملف البرنامج.\n\nبصمة SHA-256 ومرجع المصدر في الملفين المرفقين. إثبات منشأ البناء في GitHub مستقل عن شهادة توقيع Windows؛ الملف لا يحمل شهادة الجهة ما لم تُضبط في بيئة البناء.'
+   body:'نسخة Windows x64: اختر الملف المنتهي بـ setup.exe للتثبيت مرة واحدة، ثم شغّل البرنامج من اختصار سطح المكتب لبدء أسرع. النسخة portable.exe متاحة لمن يحتاج التشغيل دون تثبيت، لكنها تفك ملفات البرنامج في كل تشغيل. لا تحتاج النسختان إلى تثبيت Node.js.\n\nاجتازت اختبارات المصدر واختبار تشغيل ملفات البرنامج والنسخة المحمولة على Windows. يمكن اختيار مجلد النسخ وحفظ مفتاح الاستعادة والاستعادة من قائمة «النسخ والاستعادة».\n\nللترقية: احفظ نسخة كاملة ومفتاحها، وأغلق البرنامج قبل تشغيل المثبت أو استبدال EXE المحمول. تستخدم النسختان مجلد البيانات نفسه في حساب Windows.\n\nبصمة SHA-256 لكل ملف ومرجع المصدر في الملفين المرفقين. إثبات منشأ البناء في GitHub مستقل عن شهادة توقيع Windows؛ الملف لا يحمل شهادة الجهة ما لم تُضبط في بيئة البناء.'
   })});}
   catch(error){if(error.status!==422)throw error;release=await findRelease();if(!release)throw error;}
  }

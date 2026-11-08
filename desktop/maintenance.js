@@ -71,7 +71,7 @@ function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, path
     ]},
     { label:'التحديث والمساعدة',submenu:[
       { label:'تنزيل أحدث إصدار…',click:action(()=>shell.openExternal(RELEASES_URL)) },
-      { label:'عن التطبيق',click:action(()=>dialog.showMessageBox(window,{type:'info',message:'نظام الاستفسارات والشكاوى '+app.getVersion(),detail:'لتحديث البرنامج: احفظ نسخة كاملة ومفتاح استعادتها، ثم أغلق التطبيق واستبدل ملف EXE بالإصدار المنشور. تبقى البيانات محفوظة خارج ملف البرنامج.'})) }
+      { label:'عن التطبيق',click:action(()=>dialog.showMessageBox(window,{type:'info',message:'نظام الاستفسارات والشكاوى '+app.getVersion(),detail:'لتحديث البرنامج: احفظ نسخة كاملة ومفتاح استعادتها، ثم أغلق التطبيق بالكامل وشغّل ملف setup.exe المنشور، أو استبدل ملف portable.exe إن كنت تستخدم النسخة المحمولة. تبقى البيانات محفوظة خارج ملف البرنامج.'})) }
     ]}
   ]));
 }

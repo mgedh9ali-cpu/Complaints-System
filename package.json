@@ -1,6 +1,6 @@
 {
   "name": "complaints-local-system",
-  "version": "1.0.0-rc.4",
+  "version": "1.0.0-rc.5",
   "private": true,
   "description": "Local-first Arabic complaints system for private office use",
   "main": "desktop/main.js",
@@ -13,7 +13,7 @@
     "postinstall": "node -e \"try{require('child_process').execSync('npx electron-builder install-app-deps',{stdio:'inherit',shell:true})}catch(e){console.warn('[postinstall] Electron native rebuild skipped:', e.message); process.exit(0)}\"",
     "verify-audit": "node scripts/verify-audit-log.js",
     "backup": "node scripts/backup-database.js",
-    "dist:win": "electron-builder --win portable --x64"
+    "dist:win": "electron-builder --win nsis portable --x64"
   },
   "engines": {
     "node": ">=22 <26"
@@ -88,13 +88,30 @@
     "win": {
       "target": [
         {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "portable",
           "arch": [
             "x64"
           ]
         }
-      ],
-      "artifactName": "Complaints-System-Portable.${ext}"
+      ]
+    },
+    "nsis": {
+      "artifactName": "complaints-system-${version}-setup.${ext}",
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "complaints-system-${version}-portable.${ext}",
+      "useZip": true
     }
   }
 }
