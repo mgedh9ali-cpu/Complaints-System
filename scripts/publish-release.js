@@ -7,11 +7,20 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
  if(!token||repo!=='mgedh9ali-cpu/Complaints-System'||ref!=='refs/heads/main')throw new Error('Release publication is restricted to the canonical main branch.');
  if(!/^[a-f0-9]{40}$/.test(commit||''))throw new Error('Release publication requires an immutable source commit.');
  const manifest=JSON.parse(fs.readFileSync(path.join(directory,'build-manifest.json'),'utf8'));
- const filename='complaints-system-'+version+'-portable.exe';
- if(manifest.commit!==commit||manifest.version!==version||manifest.filename!==filename)throw new Error('Artifact source does not match the publishing commit.');
- const bytes=fs.readFileSync(path.join(directory,filename));
- if(bytes.length!==manifest.bytes||digest(bytes)!=='sha256:'+manifest.sha256)throw new Error('Release artifact checksum mismatch.');
- const files=[filename,'SHA256SUMS.txt','build-manifest.json'].map(name=>({name,bytes:name===filename?bytes:fs.readFileSync(path.join(directory,name))}));
+ if(manifest.commit!==commit||manifest.version!==version)throw new Error('Artifact source does not match the publishing commit.');
+ // The manifest carries the artifacts the build actually produced. Every file is
+ // verified against its recorded checksum before a single byte leaves the runner.
+ const recorded=Array.isArray(manifest.artifacts)&&manifest.artifacts.length
+  ?manifest.artifacts
+  :[{filename:manifest.filename,bytes:manifest.bytes,sha256:manifest.sha256}];
+ if(!recorded.length||recorded.some(entry=>!entry||typeof entry.filename!=='string'||!entry.filename))throw new Error('The build manifest does not list a release artifact.');
+ const files=[];
+ for(const entry of recorded){
+  const bytes=fs.readFileSync(path.join(directory,entry.filename));
+  if(bytes.length!==entry.bytes||digest(bytes)!=='sha256:'+entry.sha256)throw new Error('Release artifact checksum mismatch: '+entry.filename);
+  files.push({name:entry.filename,bytes});
+ }
+ for(const name of ['SHA256SUMS.txt','build-manifest.json'])files.push({name,bytes:fs.readFileSync(path.join(directory,name))});
  const headers={Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
  async function request(url,options={},allowMissing=false){
   const response=await fetchImpl(url,{...options,headers:{...headers,...options.headers}});
@@ -44,7 +53,7 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
  if(!release){
   try{release=await request(api+'/releases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
    tag_name:tag,target_commitish:commit,name:'نظام الشكاوى '+version+' · '+commit.slice(0,12),draft:true,prerelease:true,
-   body:'نسخة Windows x64 محمولة: نزّل ملف EXE وشغّله دون تثبيت Node.js.\n\nاجتازت اختبارات المصدر والتبعيات واختبار تشغيل الحزمة على Windows. يمكن اختيار مجلد النسخ وحفظ مفتاح الاستعادة والاستعادة من قائمة «النسخ والاستعادة».\n\nللترقية: احفظ نسخة كاملة ومفتاحها، أغلق البرنامج، ثم استبدل EXE. البيانات خارج ملف البرنامج.\n\nبصمة SHA-256 ومرجع المصدر في الملفين المرفقين. إثبات منشأ البناء في GitHub مستقل عن شهادة توقيع Windows؛ الملف لا يحمل شهادة الجهة ما لم تُضبط في بيئة البناء.'
+   body:'نسخة Windows x64: ملف EXE محمول يعمل دون تثبيت Node.js، ومثبّت EXE يختار مجلد التثبيت وينشئ اختصارات سطح المكتب وقائمة ابدأ مع مُثبّت لإلغاء التثبيت.\n\nاجتازت اختبارات المصدر والتبعيات واختبار تشغيل الحزمة على Windows. يمكن اختيار مجلد النسخ وحفظ مفتاح الاستعادة والاستعادة من قائمة «النسخ والاستعادة».\n\nللترقية: احفظ نسخة كاملة ومفتاحها، أغلق البرنامج، ثم ثبّت النسخة الجديدة. البيانات خارج ملف البرنامج.\n\nبصمة SHA-256 ومرجع المصدر في الملفين المرفقين. إثبات منشأ البناء في GitHub مستقل عن شهادة توقيع Windows؛ الملف لا يحمل شهادة الجهة ما لم تُضبط في بيئة البناء.'
   })});}
   catch(error){if(error.status!==422)throw error;release=await findRelease();if(!release)throw error;}
  }

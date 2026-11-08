@@ -3,6 +3,9 @@
 الملف: `tests/acceptance-p0.test.cjs`
 التشغيل: `node --test tests/acceptance-p0.test.cjs`
 
+> المصفوفة الكاملة — الآلي واليدوي وحالة كل بند — في [ACCEPTANCE_MATRIX.md](ACCEPTANCE_MATRIX.md).
+> خطوات التنفيذ على جهاز Windows في [manual-acceptance-checklist.md](manual-acceptance-checklist.md).
+
 | بند القبول (من الخطة) | تغطية آلية |
 |------------------------|-------------|
 | رفض صلاحيات غير مخوّلة (مصفوفة الأدوار) | نعم |
@@ -13,8 +16,9 @@
 | كشف عبث سلسلة التدقيق | نعم |
 | تعارضات المزامنة | نعم |
 | تقارير مفلترة + رقم تقرير | نعم |
-| تشغيل دون إنترنت / جدار ناري | يدوي فقط (`manual-acceptance-checklist.md`) |
-| استعادة فعلية على Windows | يدوي فقط |
+| تشغيل دون إنترنت / جدار ناري | آلي جزئيًا (`tests/offline-network-boundary.test.cjs` و`tests/acceptance-release.test.cjs`) + يدوي |
+| استعادة فعلية | آلي (`tests/acceptance-release.test.cjs`: نسخة ← تحقق ← تشغيل التطبيق على النسخة المستعادة) + يدوي |
+| حصر الاستماع على الحلقة | آلي (`scripts/verify-loopback-listener.js`) + يدوي |
 | طباعة عربية من الواجهة | يدوي / واجهة |
 
 لا يغني النجاح الآلي عن القائمة اليدوية على الأجهزة قبل بيانات حقيقية.
