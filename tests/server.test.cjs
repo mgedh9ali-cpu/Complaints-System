@@ -178,7 +178,7 @@ test("offline sync package validates contents and detects tampering", () => {
       "server.js",
       "app.js",
       "index.html",
-      "styles.css",
+      "ui-system.css",
       "package.json",
       "lib/validation.js",
       "lib/offline-sync.js",

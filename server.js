@@ -205,12 +205,7 @@ const PUBLIC_FILES = {
   '/': 'index.html',
   '/index.html': 'index.html',
   '/ui-system.css': 'ui-system.css',
-  '/ui-compat.css': 'ui-compat.css',
-  '/styles.css': 'styles.css',
-  '/ui-enhancements.css': 'ui-enhancements.css',
-  '/redesign.css': 'redesign.css',
   '/fallback-font.css': 'fallback-font.css',
-  '/palette.css': 'palette.css',
   '/ui-layout.css': 'ui-layout.css',
   '/ui-glass-ref.css': 'ui-glass-ref.css',
   '/ui-complaints-view.css': 'ui-complaints-view.css',
@@ -218,17 +213,10 @@ const PUBLIC_FILES = {
   '/ui-transitions.css': 'ui-transitions.css',
   '/ui-icon-motion.css': 'ui-icon-motion.css',
   '/ui-table-motion.css': 'ui-table-motion.css',
-  '/ui-prod.css': 'ui-prod.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/assets/fonts/cairo-arabic-wght-normal.woff2': 'assets/fonts/cairo-arabic-wght-normal.woff2',
   '/assets/fonts/cairo-latin-wght-normal.woff2': 'assets/fonts/cairo-latin-wght-normal.woff2',
-  '/assets/fonts/thmanyah/ThmanyahSans-Light.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Light.woff2',
-  '/assets/fonts/thmanyah/ThmanyahSans-Regular.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Regular.woff2',
-  '/assets/fonts/thmanyah/ThmanyahSans-Medium.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Medium.woff2',
-  '/assets/fonts/thmanyah/ThmanyahSans-Bold.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Bold.woff2',
-  '/assets/fonts/thmanyah/ThmanyahSans-Black.woff2': 'assets/fonts/thmanyah/ThmanyahSans-Black.woff2',
   '/ui-enhancements.js': 'ui-enhancements.js',
-  '/thmanyah-fonts.css': 'thmanyah-fonts.css',
   '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',
   '/app.js': 'app.js',
   '/manifest.json': 'manifest.json',
@@ -254,7 +242,10 @@ app.use((err, req, res, next) => {
     status === 400 ? 'بيانات الطلب أو المرفقات غير صالحة.' : 'خطأ داخلي في الخادم.' });
 });
 
-try { require('./scripts/ensure-thmanyah-fonts').ensureThmanyahFonts(); } catch (e) { console.error('Thmanyah font ensure failed', e && e.message); }
+try {
+  const fonts = require('./scripts/ensure-thmanyah-fonts').ensureThmanyahFonts();
+  if (fonts.materialised.length) logger.info('Local font files materialised', { weights: fonts.materialised.join(',') });
+} catch (e) { console.error('Thmanyah font ensure failed', e && e.message); }
 
 app.listen(env.port, env.host, () => {
   backupScheduler.start();

@@ -20,7 +20,7 @@ test("program updates require a valid trusted Ed25519 signature before they can 
       "server.js",
       "app.js",
       "index.html",
-      "styles.css",
+      "ui-system.css",
       "package.json",
       "lib/validation.js",
       "lib/offline-sync.js",

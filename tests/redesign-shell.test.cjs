@@ -41,14 +41,14 @@ test('new visual system is served locally and respects right-to-left and reduced
 });
 
 test('mobile navigation closes from backdrop and Escape without changing complaint actions',()=>{
- const html=read('index.html'), js=read('ui-enhancements.js'), css=read('redesign.css');
+ const html=read('index.html'), js=read('ui-enhancements.js'), css=read('ui-system.css');
  assert.match(html,/id="navBackdrop"/);
  assert.match(js,/function wireShell\(\)/);
  assert.match(js,/closeMenu\(true\)/);
  assert.match(js,/event\.key === 'Escape'/);
  assert.match(js,/document\.body\.dataset\.signedIn === 'true'/);
  assert.ok(js.includes("sidebar.querySelector('.nav-link:not([hidden])')?.focus();"),'opening the mobile menu must move keyboard focus into navigation');
- assert.match(css,/\.sidebar\.open \+ \.nav-backdrop/);
+ assert.match(css,/\.nav-backdrop:not\(\[hidden\]\)/);
 });
 
 test('navigation updates all items and complaint detail uses a full page, not a modal',()=>{

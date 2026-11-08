@@ -25,7 +25,7 @@ const hasServerDependencies = [
 });
 
 test("browser assets do not depend on remote URLs or externally hosted resources", () => {
-  for (const name of ["index.html", "app.js", "styles.css"]) {
+  for (const name of ["index.html", "app.js", "ui-system.css"]) {
     const source = fs.readFileSync(path.join(root, name), "utf8");
     assert.doesNotMatch(
       source,

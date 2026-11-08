@@ -137,7 +137,7 @@ test('live server never serves database or source code without authentication', 
     assert.equal(response.status, 404, target + ' must not be publicly exposed');
   }
   assert.equal((await fetch(url + '/api/state')).status, 401);
-  assert.equal((await fetch(url + '/styles.css')).status, 200);
+  assert.equal((await fetch(url + '/ui-system.css')).status, 200);
   assert.equal((await fetch(url + '/')).status, 200);
   // Node 24 fetch normalizes Host. Send actual wire headers to exercise DNS rebinding protection.
   const withHost = host => new Promise((resolve, reject) => {

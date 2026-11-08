@@ -5,24 +5,35 @@ const vm=require('node:vm');
 const {assembleUiBundle}=require('../lib/ui-bundle');
 
 function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLocalStorage=new Map()){
- const events=new Map(),windowEvents=new Map(),nodes=new Map(),historyEntries=[],downloads=[];
+ const events=new Map(),windowEvents=new Map(),nodes=new Map(),historyEntries=[],downloads=[],observers=[],created=[];
  const localStorage=sharedLocalStorage,sessionStorage=new Map();
  function node(key){
   if(!nodes.has(key))nodes.set(key,{
    id:key.startsWith('#')?key.slice(1):key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
    classList:{add(){},remove(){},toggle(){return true},contains(){return false}},
    getAttribute(){return null;},setAttribute(){},removeAttribute(){},click(){downloads.push(this.download);},focus(){},scrollIntoView(){this.scrolled=true;},addEventListener(type,fn){events.set(key+':'+type,fn);},append(){},appendChild(){},remove(){},reset(){this.resetCalled=true;},
+   firstChild:null,insertBefore(child){this.firstChild=child;return child;},
    querySelector(){return node('mock-dialog')},querySelectorAll(){return key==='#newComplaintForm'?[...nodes.values()].filter(item=>/^(?:cName|cPhone|cSource|cFirstContactDate|cCategory|cNature|cEntity|cProvince|cPriority|cOwner|cSummary|cDetails)$/.test(item.id)):[]},reportValidity(){return true}
   });
   return nodes.get(key);
  }
+ // The shell mounts after the first paint, so the UI watches the document for late
+ // nodes. The fake browser records every observer and delivers records only when a
+ // test explicitly asks for them, keeping the suite deterministic.
+ class FakeMutationObserver{
+  constructor(callback){this.callback=callback;this.targets=[];observers.push(this);}
+  observe(target,options){this.targets.push({target,options});}
+  disconnect(){this.targets.length=0;}
+  takeRecords(){return[];}
+ }
  const document={
   body:{dataset:{},prepend(){},append(){},appendChild(){}},activeElement:null,
-  querySelector(selector){if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
+  documentElement:node('#documentElement'),
+  querySelector(selector){if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note'||selector==='.top-actions'||selector==='.topbar')return node(selector);return null;},
   querySelectorAll(selector){if(selector==='.nav-link')return[node('nav-dashboard'),node('nav-registry')];if(selector==='.row-check'){const a=node('row-check-a'),b=node('row-check-b');a.dataset.id='SY-2026-10001';b.dataset.id='SY-2026-10002';return[a,b];}return[];},
   addEventListener(type,fn){const previous=events.get(type);events.set(type,previous?event=>{previous(event);return fn(event);}:fn);},
   getElementById(id){return node('#'+id);},
-  createElement(){return node('created-node');},
+  createElement(){const element=node('created-'+(created.length+1));created.push(element);return element;},
   contains(){return true;}
  };
  const location={hash:''};
@@ -75,7 +86,8 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
   sessionStorage:{getItem(key){return sessionStorage.get(key)||null},setItem(key,value){sessionStorage.set(key,String(value))},removeItem(key){sessionStorage.delete(key)}},
   localStorage:{getItem(key){return localStorage.get(key)||null},setItem(key,value){localStorage.set(key,String(value))},removeItem(key){localStorage.delete(key)}},
   structuredClone,URL,Date,Intl,console:{log(){},warn(){},error(){}},
-  setTimeout:()=>0,clearTimeout(){},confirm:()=>true,
+  MutationObserver:FakeMutationObserver,
+  setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},confirm:()=>true,
   CustomEvent:class{constructor(type,options){this.type=type;this.detail=options?.detail;}}
  };
  vm.runInNewContext(assembleUiBundle(),context,{filename:'app.bundle.js',timeout:4000});
@@ -101,7 +113,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
   }};
   events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click,navigate,goto,calls,state,window,downloads,localStorage,sessionStorage};
+ return {node,has:key=>nodes.has(key),created,events,windowEvents,location,historyEntries,click,navigate,goto,calls,state,window,downloads,localStorage,sessionStorage,observers};
 }
 
 test('dashboard quick links navigate to their requested page',async()=>{
@@ -110,6 +122,14 @@ test('dashboard quick links navigate to their requested page',async()=>{
  ui.goto('complaints');
  assert.equal(ui.location.hash,'#complaints');
  assert.match(ui.node('#pageCrumb').textContent,/سجل الشكاوى/);
+});
+
+test('theme and liquid glass toggles watch the shell for late nodes',async()=>{
+ const ui=createFakeBrowser();
+ for(let i=0;i<20;i++)await Promise.resolve();
+ assert.ok(ui.observers.length>=2,'the shell must be watched for late nodes');
+ ui.node('.top-actions');
+ for(const observer of ui.observers) observer.callback([{type:'childList',target:ui.node('#documentElement')}]);
 });
 
 test('dashboard surfaces approved deadlines within 48 hours and opens only matching records',async()=>{

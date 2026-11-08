@@ -5,10 +5,17 @@
  * HTML, API responses, user data and the live app bundle remain network-only.
  * The local Express process is required for the complaints system to operate.
  */
-const CACHE_NAME = 'complaints-ui-cairo-motion-v6';
+const CACHE_NAME = 'complaints-ui-cairo-motion-v7';
 const STATIC_ASSETS = new Set([
   '/app.js',
   '/ui-system.css',
+  '/ui-layout.css',
+  '/ui-glass-ref.css',
+  '/ui-complaints-view.css',
+  '/ui-21st-ref.css',
+  '/ui-transitions.css',
+  '/ui-icon-motion.css',
+  '/ui-table-motion.css',
   '/fallback-font.css',
   '/assets/NotoSansArabic.ttf',
   '/assets/fonts/cairo-arabic-wght-normal.woff2',

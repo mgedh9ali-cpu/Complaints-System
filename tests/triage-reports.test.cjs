@@ -64,7 +64,7 @@ test('operational reports chart real records, escape labels and retain local exp
 
 test('approval mark appears only on approved or sent replies and supports print', () => {
   const detail = read('ui/pages/detail.js');
-  const css = read('redesign.css');
+  const css = read('ui-system.css');
   assert.match(detail, /\['approved','sent'\]\.includes\(c\.reply\.status\)/);
   assert.match(detail, /approval-stamp/);
   assert.match(detail, /اعتماد إداري داخلي/);
