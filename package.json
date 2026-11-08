@@ -9,6 +9,8 @@
     "start:desktop": "electron .",
     "test": "node --test --test-concurrency=4",
     "check": "node scripts/check-source.js",
+    "check:security": "node scripts/check-dependency-policy.js",
+    "check:registry": "npm audit --audit-level=low",
     "check:sqlite": "node -e \"const Database = require('better-sqlite3'); const db = new Database(':memory:'); console.log(db.prepare('SELECT sqlite_version() AS version').get()); db.close();\"",
     "postinstall": "node -e \"try{require('child_process').execSync('npx electron-builder install-app-deps',{stdio:'inherit',shell:true})}catch(e){console.warn('[postinstall] Electron native rebuild skipped:', e.message); process.exit(0)}\"",
     "verify-audit": "node scripts/verify-audit-log.js",

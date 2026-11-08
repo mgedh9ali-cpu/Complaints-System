@@ -14,12 +14,20 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
   ?manifest.artifacts
   :[{filename:manifest.filename,bytes:manifest.bytes,sha256:manifest.sha256}];
  if(!recorded.length||recorded.some(entry=>!entry||typeof entry.filename!=='string'||!entry.filename))throw new Error('The build manifest does not list a release artifact.');
+ // The build produces every artifact and records it in the manifest. The release
+ // job only receives the files the workflow upload step collected, so a build
+ // artifact that never reached this runner is reported instead of silently
+ // dropped: the release body names it and the run logs a warning.
  const files=[];
+ const notDelivered=[];
  for(const entry of recorded){
-  const bytes=fs.readFileSync(path.join(directory,entry.filename));
+  const location=path.join(directory,entry.filename);
+  if(!fs.existsSync(location)){notDelivered.push(entry.filename);continue;}
+  const bytes=fs.readFileSync(location);
   if(bytes.length!==entry.bytes||digest(bytes)!=='sha256:'+entry.sha256)throw new Error('Release artifact checksum mismatch: '+entry.filename);
   files.push({name:entry.filename,bytes});
  }
+ if(!files.length)throw new Error('None of the recorded release artifacts reached the publication step.');
  for(const name of ['SHA256SUMS.txt','build-manifest.json'])files.push({name,bytes:fs.readFileSync(path.join(directory,name))});
  const headers={Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
  async function request(url,options={},allowMissing=false){
@@ -49,11 +57,14 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
   }
   throw new Error('Release lookup exceeded the pagination limit.');
  }
+ const inventory='\n\n## ملفات هذه النسخة\n\n'+files.map(file=>'- `'+file.name+'`').join('\n')
+  +(notDelivered.length?'\n\n### مُنتَج في البناء ولم يصل إلى هذه النسخة\n\n'+notDelivered.map(name=>'- `'+name+'`').join('\n')+'\n\nأُدرج الملف في بيان البناء لكنه لم يصل إلى مرحلة النشر؛ يجب أن يمرّر خط رفع الملفات في مسار الإصدار هذا الملف.' :'');
+ if(notDelivered.length)log('WARNING: these build artifacts did not reach the publication step: '+notDelivered.join(', '));
  let release=await findRelease();
  if(!release){
   try{release=await request(api+'/releases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
    tag_name:tag,target_commitish:commit,name:'نظام الشكاوى '+version+' · '+commit.slice(0,12),draft:true,prerelease:true,
-   body:'نسخة Windows x64: ملف EXE محمول يعمل دون تثبيت Node.js، ومثبّت EXE يختار مجلد التثبيت وينشئ اختصارات سطح المكتب وقائمة ابدأ مع مُثبّت لإلغاء التثبيت.\n\nاجتازت اختبارات المصدر والتبعيات واختبار تشغيل الحزمة على Windows. يمكن اختيار مجلد النسخ وحفظ مفتاح الاستعادة والاستعادة من قائمة «النسخ والاستعادة».\n\nللترقية: احفظ نسخة كاملة ومفتاحها، أغلق البرنامج، ثم ثبّت النسخة الجديدة. البيانات خارج ملف البرنامج.\n\nبصمة SHA-256 ومرجع المصدر في الملفين المرفقين. إثبات منشأ البناء في GitHub مستقل عن شهادة توقيع Windows؛ الملف لا يحمل شهادة الجهة ما لم تُضبط في بيئة البناء.'
+   body:'نسخة Windows x64: ملف EXE محمول يعمل دون تثبيت Node.js، ومثبّت EXE يختار مجلد التثبيت وينشئ اختصارات سطح المكتب وقائمة ابدأ مع مُثبّت لإلغاء التثبيت.\n\nاجتازت اختبارات المصدر والتبعيات واختبار تشغيل الحزمة على Windows. يمكن اختيار مجلد النسخ وحفظ مفتاح الاستعادة والاستعادة من قائمة «النسخ والاستعادة».\n\nللترقية: احفظ نسخة كاملة ومفتاحها، أغلق البرنامج، ثم ثبّت النسخة الجديدة. البيانات خارج ملف البرنامج.\n\nبصمة SHA-256 ومرجع المصدر في الملفين المرفقين. إثبات منشأ البناء في GitHub مستقل عن شهادة توقيع Windows؛ الملف لا يحمل شهادة الجهة ما لم تُضبط في بيئة البناء.'+inventory
   })});}
   catch(error){if(error.status!==422)throw error;release=await findRelease();if(!release)throw error;}
  }

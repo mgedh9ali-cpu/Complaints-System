@@ -110,6 +110,88 @@ test('the publication uploads the portable build and the installer together', as
   assert.ok(uploads.includes('build-manifest.json'));
 });
 
+test('a build artifact that never reached the release job is reported, not hidden', async t => {
+  const directory = buildDirectory(t);
+  const version = '1.0.0-rc.4';
+  const commit = 'f'.repeat(40);
+  await generateManifest(directory, version, commit);
+  // The workflow upload step decides which files travel to the publication job.
+  // When it does not collect the installer, the release must still publish the
+  // portable build and say plainly that the installer is missing.
+  fs.rmSync(path.join(directory, SETUP));
+
+  const repo = 'mgedh9ali-cpu/Complaints-System';
+  const api = 'https://api.github.com/repos/' + repo;
+  const uploads = [];
+  let release = null;
+  const warnings = [];
+  const response = (status, data) => ({ status, ok: status >= 200 && status < 300, json: async () => data });
+  const fetchImpl = async (url, options = {}) => {
+    const method = options.method || 'GET';
+    if (url.includes('/git/ref/tags/')) return response(404, {});
+    if (method === 'GET' && url.includes('/releases?')) return response(200, []);
+    if (method === 'POST' && url === api + '/releases') {
+      const body = JSON.parse(options.body);
+      release = {
+        id: 10,
+        tag_name: body.tag_name,
+        target_commitish: commit,
+        draft: true,
+        body: body.body,
+        upload_url: 'https://uploads.github.com/repos/' + repo + '/releases/10/assets{?name,label}',
+        html_url: 'https://github.com/' + repo + '/releases/tag/' + body.tag_name,
+        assets: [],
+      };
+      return response(201, release);
+    }
+    if (method === 'GET' && url.includes('/releases/10/assets?')) return response(200, release.assets);
+    if (method === 'POST' && url.startsWith('https://uploads.github.com/')) {
+      const name = new URL(url).searchParams.get('name');
+      uploads.push(name);
+      const asset = { id: 300 + uploads.length, name, state: 'uploaded', size: options.body.length, digest: 'sha256:' + sha(options.body) };
+      release.assets.push(asset);
+      return response(201, asset);
+    }
+    if (method === 'PATCH' && url === api + '/releases/10') { release.draft = false; return response(200, release); }
+    throw new Error('Unexpected API request: ' + method + ' ' + url);
+  };
+
+  await publish({
+    directory,
+    version,
+    env: { GITHUB_TOKEN: 'synthetic-token', GITHUB_REPOSITORY: repo, GITHUB_SHA: commit, GITHUB_REF: 'refs/heads/main' },
+    fetchImpl,
+    log: message => warnings.push(message),
+  });
+
+  assert.ok(uploads.includes(PORTABLE), 'the portable build must still be published');
+  assert.ok(!uploads.includes(SETUP), 'a file that never arrived must not be published');
+  assert.ok(warnings.some(message => message.includes(SETUP)), 'the missing artifact must be reported in the run log');
+  assert.ok(release.body.includes(SETUP), 'the release body must name the artifact that was not published');
+  assert.ok(release.body.includes(PORTABLE), 'the release body must list the published artifacts');
+});
+
+test('a release without any artifact fails instead of publishing an empty package', async t => {
+  const directory = buildDirectory(t);
+  const version = '1.0.0-rc.4';
+  const commit = 'a'.repeat(40);
+  await generateManifest(directory, version, commit);
+  fs.rmSync(path.join(directory, PORTABLE));
+  fs.rmSync(path.join(directory, SETUP));
+  let calls = 0;
+  await assert.rejects(
+    publish({
+      directory,
+      version,
+      env: { GITHUB_TOKEN: 'synthetic-token', GITHUB_REPOSITORY: 'mgedh9ali-cpu/Complaints-System', GITHUB_SHA: commit, GITHUB_REF: 'refs/heads/main' },
+      fetchImpl: async () => { calls++; throw new Error('the network must not be reached'); },
+      log() {},
+    }),
+    /None of the recorded release artifacts/,
+  );
+  assert.equal(calls, 0);
+});
+
 test('a tampered installer stops the publication before any network access', async t => {
   const directory = buildDirectory(t);
   const version = '1.0.0-rc.4';
