@@ -136,12 +136,18 @@ function printComplaintCover(id){
 function complaintRecordActions(c,withView=true){
  const action=(label,name,extra='')=>'<button type="button" class="btn btn-sm '+extra+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
  let html=withView?action('عرض','detail'):'';
- html+=action('طباعة','print-complaint-cover','btn-print');
- html+=action('نسخ','copy-complaint','btn-copy');
  if(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status))html+=action('تعديل','edit-complaint');
- if(uiCan('approvals.request')&&!c.archivedAt)html+=action('حذف','request-complaint-delete','btn-danger');
- if(uiCan('export.xlsx')&&!c.archivedAt)html+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
- return html;
+ return html+action('المزيد','complaint-more');
+}
+function complaintActionsModal(id){
+ const c=db.complaints.find(item=>item.id===id);if(!c)return;
+ const action=(label,name,kind='')=>'<button type="button" class="btn '+kind+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
+ let body='<section class="record-action-group"><h3>الطباعة والتصدير</h3><div class="record-action-buttons">'+action('طباعة الشكوى','print-complaint-cover','btn-print');
+ if(uiCan('export.xlsx')&&!c.archivedAt)body+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
+ body+='</div></section>';
+ if(uiCan('complaints.create')||uiCan('complaints.update'))body+='<section class="record-action-group"><h3>إنشاء نسخة</h3><div class="record-action-buttons">'+action('نسخ إلى شكوى جديدة','copy-complaint','btn-copy')+'</div></section>';
+ if(uiCan('approvals.request')&&!c.archivedAt)body+='<section class="record-action-group"><h3>الأرشفة</h3><p class="small-copy">يحتاج الحذف من السجل النشط إلى موافقة مدير آخر.</p><div class="record-action-buttons">'+action('طلب حذف الشكوى','request-complaint-delete','btn-danger')+'</div></section>';
+ modal('إجراءات الشكوى',esc(c.id)+' · '+esc(c.summary||''),body,'<button type="button" class="btn" data-action="close-modal">إغلاق</button>');
 }
 function requestComplaintDeletion(id){
  const c=db.complaints.find(item=>item.id===id);

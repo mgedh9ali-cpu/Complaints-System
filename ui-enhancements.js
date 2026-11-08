@@ -148,61 +148,10 @@
     }
   }
 
-  function enhanceActionCells() {
-    document.querySelectorAll('table tbody tr').forEach((row) => {
-      if (row.dataset.actionsBound) return;
-      const idCell = row.querySelector('.ticket-id, [data-id]');
-      let id = idCell?.getAttribute('data-id') || idCell?.textContent?.trim();
-      if (!id || !/^SY-/i.test(id)) {
-        const text = row.innerText || '';
-        const m = text.match(/SY-\d{4}-(?:\d{4,8}|[0-9a-f-]{8})/i);
-        id = m ? m[0] : null;
-      }
-      if (!id) return;
-      row.dataset.actionsBound = '1';
-      let cell = row.querySelector('.action-cell');
-      if (!cell) {
-        cell = document.createElement('td');
-        cell.className = 'action-cell';
-        row.append(cell);
-      }
-      if (cell.querySelector('[data-act]')) return;
-      const wrap = document.createElement('div');
-      wrap.className = 'row-actions';
-      wrap.innerHTML =
-        '<button type="button" class="btn btn-sm" data-act="edit">تعديل</button>' +
-        '<button type="button" class="btn btn-sm" data-act="draft">مسودة</button>' +
-        '<button type="button" class="btn btn-sm btn-danger" data-act="delete">طلب أرشفة</button>';
-      wrap.querySelectorAll('[data-act]').forEach(button=>{const action=button.dataset.act==='delete'?'approvals.request':button.dataset.act==='draft'?'complaints.status':'complaints.update';button.hidden=!window.__complaintsCan?.(action);});
-      cell.append(wrap);
-      wrap.addEventListener('click', async (ev) => {
-        const btn = ev.target.closest('[data-act]');
-        if (!btn) return;
-        const act = btn.getAttribute('data-act');
-        try {
-          if (act === 'delete') {
-            window.dispatchEvent(new CustomEvent('complaints:request-archive',{detail:{id}}));
-          } else if (act === 'draft') {
-            await window.__complaintActions.setStatus(id, 'draft');
-            window.dispatchEvent(new Event('complaints:refresh'));notify('أُعيدت كمسودة');
-          } else if (act === 'edit') {
-            const summary = prompt('تعديل الملخص (اتركه فارغاً للإلغاء):');
-            if (summary == null) return;
-            if (!summary.trim()) return;
-            await window.__complaintActions.update(id, { summary: summary.trim() });
-            window.dispatchEvent(new Event('complaints:refresh'));notify('تم التعديل');
-          }
-        } catch (err) {
-          notify(err.message || 'فشلت العملية', 'error');
-        }
-      });
-    });
-  }
-
   function addTools() {
     const host = $('.account-menu-panel') || $('.top-actions');
     if (!host) return;
-    if (!$('#themeToggle')) {
+    if (!window.applyUiTheme && !$('#themeToggle')) {
       const theme = document.createElement('button');
       theme.type = 'button';
       theme.id = 'themeToggle';
@@ -222,7 +171,8 @@
       btn.type = 'button';
       btn.id = 'excelExportBtn';
       btn.className = 'ui-tool-button';
-      btn.textContent = 'Excel';
+      btn.textContent = 'تصدير Excel';
+      btn.hidden = !window.__complaintsCan?.('export.xlsx');
       btn.addEventListener('click', exportXlsx);
       host.insertBefore(btn, host.firstChild);
     }
@@ -273,13 +223,6 @@
 
     const tools = search.closest('.table-tools');
     if (!tools) return;
-    if (!tools.querySelector('#uiRegistryHint')) {
-      const hint = document.createElement('span');
-      hint.id = 'uiRegistryHint';
-      hint.className = 'ui-registry-hint';
-      hint.textContent = 'بحث مباشر · Ctrl + K للأوامر';
-      tools.append(hint);
-    }
     if (!tools.querySelector('#uiClearSearch')) {
       const clear = document.createElement('button');
       clear.id = 'uiClearSearch';
@@ -294,7 +237,7 @@
         current.dispatchEvent(new Event('input', { bubbles: true }));
         $('#complaintSearch')?.focus();
       });
-      tools.append(clear);
+      search.closest('.search-box').append(clear);
     }
     const clear = tools.querySelector('#uiClearSearch');
     if (clear) clear.hidden = !search.value;
@@ -359,16 +302,17 @@
     });
     addTools();
     fetchCsrf();
-    enhanceActionCells();
     enhanceWorkspace();
     if (document.body.dataset.signedIn === 'true') enhanceRegistry();
-    const observer = new MutationObserver(() => {
-      addTools();
-      enhanceActionCells();
+    // Render events cover route/filter changes without scanning on every counter,
+    // toast or icon text mutation. The active UI owns all record actions.
+    document.addEventListener('complaints:render', () => {
       enhanceWorkspace();
-      if (document.body.dataset.signedIn === 'true') enhanceRegistry();
+      enhanceRegistry();
+      const exportButton = $('#excelExportBtn');
+      if (exportButton) exportButton.hidden = !window.__complaintsCan?.('export.xlsx');
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('complaints:modal', enhanceWorkspace);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });

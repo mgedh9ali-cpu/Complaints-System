@@ -17,6 +17,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
   return nodes.get(key);
  }
  const document={
+  documentElement:node('html'),readyState:'interactive',
   body:{dataset:{},prepend(){},append(){},appendChild(){}},activeElement:null,
   querySelector(selector){if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
   querySelectorAll(selector){if(selector==='.nav-link')return[node('nav-dashboard'),node('nav-registry')];if(selector==='.row-check'){const a=node('row-check-a'),b=node('row-check-b');a.dataset.id='SY-2026-10001';b.dataset.id='SY-2026-10002';return[a,b];}return[];},
@@ -75,7 +76,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
   sessionStorage:{getItem(key){return sessionStorage.get(key)||null},setItem(key,value){sessionStorage.set(key,String(value))},removeItem(key){sessionStorage.delete(key)}},
   localStorage:{getItem(key){return localStorage.get(key)||null},setItem(key,value){localStorage.set(key,String(value))},removeItem(key){localStorage.delete(key)}},
   structuredClone,URL,Date,Intl,console:{log(){},warn(){},error(){}},
-  setTimeout:()=>0,clearTimeout(){},confirm:()=>true,
+  setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},confirm:()=>true,
   CustomEvent:class{constructor(type,options){this.type=type;this.detail=options?.detail;}}
  };
  vm.runInNewContext(assembleUiBundle(),context,{filename:'app.bundle.js',timeout:4000});
@@ -251,7 +252,9 @@ test('new complaint uses the authenticated creation endpoint and CSRF token',asy
  assert.match(ui.node('#content').innerHTML,/بلاغ جديد للاختبار/);
  assert.equal(JSON.parse(request.body).firstContactDate,'2026-10-19');
  assert.equal(ui.location.hash,'#complaint/SY-2026-10002');
- for(const action of ['edit-complaint','request-complaint-delete','export-complaint-pdf','export-complaint-word'])assert.ok(ui.node('#content').innerHTML.includes('data-action="'+action+'"'));
+ for(const action of ['edit-complaint','complaint-more'])assert.ok(ui.node('#content').innerHTML.includes('data-action="'+action+'"'));
+ ui.click('complaint-more','SY-2026-10002');
+ for(const action of ['request-complaint-delete','export-complaint-pdf','export-complaint-word'])assert.ok(ui.node('#modalRoot').innerHTML.includes('data-action="'+action+'"'));
 });
 
 test('reviewer cannot open creation form',async()=>{
@@ -413,4 +416,22 @@ test('individual PDF and Word actions download the chosen complaint through auth
  for(const action of ['export-complaint-pdf','export-complaint-word']){ui.click(action,'SY-2026-10001');for(let i=0;i<50;i++)await Promise.resolve();}
  for(const format of ['pdf','docx'])assert.ok(ui.calls.some(c=>c.url==='/api/export/'+format+'/SY-2026-10001'&&c.method==='GET'));
  assert.deepEqual(ui.downloads,['شكوى-SY-2026-10001.pdf','شكوى-SY-2026-10001.docx']);
+});
+
+
+test('registry keeps primary actions compact and exposes secondary actions by permission',async()=>{
+ for(const role of ['admin','reviewer']){
+  const ui=createFakeBrowser(role);for(let i=0;i<25;i++)await Promise.resolve();
+  ui.navigate('complaints');const html=ui.node('#content').innerHTML;
+  assert.match(html,/data-action="complaint-more"/);
+  assert.doesNotMatch(html,/data-action="(?:print-complaint-cover|copy-complaint|request-complaint-delete|export-complaint-pdf|export-complaint-word)"/);
+  ui.click('complaint-more','SY-2026-10001');const actions=ui.node('#modalRoot').innerHTML;
+  assert.match(actions,/data-action="print-complaint-cover"/);
+  if(role==='admin'){
+   assert.match(actions,/data-action="export-complaint-pdf"/);assert.match(actions,/data-action="request-complaint-delete"/);
+  }else{
+   assert.doesNotMatch(html,/data-action="edit-complaint"/);
+   assert.doesNotMatch(actions,/data-action="(?:export-complaint-pdf|export-complaint-word|request-complaint-delete|copy-complaint)"/);
+  }
+ }
 });

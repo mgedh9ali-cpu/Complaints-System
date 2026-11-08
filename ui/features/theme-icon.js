@@ -47,12 +47,9 @@
     host.insertBefore(b, host.firstChild);
     applyUiTheme(currentTheme());
   };
-  document.addEventListener('DOMContentLoaded',()=>{
-    applyUiTheme(currentTheme());
-    setTimeout(()=>{try{mountThemeIcon();}catch(_){}},350);
-  });
-  try{
-    new MutationObserver(()=>{ if(authenticatedUser&&!$('#themeIconToggle')) try{mountThemeIcon();}catch(_){} })
-      .observe(document.documentElement,{childList:true,subtree:true});
-  }catch(_){}
+  function startTheme(){
+    try{window.mountThemeIcon();}catch(_){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startTheme,{once:true});
+  else startTheme();
 })();

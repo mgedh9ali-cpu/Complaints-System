@@ -254,8 +254,6 @@ app.use((err, req, res, next) => {
     status === 400 ? 'بيانات الطلب أو المرفقات غير صالحة.' : 'خطأ داخلي في الخادم.' });
 });
 
-try { require('./scripts/ensure-thmanyah-fonts').ensureThmanyahFonts(); } catch (e) { console.error('Thmanyah font ensure failed', e && e.message); }
-
 app.listen(env.port, env.host, () => {
   backupScheduler.start();
   const reminders = setInterval(() => {

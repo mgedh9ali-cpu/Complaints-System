@@ -1,11 +1,11 @@
 /* ============================================================
- * ui-layout.css — Layout & UI Polish (loads LAST)
+ * ui-layout.css — Layout & UI Polish
  * Hierarchy: one primary CTA · secondary outline · danger safe-gap
  * Performance: no blur on tables; blur only modal-backdrop + topbar
  * ============================================================ */
 
 :root {
-  --ui-font: "Thmanyah Sans", "ThmanyahSans", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  --ui-font: "Cairo", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
   --layout-gap: 12px;
   --layout-gap-lg: 18px;
   --safe-danger-gap: 16px;
@@ -81,8 +81,8 @@ html[data-theme="dark"] .topbar {
 .right-actions .btn-primary,
 .modal-footer .btn-primary,
 .heading-actions .btn-primary {
-  order: 10;
-  margin-inline-start: auto;
+  order: 0;
+  margin-inline-start: 0;
 }
 
 .right-actions .btn-danger,

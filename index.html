@@ -8,7 +8,6 @@
     <link rel="manifest" href="/manifest.json" />
     <title>الاستفسارات والشكاوى | تشغيل محلي</title>
     <link rel="preload" href="/assets/fonts/cairo-arabic-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="thmanyah-fonts.css" />
     <link rel="stylesheet" href="fallback-font.css" />
     <link rel="stylesheet" href="ui-system.css" />
     <link rel="stylesheet" href="ui-layout.css" />
@@ -61,7 +60,7 @@
       <main class="main">
         <header class="topbar">
           <button type="button" class="icon-btn menu-toggle" id="menuToggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="sidebar">القائمة</button>
-          <div class="page-heading">
+          <div class="topbar-heading">
             <p class="eyebrow" id="pageCrumb">لوحة المتابعة</p>
             <h1>نظام الشكاوى المحلي</h1>
           </div>
@@ -100,7 +99,7 @@
     </div>
     <div id="modalRoot"></div>
     <div id="toastRegion" class="toast-region" aria-live="polite"></div>
-    <script defer src="app.js"></script>
+    <script defer src="/app.bundle.js"></script>
     <script defer src="ui-enhancements.js"></script>
     <script defer src="attachments-ui-bridge.js"></script>
     <script defer src="sw-register.js"></script>

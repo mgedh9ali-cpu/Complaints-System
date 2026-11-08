@@ -25,7 +25,7 @@
   };
   window.mountLiquidGlassToggle=function(){
     if($('#liquidGlassToggle')) return;
-    const host=$('.top-actions')||$('.topbar');
+    const host=$('.account-menu-panel');
     if(!host) return;
     const b=document.createElement('button');
     b.type='button';
@@ -33,16 +33,16 @@
     b.className='liquid-glass-toggle'+(glassOn()?' is-on':'');
     b.setAttribute('aria-pressed', glassOn()?'true':'false');
     b.setAttribute('aria-label','تبديل الزجاج السائل');
-    b.title='زجاج السطح (مرجع Liquid Glass)';
+    b.title='تبديل شفافية الواجهة';
     b.dataset.action='toggle-liquid-glass';
     b.innerHTML='<span class="lgt-track" aria-hidden="true"><span class="lgt-drop"></span></span><span class="lgt-label">'+(glassOn()?'زجاج':'صلب')+'</span>';
     host.insertBefore(b, host.firstChild);
     applyGlass(glassOn());
   };
-  document.addEventListener('DOMContentLoaded', ()=>{
+  function startGlass(){
     applyGlass(glassOn());
-    setTimeout(()=>{ try{mountLiquidGlassToggle();}catch(_){} }, 400);
-  });
-  const _obs=new MutationObserver(()=>{ if(authenticatedUser&&!$('#liquidGlassToggle')) try{mountLiquidGlassToggle();}catch(_){} });
-  try{_obs.observe(document.documentElement,{childList:true,subtree:true});}catch(_){}
+    try{window.mountLiquidGlassToggle();}catch(_){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startGlass,{once:true});
+  else startGlass();
 })();

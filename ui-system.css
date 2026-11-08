@@ -1,6 +1,6 @@
-/* ui-system.css v2 — خط ثمانية محليًا مع بدائل Cairo/Noto · ثلاث لوحات ألوان (data-palette: ocean | ember) · حركة انسيابية · نظام تصميم موحّد لـ «شعبة الاستفسارات والشكاوى»
+/* ui-system.css v2 — خط Cairo محليًا مع بديل Noto · ثلاث لوحات ألوان (data-palette: ocean | ember) · حركة انسيابية · نظام تصميم موحّد لـ «شعبة الاستفسارات والشكاوى»
  * يحلّ محل: styles.css · ui-enhancements.css · redesign.css · palette.css · ui-layout.css · ui-prod.css
- * يبقى: thmanyah-fonts.css · fallback-font.css
+ * يبقى: fallback-font.css
  * بلا !important. كل ألوان النص ≥ 4.5:1 والحدود وحلقة التركيز ≥ 3:1 (حُسبت).
  * الفكرة: «سجل رسمي» هادئ؛ العنصر المميّز الوحيد هو سكة دورة حياة الشكوى (.glass-steps).
  * الزجاج للشريط العلوي وخلفية النوافذ فقط؛ الجداول والنماذج أسطح صلبة للقراءة. */
@@ -28,7 +28,7 @@
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
   --r-ctl:10px; --r-panel:16px; --r-pill:999px;
   --sh-1:0 1px 2px rgb(5 64 47 / .08); --sh-2:0 10px 28px rgb(5 64 47 / .14); --sh-3:0 22px 56px rgb(5 64 47 / .28);
-  --font:"Thmanyah Sans","ThmanyahSans","Cairo","Noto Sans Arabic",Tahoma,"Segoe UI",Arial,sans-serif;
+  --font:"Cairo","Noto Sans Arabic",Tahoma,"Segoe UI",Arial,sans-serif;
   --t-xs:12.5px; --t-sm:13.5px; --t-md:14.5px; --t-lg:18px; --t-xl:23px; --t-2xl:30px;
   --ease:cubic-bezier(.2,.8,.2,1); --ease-out:cubic-bezier(.16,1,.3,1); --d1:120ms; --d2:220ms; --d3:480ms;
   color-scheme: light;
@@ -573,5 +573,12 @@ html{scroll-behavior:auto}
 
 /* Individual complaint actions remain visible after intake and in the registry. */
 .complaint-record-actions,.action-cell{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
-.action-cell{min-width:180px;max-width:280px}.action-cell .btn{min-height:34px;font-size:var(--t-xs);padding:var(--s1) var(--s2)}
+.action-cell{min-width:180px;max-width:280px;flex-wrap:nowrap}.action-cell .btn{min-height:36px;font-size:var(--t-xs);padding:var(--s1) var(--s2);white-space:nowrap}
+.record-action-group + .record-action-group{margin-block-start:var(--s5);padding-block-start:var(--s4);border-top:1px solid var(--line)}
+.record-action-group h3{margin:0 0 var(--s3);font-size:var(--t-md)}
+.record-action-buttons{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.topbar-heading{flex:1 1 180px;min-width:0;margin:0}
+.topbar-heading h1{font-size:var(--t-lg);line-height:1.5}
+.account-menu-panel > .liquid-glass-toggle{width:100%;justify-content:flex-start;border-radius:var(--r-ctl);min-height:44px}
+@media(max-width:600px){.record-action-buttons > .btn{flex:1 1 100%}.heading-actions > .btn{flex:1 1 auto}}
 @media print{.complaint-record-actions,.action-cell{display:none}}

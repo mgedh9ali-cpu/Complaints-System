@@ -50,3 +50,28 @@ test('desktop paints its local startup window before loading the server and atta
 test('missing startup page fails visibly without hanging or launching a hidden server',async()=>{
  assert.deepEqual(await desktopBoot(true),['splash','error','quit']);
 });
+
+test('desktop reloads reuse the assembled bundle while development reads fresh sources',()=>{
+ const result=execFileSync(process.execPath,['-e',`
+  const fs=require('node:fs');
+  const {SOURCE_FILES,assembleUiBundle}=require('./lib/ui-bundle');
+  const read=fs.readFileSync;let reads=0;
+  fs.readFileSync=function(file,...args){const filename=String(file).split(require('node:path').sep).join('/');if(SOURCE_FILES.some(name=>filename.endsWith(name)))reads++;return read.call(this,file,...args);};
+  process.env.ELECTRON_RUN='1';
+  const first=assembleUiBundle(),initial=reads;
+  const second=assembleUiBundle(),reloaded=reads;
+  delete process.env.ELECTRON_RUN;
+  const third=assembleUiBundle();
+  console.log(JSON.stringify({same:first===second&&second===third,initial,reloaded,development:reads-initial,files:SOURCE_FILES.length}));
+ `],{cwd:path.resolve(__dirname,'..'),encoding:'utf8'});
+ const check=JSON.parse(result);assert.equal(check.same,true);
+ assert.equal(check.initial,check.files);assert.equal(check.reloaded,check.initial);
+ assert.equal(check.development,check.files);
+});
+
+test('initial HTML discovers the deferred UI bundle without a loader round trip',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ assert.match(html,/<script defer src="\/app\.bundle\.js"><\/script>/);
+ assert.doesNotMatch(html,/<script[^>]+src="app\.js"/);
+ assert.ok(html.indexOf('src="/app.bundle.js"')<html.indexOf('src="ui-enhancements.js"'));
+});

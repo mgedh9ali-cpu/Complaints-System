@@ -32,9 +32,17 @@
 }
 
 .registry-tools {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px !important;
   align-items: stretch !important;
 }
+.registry-tools .registry-search,
+.registry-tools .filter-dates,
+.registry-tools .filter-actions { grid-column: 1 / -1; }
+.registry-tools .filter-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; }
+.registry-tools .filter-dates { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.registry-tools .filter-group > :is(.field, .select-field) { width: 100%; min-width: 0 !important; max-width: none !important; }
 .registry-search {
   flex: 1 1 240px !important;
   min-width: 200px !important;
@@ -58,8 +66,17 @@
 }
 .filter-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-inline-start: auto;
+  margin-inline-start: 0;
+  padding-block-start: 4px;
+}
+
+@media (max-width: 700px) {
+  .registry-tools { grid-template-columns: minmax(0, 1fr); }
+  .registry-tools .filter-dates { grid-template-columns: minmax(0, 1fr); }
+  .registry-tools .registry-search { min-width: 0 !important; }
+  .registry-tools .filter-actions > .btn { flex: 1 1 auto; }
 }
 
 .registry-table-wrap {

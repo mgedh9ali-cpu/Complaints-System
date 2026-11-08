@@ -42,6 +42,7 @@ if(!el)return;
 const a=el.dataset.action,id=el.dataset.id;
 try{
 switch(a){
+case 'complaint-more':complaintActionsModal(id);break;
 case 'request-complaint-delete':requestComplaintDeletion(id);break;
 case 'export-complaint-pdf':await withButtonLock(el,()=>exportComplaintDocument(id,'pdf'));break;
 case 'export-complaint-word':await withButtonLock(el,()=>exportComplaintDocument(id,'docx'));break;
