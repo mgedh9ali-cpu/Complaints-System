@@ -1,7 +1,8 @@
 {
   "name": "@complaints/temp-cleanup",
-  "version": "1.0.0",
+  "version": "2.6.3",
   "private": true,
   "description": "Literal temporary-path cleanup using Node.js fs.rm",
-  "main": "index.js"
+  "main": "index.js",
+  "dependencies": {}
 }

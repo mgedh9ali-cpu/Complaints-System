@@ -1,11 +1,12 @@
 {
   "name": "@complaints/minimatch-compat",
-  "version": "1.0.0",
+  "version": "10.2.6",
   "private": true,
   "description": "Callable CommonJS compatibility over the official patched minimatch",
   "main": "index.js",
   "dependencies": {
-    "minimatch-patched": "npm:minimatch@11.0.2"
+    "minimatch-patched": "npm:minimatch@11.0.5",
+    "brace-expansion": "^5.0.12"
   },
   "exports": {
     ".": {
