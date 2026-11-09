@@ -114,7 +114,7 @@ function renderBackupHistoryTable(history) {
         '<td>' + esc(backupKindLabel(b.kind)) + '</td>' +
         '<td>' + esc(formatBytes(b.size)) + '</td>' +
         '<td dir="ltr">' + esc(b.name) + '</td>' +
-        '<td>' + (b.verified ? 'متحقق' : '—') + '</td>' +
+        '<td>' + (b.verified ? 'متحقق في هذه الجلسة' : 'لم يُفحص بعد') + '</td>' +
         '<td class="dp-row-actions">' +
         (canVerify
           ? '<button type="button" class="btn btn-sm" data-action="restore-wizard-start" data-name="' + esc(b.name) + '">استعادة / فحص</button>'

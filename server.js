@@ -56,7 +56,8 @@ require('./lib/attachments').protectLegacyAttachments();
 lockDownFile(env.databasePath);
 
 const auditService = createAuditService({ db, logger, databasePath: env.databasePath });
-try { const _chain = auditService.verifyChain(); if (!_chain.ok) { console.error('Audit integrity verification failed at boot; continuing in degraded mode', _chain); } } catch (e) { console.error('Audit integrity check threw at boot', e && e.message); }
+const auditIntegrity = auditService.verifyChain();
+if (!auditIntegrity.ok) throw new Error('Audit integrity verification failed at boot; restore a verified backup before continuing.');
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
   auditService.record(actorUserId, action, targetType, targetId, details);
 audit.syncHead = () => auditService.syncHead();

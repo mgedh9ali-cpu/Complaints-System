@@ -25,7 +25,7 @@ test('critical data operations remain private and role restricted',()=>{
  }
  assert.match(server,/requireLocalHost/);
  assert.match(state,/إنشاء شكوى عبر حفظ الحالة غير مسموح/);
- assert.match(state,/لا يجوز تغيير نص الرد المعتمد/);
+ assert.match(state + read('lib/reply-workflow.js'),/لا يجوز تغيير نص الرد المعتمد/);
  assert.match(attachments,/الحد الأقصى لعدد المرفقات/);
  assert.match(attachments,/\^\[A-Za-z0-9\]/);
 });

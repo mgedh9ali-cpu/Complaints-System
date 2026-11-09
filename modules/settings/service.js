@@ -46,7 +46,7 @@ function normalizeSettings(raw) {
       : DEFAULT_SETTINGS.slaDays,
     slaApproved: Boolean(src.slaApproved),
     completionReminderHours: Number.isFinite(Number(src.completionReminderHours))
-      ? Math.max(1, Math.min(168, Number(src.completionReminderHours)))
+      ? Math.max(1, Math.min(720, Math.round(Number(src.completionReminderHours))))
       : DEFAULT_SETTINGS.completionReminderHours,
     categoryDescriptions:
       src.categoryDescriptions && typeof src.categoryDescriptions === 'object' && !Array.isArray(src.categoryDescriptions)

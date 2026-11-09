@@ -15,6 +15,8 @@ function safeBackupName(name) {
 }
 
 function createBackupService({ databasePath, sessionSecret }) {
+  const verifiedFiles = new Map();
+  const fingerprint = stat => JSON.stringify([stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs]);
   function defaultDir() {
     return path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(path.resolve(databasePath)), 'backups'));
   }
@@ -110,7 +112,12 @@ function createBackupService({ databasePath, sessionSecret }) {
     const dir = path.resolve(directory || defaultDir());
     const full = path.join(dir, name);
     if (path.dirname(full) !== dir || !fs.existsSync(full)) throw new Error('النسخة غير موجودة.');
+    const before = fs.lstatSync(full);
+    if (!before.isFile() || before.isSymbolicLink()) throw new Error('ملف النسخة غير صالح.');
     const result = await verifyEncryptedBundle({ bundlePath: full, secret: sessionSecret });
+    const after = fs.lstatSync(full);
+    if (fingerprint(before) !== fingerprint(after)) throw new Error('تغيرت النسخة أثناء الفحص؛ أعد التحقق.');
+    if (result.verified) verifiedFiles.set(full, fingerprint(after));
     return {
       ok: Boolean(result.verified),
       filename: name,
@@ -128,7 +135,13 @@ function createBackupService({ databasePath, sessionSecret }) {
     deleteBackup,
     verifyStoredBackup,
     listBackups(directory, limit) {
-      return listStoredBackups(directory || defaultDir(), limit);
+      const dir = path.resolve(directory || defaultDir());
+      return listStoredBackups(dir, limit).map(entry => {
+        const full = path.join(dir, entry.name);
+        let verified = false;
+        try { verified = verifiedFiles.get(full) === fingerprint(fs.lstatSync(full)); } catch (_) {}
+        return { ...entry, verified };
+      });
     },
     defaultBackupDirectory() {
       return defaultDir();
@@ -146,7 +159,7 @@ function listStoredBackups(directory, limit = 50) {
     if (!/\.(csb|sqlite|enc)$/i.test(name) && !name.endsWith('.sqlite.enc')) continue;
     const full = path.join(directory, name);
     let stat;
-    try { stat = fs.statSync(full); } catch { continue; }
+    try { stat = fs.lstatSync(full); } catch { continue; }
     if (!stat.isFile() || !Number.isSafeInteger(stat.size)) continue;
     const kind = name.startsWith('automatic-') ? 'automatic'
       : name.startsWith('before-') ? 'pre-change'
@@ -157,7 +170,7 @@ function listStoredBackups(directory, limit = 50) {
       size: stat.size,
       mtime: new Date(stat.mtimeMs).toISOString(),
       kind,
-      verified: kind === 'automatic' || /\.csb$/i.test(name)
+      verified: false
     });
   }
   entries.sort((a, b) => (a.mtime < b.mtime ? 1 : -1));

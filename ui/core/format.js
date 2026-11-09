@@ -117,4 +117,4 @@ async function exportXlsx(){
   }
 }
 
-function availableOwners(){return [...new Set([authenticatedUser?.username,...managedUsers.filter(u=>u.active&&u.role!=='reviewer').map(u=>u.username),...db.complaints.map(c=>c.owner)].filter(Boolean))];}
+function availableOwners(){return [...new Set([authenticatedUser?.username,...assignees.map(u=>u.username),...managedUsers.filter(u=>u.active&&u.role!=='reviewer').map(u=>u.username),...db.complaints.map(c=>c.owner)].filter(Boolean))];}

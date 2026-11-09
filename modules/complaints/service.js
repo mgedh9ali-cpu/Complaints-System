@@ -5,6 +5,7 @@ const { storageFor } = require('../../lib/storage-codec');
 const { diffComplaints: defaultDiff } = require('../../lib/complaint-state-diff');
 const { DEFAULT_SETTINGS, DEFAULT_TEMPLATES } = require('../../lib/default-settings');
 const { dayBoundary } = require('../../lib/work-time');
+const { applyReplyTransition } = require('../../lib/reply-workflow');
 
 const ALLOWED_TRANSITIONS = Object.freeze({
   draft: ['new', 'cancelled'],
@@ -70,7 +71,8 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     }
     let conflict = false;
     const tx = db.transaction(() => {
-      const existing = db.prepare('SELECT id, revision FROM app_state WHERE id = 1').get();
+      const existing = db.prepare('SELECT id, revision, state_json FROM app_state WHERE id = 1').get();
+      const previousComplaints = new Map((existing ? storage.decodeJson(existing.state_json, 'app-state').complaints || [] : []).map(c => [c.id, c]));
       if (existing) {
         if (expectedCurrentRevision !== null && expectedCurrentRevision !== undefined) {
           const cas = db.prepare(
@@ -101,6 +103,8 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       }
       for (const c of state.complaints || []) {
         if (!c || typeof c.id !== 'string') continue;
+        const previous = previousComplaints.get(c.id);
+        if (previous && JSON.stringify(previous) === JSON.stringify(c)) continue;
         const payload = storage.encodeJson(c, 'complaint:' + c.id);
         const row = db.prepare('SELECT id, payload_json FROM complaints WHERE id = ?').get(c.id);
         if (row) {
@@ -158,7 +162,15 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       if (!prev && currentRevision > 0) {
         return { invalidTransition: true, error: 'إنشاء شكوى عبر حفظ الحالة غير مسموح؛ استخدم مسار تسجيل الشكاوى.' };
       }
-      if (!prev) continue;
+      if (!prev) {
+        if (c.reply) {
+          const initial = applyReplyTransition({ previous: null, proposed: c.reply, actor,
+            can: roles.can, now: new Date().toISOString() });
+          if (!initial.ok) return { invalidTransition: true, error: initial.error };
+          c.reply = initial.reply;
+        }
+        continue;
+      }
       if (prev.created && c.created !== prev.created) {
         return { invalidTransition: true, error: 'لا يمكن تغيير تاريخ إنشاء الشكوى.' };
       }
@@ -176,41 +188,12 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       }
       const prevReply = prev.reply || null;
       const nextReply = c.reply || null;
-      if (!prevReply && nextReply) {
-        const actorName = actor?.username || '';
-        if (nextReply.author && actorName && nextReply.author !== actorName) {
-          return { invalidTransition: true, error: 'لا يمكن إنشاء رد باسم مستخدم آخر عبر حفظ الحالة.' };
-        }
-        if (['approved', 'sent'].includes(nextReply.status)) {
-          return { invalidTransition: true, error: 'اعتماد الرد يتطلب مساراً مختلفاً أو صلاحية المدير.' };
-        }
-      }
-      if (prevReply && nextReply) {
-        if (prevReply.author !== nextReply.author) {
-          return { invalidTransition: true, error: 'لا يجوز تغيير كاتب الرد عبر حفظ الحالة.' };
-        }
-        if (prevReply.status !== nextReply.status) {
-          if (nextReply.status === 'approved') {
-            if (prevReply.status !== 'review') {
-              return { invalidTransition: true, error: 'الاعتماد يتطلب حالة مراجعة قائمة.' };
-            }
-            if (!roles.can(actor, 'replies.approve') && actor?.role !== 'admin') {
-              return { invalidTransition: true, error: 'اعتماد الرد يتطلب مديراً مختلفاً.' };
-            }
-          } else if (['approved', 'sent'].includes(prevReply.status) && !['approved', 'sent'].includes(nextReply.status)) {
-            return { invalidTransition: true, error: 'الرد المعتمد لا يُعاد إلى مسودة.' };
-          } else if (prevReply.status === 'sent' && nextReply.status !== 'sent') {
-            return { invalidTransition: true, error: 'لا يمكن التراجع عن إرسال الرد المعتمد.' };
-          }
-        }
-        if (['approved', 'sent'].includes(prevReply.status)) {
-          if (nextReply.text !== prevReply.text || nextReply.author !== prevReply.author) {
-            return { invalidTransition: true, error: 'لا يجوز تغيير نص الرد المعتمد.' };
-          }
-        }
-      }
-      if (prevReply && !nextReply) {
-        return { invalidTransition: true, error: 'لا يمكن حذف الرد عبر حفظ الحالة.' };
+      if (prevReply && !nextReply) return { invalidTransition: true, error: 'لا يمكن حذف الرد عبر حفظ الحالة.' };
+      if (nextReply && JSON.stringify(prevReply) !== JSON.stringify(nextReply)) {
+        const changed = applyReplyTransition({ previous: prevReply, proposed: nextReply, actor,
+          can: roles.can, now: new Date().toISOString() });
+        if (!changed.ok) return { invalidTransition: true, error: changed.error };
+        c.reply = changed.reply;
       }
       const prevTl = Array.isArray(prev.timeline) ? prev.timeline : [];
       const nextTl = Array.isArray(c.timeline) ? c.timeline : [];
@@ -243,8 +226,9 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     const complaintChanges = [];
     try {
       const diffs = diffComplaints(current.state.complaints || [], state.complaints || []);
-      if (Array.isArray(diffs)) for (const d of diffs) complaintChanges.push({ action: d.action || 'complaint_updated', id: d.id, details: d.details || {} });
-    } catch (_) {}
+      if (!Array.isArray(diffs)) throw new Error('Invalid complaint audit differences.');
+      for (const d of diffs) complaintChanges.push({ action: d.action || 'complaint_updated', id: d.id, details: d.details || {} });
+    } catch (error) { throw new Error('تعذر حساب سجل التغييرات؛ لم تُحفظ البيانات.', { cause: error }); }
     for (const c of state.complaints || []) {
       const prev = prevById.get(c.id);
       if (!prev) continue;
@@ -554,35 +538,16 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
-    const reply = complaint.reply ? { ...complaint.reply } : { status: 'draft', author: username, text: '' };
+    if (complaint.archivedAt || ['closed', 'cancelled'].includes(complaint.status)) return { ok: false, status: 409, error: 'الشكوى مغلقة أو مؤرشفة.' };
+    const statuses = { draft: 'draft', review: 'review', approve: 'approved', sent: 'sent' };
+    if (!Object.hasOwn(statuses, action)) return { ok: false, status: 400, error: 'إجراء رد غير معروف.' };
     const now = new Date().toISOString();
-    if (action === 'draft') {
-      if (reply.status === 'approved' || reply.status === 'sent') return { ok: false, status: 409, error: 'لا يجوز تغيير نص الرد المعتمد.' };
-      reply.text = text != null ? text : reply.text;
-      reply.author = username || reply.author;
-      reply.authorId = userId;
-      reply.status = 'draft';
-      reply.editedById = userId;
-    } else if (action === 'review') {
-      if (!reply.text) return { ok: false, status: 400, error: 'لا يوجد نص للرد.' };
-      reply.status = 'review';
-      reply.editedById = userId;
-    } else if (action === 'approve') {
-      if (!roles.can(actorFor(userId), 'replies.approve')) return { ok: false, status: 403, error: 'اعتماد الرد يتطلب صلاحية مستقلة.' };
-      if (reply.status !== 'review') return { ok: false, status: 409, error: 'الاعتماد يتطلب حالة مراجعة.' };
-      if (reply.authorId === userId || reply.editedById === userId || reply.author === username) {
-        return { ok: false, status: 403, error: 'لا يمكن للكاتب أو آخر معدّل اعتماد الرد.' };
-      }
-      reply.status = 'approved';
-      reply.approvedById = userId;
-      reply.approvedAt = now;
-    } else if (action === 'sent') {
-      if (reply.status !== 'approved' && reply.status !== 'sent') return { ok: false, status: 409, error: 'الإرسال يتطلب رداً معتمداً.' };
-      reply.status = 'sent';
-      reply.sentAt = now;
-    } else {
-      return { ok: false, status: 400, error: 'إجراء رد غير معروف.' };
-    }
+    const proposed = { ...(complaint.reply || {}), status: statuses[action],
+      text: action === 'draft' && text !== undefined ? text : complaint.reply?.text || '' };
+    const changed = applyReplyTransition({ previous: complaint.reply || null, proposed,
+      actor: actorFor(userId), can: roles.can, now, action });
+    if (!changed.ok) return changed;
+    const reply = changed.reply;
     complaint.reply = reply;
     complaint.updated = now;
     state.complaints[idx] = complaint;
@@ -593,6 +558,8 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
   function runReminders(asOf = new Date()) {
     const { state, revision } = readState();
     const now = asOf instanceof Date ? asOf : new Date(asOf);
+    const configuredHours = Number(state.settings?.completionReminderHours);
+    const reminderHours = Number.isInteger(configuredHours) && configuredHours >= 1 && configuredHours <= 720 ? configuredHours : 24;
     let sent = 0;
     const events = [];
     const nextComplaints = (state.complaints || []).map((c) => {
@@ -603,9 +570,9 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       const created = Date.parse(c.created);
       if (!Number.isFinite(created)) return c;
       const hours = (now.getTime() - created) / 3600000;
-      if (hours < 24) return c;
+      if (hours < reminderHours) return c;
       const last = c.lastCompletionReminderAt ? Date.parse(c.lastCompletionReminderAt) : 0;
-      if (last && (now.getTime() - last) < 24 * 3600000) return c;
+      if (last && (now.getTime() - last) < reminderHours * 3600000) return c;
       sent += 1;
       events.push({ action: 'completion_reminded', id: c.id, details: {} });
       return { ...c, lastCompletionReminderAt: now.toISOString() };

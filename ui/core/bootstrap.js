@@ -50,5 +50,5 @@ async function logout(){
   try{if(draftKey)sessionStorage.removeItem(draftKey);sessionStorage.removeItem(DRAFT_KEY);localStorage.removeItem(DRAFT_KEY);}catch(_){}
   updateSignedInUi();showLogin();
 }
-async function refreshAssignees(){try{const r=await api('/api/users');managedUsers=r.users||[];assignees=(r.users||[]).filter(u=>u.active&&u.role!=='reviewer');}catch(_){}}
+async function refreshAssignees(){try{const r=await api('/api/assignees');assignees=r.users||[];}catch(_){}}
 /* UI modules continue; IIFE closed by events.js */

@@ -41,10 +41,10 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Verify installed dependency tree
-        run: npm ls --all || true
+        run: npm ls --all
 
       - name: Verify SQLite native runtime for Node.js tests
         run: npm run check:sqlite
@@ -57,7 +57,7 @@ jobs:
         run: npm test -- --test-timeout=120000
 
       - name: Security audit
-        run: npm audit --audit-level=high || true --audit-level=low
+        run: npm audit --audit-level=low
 
       - name: Install Electron runtime
         run: node node_modules/electron/install.js

@@ -113,6 +113,7 @@ function openDatabase(databasePath, { storageKey } = {}) {
 
   try {
     require('../lib/storage-migration').protectDatabase(db, abs, storageKey);
+    require('../lib/reminder-storage').protectReminderNotes(db, db.storageCodec);
   } catch (error) { db.close(); throw error; }
   try {
     const { runMigrations } = require('../lib/schema-migrations');

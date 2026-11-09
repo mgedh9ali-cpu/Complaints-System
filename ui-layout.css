@@ -105,7 +105,7 @@ html[data-theme="dark"] .topbar {
 .workspace-shortcuts button:hover {
   background: var(--green-100, #C7CBB8) !important;
   border-color: var(--green-800, #3E5A3F) !important;
-  color: var(--green-950, #0F1F17) !important;
+  color: var(--ink, #0F1F17) !important;
 }
 
 .btn-alarm {
@@ -252,7 +252,7 @@ html[data-theme="dark"] .topbar {
 .stat-item strong {
   display: block !important;
   font-size: 28px !important;
-  color: var(--green-950, #0F1F17) !important;
+  color: var(--ink, #0F1F17) !important;
 }
 .stat-item.alert strong { color: var(--sla-late) !important; }
 .work-grid {

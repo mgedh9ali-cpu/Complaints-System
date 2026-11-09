@@ -18,13 +18,13 @@ jobs:
           node-version: 24
           cache: npm
       - name: Install dependencies without Electron ABI rebuild
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify installed dependency tree
-        run: npm ls --all || true
+        run: npm ls --all
 
       - name: Verify SQLite native runtime for Node.js
         run: npm run check:sqlite
       - run: npm run check
       - run: npm test
       - name: Audit every dependency finding
-        run: npm audit --audit-level=high || true --audit-level=low
+        run: npm audit --audit-level=low

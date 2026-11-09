@@ -116,5 +116,26 @@
       "useZip": true
     },
     "npmRebuild": false
+  },
+  "overrides": {
+    "app-builder-lib": {
+      "minimatch@>=7.0.0 <11.0.1": "11.0.3"
+    },
+    "fstream": {
+      "rimraf": {
+        "glob": "7.2.3"
+      }
+    },
+    "temp": {
+      "rimraf": {
+        "glob": "7.2.3"
+      }
+    },
+    "zip-stream": {
+      "archiver-utils": {
+        "glob": "7.2.3"
+      }
+    },
+    "uuid": "11.1.1"
   }
 }
