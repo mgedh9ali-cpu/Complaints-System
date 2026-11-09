@@ -1,67 +1,48 @@
-/* Thmanyah Sans — bundled WOFF2 under assets/fonts/thmanyah/
- * Offline-first: works without system install. Cairo/Noto remain fallbacks.
- * Binary fonts are materialised from *.woff2.b64 on server start.
+/* Thmanyah Sans is loaded only from locally installed OS fonts.
+ * Never distribute font binaries or reconstructed base64 fragments.
+ * Cairo and Noto Sans Arabic are the licensed offline fallbacks.
  */
-
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  src:
-    url("/assets/fonts/thmanyah/ThmanyahSans-Light.woff2") format("woff2"),
-    local("Thmanyah Sans Light"),
-    local("ThmanyahSans-Light");
+  src: local("Thmanyah Sans Light"), local("ThmanyahSans-Light");
 }
+
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src:
-    url("/assets/fonts/thmanyah/ThmanyahSans-Regular.woff2") format("woff2"),
-    local("Thmanyah Sans Regular"),
-    local("ThmanyahSans-Regular"),
-    local("Thmanyah Sans");
+  src: local("Thmanyah Sans Regular"), local("ThmanyahSans-Regular"), local("Thmanyah Sans");
 }
+
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src:
-    url("/assets/fonts/thmanyah/ThmanyahSans-Medium.woff2") format("woff2"),
-    local("Thmanyah Sans Medium"),
-    local("ThmanyahSans-Medium");
+  src: local("Thmanyah Sans Medium"), local("ThmanyahSans-Medium");
 }
+
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src:
-    url("/assets/fonts/thmanyah/ThmanyahSans-Bold.woff2") format("woff2"),
-    local("Thmanyah Sans Bold"),
-    local("ThmanyahSans-Bold");
+  src: local("Thmanyah Sans Bold"), local("ThmanyahSans-Bold");
 }
+
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 900;
   font-display: swap;
-  src:
-    url("/assets/fonts/thmanyah/ThmanyahSans-Black.woff2") format("woff2"),
-    local("Thmanyah Sans Black"),
-    local("ThmanyahSans-Black");
+  src: local("Thmanyah Sans Black"), local("ThmanyahSans-Black");
 }
 
 :root {
-  --ui-font: "Thmanyah Sans", "ThmanyahSans", "Cairo", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
-  --serif-text-font: "Thmanyah Sans", "Cairo", "Noto Sans Arabic", Tahoma, serif;
-  --serif-display-font: "Thmanyah Sans", "Cairo", "Noto Sans Arabic", Tahoma, serif;
-}
-
-html, body {
-  font-family: var(--ui-font);
-  font-synthesis: none;
+  --serif-text-font: "Thmanyah Sans", "ThmanyahSans", "Cairo", "Noto Sans Arabic", Tahoma, serif;
+  --serif-display-font: "Thmanyah Sans", "ThmanyahSans", "Cairo", "Noto Sans Arabic", Tahoma, serif;
 }

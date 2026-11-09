@@ -5,7 +5,7 @@
  * ============================================================ */
 
 :root {
-  --ui-font: "Cairo", "Noto Sans Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  --ui-font: var(--font);
   --layout-gap: 12px;
   --layout-gap-lg: 18px;
   --safe-danger-gap: 16px;

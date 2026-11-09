@@ -31,6 +31,5 @@ assets/fonts/*
 !assets/fonts/cairo-*-wght-normal.woff2
 !assets/fonts/Cairo-OFL.txt
 !assets/fonts/thmanyah/
-!assets/fonts/thmanyah/*.b64
-!assets/fonts/thmanyah/*.p*.txt
-assets/fonts/thmanyah/*.woff2
+assets/fonts/thmanyah/*
+!assets/fonts/thmanyah/.gitkeep

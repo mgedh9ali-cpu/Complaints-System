@@ -83,7 +83,8 @@
       "!backups/**/*",
       "assets/fonts/**",
       "!fonts/**/*",
-      "!fonts-src/**/*"
+      "!fonts-src/**/*",
+      "!assets/fonts/thmanyah/**/*"
     ],
     "win": {
       "target": [

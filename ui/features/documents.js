@@ -10,7 +10,7 @@ async function printApprovedReply(id){
     if(!w)return toast('اسمح بالنوافذ المنبثقة لطباعة المستند.','warn');
     const code=proof.code||proof.digest||'';
     w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>رد معتمد · ${esc(c.id)}</title>
-<style>body{font-family:Tahoma,Arial,sans-serif;padding:28px;color:#0F1F17;line-height:1.8}h1{color:#1E3A2E;font-size:18px;margin:0 0 8px}
+<style>body{font-family:"Thmanyah Sans","ThmanyahSans","Cairo","Noto Sans Arabic",Tahoma,Arial,sans-serif;padding:28px;color:#0F1F17;line-height:1.8}h1{color:#1E3A2E;font-size:18px;margin:0 0 8px}
 .meta{color:#3D4337;font-size:12px;margin-bottom:18px}.box{border:1px solid #b8bda8;border-radius:12px;padding:16px;background:#f7f8f2;white-space:pre-wrap}
 .foot{margin-top:28px;padding-top:12px;border-top:1px dashed #b8bda8;font-size:11px;color:#3D4337;word-break:break-all}
 .stamp{display:inline-block;margin-top:12px;padding:6px 12px;border:2px solid #3E5A3F;color:#1E3A2E;border-radius:8px;font-weight:700}</style></head><body>
@@ -103,7 +103,7 @@ function printComplaintCover(id){
   const pr=typeof priorityLabel==='function'?priorityLabel(c.priority):c.priority||'—';
   const dt=typeof dateText==='function'?dateText(c.created):c.created||'—';
   w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>غلاف · '+esc(c.id)+'</title>'+
-  '<style>@page{size:A4;margin:16mm}body{font-family:Tahoma,Arial,sans-serif;color:#0F1F17;line-height:1.75}'+
+  '<style>@page{size:A4;margin:16mm}body{font-family:"Thmanyah Sans","ThmanyahSans","Cairo","Noto Sans Arabic",Tahoma,Arial,sans-serif;color:#0F1F17;line-height:1.75}'+
   '.header{text-align:center;margin-bottom:24px}.header h1{font-size:20px;margin:0;color:#1E3A2E}'+
   '.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;margin:20px 0}'+
   '.label{font-size:11px;color:#3D4337}.value{font-size:14px;font-weight:700}'+
