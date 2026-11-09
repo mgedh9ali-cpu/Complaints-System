@@ -1,2 +1,1 @@
-# Placeholder only. Thmanyah Sans must be installed on the user's OS.
-# Do not commit font binaries, text chunks, or reconstructed versions.
+# Original WOFF2 fonts are bundled directly; Windows font installation is unnecessary.

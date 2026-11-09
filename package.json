@@ -84,7 +84,8 @@
       "assets/fonts/**",
       "!fonts/**/*",
       "!fonts-src/**/*",
-      "!assets/fonts/thmanyah/**/*"
+      "!assets/fonts/thmanyah/*.txt",
+      "!assets/fonts/thmanyah/.gitkeep"
     ],
     "win": {
       "target": [
@@ -113,6 +114,7 @@
     "portable": {
       "artifactName": "complaints-system-${version}-portable.${ext}",
       "useZip": true
-    }
+    },
+    "npmRebuild": false
   }
 }

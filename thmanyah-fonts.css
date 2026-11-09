@@ -1,48 +1,37 @@
-/* Thmanyah Sans is loaded only from locally installed OS fonts.
- * Never distribute font binaries or reconstructed base64 fragments.
- * Cairo and Noto Sans Arabic are the licensed offline fallbacks.
- */
+/* Original user-supplied Thmanyah Sans fonts bundled with the application. */
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  src: local("Thmanyah Sans Light"), local("ThmanyahSans-Light");
+  src: url("assets/fonts/thmanyah/thmanyahsans-Light.woff2") format("woff2");
 }
-
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: local("Thmanyah Sans Regular"), local("ThmanyahSans-Regular"), local("Thmanyah Sans");
+  src: url("assets/fonts/thmanyah/thmanyahsans-Regular.woff2") format("woff2");
 }
-
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: local("Thmanyah Sans Medium"), local("ThmanyahSans-Medium");
+  src: url("assets/fonts/thmanyah/thmanyahsans-Medium.woff2") format("woff2");
 }
-
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: local("Thmanyah Sans Bold"), local("ThmanyahSans-Bold");
+  src: url("assets/fonts/thmanyah/thmanyahsans-Bold.woff2") format("woff2");
 }
-
 @font-face {
   font-family: "Thmanyah Sans";
   font-style: normal;
   font-weight: 900;
   font-display: swap;
-  src: local("Thmanyah Sans Black"), local("ThmanyahSans-Black");
+  src: url("assets/fonts/thmanyah/thmanyahsans-Black.woff2") format("woff2");
 }
-
-:root {
-  --serif-text-font: "Thmanyah Sans", "ThmanyahSans", "Cairo", "Noto Sans Arabic", Tahoma, serif;
-  --serif-display-font: "Thmanyah Sans", "ThmanyahSans", "Cairo", "Noto Sans Arabic", Tahoma, serif;
-}
+:root { --serif-text-font: "Thmanyah Sans", "Cairo", serif; --serif-display-font: "Thmanyah Sans", "Cairo", serif; }

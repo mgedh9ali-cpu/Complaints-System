@@ -33,3 +33,12 @@ assets/fonts/*
 !assets/fonts/thmanyah/
 assets/fonts/thmanyah/*
 !assets/fonts/thmanyah/.gitkeep
+
+# Original Thmanyah Sans files supplied and publication authorized by repository owner.
+!assets/fonts/thmanyah/thmanyahsans-*.woff2
+!assets/fonts/thmanyah/LICENSE.pdf
+
+# Local build tooling and verification output
+.private-tools/
+private-*.txt
+private-*.json

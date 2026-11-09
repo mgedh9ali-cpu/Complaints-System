@@ -23,18 +23,18 @@ test('Thmanyah Sans is primary across the interface, startup, and printed HTML',
   assert.match(layout, /font-family:\s*var\(--ui-font\)\s*!important/);
   assert.match(html, /href="thmanyah-fonts\.css"/);
   assert.ok(html.indexOf('href="thmanyah-fonts.css"') < html.indexOf('href="ui-system.css"'));
-  assert.match(local, /src:\s*local\("Thmanyah Sans Regular"\)/);
+  assert.ok(local.includes('src: url("assets/fonts/thmanyah/thmanyahsans-Regular.woff2")'));
   for (const weight of [300, 400, 500, 700, 900]) {
     assert.match(local, new RegExp('font-weight: ' + weight + ';'));
   }
-  assert.doesNotMatch(local, /url\(|https?:\/\//);
+  assert.doesNotMatch(local, /local\(|https?:\/\//);
   assert.match(splash, /font:600 18px "Thmanyah Sans"/);
   assert.equal((printed.match(/font-family:"Thmanyah Sans"/g) || []).length, 2);
   assert.match(sw, /'\/thmanyah-fonts\.css'/);
   assert.match(server, /'\/thmanyah-fonts\.css': 'thmanyah-fonts\.css'/);
 });
 
-test('Cairo and Noto remain bundled as licensed fallbacks but no Thmanyah payload is distributed', () => {
+test('Original fonts and licensed fallbacks are bundled without OS installation', () => {
   const system=read('ui-system.css');
   const pkg=JSON.parse(read('package.json'));
   const server=read('server.js');
@@ -48,11 +48,15 @@ test('Cairo and Noto remain bundled as licensed fallbacks but no Thmanyah payloa
   }
   assert.ok(fs.existsSync(path.join(root, 'assets/NotoSansArabic.ttf')));
   assert.ok(pkg.build.files.includes('assets/fonts/**'));
-  assert.ok(pkg.build.files.includes('!assets/fonts/thmanyah/**/*'));
+  assert.ok(!pkg.build.files.includes('!assets/fonts/thmanyah/**/*'));
   assert.ok(pkg.build.files.includes('!fonts/**/*'));
   assert.ok(pkg.build.files.includes('!fonts-src/**/*'));
-  assert.doesNotMatch(server, /'\/assets\/fonts\/thmanyah\//);
+  assert.ok(server.includes('/assets/fonts/thmanyah/thmanyahsans-Regular.woff2'));
   assert.match(gitignore, /assets\/fonts\/thmanyah\/\*/);
   assert.equal(fs.existsSync(path.join(root, 'scripts/ensure-thmanyah-fonts.js')), false);
-  assert.deepEqual(fs.readdirSync(path.join(root, 'assets/fonts/thmanyah')), ['.gitkeep']);
+  for (const weight of ['Light','Regular','Medium','Bold','Black']) {
+ const b=fs.readFileSync(path.join(root,'assets/fonts/thmanyah/thmanyahsans-'+weight+'.woff2'));
+ assert.equal(b.subarray(0,4).toString(),'wOF2'); assert.equal(b.readUInt32BE(8),b.length);
+}
+assert.ok(read('desktop/splash.html').includes('../thmanyah-fonts.css'));
 });
