@@ -1,6 +1,6 @@
 /* ============================================================
  * ui-tokens.css — Unified design tokens + polish layer
- * Loaded early (after fonts, before system/layout).
+ * Loaded last: shared tokens and final visual rules override legacy defaults.
  * Institutional green: #0F1F17 / #1E3A2E / #3E5A3F / #6B7F67 / #C7CBB8 / #3D4337
  * ============================================================ */
 
@@ -118,7 +118,7 @@ html[data-theme="dark"] {
     transparent 100%
   );
   transform: translateX(-100%);
-  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+  animation: skeleton-shimmer 1.35s ease-in-out 2;
 }
 @keyframes skeleton-shimmer {
   100% { transform: translateX(100%); }
@@ -351,3 +351,88 @@ html[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger) {
     order: 2;
   }
 }
+
+/* Unified reading rhythm and controls; no continuous decorative animation. */
+:root {
+  --t-xs: 12px; --t-sm: 14px; --t-md: 15px; --t-lg: 20px; --t-xl: 26px; --t-2xl: 32px;
+  --focus: #245CAF;
+  --control-bg: #FFFFFF; --control-hover: #EDF1E8; --control-border: #869681;
+  --control-text: #20382B; --button-primary-bg: #284D39; --button-primary-fg: #FFFFFF;
+  --danger: #8A2929; --danger-surface: #FAECEA;
+  --r-ctl: 10px; --r-panel: 16px;
+}
+html[data-theme="dark"] {
+  --control-bg: #202E26; --control-hover: #2C3E32; --control-border: #718775;
+  --control-text: #EAF0E5; --button-primary-bg: #365C43; --button-primary-fg: #FFFFFF;
+  --danger: #FFB8AE; --danger-surface: #482E2B; --focus: #A5C7FF;
+  --line-strong: #718775;
+}
+html body { font-size: var(--t-md); line-height: 1.8; }
+html :is(h1,h2,h3,h4) { font-weight: 700; line-height: 1.6; }
+html :is(.small-copy,.row-sub,.subheading) { line-height: 1.75; }
+html :is(.btn,.ui-tool-button,.action-cell button,.row-actions button) {
+  min-height: 42px !important; padding: 9px 16px !important;
+  font-size: 14px !important; font-weight: 500 !important; line-height: 1.5 !important;
+  color: var(--control-text) !important; background: var(--control-bg) !important;
+  border: 1px solid var(--control-border) !important; border-radius: var(--r-ctl) !important;
+  box-shadow: none !important; filter: none !important;
+  transition: transform 120ms ease-out, background-color 120ms ease-out, opacity 120ms ease-out !important;
+}
+html :is(.btn-primary,.top-create-button,.login-fields .login-submit,.login-fields button[type="submit"]) {
+  background: var(--button-primary-bg) !important; color: var(--button-primary-fg) !important;
+  border-color: var(--button-primary-bg) !important; font-weight: 700 !important;
+  box-shadow: none !important; filter: none !important;
+}
+html .btn-danger { color: var(--danger) !important; background: var(--danger-surface) !important; border-color: var(--danger) !important; }
+html :is(.btn,.icon-btn,.filter-chip,.nav-link):focus-visible {
+  outline: 3px solid var(--focus) !important; outline-offset: 3px;
+}
+html :is(.btn,.icon-btn):disabled,html [aria-disabled="true"].btn {
+  opacity: .55; cursor: not-allowed !important; transform: none !important; filter: none !important;
+}
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+  html:not([data-motion="off"]) :is(.btn,.ui-tool-button):not(:disabled):not([aria-disabled="true"]):not(.is-loading):hover { transform: translateY(-1px) !important; }
+  html :is(.btn,.ui-tool-button):not(.btn-primary):not(.btn-danger):not(:disabled):hover { background: var(--control-hover) !important; }
+}
+@media(prefers-reduced-motion:no-preference) { html:not([data-motion="off"]) :is(.btn,.ui-tool-button):not(:disabled):not([aria-disabled="true"]):not(.is-loading):active { transform: scale(.98) !important; } }
+html .is-loading.btn { cursor: progress !important; transform: none !important; }
+html :is(input.field,select.select-field,textarea.textarea-field) {
+  font-size: 15px; font-weight: 400; line-height: 1.7;
+  background: var(--control-bg) !important; color: var(--control-text) !important;
+  border-color: var(--control-border) !important; border-radius: var(--r-ctl);
+}
+html :is(input.field,select.select-field,textarea.textarea-field):focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
+html :is(input,textarea)::placeholder { color: var(--muted); opacity: 1; }
+html .registry-table { font-size: 14px; }
+html .registry-table :is(th,td) { vertical-align: middle; line-height: 1.7; }
+html .registry-table th { font-size: 12px; font-weight: 700; color: var(--ink-2); }
+html .registry-table .row-title { font-size: 15px; font-weight: 500; line-height: 1.7; }
+html .registry-table tbody tr:hover { filter: none !important; transform: none !important; box-shadow: none !important; }
+html .registry-table tbody tr.is-selected { background: color-mix(in srgb,var(--forest) 10%,var(--surface)); }
+html .row-actions,html .action-cell { gap: 8px; }
+html .floating-actions { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 3px 12px #0001; }
+html .record-overview { border-inline-start: 3px solid var(--forest); }
+html .detail-section h3 { font-size: 16px; }
+html .detail-section .detail-prose { font-size: 15px; line-height: 1.95; }
+html .intake-dialog .modal-header { border-block-start: 3px solid var(--forest); }
+html .intake-dialog .modal-footer { padding-block: 14px; }
+html .intake-type-card { box-shadow: none; }
+html[data-density="compact"] .registry-table :is(td,th) { padding-block: 6px; }
+html[data-density="compact"] .registry-table .btn { min-height: 34px !important; padding: 5px 10px !important; }
+@media (pointer:coarse) { html :is(.btn,.icon-btn,.filter-chip,.complaint-page-tabs button) { min-height: 44px !important; } }
+@media (max-width:640px) {
+  html .modal-footer .right-actions { width: 100%; }
+  html .modal-footer .btn { flex: 1 1 auto; }
+  html .modal-footer .btn-primary { flex-basis: 100%; }
+}
+@media(prefers-reduced-motion:reduce) {
+  html body :is(.btn,.ui-tool-button,.action-cell button,.row-actions button) { transition: none !important; transform: none !important; }
+  html :is(.btn,.ui-tool-button):is(:hover,:active) { transform: none !important; }
+}
+html[data-motion="off"] body :is(.btn,.ui-tool-button,.action-cell button,.row-actions button) { transition: none !important; transform: none !important; }
+@media(forced-colors:active) {
+  html[data-theme] .btn:not(.btn-primary):not(.btn-danger),html body :is(.btn,.btn-primary,.btn-danger,.field,.select-field,.textarea-field) { color:ButtonText !important;background:ButtonFace !important;border-color:ButtonText !important; }
+}
+@media print { html body { font-size: 12pt; background: white !important; color: black !important; } }
