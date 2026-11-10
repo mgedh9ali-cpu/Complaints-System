@@ -15,8 +15,49 @@ function pillRecordType(c){
   return '<span class="pill pill-complaint" title="شكوى">شكوى</span>';
 }
 
+/** Current registry layout preference: 'table' | 'cards' */
+function registryLayoutMode(){
+  try{
+    const v=localStorage.getItem('complaints-registry-layout');
+    return v==='cards'?'cards':'table';
+  }catch(_){return 'table';}
+}
+function setRegistryLayoutMode(mode){
+  const next=mode==='cards'?'cards':'table';
+  try{localStorage.setItem('complaints-registry-layout',next);}catch(_){}
+  return next;
+}
+
+function complaintCards(rows,opts={}){
+  if(!rows.length)return '<div class="empty-state registry-empty"><div class="empty-icon" aria-hidden="true">☰</div><p>'+esc(opts.emptyMessage||'لا توجد سجلات في هذا العرض.')+'</p></div>';
+  return '<div class="registry-cards" role="list">'+rows.map(c=>{
+    const late=isLate(c);
+    const incomplete=typeof isIncomplete==='function'&&isIncomplete(c);
+    const cardClass=['registry-card',late?'is-late':'',incomplete?'is-incomplete':'',selectedIds.has(c.id)?'is-selected':''].filter(Boolean).join(' ');
+    const meta=[c.name||'غير محدد',c.province||'',c.nature||c.category||''].filter(Boolean).join(' · ');
+    return '<article class="'+cardClass+'" role="listitem" data-id="'+esc(c.id)+'">'+ 
+      (opts.select?'<label class="card-check"><input class="table-check row-check" type="checkbox" aria-label="تحديد '+esc(c.id)+'" data-id="'+esc(c.id)+'" '+(selectedIds.has(c.id)?'checked':'')+'></label>':'')+
+      '<div class="card-top">'+ 
+        '<span class="ticket-id" dir="ltr"><bdi>'+esc(c.id)+'</bdi></span>'+
+        pillRecordType(c)+
+        pillStatus(c.status)+
+        pillPriority(c.priority)+
+      '</div>'+
+      '<button type="button" class="text-link card-title" data-action="detail" data-id="'+esc(c.id)+'">'+esc(c.summary||'بدون موضوع')+'</button>'+
+      '<p class="card-meta">'+esc(meta)+'</p>'+
+      '<div class="card-footer">'+
+        '<div class="sla-cell">'+slaIndicator(c)+'<span class="age '+(late?'late':ageDays(c)>5?'soon':'ok')+'">'+ageDays(c)+'ي'+(late?' · متأخرة':'')+'</span></div>'+
+        '<span class="card-date">'+dateText(c.created)+'</span>'+
+        '<div class="action-cell card-actions">'+complaintRecordActions(c,true)+'</div>'+
+      '</div>'+
+    '</article>';
+  }).join('')+'</div>';
+}
+
 function complaintTable(rows,opts={}){
   if(!rows.length)return '<div class="empty-state registry-empty"><div class="empty-icon" aria-hidden="true">☰</div><p>'+esc(opts.emptyMessage||'لا توجد سجلات في هذا العرض.')+'</p></div>';
+  const layout=opts.layout||registryLayoutMode();
+  if(layout==='cards')return complaintCards(rows,opts);
   return '<div class="table-wrap registry-table-wrap"><table class="registry-table"><thead><tr>'+
     (opts.select?'<th class="col-check"><input class="table-check" type="checkbox" aria-label="تحديد الكل" data-action="select-all"></th>':'')+
     '<th class="col-id">رقم السجل</th><th class="col-type">النوع</th><th class="col-subject">الموضوع / المشتكي</th><th class="col-prov">المحافظة</th><th class="col-status">الحالة</th><th class="col-pri">الأولوية</th><th class="col-age">مدة البقاء</th><th class="col-act">الإجراء</th></tr></thead><tbody>'+
@@ -81,7 +122,6 @@ function dashboard(){
     [missing.length,'amber','≡','سجلات تحتاج استكمالًا','نقص في الحقول الأساسية','filter-missing',null],
     [newToday.length,'blue','＋','جديدة اليوم','وردت أو ما زالت بحالة جديدة','quick-filter','',{value:'all'}]
   ].filter(task=>task[0]>0);
-  // Prefer actionable order: late → urgent → due → mine → rest (already ordered)
   const taskHtml=tasks.length?tasks.map(([n,color,icon,label,description,action,dest])=>
     '<div class="task-row">'+
       '<div class="task-symbol '+color+'">'+icon+'</div>'+
