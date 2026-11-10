@@ -1,0 +1,241 @@
+/* ============================================================
+ * ui-tokens.css — Unified design tokens + polish layer
+ * Loaded early (after fonts, before system/layout).
+ * Institutional green: #0F1F17 / #1E3A2E / #3E5A3F / #6B7F67 / #C7CBB8 / #3D4337
+ * ============================================================ */
+
+:root {
+  /* Brand greens */
+  --green-950: #0F1F17;
+  --green-900: #1E3A2E;
+  --green-800: #3E5A3F;
+  --green-700: #6B7F67;
+  --green-100: #C7CBB8;
+  --charcoal: #3D4337;
+
+  /* Semantic aliases used across the app */
+  --forest-deep: var(--green-950);
+  --forest: var(--green-900);
+  --brand: var(--green-800);
+  --sage: var(--green-700);
+  --cream: var(--green-100);
+  --ink: var(--green-950);
+  --ink-2: var(--charcoal);
+  --muted: var(--charcoal);
+  --line: #b8bda8;
+  --paper: #f4f5ef;
+  --bg: #e8ebe0;
+  --surface: #f7f8f2;
+  --inner: #f7f8f2;
+  --solid: #f4f5ef;
+  --on-forest: var(--green-100);
+  --brand-fg: var(--green-100);
+
+  /* Status */
+  --red: #8b3a3a;
+  --red-bg: #f5e8e8;
+  --amber: #7a6a3a;
+  --amber-bg: #f2eedc;
+  --sla-ok: #3E5A3F;
+  --sla-warn: #a67c2a;
+  --sla-late: #8b3a3a;
+
+  /* Shape & elevation */
+  --radius: 16px;
+  --ui-radius: 16px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --shadow: 0 6px 24px rgba(15, 31, 23, 0.08);
+  --ui-glow: 0 8px 28px rgba(15, 31, 23, 0.1);
+  --focus-color: #6B7F67;
+  --grad-brand: linear-gradient(135deg, #1E3A2E, #3E5A3F);
+  --aurora: linear-gradient(135deg, #0F1F17 0%, #1E3A2E 45%, #3E5A3F 100%);
+
+  /* Motion (consumed by ui-transitions.css) */
+  --duration-micro: 80ms;
+  --duration-quick: 120ms;
+  --duration-fast: 200ms;
+  --duration-medium: 280ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Layout helpers */
+  --safe-danger-gap: 16px;
+  --floating-bar-h: 56px;
+}
+
+html[data-theme="dark"] {
+  --paper: #141c18;
+  --bg: #0f1613;
+  --surface: #1a2620;
+  --inner: #1a2620;
+  --solid: #1a2620;
+  --ink: #e8ebe0;
+  --ink-2: #c7cbb8;
+  --muted: #a8b09a;
+  --line: #2a3830;
+  --cream: #3E5A3F;
+  --on-forest: #C7CBB8;
+  --brand-fg: #C7CBB8;
+  --sla-ok: #8fbc8f;
+  --sla-warn: #d4a84b;
+  --sla-late: #e07a7a;
+  --red-bg: #2a1c1c;
+  --amber-bg: #2a2618;
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Skeleton loading ---------- */
+.skeleton,
+.skeleton-line,
+.skeleton-card {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--line) 35%, var(--surface));
+  border-radius: 8px;
+}
+.skeleton-line {
+  height: 12px;
+  margin-block: 8px;
+}
+.skeleton-line.w-40 { width: 40%; }
+.skeleton-line.w-60 { width: 60%; }
+.skeleton-line.w-80 { width: 80%; }
+.skeleton-line.w-full { width: 100%; }
+.skeleton-card {
+  min-height: 88px;
+  border-radius: 14px;
+}
+.skeleton::after,
+.skeleton-line::after,
+.skeleton-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--surface) 70%, transparent) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* ---------- Floating action bar (detail page) ---------- */
+.floating-actions {
+  position: sticky;
+  bottom: 12px;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: var(--floating-bar-h);
+  margin-block-start: 20px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 32px rgba(15, 31, 23, 0.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+html[data-theme="dark"] .floating-actions {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+}
+.floating-actions .btn-danger {
+  margin-inline-start: var(--safe-danger-gap);
+}
+.floating-actions .btn-primary {
+  order: 1;
+}
+
+/* ---------- Button hierarchy polish (complements palette.css) ---------- */
+.btn-quiet {
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  color: var(--muted) !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+}
+.btn-quiet:hover {
+  background: color-mix(in srgb, var(--green-100) 55%, var(--surface)) !important;
+  border-color: var(--green-800) !important;
+  color: var(--ink) !important;
+}
+
+/* Clear visual hierarchy for primary vs secondary groups */
+.heading-actions .btn-primary,
+.modal-footer .btn-primary,
+.floating-actions .btn-primary {
+  min-width: 7.5rem;
+}
+
+/* ---------- Stronger reduced-motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  .skeleton-line::after,
+  .skeleton-card::after,
+  .floating-actions,
+  .btn,
+  .btn::before,
+  .btn::after,
+  .btn-success-pulse,
+  .alarm-toast {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+  .floating-actions {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--surface) !important;
+  }
+}
+
+/* ---------- Dark mode table/panel safety ---------- */
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .mini-card,
+html[data-theme="dark"] .table-panel,
+html[data-theme="dark"] .login-card {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+  color: var(--ink);
+}
+html[data-theme="dark"] .table-wrap thead th {
+  background: color-mix(in srgb, var(--surface) 88%, #000) !important;
+  color: var(--ink-2) !important;
+}
+html[data-theme="dark"] .field,
+html[data-theme="dark"] .select-field,
+html[data-theme="dark"] input.field,
+html[data-theme="dark"] textarea.field {
+  background: var(--inner) !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+/* ---------- Mobile floating bar ---------- */
+@media (max-width: 640px) {
+  .floating-actions {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    margin-inline: 0;
+    border-radius: 14px;
+    justify-content: stretch;
+  }
+  .floating-actions .btn {
+    flex: 1 1 auto;
+  }
+  .floating-actions .btn-danger {
+    margin-inline-start: 0;
+    order: 2;
+  }
+}
