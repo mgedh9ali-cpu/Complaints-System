@@ -224,6 +224,7 @@ const PUBLIC_FILES = {
   '/redesign.css': 'redesign.css',
   '/fallback-font.css': 'fallback-font.css',
   '/palette.css': 'palette.css',
+  '/ui-tokens.css': 'ui-tokens.css',
   '/ui-layout.css': 'ui-layout.css',
   '/ui-glass-ref.css': 'ui-glass-ref.css',
   '/ui-complaints-view.css': 'ui-complaints-view.css',
