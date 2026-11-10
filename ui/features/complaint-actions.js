@@ -17,6 +17,31 @@ async function changeStatus(id){
   if(!uiCan('complaints.status'))
     return toast('ليس لديك صلاحية تغيير الحالة.','error');
   if(next==='cancelled'&&((c.referrals||[]).length||['approved','sent'].includes(c.reply?.status))){await submitApproval('complaint_cancel',id,id,reason);return;}
+
+  // Explicit confirmation for irreversible / high-impact transitions
+  if(['closed','cancelled'].includes(next)){
+    const isCancel=next==='cancelled';
+    const ok=await confirmDialog({
+      title:isCancel?'تأكيد إلغاء السجل':'تأكيد إغلاق السجل',
+      message:isCancel
+        ?('سيتم تعليم السجل «'+esc(c.id)+'» كملغى. هذا يوقف المعالجة النشطة.')
+        :('سيتم إغلاق السجل «'+esc(c.id)+'». يمكن إعادة الفتح لاحقًا إن وُجدت صلاحية.'),
+      detail:reason?('السبب المسجّل: '+reason):'تأكد من اكتمال السبب في الحقل أعلاه.',
+      confirmLabel:isCancel?'تأكيد الإلغاء':'تأكيد الإغلاق',
+      danger:true
+    });
+    if(!ok) return;
+  }else if(['closed','cancelled'].includes(c.status)&&next==='in_progress'){
+    const ok=await confirmDialog({
+      title:'تأكيد إعادة الفتح',
+      message:'سيتم إعادة فتح السجل «'+esc(c.id)+'» ونقله إلى قيد المعالجة.',
+      detail:reason||'',
+      confirmLabel:'إعادة الفتح',
+      danger:false
+    });
+    if(!ok) return;
+  }
+
   const button=$('[data-action="change-status"]');
   if(button)button.disabled=true;
   try{
@@ -205,7 +230,14 @@ async function applyBulkChange(field){
  const eligible=bulkEligibleComplaints();
  if(!eligible.length)return toast('لا توجد شكاوى مفتوحة قابلة للتعديل.','warn');
  const label=field==='owner'?'إسناد '+value:'تغيير الأولوية إلى '+priorityLabel(value);
- if(!confirm('تأكيد '+label+' على '+eligible.length+' شكوى مفتوحة؟'))return;
+ const ok=await confirmDialog({
+   title:'تأكيد الإجراء الجماعي',
+   message:label+' على '+eligible.length+' شكوى مفتوحة.',
+   detail:'السجلات المغلقة أو المؤرشفة لن تتغير. كل تغيير يُسجَّل في التدقيق.',
+   confirmLabel:'تطبيق على المحدد',
+   danger:false
+ });
+ if(!ok)return;
  const button=$('[data-action="bulk-apply"]');if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
  let succeeded=0;const failed=[];
  for(const complaint of eligible){
