@@ -29,7 +29,7 @@ function complaintTable(rows,opts={}){
       (opts.select?'<td class="col-check"><input class="table-check row-check" type="checkbox" aria-label="تحديد '+esc(c.id)+'" data-id="'+esc(c.id)+'" '+(selectedIds.has(c.id)?'checked':'')+'></td>':'')+
       '<td class="col-id"><span class="ticket-id" dir="ltr"><bdi>'+esc(c.id)+'</bdi></span><span class="row-sub">'+dateText(c.created)+'</span></td>'+
       '<td class="col-type">'+pillRecordType(c)+'</td>'+
-      '<td class="col-subject"><button class="text-link row-title" data-action="detail" data-id="'+esc(c.id)+'" title="'+esc(c.summary)+'">'+esc(c.summary)+'</button><span class="row-sub">'+esc(meta)+'</span></td>'+
+      '<td class="col-subject"><button class="text-link row-title" data-action="detail" data-id="'+esc(c.id)+'">'+esc(c.summary)+'</button><span class="row-sub">'+esc(meta)+'</span></td>'+
       '<td class="col-prov">'+esc(c.province||'—')+'</td>'+
       '<td class="col-status">'+pillStatus(c.status)+'</td>'+
       '<td class="col-pri">'+pillPriority(c.priority)+'</td>'+
@@ -48,37 +48,63 @@ function slaIndicator(c){
   const level=Date.now()>due?'late':p>=75?'warn':'normal';
   return '<span class="sla-ring" style="--p:'+p+'" data-level="'+level+'" role="img" aria-label="'+p+'٪ من المهلة، '+(level==='late'?'متأخرة':level==='warn'?'تقترب من المهلة':'ضمن المهلة')+'" title="'+p+'٪ من المهلة"></span>';
 }
+
+function isCreatedToday(c){
+  const raw=c.created||c.createdAt||'';
+  if(!raw) return false;
+  const day=String(raw).slice(0,10);
+  const today=new Date();
+  const y=today.getFullYear();
+  const m=String(today.getMonth()+1).padStart(2,'0');
+  const d=String(today.getDate()).padStart(2,'0');
+  return day===y+'-'+m+'-'+d;
+}
+
 function dashboard(){
   const late=lateComplaints(),approvals=pendingApprovals();
   const open=db.complaints.filter(c=>!c.archivedAt&&!['closed','cancelled'].includes(c.status));
   const dueSoon=open.filter(c=>isDueSoon(c));
   const missing=open.filter(isIncomplete);
   const pendingReferrals=referralList().filter(r=>!r.response);
+  const me=authenticatedUser?.name||authenticatedUser?.username||'';
+  const mine=me?open.filter(c=>c.owner===me||c.owner===authenticatedUser?.username):[];
+  const urgentNoReply=open.filter(c=>c.priority==='urgent'&&!c.reply);
+  const newToday=open.filter(c=>c.status==='new'||isCreatedToday(c));
   const priority=[...open].sort((a,b)=>{
     const score=c=>(isLate(c)?-1e14:0)+(c.priority==='urgent'?-1e12:c.priority==='high'?-1e11:0);
     const due=c=>{const n=new Date(c.due).getTime();return Number.isFinite(n)?n:Number.MAX_SAFE_INTEGER;};
     return score(a)-score(b)||due(a)-due(b);
   }).slice(0,5);
   const tasks=[
-    [late.length,'red','!','شكاوى متجاوزة للمهلة','وفق المهلة المعتمدة','filter-late',null],
+    [late.length,'red','!','شكاوى متجاوزة للمهلة','وفق المهلة المعتمدة — عالجها أولًا','filter-late',null],
+    [urgentNoReply.length,'red','⚡','عاجلة بلا رد','أولوية عاجلة ولم يُصغَ رد بعد','urgent-no-reply',null],
     [dueSoon.length,'amber','◷','مهل تستحق خلال 48 ساعة','ابدأ المتابعة قبل تجاوز المهلة','filter-due-soon',null],
+    [mine.length,'blue','◎','مسندة إليّ','سجّلات مفتوحة باسمك','my-complaints',null],
     [approvals.length,'amber','✓','ردود تنتظر الاعتماد','اعتماد الرد من مستخدم مخوّل','', 'replies'],
     [pendingReferrals.length,'blue','↗','إحالات لم يصل ردها','تابع الجهات المحال إليها','', 'referrals'],
-    [missing.length,'amber','≡','سجلات تحتاج استكمالًا','نقص في الحقول الأساسية','filter-missing',null]
+    [missing.length,'amber','≡','سجلات تحتاج استكمالًا','نقص في الحقول الأساسية','filter-missing',null],
+    [newToday.length,'blue','＋','جديدة اليوم','وردت أو ما زالت بحالة جديدة','quick-filter','',{value:'all'}]
   ].filter(task=>task[0]>0);
+  // Prefer actionable order: late → urgent → due → mine → rest (already ordered)
   const taskHtml=tasks.length?tasks.map(([n,color,icon,label,description,action,dest])=>
-    '<div class="task-row"><div class="task-symbol '+color+'">'+icon+'</div><div class="task-copy"><strong>'+label+'</strong><small>'+description+'</small></div><span class="task-value">'+n+'</span><button class="btn btn-sm" '+(dest?'data-goto="'+dest+'"':'data-action="'+action+'"')+'>مراجعة</button></div>'
+    '<div class="task-row">'+
+      '<div class="task-symbol '+color+'">'+icon+'</div>'+
+      '<div class="task-copy"><strong>'+label+'</strong><small>'+description+'</small></div>'+
+      '<span class="task-value">'+n+'</span>'+
+      '<button class="btn btn-sm" '+(dest?'data-goto="'+dest+'"':(action==='quick-filter'?'data-action="quick-filter" data-value="all"':'data-action="'+action+'"'))+'>مراجعة</button>'+
+    '</div>'
   ).join(''):'<div class="empty-state calm-empty">لا شيء يحتاج انتباهك الآن. يمكنك مراجعة السجل أو تسجيل شكوى جديدة.</div>';
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
-  return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.','')+
+  const totalActive=db.complaints.filter(c=>!c.archivedAt).length;
+  return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل شكوى','new-complaint','btn-primary'):'')+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
-      [['جميع السجلات',db.complaints.filter(c=>!c.archivedAt).length],['مفتوحة',open.length],['متأخرة',late.length],['بانتظار الاعتماد',approvals.length]].map(([label,n],i)=>
+      [['جميع السجلات',totalActive],['مفتوحة',open.length],['متأخرة',late.length],['مسندة إليّ',mine.length]].map(([label,n],i)=>
         '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+
-    '<div class="work-grid"><section class="panel"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة، دون إظهار طوابير فارغة</p></div><button class="text-link" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list">'+taskHtml+'</div></div></section>'+
-    '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+db.complaints.filter(c=>!c.archivedAt).length+' سجلًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
-      '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===3?'amber-fill':'')+'" style="width:'+(db.complaints.filter(c=>!c.archivedAt).length?Math.max(n?5:0,n/db.complaints.filter(c=>!c.archivedAt).length*100):0)+'%"></span></div></div>'
+    '<div class="work-grid"><section class="panel"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button class="text-link" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list">'+taskHtml+'</div></div></section>'+
+    '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+totalActive+' سجلًا نشطًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
+      '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===3?'amber-fill':'')+'" style="width:'+(totalActive?Math.max(n?5:0,n/totalActive*100):0)+'%"></span></div></div>'
     ).join('')+'</div></div></section></div>'+
     '<section class="panel table-panel"><div class="panel-header"><div><h2>أولوية المتابعة</h2><p>المتأخرة أولًا، ثم العاجلة، ثم الأقرب إلى انتهاء المهلة</p></div><button class="text-link" data-goto="complaints">عرض جميع الشكاوى</button></div>'+
       complaintTable(priority,{emptyMessage:'لا توجد شكاوى مفتوحة تحتاج إلى متابعة.'})+
