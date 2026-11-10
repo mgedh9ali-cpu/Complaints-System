@@ -78,41 +78,9 @@ function renderCommands(query){
  mount.innerHTML='<h3>'+(q?'الشكاوى':'آخر ما فتحته')+'</h3>'+records.map(c=>'<button data-action="detail" data-id="'+esc(c.id)+'">'+highlight(c.summary)+'<small dir="ltr">'+highlight(c.id)+'</small></button>').join('')+'<h3>الصفحات</h3>'+pages.map(([id,label])=>'<button data-action="command-page" data-page-target="'+id+'">'+highlight(label)+'</button>').join('')+(authenticatedUser.role!=='reviewer'&&(!q||norm('تسجيل شكوى جديدة').includes(q))?'<h3>إجراءات</h3><button data-action="new-complaint">＋ تسجيل شكوى جديدة</button>':'')+(!records.length&&!pages.length?'<p>لا توجد نتائج مطابقة.</p>':'');
 }
 function csvSafe(value){if(value==null)return "";const s=String(value);return /^[\x00-\x1F\s]*[=+\-@]/.test(s)?"'"+s:s;}
-function exportCsv(ids){const rows=Array.isArray(ids)&&ids.length?db.complaints.filter(c=>ids.includes(c.id)):db.complaints.filter(c=>!c.archivedAt);const headers=['id','name','phone','province','category','nature','status','priority','summary','created'];const lines=[headers.join(',')];for(const c of rows){lines.push(headers.map(h=>'"'+csvSafe(c[h]??'').replace(/"/g,'""')+'"').join(','));}const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='complaints-export.csv';a.click();URL.revokeObjectURL(a.href);}
-function exportSelected(){if(!selectedIds.size)return;return exportCsv([...selectedIds]);}
+async function exportCsv(ids){ return previewRegistryExport('csv', ids); }
+async function exportSelected(){if(!selectedIds.size)return;return previewRegistryExport('csv',[...selectedIds]);}
 async function exportXlsx(){
   if(page==='reports')return exportReport('xlsx');
-  try{
-    const params=new URLSearchParams();
-    const from=$('#reportFrom')?.value?.trim();
-    const to=$('#reportTo')?.value?.trim();
-    const status=$('#reportStatus')?.value?.trim();
-    const province=$('#reportProvince')?.value?.trim();
-    if(from)params.set('from',from);
-    if(to)params.set('to',to);
-    if(status)params.set('status',status);
-    if(province)params.set('province',province);
-    const qs=params.toString();
-    const url='/api/export/xlsx'+(qs?'?'+qs:'');
-    const res=await fetch(url,{credentials:'same-origin'});
-    if(!res.ok){
-      let msg='تعذر تصدير Excel';
-      try{const j=await res.json();if(j.error)msg=j.error;}catch(_){}
-      throw new Error(msg);
-    }
-    const blob=await res.blob();
-    const dispo=res.headers.get('Content-Disposition')||'';
-    let filename='تقرير-الشكاوى.xlsx';
-    const m=dispo.match(/filename\*=UTF-8''([^;]+)|filename="?([^\";]+)"?/i);
-    if(m){try{filename=decodeURIComponent((m[1]||m[2]||filename).trim());}catch(_){}}
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    const count=res.headers.get('X-Export-Count');
-    toast(count?('تم تصدير '+count+' سجل إلى Excel.'):'تم تصدير تقرير Excel.');
-  }catch(err){
-    toast(err.message||'فشل تصدير Excel','error');
-  }
+  return previewRegistryExport('xlsx');
 }

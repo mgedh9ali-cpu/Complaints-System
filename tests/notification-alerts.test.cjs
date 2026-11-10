@@ -47,6 +47,8 @@ test('late responses are discarded after account changes and simultaneous polls 
   c.authenticatedUser={id:'two'};b.reply([notice]);await request;
   assert.equal(b.alerts.length,0);
   c.db.notifications=[notice];await c.loadDb();
+  assert.equal(b.alerts.length,0,'loading existing unread notifications is silent');
+  const fresh=c.window.pollNotificationAlerts();b.reply([notice,{...notice,id:'fresh-for-two'}]);await fresh;
   assert.equal(b.alerts.length,1);
   c.authenticatedUser=null;c.window.updateNotificationIndicators();
   assert.equal(b.nodes.get('#topUnread').hidden,true);
@@ -68,4 +70,22 @@ test('notification feed requires authentication and read permission, and only re
   const response=await fetch(url,{headers:{'X-User':'one','X-Read':'yes'}});
   assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
   assert.deepEqual(await response.json(),{notifications:[notice]});
+});
+
+test('floating alerts omit personal text and aggregate a burst into one alert',async()=>{
+  const b=browser(),c=b.context;await c.loadDb();
+  const request=c.window.pollNotificationAlerts();
+  b.reply(Array.from({length:8},(_,i)=>({...notice,id:String(i),title:'PRIVATE-TITLE',body:'PRIVATE-PHONE'})));
+  await request;
+  assert.equal(b.alerts.length,1);
+  assert.doesNotMatch(b.alerts[0].innerHTML,/PRIVATE-TITLE|PRIVATE-PHONE/);
+  assert.equal(b.nodes.get('#navNotificationsCount').textContent,'8');
+});
+test('hidden pages update unread counts without showing personal alerts',async()=>{
+  const b=browser(),c=b.context;await c.loadDb();c.document.visibilityState='hidden';
+  const request=c.window.pollNotificationAlerts();b.reply([notice]);await request;
+  assert.equal(b.alerts.length,0);assert.equal(b.nodes.get('#navNotificationsCount').textContent,'1');
+  c.document.visibilityState='visible';
+  const visible=c.window.pollNotificationAlerts();b.reply([notice]);await visible;
+  assert.equal(b.alerts.length,1);
 });

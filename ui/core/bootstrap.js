@@ -47,6 +47,7 @@ async function logout(){
   const draftKey=complaintDraftStorageKey();
   try{await api('/api/auth/logout',{method:'POST',body:'{}'});}catch(_){}
   authenticatedUser=null;stateLoaded=false;db=cleanState();
+  document.querySelectorAll('.alarm-toast').forEach(node=>node.remove());
   try{if(draftKey)sessionStorage.removeItem(draftKey);sessionStorage.removeItem(DRAFT_KEY);localStorage.removeItem(DRAFT_KEY);}catch(_){}
   window.updateNotificationIndicators?.();
   updateSignedInUi();showLogin();

@@ -38,7 +38,7 @@ function confirmDialog(opts={}){
   const danger=Boolean(opts.danger);
   const detail=opts.detail?('<p class="confirm-detail small-copy">'+esc(opts.detail)+'</p>'):'';
   const body='<div class="confirm-dialog'+(danger?' is-danger':'')+'">'+ 
-    '<p class="confirm-message">'+esc(message)+'</p>'+detail+'</div>';
+    '<p class="confirm-message">'+esc(message)+'</p>'+detail+(Array.isArray(opts.records)?'<ul class="export-preview">'+opts.records.slice(0,5).map(c=>'<li><bdi>'+esc(c.id)+'</bdi> — '+esc(c.summary||'بدون موضوع')+'</li>').join('')+'</ul>':'')+'</div>';
   const footer='<button type="button" class="btn" data-action="confirm-dialog-cancel">'+esc(cancelLabel)+'</button>'+
     '<button type="button" class="btn '+(danger?'btn-danger':'btn-primary')+'" data-action="confirm-dialog-ok">'+esc(confirmLabel)+'</button>';
   return new Promise(resolve=>{

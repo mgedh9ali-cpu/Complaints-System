@@ -28,9 +28,9 @@ function escapeCsv(value) {
 function parseDayBound(value,endOfDay){return dayBoundary(value,endOfDay);}
 
 function createReportsService({ complaintsService }) {
-  function listComplaints() {
+  function listComplaints(includeArchived = false) {
     const { state } = complaintsService.readState();
-    return Array.isArray(state.complaints) ? state.complaints.filter(c => !c.archivedAt) : [];
+    return Array.isArray(state.complaints) ? state.complaints.filter(c => includeArchived || !c.archivedAt) : [];
   }
 
   function findComplaint(id) {
@@ -73,7 +73,7 @@ function createReportsService({ complaintsService }) {
   }
 
   function buildSummaryReport(filters = {}, generatedBy) {
-    const complaints = applyFilters(listComplaints(), filters);
+    const complaints = applyFilters(listComplaints(filters.includeArchived === true), filters);
     const byStatus = {};
     const byProvince = {};
     const byCategory = {};
@@ -106,7 +106,7 @@ function createReportsService({ complaintsService }) {
   }
 
   function buildCsv(filters = {}) {
-    const complaints = applyFilters(listComplaints(), filters);
+    const complaints = applyFilters(listComplaints(filters.includeArchived === true), filters);
     const lines = [CSV_HEADERS.join(',')];
     for (const c of complaints) {
       lines.push(CSV_HEADERS.map((h) => escapeCsv(c[h])).join(','));
@@ -120,7 +120,7 @@ function createReportsService({ complaintsService }) {
   }
 
   async function buildXlsx(generatedBy, filters = {}) {
-    const complaints = applyFilters(listComplaints(), filters);
+    const complaints = applyFilters(listComplaints(filters.includeArchived === true), filters);
     const { buildComplaintsWorkbook } = require('../../lib/excel-export');
     const buffer = await buildComplaintsWorkbook(complaints, {
       title: 'تقرير الشكاوى',
@@ -136,6 +136,23 @@ function createReportsService({ complaintsService }) {
       count: complaints.length,
       filters
     };
+  }
+
+  async function buildRegistryPdf(generatedBy, filters = {}) {
+    const complaints = applyFilters(listComplaints(filters.includeArchived === true), filters);
+    const { buildSimplePdf } = require('../../lib/simple-pdf');
+    const lines = ['عدد السجلات: ' + complaints.length, 'أُنشئ بواسطة: ' + (generatedBy || 'system'),
+      'تاريخ التصدير: ' + dayKey(new Date())];
+    for (const c of complaints) {
+      lines.push(' ', 'رقم السجل: ' + c.id,
+        'الموضوع: ' + (c.summary || '—'),
+        'الحالة: ' + (STATUS_LABELS[c.status] || c.status || '—'),
+        'الاسم: ' + (c.name || '—'), 'الهاتف: ' + (c.phone || '—'),
+        'المحافظة: ' + (c.province || '—'), 'التصنيف: ' + (c.category || '—'),
+        'تاريخ أول تواصل: ' + (c.firstContactDate || '—'));
+    }
+    return { buffer: await buildSimplePdf({title: 'سجل الشكاوى والاستفسارات', lines}),
+      filename: 'complaints-registry-' + dayKey(new Date()) + '.pdf', count: complaints.length };
   }
 
   async function buildSingleXlsx(id, generatedBy) {
@@ -203,6 +220,7 @@ function createReportsService({ complaintsService }) {
 
   return {
     buildSingleDocx,
+    buildRegistryPdf,
     listComplaints,
     findComplaint,
     applyFilters,

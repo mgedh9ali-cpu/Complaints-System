@@ -94,13 +94,8 @@ function showAlarmToast(item) {
   toastEl.id = 'alarm-toast-' + item.id;
   toastEl.setAttribute('role', 'alert');
   toastEl.innerHTML =
-    '<div class="alarm-toast-icon" aria-hidden="true">⏰</div><div class="alarm-toast-body"><strong>موعد متابعة · ' +
-    esc(item.complaintId) +
-    '</strong><p>' +
-    esc(item.note || '') +
-    '</p><small>' +
-    esc(item.name || item.summary || '') +
-    '</small></div><div class="alarm-toast-actions"><button type="button" class="btn btn-sm btn-primary" data-action="alarm-open" data-id="' +
+    '<div class="alarm-toast-icon" aria-hidden="true">⏰</div><div class="alarm-toast-body"><strong>حان موعد متابعة</strong>' +
+    '<p>افتح السجل للاطلاع على تفاصيل التذكير.</p></div><div class="alarm-toast-actions"><button type="button" class="btn btn-sm btn-primary" data-action="alarm-open" data-id="' +
     esc(item.complaintId) +
     '" data-reminder="' +
     esc(String(item.id)) +
@@ -122,9 +117,11 @@ async function dismissReminder(id) {
 }
 
 async function checkDueReminders() {
-  if (!authenticatedUser) return;
+  if (!authenticatedUser || document.visibilityState === 'hidden') return;
+  const reminderUser = authenticatedUser;
   try {
     const data = await api('/api/reminders/due?limit=8');
+    if (reminderUser !== authenticatedUser) return;
     const list = data.reminders || [];
     const shown = shownReminderIds();
     for (const item of list) {

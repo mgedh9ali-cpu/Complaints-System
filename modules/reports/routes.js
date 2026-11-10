@@ -47,14 +47,29 @@ function createReportsRouter({ reportsService, middleware, audit, rolesService }
     res.send(buffer);
   });
 
-  router.post('/export/csv/selection', requireAuth, requirePermission('export.csv'), requireCsrf, (req, res) => {
-    const ids = req.body?.ids;
-    if (!Array.isArray(ids) || ids.length > 50000 || ids.some(id => typeof id !== 'string' || id.length > 100)) {
-      return res.status(400).json({ error: 'قائمة السجلات غير صالحة.' });
-    }
-    const result = reportsService.buildCsv({ ids });
-    audit(req.user.id,'csv_export','export',result.filename,{ count: result.count, selectedIds: ids });
-    res.type('text/csv; charset=utf-8').attachment(result.filename).send(result.buffer);
+  router.post('/export/:format/selection', requireAuth, (req, res, next) => {
+    if (!['csv', 'xlsx', 'pdf'].includes(req.params.format)) return res.sendStatus(404);
+    return requirePermission(req.params.format === 'csv' ? 'export.csv' : 'export.xlsx')(req, res, next);
+  }, requireCsrf, async (req, res, next) => {
+    try {
+      const ids = req.body?.ids;
+      if (!Array.isArray(ids) || ids.length > 5000 || ids.some(id => typeof id !== 'string' || !id || id.length > 100)) {
+        return res.status(400).json({ error: 'اختر حتى 5000 سجل للتصدير في المرة الواحدة.' });
+      }
+      const format = req.params.format;
+      const filters = { ids: [...new Set(ids)], includeArchived: req.body.includeArchived === true };
+      const result = format === 'csv' ? reportsService.buildCsv(filters)
+        : format === 'xlsx' ? await reportsService.buildXlsx(req.user.username, filters)
+        : await reportsService.buildRegistryPdf(req.user.username, filters);
+      if (typeof audit === 'function') audit(req.user.id, format + '_export', 'export', result.filename,
+        { count: result.count, selectedIds: filters.ids, includeArchived: filters.includeArchived });
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Export-Count', String(result.count));
+      res.setHeader('Content-Type', {csv: 'text/csv; charset=utf-8', pdf: 'application/pdf',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}[format]);
+      res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(result.filename));
+      res.send(result.buffer);
+    } catch (error) { next(error); }
   });
 
   router.get('/export/xlsx', requireAuth, requirePermission('export.xlsx'), async (req, res, next) => {

@@ -35,8 +35,8 @@
     node.className='alarm-toast notif-alert';
     node.setAttribute('role','status');
     node.innerHTML='<div class="alarm-toast-icon" aria-hidden="true">✉</div>'+
-      '<div class="alarm-toast-body"><strong>'+esc(n.title||'إشعار جديد')+'</strong>'+
-      '<p>'+esc((n.body||'').slice(0,140))+'</p>'+
+      '<div class="alarm-toast-body"><strong>'+'إشعار جديد في النظام'+'</strong>'+
+      '<p>'+'افتح مركز الإشعارات للاطلاع على التفاصيل.'+'</p>'+
       '<small>'+esc(typeof timeText==='function'?timeText(n.date||n.at):'')+'</small></div>'+
       '<div class="alarm-toast-actions">'+
       (n.complaintId?'<button type="button" class="btn btn-sm btn-primary" data-action="notification-open" data-id="'+esc(n.complaintId)+'">فتح الشكوى</button>':'')+
@@ -45,14 +45,15 @@
     (document.getElementById('toastRegion')||document.body).appendChild(node);
     setTimeout(()=>node.remove(),8000);
   }
-  function processNotifications(list){
+  function processNotifications(list, initial=false){
     resetUser();
     if(!authenticatedUser)return;
     remoteList=list;
     window.updateNotificationIndicators();
+    if(document.visibilityState==='hidden'&&!initial)return;
     const fresh=list.filter(n=>!n.read&&!seen.has(notificationKey(n)));
     list.forEach(n=>seen.add(notificationKey(n)));
-    if(fresh.length){softBeep();fresh.slice(-3).forEach(showNewAlert);}
+    if(!initial&&fresh.length){softBeep();fresh.slice(-1).forEach(showNewAlert);}
   }
   window.pollNotificationAlerts=async function(){
     resetUser();
@@ -72,7 +73,7 @@
   const originalLoadDb=loadDb;
   loadDb=async function(){
     const result=await originalLoadDb.apply(this,arguments);
-    processNotifications(db.notifications||[]);
+    processNotifications(db.notifications||[],true);
     return result;
   };
   setInterval(()=>{void window.pollNotificationAlerts();},45000);

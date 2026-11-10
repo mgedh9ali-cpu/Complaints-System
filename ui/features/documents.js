@@ -210,3 +210,32 @@ async function copyComplaint(id){
     toast(error.message||'تعذر نسخ الشكوى.','error');
   }
 }
+
+// Freeze the exact filtered population reviewed by the user, including all pages.
+let registryExportSnapshot = null;
+async function previewRegistryExport(format, ids){
+  if(!['csv','xlsx','pdf'].includes(format)||!uiCan(format==='csv'?'export.csv':'export.xlsx'))
+    return toast('لا تملك صلاحية تصدير هذا النوع.','error');
+  const visible=page==='complaints'?filteredComplaints():db.complaints.filter(c=>!c.archivedAt);
+  const rows=Array.isArray(ids)?visible.filter(c=>ids.includes(c.id)):visible;
+  if(!rows.length){toast('لا توجد سجلات ضمن النطاق المطلوب للتصدير.','warn');return false;}
+  if(rows.length>5000){toast('ضيّق المرشحات إلى 5000 سجل أو أقل ثم أعد التصدير.','warn');return false;}
+  const snapshot={format,ids:rows.map(c=>c.id),includeArchived:rows.some(c=>c.archivedAt)};
+  registryExportSnapshot=snapshot;
+  const ok=await confirmDialog({title:'مراجعة التصدير '+format.toUpperCase(),
+    message:'سيُصدّر '+rows.length+' سجلًا '+(Array.isArray(ids)?'من المحدد المطابق للمرشحات.':'وفق المرشحات الحالية، من جميع الصفحات.'),
+    records:rows.slice(0,5).map(c=>({id:c.id,summary:c.summary})),
+    detail:'يتضمن الملف بيانات التواصل. احفظه في مكان خاص. المعاينة تعرض أول خمسة سجلات.',confirmLabel:'إنشاء الملف'});
+  // The dialog stays readable with long Arabic subjects and mixed-direction IDs.
+  if(!ok||registryExportSnapshot!==snapshot){if(registryExportSnapshot===snapshot)registryExportSnapshot=null;return false;}
+  registryExportSnapshot=null;
+  await flushUiBeforeAction();
+  const response=await fetch('/api/export/'+format+'/selection',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-CSRF-Token':await getWriteCsrf()},
+    body:JSON.stringify({ids:snapshot.ids,includeArchived:snapshot.includeArchived})});
+  if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||'تعذر إنشاء الملف. أعد المحاولة.');}
+  const blob=await response.blob();if(!blob.size)throw new Error('ملف التصدير فارغ. أعد المحاولة.');
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='complaints-registry-'+workDayKey(Date.now())+'.'+format;link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);toast('تم تصدير السجلات التي راجعتها.');
+}

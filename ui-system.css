@@ -582,3 +582,12 @@ html{scroll-behavior:auto}
 .account-menu-panel > .liquid-glass-toggle{width:100%;justify-content:flex-start;border-radius:var(--r-ctl);min-height:44px}
 @media(max-width:600px){.record-action-buttons > .btn{flex:1 1 100%}.heading-actions > .btn{flex:1 1 auto}}
 @media print{.complaint-record-actions,.action-cell{display:none}}
+
+/* Export review remains usable with long Arabic subjects on small displays. */
+.export-preview { margin: var(--s3) 0 0; padding-inline-start: var(--s5); }
+.export-preview li { overflow-wrap: anywhere; padding-block: var(--s1); }
+.btn[aria-busy="true"] { cursor: progress; }
+@media (max-width: 600px) {
+  .modal-footer { position: sticky; bottom: 0; background: var(--surface); z-index: 2; }
+  .modal-footer .btn { min-height: 44px; }
+}

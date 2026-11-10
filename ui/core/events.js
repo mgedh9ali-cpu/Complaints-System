@@ -7,10 +7,11 @@ async function withButtonLock(btn, fn) {
   btn.disabled = true;
   btn.classList.add('is-loading');
   btn.setAttribute('aria-busy', 'true');
+  btn.innerHTML = '<span aria-hidden="true">…</span> جارٍ التنفيذ';
   let ok = false;
   try {
     const result = await fn();
-    ok = true;
+    ok = result !== false;
     return result;
   } finally {
     btn.classList.remove('is-loading');
@@ -26,6 +27,7 @@ async function withButtonLock(btn, fn) {
         else btn.setAttribute('aria-busy', originalBusy);
       }, 900);
     } else {
+      btn.innerHTML = originalHtml;
       btn.disabled = false;
       if (originalBusy == null) btn.removeAttribute('aria-busy');
       else btn.setAttribute('aria-busy', originalBusy);
@@ -115,7 +117,8 @@ case 'alarm-dismiss':await dismissReminder(el.dataset.reminder);break;
 case 'alarm-open':await dismissReminder(el.dataset.reminder);detailModal(id);break;
 case 'command-open':commandPalette();break;
 case 'command-page':closeModal();go(el.dataset.pageTarget);break;
-case 'export-selected':exportSelected();break;
+case 'export-selected':await withButtonLock(el,()=>exportSelected());break;
+case 'export-registry-pdf':await withButtonLock(el,()=>previewRegistryExport('pdf'));break;
 case 'close-modal':cancelPendingSyncImport?.();closeModal();break;
 case 'backdrop-close':if(e.target===el){cancelPendingSyncImport?.();closeModal();}break;
 case 'new-complaint':newComplaint();break;
@@ -145,7 +148,7 @@ case 'read-all':db.notifications.forEach(n=>n.read=true);await persistUiNow();re
 case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'filter-due-soon':quickView='due-soon';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
-case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';dateTypeFilter='created';dateFrom='';dateTo='';quickView='all';registryPage=1;render();break;
+case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';dateTypeFilter='created';dateFrom='';dateTo='';recordTypeFilter='all';quickView='all';registryPage=1;render();break;
 case 'quick-filter':quickView=el.dataset.value||'all';recordTypeFilter='all';registryPage=1;statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';render();break;
 case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'bulk-open':bulkOpen();break;
@@ -158,7 +161,7 @@ case 'select-all':{
 }
 case 'clear-selection':selectedIds.clear();render();break;
 case 'report-period':setReportPeriod([14,30,90].includes(Number(el.dataset.days))?Number(el.dataset.days):0);break;
-case 'export-csv':if(page==='reports')await withButtonLock(el,()=>exportReport('csv'));else exportCsv();break;
+case 'export-csv':if(page==='reports')await withButtonLock(el,()=>exportReport('csv'));else await withButtonLock(el,()=>exportCsv());break;
 case 'export-xlsx':await withButtonLock(el,()=>exportXlsx());break;
 case 'print-report':window.print();break;
 case 'sync-import':$('#syncImportFile')?.click();break;
@@ -252,7 +255,7 @@ async function submitLogin(e){
  }catch(err){if(error){error.textContent=err.message||'فشل تسجيل الدخول';error.hidden=false;}$('#loginPassword')?.focus();}
  finally{loginPending=false;if(button){button.disabled=false;button.textContent='دخول';}$('#loginForm')?.removeAttribute('aria-busy');}
 }
-if($('#csvExportButton'))$('#csvExportButton').addEventListener('click',()=>{if(uiCan('export.csv')){if(page==='reports')exportReport('csv').catch(error=>toast(error.message,'error'));else exportCsv();}});
+if($('#csvExportButton'))$('#csvExportButton').addEventListener('click',async e=>{if(uiCan('export.csv'))try{await withButtonLock(e.currentTarget,()=>page==='reports'?exportReport('csv'):exportCsv());}catch(error){toast(error.message,'error');}});
 if($('#loginForm'))$('#loginForm').addEventListener('submit',submitLogin);
 (async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
 
