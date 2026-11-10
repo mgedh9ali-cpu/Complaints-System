@@ -48,3 +48,12 @@ tbody tr[aria-selected="true"] {
     animation: none !important;
   }
 }
+
+/* Print must lay out off-screen rows as well as the current viewport. */
+@media print {
+  .registry-table-wrap, .table-wrap {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+  .content[data-enter] tbody tr { animation: none; }
+}

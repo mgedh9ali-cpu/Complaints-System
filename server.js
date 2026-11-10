@@ -1,5 +1,14 @@
 'use strict';
 
+const { performance } = require('node:perf_hooks');
+const startupStartedAt = performance.now();
+const startupPhasesMs = {};
+function measureStartupPhase(name, work) {
+  const started = performance.now();
+  try { return work(); }
+  finally { startupPhasesMs[name] = Math.round(performance.now() - started); }
+}
+
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -43,20 +52,23 @@ const { createApprovalsService } = require('./modules/approvals/service');
 const { createApprovalsRouter } = require('./modules/approvals/routes');
 const { createBackupScheduler } = require('./modules/backup/scheduler');
 
+startupPhasesMs.moduleImports = Math.round(performance.now() - startupStartedAt);
 const env = loadEnv();
 const app = express();
 
 const dataRoot = path.dirname(path.resolve(env.databasePath));
-lockDownDataTree(dataRoot);
-lockDownDir(env.sessionsDir);
+measureStartupPhase('dataPermissions', () => {
+  lockDownDataTree(dataRoot);
+  lockDownDir(env.sessionsDir);
+});
 
 process.env.DATA_KEY = env.storageKey;
-const db = openDatabase(env.databasePath, { storageKey: env.storageKey });
-require('./lib/attachments').protectLegacyAttachments();
+const db = measureStartupPhase('database', () => openDatabase(env.databasePath, { storageKey: env.storageKey }));
+measureStartupPhase('attachmentProtection', () => require('./lib/attachments').protectLegacyAttachments());
 lockDownFile(env.databasePath);
 
 const auditService = createAuditService({ db, logger, databasePath: env.databasePath });
-const auditIntegrity = auditService.verifyChain();
+const auditIntegrity = measureStartupPhase('auditVerification', () => auditService.verifyChain());
 if (!auditIntegrity.ok) throw new Error('Audit integrity verification failed at boot; restore a verified backup before continuing.');
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
   auditService.record(actorUserId, action, targetType, targetId, details);
@@ -68,7 +80,7 @@ const authService = createAuthService({
   logger,
   sessionsDir: env.sessionsDir
 });
-authService.ensureBootstrapAdmin(env.adminUsername, env.adminPassword);
+measureStartupPhase('bootstrapAccount', () => authService.ensureBootstrapAdmin(env.adminUsername, env.adminPassword));
 
 const middleware = createAuthMiddleware({ db, audit });
 const { ensureCsrfToken } = middleware;
@@ -266,4 +278,5 @@ app.listen(env.port, env.host, () => {
     `Complaints system listening on http://${env.host}:${env.port} (v${env.version})`
   );
 });
-module.exports = { backupScheduler, backupService, audit };
+startupPhasesMs.total = Math.round(performance.now() - startupStartedAt);
+module.exports = { backupScheduler, backupService, audit, startupPhasesMs };

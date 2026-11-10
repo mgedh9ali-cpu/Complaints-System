@@ -14,7 +14,7 @@ test('report service startup leaves Excel and PDF engines unloaded until export'
 });
 
 async function desktopBoot(failSplash=false,pathApi=path){
- const events=[],runtime={backupService:{}},app=new EventEmitter();let timingRecord=null;
+ const events=[],runtime={backupService:{},startupPhasesMs:{moduleImports:1,database:2,attachmentProtection:3,auditVerification:4,total:10}},app=new EventEmitter();let timingRecord=null;
  Object.assign(app,{isPackaged:true,getAppPath:()=>'/project',getPath:()=>'/profile',whenReady:()=>Promise.resolve(),requestSingleInstanceLock:()=>true,quit:()=>events.push('quit')});
  class Window extends EventEmitter{
   constructor(){super();this.webContents=new EventEmitter();this.webContents.setWindowOpenHandler=()=>{};}
@@ -45,7 +45,8 @@ async function desktopBoot(failSplash=false,pathApi=path){
  if(!failSplash){
   assert.ok(timingRecord);assert.ok(timingRecord.file.endsWith('startup-timings.json'));assert.equal(timingRecord.options.mode,0o600);
   const timing=JSON.parse(timingRecord.contents);
-  assert.deepEqual(Object.keys(timing),['appReadyMs','windowVisibleMs','serverReadyMs','loginPageLoadedMs']);
+  assert.deepEqual(Object.keys(timing),['appReadyMs','windowVisibleMs','serverPhasesMs','serverReadyMs','loginPageLoadedMs']);
+  assert.deepEqual(timing.serverPhasesMs,runtime.startupPhasesMs);
   assert.ok(timing.appReadyMs<=timing.windowVisibleMs);assert.ok(timing.windowVisibleMs<=timing.serverReadyMs);assert.ok(timing.serverReadyMs<=timing.loginPageLoadedMs);
  }
  return events;

@@ -279,6 +279,8 @@ if (!gotLock) {
       await createWindow(paths);
       startupTimings.windowVisibleMs = Date.now() - bootStartedAt;
       bootServerInProcess(paths, root);
+      // Separate server work from renderer loading; record timings only, never data.
+      if (serverRuntime.startupPhasesMs) startupTimings.serverPhasesMs = serverRuntime.startupPhasesMs;
       await waitForServer();
       startupTimings.serverReadyMs = Date.now() - bootStartedAt;
       await mainWindow.loadURL(APP_URL);

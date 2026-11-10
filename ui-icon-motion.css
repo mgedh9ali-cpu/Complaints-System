@@ -1,4 +1,4 @@
-/* Small icon feedback; continuous status cues pause with the hidden page. */
+/* Short interaction feedback. Status indicators stay static, even on long lists. */
 .nav-icon,
 .top-actions .ui-svg-icon,
 .icon-btn svg,
@@ -40,36 +40,19 @@
 .btn, .nav-link, .icon-btn, .icon-button { contain: layout style; }
 .registry-table tbody tr { contain: style; }
 
+/* Override the older SLA rule too; hiding the page is not a substitute for
+   stopping per-record animation while the user is reading the registry. */
+.sla-ring[data-level="late"], .status-dot, .pill.urgent::before {
+  animation: none;
+}
 @media (prefers-reduced-motion: no-preference) {
-  .login-overlay:not([hidden]) .login-brand > svg { animation: icon-breathe 4s ease-in-out infinite; }
-  .sla-ring[data-level="late"] { animation: icon-warning 2.8s ease-in-out infinite; }
-  .status-dot { animation: icon-live 3.6s ease-in-out infinite; }
-  .pill::before { animation: icon-dot-pop 320ms var(--ease-bounce, ease-out) both; }
-  .pill.urgent::before { animation: icon-live 2.8s ease-in-out infinite; }
-}
-@keyframes icon-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.035); }
-}
-@keyframes icon-warning {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: .65; transform: scale(.94); }
-}
-@keyframes icon-live {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .55; }
+  .pill:not(.urgent)::before { animation: icon-dot-pop 180ms ease-out; }
 }
 @keyframes icon-dot-pop {
   0% { transform: scale(.4); opacity: 0; }
   65% { transform: scale(1.15); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
-html[data-motion-paused="true"] :is(.login-brand > svg, .sla-ring, .status-dot) {
-  animation-play-state: paused !important;
-}
-/* Pseudo-elements need their own selector outside :is() for broad support. */
-html[data-motion-paused="true"] .pill::before { animation-play-state: paused !important; }
-
 @media (prefers-reduced-motion: reduce) {
   .nav-icon, .ui-svg-icon, .icon-btn svg, .theme-icon-toggle svg,
   .login-password-toggle svg, .menu-toggle, .modal-close, .avatar,

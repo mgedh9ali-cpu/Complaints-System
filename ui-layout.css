@@ -172,19 +172,13 @@ html[data-theme="dark"] .topbar {
 .sla-ring[data-level="warn"] { color: var(--sla-warn); }
 .sla-ring[data-level="late"] {
   color: var(--sla-late);
-  animation: sla-pulse 1.4s ease-in-out infinite;
+  /* Static warning color: no permanent animation per complaint. */
+  animation: none;
 }
 .sla-unset { color: var(--muted); font-size: 12px; }
 .age.ok { color: var(--sla-ok); }
 .age.soon { color: var(--sla-warn); font-weight: 600; }
 .age.late { color: var(--sla-late); font-weight: 700; }
-@keyframes sla-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sla-ring[data-level="late"] { animation: none; }
-}
 
 .pill {
   display: inline-flex !important;

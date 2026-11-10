@@ -236,14 +236,8 @@
   background: color-mix(in srgb, var(--paper, #f2f7f3) 92%, transparent);
   border-bottom: 1px solid var(--line, #d3e2da);
 }
-@supports (backdrop-filter: blur(1px)) {
-  @media (prefers-reduced-transparency: no-preference) {
-    .complaint-page-tabs {
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-  }
-}
+/* Dense detail content stays opaque while scrolling beneath these tabs. */
+.complaint-page-tabs { background: var(--surface, #fff); }
 .complaint-page-tabs button {
   min-height: 36px;
   padding: 6px 12px;
