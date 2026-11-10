@@ -39,7 +39,7 @@ function applyRegistryFilterSnapshot(snap){
   if(typeof categoryFilter !== 'undefined') categoryFilter = snap.categoryFilter || 'all';
   if(typeof natureFilter !== 'undefined') natureFilter = snap.natureFilter || 'all';
   if(typeof recordTypeFilter !== 'undefined') recordTypeFilter = snap.recordTypeFilter || 'all';
-  if(typeof quickView !== 'undefined') quickView = snap.quickView || 'all';
+  if(typeof quickView !== 'undefined') quickView = snap.quickView==='mine'?'all':snap.quickView || 'all';
   if(typeof dateTypeFilter !== 'undefined') dateTypeFilter = snap.dateTypeFilter || 'created';
   if(typeof dateFrom !== 'undefined') dateFrom = snap.dateFrom || '';
   if(typeof dateTo !== 'undefined') dateTo = snap.dateTo || '';
@@ -87,7 +87,7 @@ function savedFiltersBarHtml(){
     const action = t.getAttribute('data-action');
     if(action === 'save-current-filters'){
       e.preventDefault();
-      const name = window.prompt('اسم المرشح المحفوظ (مثال: عاجلة المسندة لي):', '');
+      const name = window.prompt('اسم المرشح المحفوظ (مثال: شكاوى عاجلة):', '');
       if(!name || !String(name).trim()) return;
       const list = loadSavedFilterPresets();
       list.unshift({ name: String(name).trim().slice(0, 40), filters: currentRegistryFilterSnapshot(), at: new Date().toISOString() });

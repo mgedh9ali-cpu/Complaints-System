@@ -7,7 +7,7 @@ const fingerprint = (value) =>
 
 const KINDS = new Set(['complaint_archive', 'complaint_cancel', 'attachment_delete', 'complaint_duplicate']);
 
-function createApprovalsService({ db, audit, complaintsService, attachmentsService }) {
+function createApprovalsService({ db, audit, complaintsService, attachmentsService, singleOperator = false }) {
   const storage = storageFor(db);
   db.exec(`CREATE TABLE IF NOT EXISTS approval_requests(
     id TEXT PRIMARY KEY,
@@ -91,7 +91,7 @@ function createApprovalsService({ db, audit, complaintsService, attachmentsServi
     } catch (_) {
       row.reason = row.reason;
     }
-    if (row.requester_id === user.id) return { ok: false, status: 403, error: 'لا يجوز اعتماد طلبك الشخصي.' };
+    if (!singleOperator && row.requester_id === user.id) return { ok: false, status: 403, error: 'لا يجوز اعتماد طلبك الشخصي.' };
     if (row.status !== 'pending') return { ok: false, status: 409, error: 'سبق اتخاذ قرار بهذا الطلب.' };
     if (Date.now() - Date.parse(row.created_at) > 7 * 86400000) {
       return { ok: false, status: 409, error: 'انتهت مهلة الطلب؛ سجّل طلبًا جديدًا.' };

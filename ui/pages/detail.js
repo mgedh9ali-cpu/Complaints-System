@@ -16,7 +16,7 @@ function recordOverviewHtml(c){
  const last=(c.timeline||[])[0];
  const pending=(c.referrals||[]).filter(r=>!r.response&&!r.completedAt).map(r=>r.due).filter(Boolean).sort();
  const due=[...(!['closed','cancelled'].includes(c.status)?[c.due]:[]),...pending].filter(Boolean).sort()[0];
- return '<dl class="record-overview">'+[['الحالة',statusLabel(c.status)],['المسؤول',c.owner||'غير مسند'],['آخر إجراء',last?.event||'لا توجد إجراءات'],['الموعد القادم',due?dateText(due):'غير محدد']].map(([k,v])=>'<div><dt>'+k+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>';
+ return '<dl class="record-overview">'+[['الحالة',statusLabel(c.status)],['آخر إجراء',last?.event||'لا توجد إجراءات'],['الموعد القادم',due?dateText(due):'غير محدد']].map(([k,v])=>'<div><dt>'+k+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>';
 }
 /* Record view: one heading, readable data, and a separate processing column. */
 function complaintDetailField(label, value, direction = '') {
@@ -33,8 +33,7 @@ function complaintDetailReply(c) {
   let actions = receipt;
   if (approved) actions += '<button class="btn btn-sm" data-action="print-approved-reply" data-id="' + id + '">طباعة الرد مع رمز تحقق</button>';
   if (reply.status === 'draft' && uiCan('replies.draft')) actions += '<button class="btn btn-sm" data-action="reply-review" data-id="' + id + '">إرسال للمراجعة</button>';
-  const ownReply = reply.authorId === authenticatedUser?.id || reply.editedById === authenticatedUser?.id || reply.author === authenticatedUser?.username;
-  if (['draft', 'review', 'approval'].includes(reply.status) && uiCan('replies.approve') && !ownReply)
+  if (['draft', 'review', 'approval'].includes(reply.status) && uiCan('replies.approve'))
     actions += '<button class="btn btn-sm btn-primary" data-action="reply-approve" data-id="' + id + '">اعتماد الرد</button>';
   if (reply.status === 'approved' && uiCan('replies.send')) actions += '<button class="btn btn-sm btn-primary" data-action="reply-sent" data-id="' + id + '">توثيق الإرسال</button>';
   return '<section class="detail-section" id="complaint-reply"><h3>الرد الخارجي</h3>' +
@@ -56,7 +55,7 @@ function complaintDetailPage() {
   const fields = [['نوع السجل', inquiry ? 'استفسار' : 'شكوى'], [inquiry ? 'اسم المتصل' : 'اسم المشتكي', c.name], ['رقم الهاتف', c.phone, 'ltr'],
     ['قناة الورود', ({phone:'الهاتف',whatsapp:'واتساب',telegram:'تلغرام',other:'أخرى'})[c.source] || c.source],
     ['المحافظة', c.province], ['التصنيف', c.category], ['طبيعة السجل', c.nature], ['الجهة المختصة', c.entity],
-    ['المسؤول الرئيسي', c.owner], ['تاريخ أول تواصل', c.firstContactDate], ['تاريخ التسجيل', dateText(c.created)]];
+    ['تاريخ أول تواصل', c.firstContactDate], ['تاريخ التسجيل', dateText(c.created)]];
   const summary = '<section class="detail-section" id="complaint-summary"><h3>بيانات ' + label + '</h3><dl class="record-data-grid">' +
     fields.map(([title, value, dir]) => complaintDetailField(title, value, dir)).join('') + '</dl><div class="record-description"><h4>التفاصيل</h4><p class="detail-prose">' + esc(c.details || 'لم تُضف تفاصيل إضافية.') + '</p></div></section>';
   const canChangeStatus = uiCan('complaints.status') && next.length > 0;
@@ -66,8 +65,6 @@ function complaintDetailPage() {
     '<div class="form-field"><label for="statusReason">سبب تغيير الحالة</label><textarea class="textarea-field" id="statusReason" placeholder="اكتب سبب الإغلاق أو الإلغاء أو إعادة الفتح"></textarea></div>' +
     (uiCan('complaints.closeException') ? '<label class="detail-checkbox"><input type="checkbox" id="closureException"> استثناء إغلاق موثق</label>' : '') +
     action('change-status', 'تحديث الحالة', 'btn-primary') : '<p class="detail-empty">لا توجد انتقالات متاحة لهذا السجل.</p>') +
-    (uiCan('complaints.assign') && !c.archivedAt && !['closed','cancelled'].includes(c.status) ? '<details class="glass-inline-menu"><summary>إسناد المسؤول</summary><div class="form-field"><label for="assignOwner">المسؤول الرئيسي</label><select class="select-field" id="assignOwner">' +
-      availableOwners().map(n => '<option value="' + esc(n) + '" ' + (c.owner === n ? 'selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></div></details>' : '') +
     (uiCan('complaints.update') && !c.archivedAt && !['closed','cancelled'].includes(c.status) ? '<details class="glass-inline-menu"><summary>تغيير الأولوية</summary><div class="form-field"><label for="detailPriority">الأولوية</label><select class="select-field" id="detailPriority">' +
       db.settings.priorities.map(p => '<option value="' + esc(p.value) + '" ' + (c.priority === p.value ? 'selected' : '') + '>' + esc(p.label) + '</option>').join('') +
       (!db.settings.priorities.some(p => p.value === c.priority) && c.priority ? '<option value="' + esc(c.priority) + '" selected>' + esc(priorityLabel(c.priority)) + '</option>' : '') + '</select></div></details>' : '') + '</section>';

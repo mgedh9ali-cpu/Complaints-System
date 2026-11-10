@@ -9,7 +9,7 @@ const {spawn}=require('node:child_process');
 
 async function freePort(){return new Promise(resolve=>{const server=net.createServer();server.listen(0,'127.0.0.1',()=>{const port=server.address().port;server.close(()=>resolve(port));});});}
 
-test('HTTP acceptance: real accounts, per-user authorization, attachments, approvals, conflict and safe sync backup', {timeout:45000}, async t=>{
+test('HTTP acceptance: sole operator, disabled staff APIs, attachments, confirmations, conflict and safe backup', {timeout:45000}, async t=>{
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'complaints-release-http-'));
  const port=await freePort();const base='http://127.0.0.1:'+port;
  const child=spawn(process.execPath,['server.js'],{cwd:path.join(__dirname,'..'),env:{...process.env,
@@ -43,20 +43,16 @@ test('HTTP acceptance: real accounts, per-user authorization, attachments, appro
   return {status:response.status,body:data,headers:response.headers};
  }
  const admin=await login('director');
- for(const [username,role] of [['employee','staff'],['observer','reviewer']]){
-  assert.equal((await request(admin,'/api/users','POST',{username,role,password:'Test-password-2026'})).status,201);
- }
- let staff=await login('employee');const reviewer=await login('observer');
- const initial=(await request(staff,'/api/state')).body;
- const forgedSettings=structuredClone(initial.state);forgedSettings.settings.slaDays=30;
- assert.equal((await request(staff,'/api/state','PUT',forgedSettings,{'X-State-Revision':String(initial.revision)})).status,403,'staff cannot change settings before the first complaint');
- assert.equal((await request(reviewer,'/api/complaints','POST',{summary:'محاولة غير مخولة',province:'دمشق',category:'استفسار'})).status,403);
+ for(const url of ['/api/users','/api/assignees','/api/roles'])assert.equal((await request(admin,url)).status,410);
+ assert.equal((await request(admin,'/api/users','POST',{username:'employee',role:'staff',password:'Test-password-2026'})).status,410);
+ const denied=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'employee',password:'Test-password-2026'})});assert.equal(denied.status,401);
+ const staff=admin,reviewer=admin;
  const created=await request(staff,'/api/complaints','POST',{summary:'تجربة قبول اصطناعية',province:'دمشق',category:'استفسار عام',name:'اسم وهمي',phone:'0912345678',details:'بيانات اختبار فقط'});
  assert.equal(created.status,201);const id=created.body.complaint.id;
- assert.equal(created.body.complaint.owner,'employee');
+ assert.equal(created.body.complaint.owner,undefined);
  const fresh=await request(staff,'/api/state');const snapshot=structuredClone(fresh.body.state);
- snapshot.complaints[0].notes.unshift({text:'ملاحظة اصطناعية',by:'employee',at:new Date().toISOString()});
- snapshot.complaints[0].timeline.unshift({event:'إضافة ملاحظة داخلية',by:'employee',at:new Date().toISOString(),detail:'اختبار prepend'});
+ snapshot.complaints[0].notes.unshift({text:'ملاحظة اصطناعية',by:'director',at:new Date().toISOString()});
+ snapshot.complaints[0].timeline.unshift({event:'إضافة ملاحظة داخلية',by:'director',at:new Date().toISOString(),detail:'اختبار prepend'});
  assert.equal((await request(staff,'/api/state','PUT',snapshot,{'X-State-Revision':String(fresh.body.revision)})).status,200);
  assert.equal((await request(staff,'/api/state','PUT',snapshot,{'X-State-Revision':String(fresh.body.revision)})).status,409);
  assert.equal((await request(staff,'/api/complaints/'+id,'PATCH',{summary:'تعديل قديم'},{'X-State-Revision':String(fresh.body.revision)})).status,409);
@@ -76,14 +72,10 @@ test('HTTP acceptance: real accounts, per-user authorization, attachments, appro
  assert.equal((await request(admin,'/api/attachments/'+storedName,'DELETE',{reason:'حذف مباشر مرفوض'})).status,409);
  const removal=await request(staff,'/api/approvals','POST',{kind:'attachment_delete',complaintId:id,targetId:storedName,reason:'طلب حذف اصطناعي'});
  assert.equal(removal.status,201);
- assert.equal((await request(staff,'/api/approvals/'+removal.body.id+'/decision','POST',{decision:'approved',reason:'قرار غير مخول'})).status,403);
  assert.equal((await request(admin,'/api/approvals/'+removal.body.id+'/decision','POST',{decision:'approved',reason:'موافقة مدير على الطلب'})).status,200);
  assert.equal((await request(reviewer,'/api/attachments/'+storedName)).status,404);
- const user=(await request(admin,'/api/users')).body.users.find(u=>u.username==='employee');
- assert.equal((await request(admin,'/api/users/'+user.id+'/permissions','PATCH',{overrides:{'complaints.create':false}})).status,200);
- assert.equal((await request(staff,'/api/state')).status,401,'permission changes must revoke active sessions at the database level');
- staff=await login('employee');
- assert.equal((await request(staff,'/api/complaints','POST',{summary:'مرفوض بعد القرار',province:'دمشق',category:'استفسار'})).status,403);
+ assert.equal((await request(admin,'/api/complaints/'+id,'PATCH',{owner:'employee'})).status,400);
+ assert.equal((await request(admin,'/api/complaints/'+id,'PATCH',{coAssistants:['employee']})).status,400);
  assert.equal((await request(staff,'/api/complaints/'+id+'/reply','PATCH',{action:'draft',text:'رد اختبار للمراجعة'})).status,200);
  assert.equal((await request(staff,'/api/complaints/'+id+'/reply','PATCH',{action:'review'})).status,200);
  assert.equal((await request(admin,'/api/complaints/'+id+'/reply','PATCH',{action:'approve'})).status,200);

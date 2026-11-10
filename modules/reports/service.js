@@ -6,7 +6,7 @@ const {dayBoundary,dayKey}=require('../../lib/work-time');
 
 const CSV_HEADERS = [
   'id', 'name', 'phone', 'province', 'entity', 'category',
-  'priority', 'status', 'summary', 'created', 'updated', 'due', 'owner', 'firstContactDate'
+  'priority', 'status', 'summary', 'created', 'updated', 'due', 'firstContactDate'
 ];
 
 const STATUS_LABELS = Object.freeze({
@@ -53,10 +53,6 @@ function createReportsService({ complaintsService }) {
     if (filters.province) {
       const p = String(filters.province).trim();
       rows = rows.filter((c) => c && c.province === p);
-    }
-    if (filters.owner) {
-      const o = String(filters.owner).trim();
-      rows = rows.filter((c) => c && c.owner === o);
     }
     for (const key of ['category', 'priority']) {
       if (filters[key]) rows = rows.filter(c => c && c[key] === String(filters[key]).trim());

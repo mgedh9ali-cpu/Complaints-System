@@ -21,8 +21,8 @@ const seed = {
 function cleanState(){return {complaints:[...seed.complaints],notifications:[...seed.notifications],templates:seed.templates.map(t=>({...t})),settings:{...seed.settings,provinces:[...seed.settings.provinces],entities:[...seed.settings.entities],categories:[...seed.settings.categories],natures:[...(seed.settings.natures||[])],priorities:seed.settings.priorities.map(p=>({...p})),categoryDescriptions:{...(seed.settings.categoryDescriptions||{})},entityDescriptions:{...(seed.settings.entityDescriptions||{})},natureDescriptions:{...(seed.settings.natureDescriptions||{})}}};}
 let db = cleanState(), page='dashboard', searchText='', statusFilter='all', priorityFilter='all', categoryFilter='all', natureFilter='all', quickView='all', selectedIds=new Set(), currentId=null, toastTimer=null;
 let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), stateLoaded=false, stateRevision=0, stateConflict=false, stateBase=null, conflictDraft=null;
-let recentComplaintIds=[], intakeDefaults={}, managedUsers=[], assignees=[], customizablePermissions=[], detailReturnPage='complaints';
-function uiCan(action){if(!authenticatedUser)return false;if(authenticatedUser.role==='admin')return true;if(Array.isArray(authenticatedUser.permissions))return authenticatedUser.permissions.includes(action);const map={staff:['complaints.read','complaints.create','complaints.update','complaints.status','complaints.assign','attachments.read','attachments.upload','export.csv','export.xlsx','dashboard.view','settings.read','replies.draft','replies.send','approvals.request','sync.export','backup.database'],reviewer:['complaints.read','attachments.read','export.csv','dashboard.view','settings.read']};const list=map[authenticatedUser.role]||[];return list.includes(action)||(authenticatedUser.permissions||[]).includes(action);}
+let recentComplaintIds=[], intakeDefaults={}, detailReturnPage='complaints';
+function uiCan(action){if(!authenticatedUser)return false;if(authenticatedUser.role==='admin')return true;if(Array.isArray(authenticatedUser.permissions))return authenticatedUser.permissions.includes(action);const map={staff:['complaints.read','complaints.create','complaints.update','complaints.status','attachments.read','attachments.upload','export.csv','export.xlsx','dashboard.view','settings.read','replies.draft','replies.send','approvals.request','sync.export','backup.database'],reviewer:['complaints.read','attachments.read','export.csv','dashboard.view','settings.read']};const list=map[authenticatedUser.role]||[];return list.includes(action)||(authenticatedUser.permissions||[]).includes(action);}
 async function getWriteCsrf(){const r=await fetch('/api/csrf',{credentials:'same-origin'});const j=await r.json().catch(()=>({}));return j.csrfToken||j.token||'';}
 async function api(url,opts={}){const headers=Object.assign({'Content-Type':'application/json'},opts.headers||{});if(opts.method&&opts.method!=='GET'){try{headers['X-CSRF-Token']=await getWriteCsrf();}catch(_){headers['X-CSRF-Token']='';}}let res;try{res=await fetch(url,Object.assign({credentials:'same-origin'},opts,{headers}));}catch(netErr){const error=new Error('تعذر الاتصال بالخادم المحلي. أغلق التطبيق ثم افتحه من جديد، أو تحقق أن المنفذ غير مستخدم.');error.status=0;error.cause=netErr;throw error;}const data=await res.json().catch(()=>({}));if(!res.ok){const msg=data.error||(res.status===401?'يلزم تسجيل الدخول.':res.status===403?'ليس لديك صلاحية.':'خطأ من الخادم ('+res.status+')');const error=new Error(msg);error.status=res.status;throw error;}return data;}
 async function loadDb(){const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateLoaded=true;stateConflict=false;}
@@ -32,7 +32,7 @@ function updateSignedInUi(){
   const name=authenticatedUser?.username||'';
   const el=$('#signedInUser');if(el)el.textContent=name;
   const top=$('#topUserName');if(top)top.textContent=name||'غير مسجل';
-  const roleEl=$('#sideUserRole');if(roleEl)roleEl.textContent=authenticatedUser?(authenticatedUser.role==='admin'?'مدير النظام':authenticatedUser.role==='staff'?'موظف':'مراجع'):'يلزم تسجيل الدخول';
+  const roleEl=$('#sideUserRole');if(roleEl)roleEl.textContent=authenticatedUser?'حسابي':'يلزم تسجيل الدخول';
   const headerCreate=$('#headerCreateButton');if(headerCreate)headerCreate.hidden=!uiCan('complaints.create');
   const canBackup=uiCan('backup.database')||authenticatedUser?.role==='admin';
   ['#topBackupButton','#databaseBackupButton','#databaseOnlyBackupButton'].forEach(sel=>{const b=$(sel);if(b)b.hidden=!canBackup;});
@@ -51,5 +51,3 @@ async function logout(){
   window.updateNotificationIndicators?.();
   updateSignedInUi();showLogin();
 }
-async function refreshAssignees(){try{const r=await api('/api/assignees');assignees=r.users||[];}catch(_){}}
-/* UI modules continue; IIFE closed by events.js */

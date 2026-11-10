@@ -188,7 +188,7 @@
     document.querySelectorAll('table').forEach((table) => {
       if (!table.querySelector('thead')) return;
       const heads = Array.from(table.querySelectorAll('thead th'));
-      heads.forEach((head) => { if (!head.hasAttribute('scope')) head.setAttribute('scope', 'col'); const label=head.textContent.trim(); if(label==='المحافظة')head.dataset.column='province'; if(label==='المسؤول')head.dataset.column='owner'; });
+      heads.forEach((head) => { if (!head.hasAttribute('scope')) head.setAttribute('scope', 'col'); const label=head.textContent.trim(); if(label==='المحافظة')head.dataset.column='province'; });
       table.querySelectorAll('tbody tr').forEach((row) => {
         Array.from(row.children).forEach((cell, index) => {
           if (cell.tagName !== 'TD' || cell.hasAttribute('data-label')) return;

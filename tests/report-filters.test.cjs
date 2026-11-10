@@ -65,7 +65,7 @@ test('export uses applied filters even while form controls have unsaved edits',a
  });
  context.applied={...filters,category:'مياه & صرف'};vm.runInContext('reportFilters=applied',context);
  await vm.runInContext("exportReport('csv')",context);await vm.runInContext("exportReport('xlsx')",context);
- for(const url of requests){const query=new URL(url,'http://localhost').searchParams;for(const [key,value] of Object.entries(context.applied))assert.equal(query.get(key),value);assert.doesNotMatch(url,/unsaved/);}
+ for(const url of requests){const query=new URL(url,'http://localhost').searchParams;for(const [key,value] of Object.entries(context.applied))assert.equal(query.get(key),key==='owner'?null:value);assert.doesNotMatch(url,/unsaved/);}
  assert.equal(downloads.length,2);assert.match(downloads[0],/\.csv$/);assert.match(downloads[1],/\.xlsx$/);
 });
 test('report charts escape untrusted labels and empty filters do not invent records',()=>{
@@ -79,7 +79,7 @@ test('HTTP export route forwards category and priority filters to the existing e
  app.use('/api',createReportsRouter({reportsService:service,middleware:{requireAuth:(req,res,next)=>{req.user={id:'test',username:'test'};next();},requireCsrf:(_req,_res,next)=>next()},rolesService:{requirePermission:()=> (_req,_res,next)=>next()}}));
  const server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s));});t.after(()=>new Promise(resolve=>server.close(resolve)));
  const query=new URLSearchParams(filters);const response=await fetch('http://127.0.0.1:'+server.address().port+'/api/export/csv?'+query);assert.equal(response.status,200);await response.text();
- for(const [key,value] of Object.entries(filters))assert.equal(seen[key],value);
+ for(const [key,value] of Object.entries(filters))assert.equal(seen[key],key==='owner'?undefined:value);
 });
 
 test('processing report measures closure duration, reopening, and recorded delay reasons from filtered records',()=>{

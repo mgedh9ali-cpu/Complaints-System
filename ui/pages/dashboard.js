@@ -19,7 +19,7 @@ function complaintTable(rows,opts={}){
   if(!rows.length)return '<div class="empty-state registry-empty"><div class="empty-icon" aria-hidden="true">☰</div><p>'+esc(opts.emptyMessage||'لا توجد سجلات في هذا العرض.')+'</p></div>';
   return '<div class="table-wrap registry-table-wrap"><table class="registry-table"><thead><tr>'+
     (opts.select?'<th class="col-check"><input class="table-check" type="checkbox" aria-label="تحديد الكل" data-action="select-all"></th>':'')+
-    '<th class="col-id">رقم السجل</th><th class="col-type">النوع</th><th class="col-subject">الموضوع / المشتكي</th><th class="col-prov">المحافظة</th><th class="col-status">الحالة</th><th class="col-pri">الأولوية</th><th class="col-owner">المسؤول</th><th class="col-age">مدة البقاء</th><th class="col-act">الإجراء</th></tr></thead><tbody>'+
+    '<th class="col-id">رقم السجل</th><th class="col-type">النوع</th><th class="col-subject">الموضوع / المشتكي</th><th class="col-prov">المحافظة</th><th class="col-status">الحالة</th><th class="col-pri">الأولوية</th><th class="col-age">مدة البقاء</th><th class="col-act">الإجراء</th></tr></thead><tbody>'+
     rows.map(c=>{
       const late=isLate(c);
       const incomplete=typeof isIncomplete==='function'&&isIncomplete(c);
@@ -33,7 +33,6 @@ function complaintTable(rows,opts={}){
       '<td class="col-prov">'+esc(c.province||'—')+'</td>'+
       '<td class="col-status">'+pillStatus(c.status)+'</td>'+
       '<td class="col-pri">'+pillPriority(c.priority)+'</td>'+
-      '<td class="col-owner"><span class="owner-chip">'+esc(c.owner||'غير مسند')+'</span></td>'+
       '<td class="col-age"><div class="sla-cell">'+slaIndicator(c)+'<span class="age '+(late?'late':ageDays(c)>5?'soon':'ok')+'">'+ageDays(c)+'ي'+(late?' · متأخرة':'')+'</span></div></td>'+
       '<td class="col-act"><div class="action-cell">'+complaintRecordActions(c,true)+'</div></td></tr>';
     }).join('')+
@@ -66,8 +65,6 @@ function dashboard(){
   const dueSoon=open.filter(c=>isDueSoon(c));
   const missing=open.filter(isIncomplete);
   const pendingReferrals=referralList().filter(r=>!r.response);
-  const me=authenticatedUser?.name||authenticatedUser?.username||'';
-  const mine=me?open.filter(c=>c.owner===me||c.owner===authenticatedUser?.username):[];
   const urgentNoReply=open.filter(c=>c.priority==='urgent'&&!c.reply);
   const newToday=open.filter(c=>c.status==='new'||isCreatedToday(c));
   const priority=[...open].sort((a,b)=>{
@@ -79,7 +76,6 @@ function dashboard(){
     [late.length,'red','!','شكاوى متجاوزة للمهلة','وفق المهلة المعتمدة — عالجها أولًا','filter-late',null],
     [urgentNoReply.length,'red','⚡','عاجلة بلا رد','أولوية عاجلة ولم يُصغَ رد بعد','urgent-no-reply',null],
     [dueSoon.length,'amber','◷','مهل تستحق خلال 48 ساعة','ابدأ المتابعة قبل تجاوز المهلة','filter-due-soon',null],
-    [mine.length,'blue','◎','مسندة إليّ','سجّلات مفتوحة باسمك','my-complaints',null],
     [approvals.length,'amber','✓','ردود تنتظر الاعتماد','اعتماد الرد من مستخدم مخوّل','', 'replies'],
     [pendingReferrals.length,'blue','↗','إحالات لم يصل ردها','تابع الجهات المحال إليها','', 'referrals'],
     [missing.length,'amber','≡','سجلات تحتاج استكمالًا','نقص في الحقول الأساسية','filter-missing',null],
@@ -98,7 +94,7 @@ function dashboard(){
   const totalActive=db.complaints.filter(c=>!c.archivedAt).length;
   return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل شكوى','new-complaint','btn-primary'):'')+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
-      [['جميع السجلات',totalActive],['مفتوحة',open.length],['متأخرة',late.length],['مسندة إليّ',mine.length]].map(([label,n],i)=>
+      [['جميع السجلات',totalActive],['مفتوحة',open.length],['متأخرة',late.length],['بانتظار رد الجهة',countStatus('awaiting_reply')]].map(([label,n],i)=>
         '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+

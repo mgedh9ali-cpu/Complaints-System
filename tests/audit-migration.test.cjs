@@ -162,7 +162,7 @@ test(
         role: "reviewer",
       }),
     });
-    assert.equal(createReviewer.status, 201);
+    assert.equal(createReviewer.status, 410);
 
     const createComplaint = await fetch(baseUrl + "/api/complaints", {
       method: "POST",
@@ -184,32 +184,11 @@ test(
         password: "reviewer-test-password-123",
       }),
     });
-    assert.equal(reviewerLogin.status, 200);
-    const reviewerCookie = reviewerLogin.headers
-      .get("set-cookie")
-      ?.split(";")[0];
-    assert.ok(
-      reviewerCookie,
-      "reviewer login should establish a session cookie",
-    );
-    const reviewerHeaders = await csrfHeaders(baseUrl, reviewerCookie);
-
-    const forbiddenUpdate = await fetch(
-      baseUrl +
-        "/api/complaints/" +
-        encodeURIComponent(complaint.id) +
-        "/status",
-      {
-        method: "PATCH",
-        headers: reviewerHeaders,
-        body: JSON.stringify({ status: "closed" }),
-      },
-    );
-    assert.equal(
-      forbiddenUpdate.status,
-      403,
-      "reviewers must not change complaint status",
-    );
+    assert.equal(reviewerLogin.status, 401);
+    const forbiddenUpdate = await fetch(baseUrl+'/api/complaints/'+encodeURIComponent(complaint.id)+'/status',{
+      method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({status:'closed'})
+    });
+    assert.equal(forbiddenUpdate.status,401);
 
     const allowedUpdate = await fetch(
       baseUrl +
@@ -235,10 +214,10 @@ test(
       created_at, previous_hash, event_hash FROM audit_events ORDER BY rowid ASC`,
         )
         .all();
-      assert.equal(rows.length, initialEventCount + 5,
-        'two successful logins, user creation, complaint creation and status change are audited once each');
-      assert.equal(rows.filter(row=>row.action==='login_succeeded').length,2);
-      assert.ok(rows.some(row => row.action === 'user_created'));
+      assert.equal(rows.length, initialEventCount + 3,
+        'owner login, complaint creation and status change are audited once each');
+      assert.equal(rows.filter(row=>row.action==='login_succeeded').length,1);
+      assert.equal(rows.some(row => row.action === 'user_created'),false);
       assert.ok(rows.some(row => row.action === 'complaint_created'));
       assert.equal(verifyAuditRows(rows).valid, true);
       assert.ok(rows.some((row) => row.action === "complaint_status_changed"));

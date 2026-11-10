@@ -35,7 +35,7 @@ function tableSkeleton(rowCount){
     '<table class="registry-table"><thead><tr>'+
     '<th class="col-id">رقم السجل</th><th class="col-type">النوع</th><th class="col-subject">الموضوع</th>'+
     '<th class="col-prov">المحافظة</th><th class="col-status">الحالة</th><th class="col-pri">الأولوية</th>'+
-    '<th class="col-owner">المسؤول</th><th class="col-age">مدة البقاء</th><th class="col-act">الإجراء</th>'+
+    '<th class="col-age">مدة البقاء</th><th class="col-act">الإجراء</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 

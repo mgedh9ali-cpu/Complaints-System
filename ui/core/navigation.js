@@ -7,7 +7,7 @@ function applyUiPermissions(){
     // Hide create actions for reviewers; hide settings manage for non-admins when marked.
     $$('[data-action="new-complaint"]').forEach(el=>{if(role==='reviewer')el.hidden=true;});
     $$('[data-action="save-incomplete"],[data-action="save-complaint"]').forEach(el=>{if(role==='reviewer')el.hidden=true;});
-    $$('.complaint-page.readonly [data-action="change-status"],.complaint-page.readonly [data-action="assign-owner"],.complaint-page.readonly [data-action="change-priority"]').forEach(el=>{el.disabled=true;});
+    $$('.complaint-page.readonly [data-action="change-status"],.complaint-page.readonly [data-action="change-priority"]').forEach(el=>{el.disabled=true;});
   }catch(_){}
 }
 function render(){
@@ -67,8 +67,8 @@ async function openStateConflict(){
  conflictDraft.remote=stored.state||cleanState();conflictDraft.revision=stored.revision;conflictDraft.conflicts=conflicts;
  const show=value=>esc(JSON.stringify(value,null,2)??'غير موجود');
  modal('تعارض النسخ','راجع الفروق قبل إعادة الحفظ. تبقى الصلاحيات وقواعد الحالة مطبقة على الخادم.',
- '<div class="conflict-diff">'+(conflicts.length?conflicts.map((diff,i)=>'<fieldset><legend>'+esc(diff.path.join(' / '))+'</legend><label><input type="radio" name="conflict-'+i+'" value="remote" checked> خذ نسخة زميلك</label><pre>'+show(diff.remote)+'</pre><label><input type="radio" name="conflict-'+i+'" value="local"> احتفظ بتعديلي</label><pre>'+show(diff.local)+'</pre></fieldset>').join(''):'<p>التعديلات على حقول مختلفة؛ يمكن دمجها مع الاحتفاظ بنسخة زميلك.</p>')+'</div>',
- '<button class="btn" data-action="conflict-remote">خذ نسخة زميلك كاملة</button><button class="btn btn-primary" data-action="conflict-save">حفظ الخيارات</button>',true);
+ '<div class="conflict-diff">'+(conflicts.length?conflicts.map((diff,i)=>'<fieldset><legend>'+esc(diff.path.join(' / '))+'</legend><label><input type="radio" name="conflict-'+i+'" value="remote" checked> خذ نسخة النسخة الأخرى من التطبيق</label><pre>'+show(diff.remote)+'</pre><label><input type="radio" name="conflict-'+i+'" value="local"> احتفظ بتعديلي</label><pre>'+show(diff.local)+'</pre></fieldset>').join(''):'<p>التعديلات على حقول مختلفة؛ يمكن دمجها مع الاحتفاظ بنسخة النسخة الأخرى من التطبيق.</p>')+'</div>',
+ '<button class="btn" data-action="conflict-remote">خذ نسخة النسخة الأخرى من التطبيق كاملة</button><button class="btn btn-primary" data-action="conflict-save">حفظ الخيارات</button>',true);
 }
 async function resolveStateConflict(remoteOnly=false){
  if(!conflictDraft)return;
@@ -78,6 +78,6 @@ async function resolveStateConflict(remoteOnly=false){
   if(!remoteOnly){
    const saved=await api('/api/state',{method:'PUT',headers:{'X-State-Revision':String(draft.revision)},body:JSON.stringify(merged)});stateRevision=saved.revision;
   }else stateRevision=draft.revision;
-  db=merged;stateBase=structuredClone(merged);stateConflict=false;conflictDraft=null;closeModal();render();toast(remoteOnly?'تم اعتماد نسخة زميلك.':'تم دمج التعديلات وحفظها.');
+  db=merged;stateBase=structuredClone(merged);stateConflict=false;conflictDraft=null;closeModal();render();toast(remoteOnly?'تم اعتماد نسخة النسخة الأخرى من التطبيق.':'تم دمج التعديلات وحفظها.');
  }catch(error){toast(error.message,'error');}
 }

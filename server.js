@@ -25,7 +25,6 @@ const { createAuthService } = require('./modules/auth/service');
 const { createAuthMiddleware } = require('./modules/auth/middleware');
 const { createAuthRouter } = require('./modules/auth/routes');
 const { createRolesService } = require('./modules/roles/service');
-const { createRolesRouter } = require('./modules/roles/routes');
 const { createComplaintsService } = require('./modules/complaints/service');
 const { createComplaintsRouter } = require('./modules/complaints/routes');
 const { createDashboardService } = require('./modules/dashboard/service');
@@ -83,14 +82,15 @@ const authService = createAuthService({
 measureStartupPhase('bootstrapAccount', () => authService.ensureBootstrapAdmin(env.adminUsername, env.adminPassword));
 
 const middleware = createAuthMiddleware({ db, audit });
+const rejectTeamOperations=require('./lib/single-operator').installSingleOperator({db,authService,middleware,username:env.adminUsername});
 const { ensureCsrfToken } = middleware;
 
 const rolesService = createRolesService({ db });
-const complaintsService = createComplaintsService({ db, audit, logger, rolesService });
+const complaintsService = createComplaintsService({ db, audit, logger, rolesService, singleOperator:true });
 const remindersService = createRemindersService({ db, complaintsService, audit });
 const dashboardService = createDashboardService({ complaintsService });
 const attachmentsService = createAttachmentsService({ db });
-const approvalsService = createApprovalsService({ db, audit, complaintsService, attachmentsService });
+const approvalsService = createApprovalsService({ db, audit, complaintsService, attachmentsService, singleOperator:true });
 const reportsService = createReportsService({ complaintsService });
 const settingsService = createSettingsService({ complaintsService });
 const backupService = createBackupService({
@@ -161,13 +161,13 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/api',rejectTeamOperations);
 app.use('/api', createHealthRouter({ healthService, middleware }));
 app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
-app.use('/api', createAuthRouter({ authService, middleware, audit, rolesService }));
-app.use('/api', createRolesRouter({ rolesService, middleware }));
+app.use('/api', createAuthRouter({ authService, middleware, audit, rolesService, singleOperator:true }));
 app.use('/api', createApprovalsRouter({ approvalsService, middleware, rolesService }));
 app.use(
   '/api',

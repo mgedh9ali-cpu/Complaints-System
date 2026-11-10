@@ -20,7 +20,7 @@ function referralsPage(){
 }
 function repliesPage(){
   const rows=db.complaints.filter(c=>!c.archivedAt&&c.reply);
-  return heading('الردود والاعتماد','مسار الرد: مسودة ← مراجعة ← اعتماد من مستخدم آخر ← توثيق الإرسال.',btn('＋ إنشاء رد','new-reply','btn-primary'))+
+  return heading('الردود والاعتماد','مسار الرد: مسودة ← مراجعة ← اعتمادك بعد المراجعة ← توثيق الإرسال.',btn('＋ إنشاء رد','new-reply','btn-primary'))+
   '<div class="risk-note">لا يُسمح لمُعدّ الرد باعتماده؛ يجب الاعتماد من حساب مخوّل آخر.</div>'+
   '<section class="panel table-panel"><div class="panel-header"><div><h2>ملفات الردود</h2><p>'+rows.length+' رد مرتبط بسجل شكوى</p></div></div>'+
   (rows.length?

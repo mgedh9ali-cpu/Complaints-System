@@ -124,13 +124,12 @@ function printComplaintCover(id){
   '<div><div class="label">صاحب الشكوى</div><div class="value">'+esc(c.name||'—')+'</div></div>'+
   '<div><div class="label">الجهة المختصة</div><div class="value">'+esc(c.entity||'—')+'</div></div>'+
   '<div><div class="label">التصنيف / الطبيعة</div><div class="value">'+esc((c.category||'—')+' / '+(c.nature||'—'))+'</div></div>'+
-  '<div><div class="label">الموظف المتابع</div><div class="value">'+esc(c.owner||'—')+'</div></div>'+
   '</div>'+
   '<div class="subject"><div class="label">الموضوع</div><div class="value">'+esc(c.summary||'—')+'</div>'+
   '<p style="margin:10px 0 0;font-size:13px;font-weight:400">'+esc((c.details||'').slice(0,800))+'</p></div>'+
   '<div class="grid"><div><div class="label">الإحالات</div><div class="value">'+refs+'</div></div>'+
   '<div><div class="label">عدد المرفقات</div><div class="value">'+att+'</div></div></div>'+
-  '<div class="sig"><div>توقيع المستلم</div><div>توقيع المسؤول</div></div>'+
+  '<div class="sig"><div>توقيع المستلم</div><div>التوقيع</div></div>'+
   '<div class="foot"><span>تاريخ الطباعة: '+esc(new Date().toLocaleString('ar-IQ'))+'</span><span dir="ltr">'+esc(c.id)+'</span></div>'+
   '</body></html>');
   w.document.close();
@@ -151,14 +150,14 @@ function complaintActionsModal(id){
  if(uiCan('export.xlsx')&&!c.archivedAt)body+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
  body+='</div></section>';
  if(uiCan('complaints.create')||uiCan('complaints.update'))body+='<section class="record-action-group"><h3>إنشاء نسخة</h3><div class="record-action-buttons">'+action('نسخ إلى شكوى جديدة','copy-complaint','btn-copy')+'</div></section>';
- if(uiCan('approvals.request')&&!c.archivedAt)body+='<section class="record-action-group"><h3>الأرشفة</h3><p class="small-copy">يحتاج الحذف من السجل النشط إلى موافقة مدير آخر.</p><div class="record-action-buttons">'+action('طلب حذف الشكوى','request-complaint-delete','btn-danger')+'</div></section>';
+ if(uiCan('approvals.request')&&!c.archivedAt)body+='<section class="record-action-group"><h3>الأرشفة</h3><p class="small-copy">يحتاج الحذف من السجل النشط إلى تأكيدك مع توثيق السبب.</p><div class="record-action-buttons">'+action('طلب حذف الشكوى','request-complaint-delete','btn-danger')+'</div></section>';
  modal('إجراءات الشكوى',esc(c.id)+' · '+esc(c.summary||''),body,'<button type="button" class="btn" data-action="close-modal">إغلاق</button>');
 }
 function requestComplaintDeletion(id){
  const c=db.complaints.find(item=>item.id===id);
  if(!c||c.archivedAt||!uiCan('approvals.request'))return toast('لا تملك صلاحية طلب حذف هذه الشكوى.','error');
  approvalRequestModal('complaint_archive',id);
- const description=$('#modalDescription');if(description)description.textContent='حذف الشكوى من السجل النشط يتطلب موافقة مدير آخر، مع الاحتفاظ بالأدلة في الأرشيف.';
+ const description=$('#modalDescription');if(description)description.textContent='حذف الشكوى من السجل النشط يتطلب تأكيدك مع توثيق السبب، مع الاحتفاظ بالأدلة في الأرشيف.';
 }
 async function exportComplaintDocument(id,format){
  if(!uiCan('export.xlsx'))return toast('لا تملك صلاحية تصدير هذه الشكوى.','error');
@@ -188,7 +187,6 @@ async function copyComplaint(id){
     nature:c.nature||'',
     entity:c.entity||'',
     priority:c.priority||'normal',
-    owner:c.owner||authenticatedUser?.username||'',
     summary:(c.summary||'')+(c.summary&&!String(c.summary).includes('(نسخة)')?' (نسخة)':''),
     details:c.details||'',
     source:c.source||'phone',

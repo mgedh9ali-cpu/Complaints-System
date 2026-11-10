@@ -79,7 +79,6 @@ case 'save-referral-response':saveReferralResponse(id,Number(el.dataset.index));
 case 'propose-duplicate':duplicateProposalModal(id);break;
 case 'submit-duplicate':submitApproval('complaint_duplicate',id,$('#duplicateOriginal')?.value,$('#approvalReason')?.value.trim());break;
 case 'toggle-completion-reminder':saveDetailChange(id,c=>{c.completionReminderStopped=!c.completionReminderStopped;},'حُفظ إعداد تذكير الاستكمال.');break;
-case 'save-collaborators':saveDetailChange(id,c=>{c.coAssistants=[...($('#coAssistants')?.selectedOptions||[])].map(o=>o.value);},'حُفظ المساعدون المشاركون.');break;
 case 'conflict-save':resolveStateConflict();break;
 case 'conflict-remote':resolveStateConflict(true);break;
 case 'print-approved-reply':printApprovedReply(id);break;
@@ -128,7 +127,6 @@ case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailR
 case 'detail-section':scrollComplaintSection(el.dataset.target,el);break;
 case 'glass-step':await chooseWorkflowStep(el.dataset.status);break;
 case 'change-status':await withButtonLock(el,()=>changeStatus(id));break;
-case 'assign-owner':await withButtonLock(el,()=>assignOwner(id));break;
 case 'change-priority':changePriority(id);break;
 case 'add-note':addNote(id);break;
 case 'save-note':await withButtonLock(el,()=>saveNote(id));break;
@@ -149,10 +147,8 @@ case 'filter-due-soon':quickView='due-soon';statusFilter='all';priorityFilter='a
 case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';dateTypeFilter='created';dateFrom='';dateTo='';quickView='all';registryPage=1;render();break;
 case 'quick-filter':quickView=el.dataset.value||'all';recordTypeFilter='all';registryPage=1;statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';render();break;
-case 'my-complaints':quickView='mine';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'bulk-open':bulkOpen();break;
-case 'bulk-assign':bulkChangeModal('owner');break;
 case 'bulk-priority':bulkChangeModal('priority');break;
 case 'bulk-apply':await applyBulkChange(el.dataset.field);break;
 case 'select-all':{
@@ -180,11 +176,6 @@ case 'save-sla':await withButtonLock(el,()=>saveSlaSettings());break;
 case 'add-category':addSetting('categories');break;
 case 'change-password':passwordChangeModal();break;
 case 'save-password-change':await withButtonLock(el,()=>savePasswordChange());break;
-case 'refresh-local-users':await refreshManagedUsers();break;
-case 'create-local-user':await withButtonLock(el,()=>createLocalUser());break;
-case 'toggle-local-user':await toggleLocalUser(el.dataset.userId,el.dataset.active==='true');break;
-case 'edit-user-permissions':editUserPermissions(id);break;
-case 'save-user-permissions':await withButtonLock(el,()=>saveUserPermissions(id));break;
 case 'save-complaint-edit':await withButtonLock(el,()=>saveComplaintEdit(id));break;
 case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
 case 'registry-next':registryPage+=1;render();break;
@@ -193,7 +184,7 @@ case 'registry-next':registryPage+=1;render();break;
 });
 document.addEventListener('submit',e=>{if(e.target.id==='reportFiltersForm'){e.preventDefault();applyReportFilters();}});
 document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}if(['cName','cPhone','cFirstContactDate','cSummary','cDetails'].includes(e.target.id))saveComplaintDraft();});
-document.addEventListener('change',e=>{if(e.target.id==='displayDensity')window.setDisplayPreference?.('density',e.target.value);if(e.target.id==='displayMotion')window.setDisplayPreference?.('motion',e.target.value);if(e.target.id==='bulkType'){updateBulkValues(e.target.value);return;}if(e.target.id==='paletteSelect'){window.setPalette?.(e.target.value);return;}if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='assignOwner')assignOwner(currentId);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority','cOwner'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
+document.addEventListener('change',e=>{if(e.target.id==='displayDensity')window.setDisplayPreference?.('density',e.target.value);if(e.target.id==='displayMotion')window.setDisplayPreference?.('motion',e.target.value);if(e.target.id==='bulkType'){updateBulkValues(e.target.value);return;}if(e.target.id==='paletteSelect'){window.setPalette?.(e.target.value);return;}if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(['cProvince','cCategory','cNature','cEntity','cPriority'].includes(e.target.id))saveComplaintDraft();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
 document.addEventListener('keydown',e=>{
   const root=$('#modalRoot');
   if(root&&root.dataset.open){
@@ -240,12 +231,12 @@ async function submitLogin(e){
   const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password,code:$('#loginCode')?.value.trim()||undefined,rememberMe:$('#loginRemember')?.checked===true})});
   authenticatedUser=data.user||data;await loadDb();updateSignedInUi();
   if($('#loginPassword'))$('#loginPassword').value='';setLoginPasswordVisibility(false);
-  if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();toast('تم تسجيل الدخول.');
+  if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshApprovals?.();startReminderPolling?.();toast('تم تسجيل الدخول.');
  }catch(err){if(error){error.textContent=err.message||'فشل تسجيل الدخول';error.hidden=false;}$('#loginPassword')?.focus();}
  finally{loginPending=false;if(button){button.disabled=false;button.textContent='دخول';}$('#loginForm')?.removeAttribute('aria-busy');}
 }
 if($('#csvExportButton'))$('#csvExportButton').addEventListener('click',()=>{if(uiCan('export.csv')){if(page==='reports')exportReport('csv').catch(error=>toast(error.message,'error'));else exportCsv();}});
 if($('#loginForm'))$('#loginForm').addEventListener('submit',submitLogin);
-(async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshManagedUsers?.();refreshAssignees?.();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
+(async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
 
 })();

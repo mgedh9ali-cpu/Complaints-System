@@ -62,7 +62,7 @@ async function csrfToken(baseUrl, cookie) {
 }
 
 test(
-  "local account management enforces administrator-only access and safe deactivation",
+  "single-operator installation disables account management and rejects legacy secondary login",
   {
     timeout: 30000,
     skip: hasServerDependencies
@@ -142,107 +142,16 @@ test(
         },
       });
 
-    const initial = await adminFetch("/api/users");
-    assert.equal(initial.status, 200);
-    const initialBody = await initial.json();
-    assert.equal(initialBody.users.length, 1);
-    assert.equal(initialBody.users[0].username, "localadmin");
-    assert.equal("password_hash" in initialBody.users[0], false);
-
-    const createdResponse = await adminFetch("/api/users", {
-      method: "POST",
-      body: JSON.stringify({
-        username: "reviewer1",
-        password: "Review-password-2026",
-        role: "reviewer",
-      }),
-    });
-    assert.equal(createdResponse.status, 201);
-    const created = (await createdResponse.json()).user;
-    assert.equal(created.role, "reviewer");
-    assert.equal(created.active, 1);
-
-    const duplicate = await adminFetch("/api/users", {
-      method: "POST",
-      body: JSON.stringify({
-        username: "reviewer1",
-        password: "Another-password-2026",
-        role: "staff",
-      }),
-    });
-    assert.equal(duplicate.status, 409);
-
-    const weakPassword = await adminFetch("/api/users", {
-      method: "POST",
-      body: JSON.stringify({
-        username: "weakuser",
-        password: "short",
-        role: "staff",
-      }),
-    });
-    assert.equal(weakPassword.status, 400);
-
-    const selfDeactivate = await adminFetch(
-      "/api/users/" + initialBody.users[0].id + "/active",
-      {
-        method: "PATCH",
-        body: JSON.stringify({ active: false }),
-      },
-    );
-    assert.equal(selfDeactivate.status, 409);
-
-    const reviewerLogin = await fetch(baseUrl + "/api/auth/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        username: "reviewer1",
-        password: "Review-password-2026",
-      }),
-    });
-    assert.equal(reviewerLogin.status, 200);
-    const reviewerCookie = cookieFrom(reviewerLogin);
-    const reviewerUsers = await fetch(baseUrl + "/api/users", {
-      headers: { cookie: reviewerCookie },
-    });
-    assert.equal(reviewerUsers.status, 403);
-    const reviewerStatusChange = await fetch(
-      baseUrl + "/api/complaints/CMP-NONEXISTENT/status",
-      {
-        method: "PATCH",
-        headers: {
-          cookie: reviewerCookie,
-          "content-type": "application/json",
-          "X-CSRF-Token": "dummy",
-        },
-        body: JSON.stringify({ status: "closed" }),
-      },
-    );
-    assert.equal(reviewerStatusChange.status, 403);
-
-    const deactivate = await adminFetch(
-      "/api/users/" + created.id + "/active",
-      {
-        method: "PATCH",
-        body: JSON.stringify({ active: false }),
-      },
-    );
-    assert.equal(deactivate.status, 200);
-    assert.equal((await deactivate.json()).user.active, 0);
-
-    const audit = await adminFetch("/api/audit");
-    assert.equal(audit.status, 200);
-    const events = (await audit.json()).events;
-    assert.ok(
-      events.some(
-        (event) =>
-          event.action === "user_created" && event.targetId === created.id,
-      ),
-    );
-    assert.ok(
-      events.some(
-        (event) =>
-          event.action === "user_deactivated" && event.targetId === created.id,
-      ),
-    );
+    for(const url of ['/api/users','/api/roles','/api/assignees'])assert.equal((await adminFetch(url)).status,410);
+    assert.equal((await adminFetch('/api/users',{method:'POST',body:JSON.stringify({username:'reviewer1',role:'reviewer',password:'Review-password-2026'})})).status,410);
+    const Database=require('better-sqlite3'),database=new Database(path.join(temp,'complaints.sqlite'));
+    const {hashPassword}=require('../lib/passwords');
+    database.prepare('INSERT INTO users(id,username,password_hash,role,active,created_at) VALUES(?,?,?,?,1,?)').run('legacy-person','legacyadmin',hashPassword('Legacy-password-2026'),'admin',new Date().toISOString());
+    const secondary=await fetch(baseUrl+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'legacyadmin',password:'Legacy-password-2026'})});
+    assert.equal(secondary.status,401);
+    assert.equal(database.prepare('SELECT COUNT(*) AS n FROM users').get().n,2,'historical accounts must not be deleted');
+    assert.equal(database.prepare('SELECT user_id FROM single_operator WHERE id=1').get().user_id,(await (await adminFetch('/api/auth/me')).json()).user.id);
+    database.close();
+    assert.equal((await adminFetch('/api/users/legacy-person/active',{method:'PATCH',body:JSON.stringify({active:true})})).status,410);
   },
 );

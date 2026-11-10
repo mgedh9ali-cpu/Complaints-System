@@ -5,13 +5,13 @@ function suggestedNextStep(c){
   if(c.status === 'draft' || incomplete)
     return { title: 'استكمال البيانات', desc: 'بعض الحقول الأساسية ناقصة. أكمل الاسم أو الهاتف أو التفاصيل.', action: 'focus-summary', label: 'عرض البيانات' };
   if(c.status === 'new')
-    return { title: 'بدء المعالجة', desc: 'انقل الحالة إلى «قيد المعالجة» وأسند مسؤولاً إن لزم.', action: 'focus-status', label: 'إجراءات الحالة' };
+    return { title: 'بدء المعالجة', desc: 'انقل الحالة إلى «قيد المعالجة» وابدأ المتابعة.', action: 'focus-status', label: 'إجراءات الحالة' };
   if(c.status === 'in_progress' && !(c.referrals || []).length && !c.reply)
     return { title: 'إحالة أو صياغة رد', desc: 'أضف إحالة للجهة المختصة أو ابدأ صياغة الرد الخارجي.', action: 'referral-create', label: 'إضافة إحالة' };
   if(c.status === 'awaiting_reply')
     return { title: 'متابعة الجهة', desc: 'بانتظار رد الجهة المحال إليها. سجّل الرد عند وروده.', action: 'focus-referrals', label: 'عرض الإحالات' };
   if(c.status === 'awaiting_approval')
-    return { title: 'اعتماد الرد', desc: 'الرد جاهز للمراجعة والاعتماد من المخوّل.', action: 'focus-reply', label: 'قسم الردود' };
+    return { title: 'اعتماد الرد', desc: 'الرد جاهز للمراجعة والاعتماد بعد مراجعته.', action: 'focus-reply', label: 'قسم الردود' };
   if(c.status === 'in_progress' && c.reply && c.reply.status === 'draft')
     return { title: 'إرسال الرد للمراجعة', desc: 'يوجد مسودة رد. أرسلها للمراجعة أو عدّلها.', action: 'focus-reply', label: 'قسم الردود' };
   if(c.status === 'closed' && !c.survey)

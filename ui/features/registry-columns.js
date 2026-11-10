@@ -1,4 +1,4 @@
-const registryColumnLabels={id:'رقم السجل',type:'النوع',subject:'الموضوع',prov:'المحافظة',status:'الحالة',pri:'الأولوية',owner:'المسؤول',age:'مدة البقاء',act:'الإجراءات'};
+const registryColumnLabels={id:'رقم السجل',type:'النوع',subject:'الموضوع',prov:'المحافظة',status:'الحالة',pri:'الأولوية',age:'مدة البقاء',act:'الإجراءات'};
 function registryColumnKey(){return authenticatedUser?.id?'complaints-columns:'+encodeURIComponent(authenticatedUser.id):null;}
 function registryColumns(){
  const defaults=Object.keys(registryColumnLabels).map(key=>({key,visible:true}));

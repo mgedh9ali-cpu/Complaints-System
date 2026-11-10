@@ -28,7 +28,7 @@ function emptyState() {
   return { complaints: [], notifications: [], templates: structuredClone(DEFAULT_TEMPLATES), settings: structuredClone(DEFAULT_SETTINGS) };
 }
 
-function createComplaintsService({ db, audit, logger, rolesService }) {
+function createComplaintsService({ db, audit, logger, rolesService, singleOperator = false }) {
   const roles = rolesService || createRolesService({ db });
   const storage = storageFor(db);
   db.exec('CREATE TABLE IF NOT EXISTS complaint_counters(year INTEGER PRIMARY KEY, value INTEGER NOT NULL)');
@@ -156,6 +156,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     }
     for (const c of state.complaints || []) {
       const prev = prevById.get(c.id);
+      if(singleOperator&&JSON.stringify(prev?.coAssistants||[])!==JSON.stringify(c.coAssistants||[]))return {invalidTransition:true,error:'المساعدون غير متاحين في هذا التطبيق.'};
       if (prev && prev.status !== c.status) {
         return { invalidTransition: true, error: 'تغيير الحالة غير مسموح عبر حفظ الحالة الكامل. استخدم مسار تغيير الحالة.' };
       }
@@ -164,7 +165,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       }
       if (!prev) {
         if (c.reply) {
-          const initial = applyReplyTransition({ previous: null, proposed: c.reply, actor,
+          const initial = applyReplyTransition({ singleOperator, previous: null, proposed: c.reply, actor,
             can: roles.can, now: new Date().toISOString() });
           if (!initial.ok) return { invalidTransition: true, error: initial.error };
           c.reply = initial.reply;
@@ -190,7 +191,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       const nextReply = c.reply || null;
       if (prevReply && !nextReply) return { invalidTransition: true, error: 'لا يمكن حذف الرد عبر حفظ الحالة.' };
       if (nextReply && JSON.stringify(prevReply) !== JSON.stringify(nextReply)) {
-        const changed = applyReplyTransition({ previous: prevReply, proposed: nextReply, actor,
+        const changed = applyReplyTransition({ singleOperator, previous: prevReply, proposed: nextReply, actor,
           can: roles.can, now: new Date().toISOString() });
         if (!changed.ok) return { invalidTransition: true, error: changed.error };
         c.reply = changed.reply;
@@ -270,13 +271,13 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
       id, name: body.name || '', phone: body.phone || '', source: body.source || 'phone',
       province: body.province, entity: body.entity || '', category: body.category,
       nature: body.nature || '', priority: body.priority || 'normal', status,
-      owner: username || null, summary: body.summary || '', details: body.details || '',
+      ...(singleOperator?{}:{owner:username||null}), summary: body.summary || '', details: body.details || '',
       firstContactDate: body.firstContactDate || null,
       created: now, updated: now,
       due: new Date(Date.now() + (Number(state.settings.slaDays) || 7) * 86400000).toISOString(),
       notes: [], timeline: [{ event: asDraft ? 'حفظ مسودة' : 'تسجيل الشكوى', by: username || 'system', at: now, detail: asDraft ? 'مسودة غير منشورة.' : 'تم الإنشاء عبر API.' }],
       referrals: [], reply: null, confidentiality: body.confidentiality || 'normal',
-      attachments: [], coAssistants: [], statusHistory: []
+      attachments: [], ...(singleOperator?{}:{coAssistants:[]}), statusHistory: []
     };
     state.complaints = Array.isArray(state.complaints) ? state.complaints.slice() : [];
     state.complaints.push(complaint);
@@ -292,6 +293,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
   }
 
   function updateComplaint({ complaintId, body, userId, username }) {
+    if(singleOperator&&['owner','coAssistants'].some(k=>Object.hasOwn(body||{},k)))return {ok:false,status:400,error:'الإسناد والمساعدون غير متاحين.'};
     const { state, revision } = readState();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
@@ -544,7 +546,7 @@ function createComplaintsService({ db, audit, logger, rolesService }) {
     const now = new Date().toISOString();
     const proposed = { ...(complaint.reply || {}), status: statuses[action],
       text: action === 'draft' && text !== undefined ? text : complaint.reply?.text || '' };
-    const changed = applyReplyTransition({ previous: complaint.reply || null, proposed,
+    const changed = applyReplyTransition({ singleOperator, previous: complaint.reply || null, proposed,
       actor: actorFor(userId), can: roles.can, now, action });
     if (!changed.ok) return changed;
     const reply = changed.reply;

@@ -1,5 +1,4 @@
 function replyTemplatePlaceholders(c){
-  const owner=c.owner||authenticatedUser?.username||'';
   const phone=c.phone||'';
   const province=c.province||'';
   const nature=c.nature||'';
@@ -13,7 +12,6 @@ function replyTemplatePlaceholders(c){
     '{{المحافظة}}': province,
     '{{الطبيعة}}': nature,
     '{{الأولوية}}': priority,
-    '{{المسؤول}}': owner,
     '{{التاريخ}}': typeof dateText==='function'?dateText(new Date().toISOString()): new Date().toLocaleDateString('ar')
   };
 }
@@ -38,7 +36,7 @@ function replyEditor(id){
       '<div class="form-field full"><label for="replyText">نص الرد</label>'+
       '<textarea class="textarea-field" id="replyText" required style="min-height:180px">'+esc(text)+'</textarea></div>'+
       '</div>'+
-      '<p class="small-copy">المتغيرات: {{رقم_الشكوى}}، {{اسم_المشتكي}}، {{الهاتف}}، {{المحافظة}}، {{التصنيف}}، {{الطبيعة}}، {{الجهة}}، {{الأولوية}}، {{المسؤول}}، {{التاريخ}}.</p>'+
+      '<p class="small-copy">المتغيرات: {{رقم_الشكوى}}، {{اسم_المشتكي}}، {{الهاتف}}، {{المحافظة}}، {{التصنيف}}، {{الطبيعة}}، {{الجهة}}، {{الأولوية}}، {{التاريخ}}.</p>'+
       '<p class="small-copy">اختيار قالب يملأ النص تلقائيًا. إن وُجد نص سابق سيُطلب تأكيد الاستبدال.</p></form>',
     '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-reply" data-id="'+esc(id)+'">حفظ المسودة</button>'
   );
@@ -103,7 +101,6 @@ async function replyAction(id,action){
  if(action==='reply-review'&&status!=='draft')return toast('المسودة غير جاهزة للمراجعة.','error');
  if(action==='reply-approve'){
   if(!uiCan('replies.approve'))return toast('الاعتماد يتطلب صلاحية مستقلة.','error');
-  if(c.reply.authorId===authenticatedUser.id||c.reply.editedById===authenticatedUser.id||c.reply.author===authenticatedUser.username)return toast('لا يمكن للكاتب أو آخر معدّل اعتماد الرد.','error');
   if(!['draft','review','approval'].includes(status))return toast('لا يمكن اعتماد الرد في مرحلته الحالية.','error');
  }
  if(action==='reply-sent'&&status!=='approved')return toast('يجب اعتماد الرد قبل توثيق الإرسال.','error');

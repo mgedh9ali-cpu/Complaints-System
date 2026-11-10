@@ -7,7 +7,6 @@ function readFilters(query) {
   return {
     status: typeof q.status === 'string' ? q.status : undefined,
     province: typeof q.province === 'string' ? q.province : undefined,
-    owner: typeof q.owner === 'string' ? q.owner : undefined,
     category: typeof q.category === 'string' ? q.category : undefined,
     priority: typeof q.priority === 'string' ? q.priority : undefined,
     from: typeof q.from === 'string' ? q.from : undefined,

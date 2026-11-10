@@ -90,22 +90,6 @@ async function saveDetailChange(id,change,success){
   toast('تعذر حفظ الإجراء: '+error.message,'error');
  }
 }
-async function assignOwner(id){
- const owner=$('#assignOwner')?.value;
- if(!owner)return toast('حدد المسؤول أولاً.','warn');
- if(!uiCan('complaints.assign'))return toast('لا تملك صلاحية الإسناد.','error');
- try{
-  const pending=Boolean(persistTimer);
-  if(persistTimer){clearTimeout(persistTimer);persistTimer=null;}
-  await persistQueue;
-  if(pending)await persistUiNow();
-  await api('/api/complaints/'+encodeURIComponent(id),{
-   method:'PATCH',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify({owner})
-  });
-  await loadDb();detailModal(id);toast('تم تأكيد الإسناد في قاعدة البيانات.');
- }catch(error){toast('تعذر حفظ الإسناد: '+error.message,'error');}
-
-}
 async function changePriority(id){
  const priority=$('#detailPriority')?.value;
  if(!priority)return toast('اختر الأولوية.','warn');
@@ -207,29 +191,28 @@ function bulkOpen(){
  const total=selectedIds.size,eligible=bulkEligibleComplaints().length;
  if(!total)return toast('حدد شكوى واحدة على الأقل أولًا.','warn');
  modal('إجراءات الشكاوى المحددة','حدد الإجراء. تُحفظ كل شكوى عبر مسار الخادم وتسجل في سجل التدقيق.','<p>المحدد: '+total+' · القابل للتعديل: '+eligible+' · المغلق أو المؤرشف لن يتغير.</p>',
-  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn" data-action="bulk-assign">إسناد المسؤول</button><button class="btn" data-action="bulk-priority">تغيير الأولوية</button><button class="btn" data-action="export-selected">تصدير المحدد</button>',true);
+  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn" data-action="bulk-priority">تغيير الأولوية</button><button class="btn" data-action="export-selected">تصدير المحدد</button>',true);
 }
 function bulkChangeModal(field){
- if(!['owner','priority'].includes(field))return;
+ if(field!=='priority')return;
  const eligible=bulkEligibleComplaints();
  if(!eligible.length)return toast('لا توجد شكاوى مفتوحة قابلة للتعديل ضمن التحديد.','warn');
- if(field==='owner'&&!uiCan('complaints.assign'))return toast('ليس لديك صلاحية إسناد الشكاوى.','error');
  if(field==='priority'&&!uiCan('complaints.update'))return toast('ليس لديك صلاحية تعديل الأولوية.','error');
- const options=field==='owner'?availableOwners().map(value=>({value,label:value})):db.settings.priorities.map(item=>({value:item.value,label:item.label}));
- const id=field==='owner'?'bulkOwner':'bulkPriority';
- const label=field==='owner'?'المسؤول الجديد':'الأولوية الجديدة';
- modal(field==='owner'?'إسناد المسؤول':'تغيير الأولوية','سيُطبق التغيير على '+eligible.length+' شكوى مفتوحة؛ تُعالج السجلات المغلقة أو المؤرشفة دون تغيير.',selectField(label,id,options,'',true),
+ const options=db.settings.priorities.map(item=>({value:item.value,label:item.label}));
+ const id='bulkPriority';
+ const label='الأولوية الجديدة';
+ modal('تغيير الأولوية','سيُطبق التغيير على '+eligible.length+' شكوى مفتوحة؛ تُعالج السجلات المغلقة أو المؤرشفة دون تغيير.',selectField(label,id,options,'',true),
   '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-apply" data-field="'+field+'">تطبيق على المحدد</button>');
 }
 async function applyBulkChange(field){
- if(!['owner','priority'].includes(field))return;
- const value=$('#'+(field==='owner'?'bulkOwner':'bulkPriority'))?.value;
+ if(field!=='priority')return;
+ const value=$('#'+('bulkPriority'))?.value;
  if(!value)return toast('اختر قيمة قبل التطبيق.','warn');
- const permission=field==='owner'?'complaints.assign':'complaints.update';
+ const permission='complaints.update';
  if(!uiCan(permission))return toast('ليس لديك صلاحية تنفيذ هذا الإجراء.','error');
  const eligible=bulkEligibleComplaints();
  if(!eligible.length)return toast('لا توجد شكاوى مفتوحة قابلة للتعديل.','warn');
- const label=field==='owner'?'إسناد '+value:'تغيير الأولوية إلى '+priorityLabel(value);
+ const label='تغيير الأولوية إلى '+priorityLabel(value);
  const ok=await confirmDialog({
    title:'تأكيد الإجراء الجماعي',
    message:label+' على '+eligible.length+' شكوى مفتوحة.',

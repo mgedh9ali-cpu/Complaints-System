@@ -4,7 +4,7 @@ const express = require('express');
 const crypto = require('node:crypto');
 const { rateLimit } = require('express-rate-limit');
 
-function createAuthRouter({ authService, middleware, audit, rolesService }) {
+function createAuthRouter({ authService, middleware, audit, rolesService, singleOperator = false }) {
   const router = express.Router();
   const { requireAuth, requireRole, requireCsrf } = middleware;
 
@@ -129,6 +129,7 @@ function createAuthRouter({ authService, middleware, audit, rolesService }) {
     });
   });
 
+  if(!singleOperator){
   router.get('/users', requireAuth, requireRole('admin'), (req, res) => {
     res.json({ users: authService.listUsers().map(user => ({ ...user,
       permissions: rolesService?.effectivePermissions(user) })),
@@ -176,6 +177,7 @@ function createAuthRouter({ authService, middleware, audit, rolesService }) {
     res.json({ user: result.user, sessionsRevoked: result.sessionsRevoked || 0 });
   });
 
+  }
   return router;
 }
 

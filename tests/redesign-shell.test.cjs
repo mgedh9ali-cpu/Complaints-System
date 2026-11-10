@@ -14,7 +14,7 @@ test('redesigned navigation preserves all working destinations and real action h
     assert.match(html,new RegExp('data-page="'+key+'"'));
     assert.match(app,new RegExp('(?:^|[,\\{])'+key+'(?:[:,]|,)', 'm'));
   }
-  for(const a of ['my-complaints','filter-missing','filter-late','new-complaint']){
+  for(const a of ['filter-missing','filter-late','new-complaint']){
     assert.ok(html.includes('data-action="'+a+'"'));
     assert.ok(app.includes("case '"+a+"'"));
   }

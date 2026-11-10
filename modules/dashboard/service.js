@@ -31,7 +31,6 @@ function createDashboardService({ complaintsService }) {
     let open = 0;
     let late = 0;
     let pendingApproval = 0;
-    let urgentNoOwner = 0;
     let missingFields = 0;
 
     for (const c of complaints) {
@@ -47,8 +46,7 @@ function createDashboardService({ complaintsService }) {
       if (!CLOSED_STATUSES.has(status)) open += 1;
       if (state.settings.slaApproved === true && isLate(c, nowMs)) late += 1;
       if (status === APPROVAL_STATUS) pendingApproval += 1;
-      if (priority === 'urgent' && !c.owner && !CLOSED_STATUSES.has(status)) urgentNoOwner += 1;
-      if (!c.province || !c.summary || !c.owner) missingFields += 1;
+      if (!c.province || !c.summary) missingFields += 1;
     }
 
     const recent = [...complaints]
@@ -60,7 +58,6 @@ function createDashboardService({ complaintsService }) {
         summary: c.summary || '',
         status: c.status,
         priority: c.priority || 'normal',
-        owner: c.owner || null,
         created: c.created,
         province: c.province || null
       }));
@@ -74,7 +71,6 @@ function createDashboardService({ complaintsService }) {
         summary: c.summary || '',
         status: c.status,
         due: c.due,
-        owner: c.owner || null,
         priority: c.priority || 'normal'
       }));
 
@@ -85,7 +81,6 @@ function createDashboardService({ complaintsService }) {
         open,
         late,
         pendingApproval,
-        urgentNoOwner,
         missingFields
       },
       byStatus,

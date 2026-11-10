@@ -164,7 +164,7 @@ test('select all marks visible complaint rows and reveals bulk actions',async()=
  const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
  ui.goto('complaints');ui.click('select-all',undefined,{checked:true});
  assert.match(ui.node('#content').innerHTML,/تم تحديد 2 سجلًا/);
- assert.match(ui.node('#content').innerHTML,/bulk-assign/);
+ assert.doesNotMatch(ui.node('#content').innerHTML,/bulk-assign/);
 });
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
@@ -276,8 +276,8 @@ test('manager approval is confirmed by the server with CSRF and different author
  assert.match(ui.node('#content').innerHTML,/معتمد/);
 });
 
-test('author or non-manager cannot approve a reply',async()=>{
- for(const [role,author] of [['admin','admin'],['staff','different-author'],['reviewer','different-author']]){
+test('an unauthorized role cannot approve a reply',async()=>{
+ for(const [role,author] of [['staff','different-author'],['reviewer','different-author']]){
   const ui=createFakeBrowser(role,{status:'review',author,text:'رد'});
   for(let i=0;i<20;i++)await Promise.resolve();
   ui.click('detail','SY-2026-10001');
@@ -287,19 +287,9 @@ test('author or non-manager cannot approve a reply',async()=>{
  }
 });
 
-test('assignment and priority are persisted with CSRF before success UI is shown',async()=>{
- const ui=createFakeBrowser('staff');
- for(let i=0;i<20;i++)await Promise.resolve();
- ui.click('detail','SY-2026-10001');
- ui.node('#assignOwner').value='staff-two';
- ui.click('assign-owner','SY-2026-10001');
- for(let i=0;i<35;i++)await Promise.resolve();
- const written=ui.calls.filter(x=>x.url==='/api/complaints/SY-2026-10001'&&x.method==='PATCH');
- assert.equal(written.length,1);
- assert.deepEqual(JSON.parse(written[0].body),{owner:'staff-two'});
- assert.equal(written[0].headers['X-State-Revision'],'1');
- assert.equal(written[0].headers['X-CSRF-Token'],'token-from-session');
- assert.match(ui.node('#content').innerHTML,/staff-two/);
+test('assignment is absent while priority changes persist with CSRF',async()=>{
+ const ui=createFakeBrowser('admin');for(let i=0;i<20;i++)await Promise.resolve();
+ ui.click('detail','SY-2026-10001');assert.doesNotMatch(ui.node('#content').innerHTML,/assignOwner|إسناد المسؤول|المساعدون/);
  ui.node('#detailPriority').value='high';
  ui.click('change-priority','SY-2026-10001');
  for(let i=0;i<35;i++)await Promise.resolve();
@@ -370,11 +360,11 @@ test('recovered referral and reply entry actions open their selection forms',asy
  ui.click('new-referral');assert.match(ui.node('#modalRoot').innerHTML,/refComplaint/);
  ui.click('new-reply');assert.match(ui.node('#modalRoot').innerHTML,/replyComplaint/);
 });
-test('recovered account creation and approval requests call authenticated APIs with CSRF',async()=>{
+test('account creation is unavailable and confirmation requests retain CSRF',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.node('#newLocalUsername').value='assistant-two';ui.node('#newLocalPassword').value='Synthetic-password-2026';ui.node('#newLocalRole').value='staff';
  ui.click('create-local-user');for(let i=0;i<35;i++)await Promise.resolve();
- let request=ui.calls.find(c=>c.url==='/api/users'&&c.method==='POST');assert.ok(request);assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
+ let request=ui.calls.find(c=>c.url==='/api/users'&&c.method==='POST');assert.equal(request,undefined);
  ui.node('#approvalReason').value='طلب حفظ الشكوى في الأرشيف';
  ui.click('submit-approval','SY-2026-10001',{kind:'complaint_archive',target:'SY-2026-10001'});
  for(let i=0;i<35;i++)await Promise.resolve();
@@ -406,7 +396,7 @@ test('first contact date can be edited and the delete button opens the approval 
  for(const [key,value]of Object.entries(values))ui.node('#'+key).value=value;
  ui.click('save-complaint-edit','SY-2026-10001');for(let i=0;i<40;i++)await Promise.resolve();
  const request=ui.calls.find(c=>c.url==='/api/complaints/SY-2026-10001'&&c.method==='PATCH');assert.ok(request);assert.equal(JSON.parse(request.body).firstContactDate,'2026-10-19');
- ui.click('request-complaint-delete','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/complaint_archive/);assert.match(ui.node('#modalDescription').textContent,/موافقة مدير آخر/);
+ ui.click('request-complaint-delete','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/complaint_archive/);assert.match(ui.node('#modalDescription').textContent,/تأكيدك مع توثيق السبب/);
  assert.equal(ui.calls.filter(c=>c.method==='DELETE').length,0);
 });
 
@@ -498,12 +488,12 @@ test('record view uses inquiry labels, escapes long text, and renders the subjec
   assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1);
 });
 
-test('reply approval action is visible only to an independent authorized approver',async()=>{
+test('operator can approve their own reviewed reply',async()=>{
  const own=createFakeBrowser('admin',{status:'review',text:'رد للاختبار',authorId:'u1'});
  const independent=createFakeBrowser('admin',{status:'review',text:'رد للاختبار',authorId:'another'});
  for(let i=0;i<25;i++)await Promise.resolve();
  own.click('detail','SY-2026-10001');independent.click('detail','SY-2026-10001');
- assert.doesNotMatch(own.node('#content').innerHTML,/data-action="reply-approve"/);
+ assert.match(own.node('#content').innerHTML,/data-action="reply-approve"/);
  assert.match(independent.node('#content').innerHTML,/data-action="reply-approve"/);
 });
 
@@ -551,4 +541,16 @@ test('record overview uses the newest event and timeline filters preserve the st
  ui.click('detail',c.id);assert.match(ui.node('#content').innerHTML,/<dt>آخر إجراء<\/dt><dd>إجراء حديث/);
  ui.events.get('change')({target:{dataset:{timelineFilter:'by'},value:'staff',classList:{contains:()=>false}}});
  assert.match(ui.node('#content').innerHTML,/1 من 2 إجراء/);assert.equal(c.timeline.length,2);
+});
+
+test('single operator UI exposes no assignment, collaborators or employee management controls',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ const forbidden=/assignOwner|coAssistants|newLocalUsername|bulk-assign|col-owner|reportOwner|إسناد المسؤول|المسؤول الرئيسي|المساعدون المشاركون/;
+ for(const page of ['dashboard','complaints','replies','reports','settings']){ui.goto(page);assert.doesNotMatch(ui.node('#content').innerHTML,forbidden,page);}
+ ui.click('detail','SY-2026-10001');assert.doesNotMatch(ui.node('#content').innerHTML,forbidden);
+ ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});ui.node('#cSummary').value='سجل فردي';ui.click('intake-next');ui.click('intake-next');ui.click('intake-next');
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,forbidden);
+ await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
+ const body=JSON.parse(ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST').body);assert.equal(Object.hasOwn(body,'owner'),false);assert.equal(Object.hasOwn(body,'coAssistants'),false);
+ assert.equal(ui.calls.some(c=>/\/api\/(users|assignees)/.test(c.url)),false);
 });

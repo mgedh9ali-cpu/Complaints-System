@@ -149,7 +149,6 @@ function intakeComplaintExtraStep() {
   return intakeProgressHtml() +
     '<div class="form-grid">' +
     selectField('الأولوية', 'cPriority', db.settings.priorities, d.cPriority || 'normal', false) +
-    field('المسؤول الرئيسي', 'cOwner', d.cOwner || (authenticatedUser?.username || '')) +
     '</div>' + intakeReviewHtml();
 }
 
@@ -290,7 +289,7 @@ function saveComplaintDraft() {
     _ownerUserId: String(authenticatedUser.id),
     _savedAt: Date.now()
   });
-  ['cName', 'cPhone', 'cFirstContactDate', 'cProvince', 'cCategory', 'cNature', 'cEntity', 'cPriority', 'cOwner', 'cSummary', 'cDetails', 'cSource', 'cRelatedToCurrent'].forEach(id => {
+  ['cName', 'cPhone', 'cFirstContactDate', 'cProvince', 'cCategory', 'cNature', 'cEntity', 'cPriority', 'cSummary', 'cDetails', 'cSource', 'cRelatedToCurrent'].forEach(id => {
     const el = $('#' + id);
     if (el) draft[id] = el.type === 'checkbox' ? el.checked : el.value;
   });
@@ -370,7 +369,6 @@ async function createComplaint(asDraft = false, addAnother = false) {
     nature: d.cNature || (isInquiry ? 'استفسار' : ''),
     entity: d.cEntity || '',
     priority: d.cPriority || 'normal',
-    owner: String(d.cOwner || authenticatedUser?.username || '').trim(),
     summary: String(d.cSummary || '').trim() || (asDraft ? 'مسودة بانتظار الاستكمال' : ''),
     details: String(d.cDetails || '').trim(),
     source: d.cSource || 'phone',
