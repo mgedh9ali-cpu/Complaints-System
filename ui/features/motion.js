@@ -44,5 +44,11 @@
   }
   document.addEventListener('complaints:render',event=>enter(event.detail?.route));
   media?.addEventListener?.('change',()=>{if(still())stop();});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')stop();});
+  function syncVisibility(){
+    const hidden=document.visibilityState==='hidden';
+    root.dataset.motionPaused=String(hidden);
+    if(hidden)stop();
+  }
+  document.addEventListener('visibilitychange',syncVisibility);
+  syncVisibility();
 })();

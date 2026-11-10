@@ -1,60 +1,34 @@
-/* ui-icon-motion.css — micro feedback only, no continuous loops */
-:root {
-  --duration-micro: 80ms;
-  --duration-quick: 120ms;
-  --duration-fast: 200ms;
-  --ease-out: ease-out;
-  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
+/* Small icon feedback; continuous status cues pause with the hidden page. */
 .nav-icon,
-.ui-svg-icon,
+.top-actions .ui-svg-icon,
 .icon-btn svg,
 .theme-icon-toggle svg,
-.login-password-toggle svg {
+.login-password-toggle svg,
+.avatar {
   transform-origin: center;
-  transition: transform var(--duration-fast) var(--ease-smooth-out);
+  transition: transform var(--duration-fast, 200ms) var(--ease-smooth-out, ease-out);
 }
 
-.nav-link:hover .nav-icon,
-.nav-link:hover .ui-svg-icon {
-  transform: scale(1.06);
+/* Animate the wrapper once, rather than scaling both it and its SVG. */
+.nav-link .ui-svg-icon { transition: none; transform: none; }
+.nav-link:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) .nav-icon { transform: scale(1.08); }
+.nav-link:not(:disabled):not([aria-disabled="true"]):active .nav-icon {
+  transform: scale(.94);
+  transition-duration: var(--duration-micro, 80ms);
 }
-.nav-link:active .nav-icon {
-  transform: scale(0.94);
-  transition-duration: var(--duration-micro);
+:is(.top-actions button, .icon-btn, .theme-icon-toggle):not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) svg {
+  transform: rotate(-5deg) scale(1.08);
 }
-
-.icon-btn:hover svg,
-.theme-icon-toggle:hover svg {
-  transform: scale(1.08);
+:is(.top-actions button, .icon-btn, .theme-icon-toggle):not(:disabled):not([aria-disabled="true"]):active svg {
+  transform: scale(.92);
+  transition-duration: var(--duration-micro, 80ms);
 }
-.icon-btn:active svg,
-.theme-icon-toggle:active svg {
-  transform: scale(0.92);
-  transition-duration: var(--duration-micro);
-}
-
-.menu-toggle {
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-.menu-toggle[aria-expanded="true"] {
-  transform: rotate(90deg);
-}
-
-.modal-close {
-  transition: transform var(--duration-quick) var(--ease-out), opacity var(--duration-quick) var(--ease-out);
-}
-.modal-close:hover {
-  transform: rotate(90deg);
-  opacity: 0.85;
-}
-
-.login-password-toggle:hover svg {
-  transform: scale(1.08);
-}
-
-/* Static status dot — no continuous repaint */
+.login-password-toggle:not(:disabled):hover svg { transform: scale(1.08); }
+.menu-toggle { transition: transform var(--duration-fast, 200ms) ease-out; }
+.menu-toggle[aria-expanded="true"] { transform: rotate(90deg); }
+.modal-close { transition: transform var(--duration-quick, 120ms) ease-out; }
+.modal-close:not(:disabled):is(:hover, :focus-visible) { transform: rotate(90deg); }
+.avatar:hover, .side-user:is(:hover, :focus-within) .avatar { transform: scale(1.05); }
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -63,27 +37,44 @@
   background: var(--sla-ok, #2F7A4F);
 }
 
-.avatar {
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-.side-user:hover .avatar {
-  transform: scale(1.05);
-}
+.btn, .nav-link, .icon-btn, .icon-button { contain: layout style; }
+.registry-table tbody tr { contain: style; }
 
-.btn,
-.nav-link,
-.icon-btn {
-  contain: layout style;
+@media (prefers-reduced-motion: no-preference) {
+  .login-overlay:not([hidden]) .login-brand > svg { animation: icon-breathe 4s ease-in-out infinite; }
+  .sla-ring[data-level="late"] { animation: icon-warning 2.8s ease-in-out infinite; }
+  .status-dot { animation: icon-live 3.6s ease-in-out infinite; }
+  .pill::before { animation: icon-dot-pop 320ms var(--ease-bounce, ease-out) both; }
+  .pill.urgent::before { animation: icon-live 2.8s ease-in-out infinite; }
 }
+@keyframes icon-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+@keyframes icon-warning {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .65; transform: scale(.94); }
+}
+@keyframes icon-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}
+@keyframes icon-dot-pop {
+  0% { transform: scale(.4); opacity: 0; }
+  65% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+html[data-motion-paused="true"] :is(.login-brand > svg, .sla-ring, .status-dot) {
+  animation-play-state: paused !important;
+}
+/* Pseudo-elements need their own selector outside :is() for broad support. */
+html[data-motion-paused="true"] .pill::before { animation-play-state: paused !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-icon,
-  .ui-svg-icon,
-  .icon-btn svg,
-  .theme-icon-toggle svg,
-  .menu-toggle,
-  .modal-close,
-  .avatar {
+  .nav-icon, .ui-svg-icon, .icon-btn svg, .theme-icon-toggle svg,
+  .login-password-toggle svg, .menu-toggle, .modal-close, .avatar,
+  .login-brand > svg, .sla-ring, .status-dot, .pill::before {
+    animation: none !important;
     transition: none !important;
     transform: none !important;
   }

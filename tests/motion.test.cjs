@@ -9,7 +9,7 @@ function fixture(reduced=false){
  const document={documentElement:root,visibilityState:'visible',getElementById:()=>content,addEventListener:(name,fn)=>events.set(name,fn)};
  const window={matchMedia:()=>media,requestAnimationFrame:fn=>{frames.set(++next,fn);return next;},cancelAnimationFrame:id=>frames.delete(id)};
  vm.runInNewContext(source,{document,window,localStorage:{getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)},setTimeout:()=>1,clearTimeout(){}});
- return {root,window,attrs,frames,counter,saved,render:route=>events.get('complaints:render')({detail:{route}}),frame(time){const pending=[...frames.values()];frames.clear();pending.forEach(fn=>fn(time));},reduce(){media.matches=true;mediaChange();}};
+ return {root,window,attrs,frames,counter,saved,hide(){document.visibilityState='hidden';events.get('visibilitychange')();},show(){document.visibilityState='visible';events.get('visibilitychange')();},render:route=>events.get('complaints:render')({detail:{route}}),frame(time){const pending=[...frames.values()];frames.clear();pending.forEach(fn=>fn(time));},reduce(){media.matches=true;mediaChange();}};
 }
 test('route entry starts counters once, while a search rerender keeps the correct final number',()=>{
  const f=fixture();f.render('dashboard');assert.ok(f.attrs.has('data-enter'));assert.equal(f.frames.size,1);
@@ -24,4 +24,12 @@ test('reduced motion prevents animations and changing the preference restores fi
 test('palette selection accepts only the three supplied themes and survives local storage errors',()=>{
  const f=fixture();f.window.setPalette('ocean');assert.equal(f.root.dataset.palette,'ocean');assert.equal(f.saved.get('palette'),'ocean');
  f.window.setPalette('ember');assert.equal(f.root.dataset.palette,'ember');f.window.setPalette('invalid');assert.equal(f.root.dataset.palette,'');
+});
+
+test('hidden pages pause status cues and stop counter work until visible again',()=>{
+ const f=fixture();assert.equal(f.root.dataset.motionPaused,'false');
+ f.render('dashboard');f.frame(0);assert.equal(f.frames.size,1);
+ f.hide();assert.equal(f.root.dataset.motionPaused,'true');assert.equal(f.frames.size,0);
+ assert.equal(f.counter.textContent,'24');assert.equal(f.attrs.size,0);
+ f.show();assert.equal(f.root.dataset.motionPaused,'false');assert.equal(f.frames.size,0);
 });

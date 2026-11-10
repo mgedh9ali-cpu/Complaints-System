@@ -44,7 +44,7 @@ html[data-theme="dark"] {
   border-radius: 999px;
   background: color-mix(in srgb, var(--forest, #0B7A5E) 18%, #cfd8d3);
   overflow: hidden;
-  transition: background 280ms ease;
+  transition: none;
 }
 .liquid-glass-toggle .lgt-drop {
   position: absolute;

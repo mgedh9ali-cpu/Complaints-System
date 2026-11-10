@@ -1,4 +1,4 @@
-/* ui-transitions.css — essential motion only (performance-first) */
+/* Motion reference: https://transitions.dev — adapted to the existing RTL UI. */
 :root {
   --duration-micro: 80ms;
   --duration-quick: 120ms;
@@ -51,33 +51,68 @@
   to { transform: scale(1); opacity: 1; }
 }
 
-.btn,
-.icon-btn,
-.icon-button,
-.login-submit,
-.filter-chip {
-  transition:
-    transform var(--duration-quick) var(--ease-smooth-out),
-    background-color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
+:is(.btn, .icon-btn, .icon-button, .login-submit, .filter-chip, .nav-link, .theme-icon-toggle, .liquid-glass-toggle) {
+  transition: transform var(--duration-quick) var(--ease-smooth-out), opacity var(--duration-fast) var(--ease-out);
 }
-.btn:hover:not(:disabled):not(.is-loading),
-.icon-btn:hover:not(:disabled),
-.login-submit:hover:not(:disabled) {
-  transform: translateY(-1px);
+:is(.btn, .icon-btn, .icon-button, .login-submit, .filter-chip, .theme-icon-toggle, .liquid-glass-toggle):not(:disabled):not([aria-disabled="true"]):not(.is-loading):not([aria-busy="true"]):is(:hover, :focus-visible) {
+  transform: translateY(-2px);
 }
-.btn:active:not(:disabled):not(.is-loading),
-.icon-btn:active:not(:disabled),
-.login-submit:active:not(:disabled),
-.filter-chip:active {
-  transform: scale(0.97);
+.nav-link { --nav-nudge: 2px; }
+html[dir="rtl"] .nav-link { --nav-nudge: -2px; }
+.nav-link:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) { transform: translateX(var(--nav-nudge)); }
+:is(.btn, .icon-btn, .icon-button, .login-submit, .filter-chip, .nav-link, .theme-icon-toggle, .liquid-glass-toggle):not(:disabled):not([aria-disabled="true"]):not(.is-loading):not([aria-busy="true"]):active {
+  transform: scale(.97);
   transition-duration: var(--duration-micro);
 }
-.btn:disabled,
-.btn.is-loading {
-  transform: none !important;
+.btn-primary, .login-submit { position: relative; overflow: hidden; }
+/* Painted once, then translated; ::after remains available for the loading spinner. */
+.btn-primary::before, .login-submit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / .18) 50%, transparent 70%);
+  transform: translateX(-110%);
+  opacity: 0;
+  pointer-events: none;
 }
+.btn-primary:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible),
+.login-submit:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) {
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--forest) 25%, transparent);
+}
+.btn-primary:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible)::before,
+.login-submit:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible)::before {
+  animation: t-button-sheen 600ms var(--ease-out);
+}
+@keyframes t-button-sheen {
+  0% { transform: translateX(-110%); opacity: 0; }
+  20%, 80% { opacity: 1; }
+  100% { transform: translateX(110%); opacity: 0; }
+}
+.btn.is-loading::before, .login-fields[aria-busy="true"] .login-submit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: rgb(255 255 255 / .12);
+  transform: none;
+  animation: t-loading-glow 1.6s ease-in-out infinite;
+}
+@keyframes t-loading-glow { 0%, 100% { opacity: .15; } 50% { opacity: .85; } }
+:is(.btn, .icon-btn, .icon-button, .login-submit, .filter-chip, .nav-link, .theme-icon-toggle, .liquid-glass-toggle):is(:disabled, [aria-disabled="true"]) {
+  transform: none !important;
+  transition: none;
+}
+:is(.btn, .login-submit):disabled:not(.is-loading)::before { animation: none; opacity: 0; }
+.login-fields[aria-busy="true"] .login-submit:disabled::before { animation: t-loading-glow 1.6s ease-in-out infinite; }
+/* The success check animates inside the locked button, keeping its hit area still. */
+.btn-success-pulse .btn-check { display: inline-block; animation: t-success-flash var(--duration-medium) var(--ease-bounce); }
+:is(button:disabled, [aria-disabled="true"]):not(.is-loading):not(.btn-success-pulse):not(.login-submit),
+:is(button:disabled, [aria-disabled="true"]):not(.is-loading):not(.btn-success-pulse):not(.login-submit) :is(svg, .nav-icon) { animation: none !important; transform: none !important; }
+html[data-motion-paused="true"] .btn.is-loading::before,
+html[data-motion-paused="true"] .btn.is-loading::after,
+html[data-motion-paused="true"] .login-submit::before { animation-play-state: paused !important; }
 
 .btn-success-pulse {
   animation: t-success-flash var(--duration-medium) var(--ease-bounce);
@@ -102,15 +137,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .modal-backdrop,
-  .modal,
-  .toast-region .toast,
-  .content[data-enter],
-  .nav-count,
-  .btn,
-  .login-card,
-  .field.is-error,
-  .btn-success-pulse {
+  .modal-backdrop, .modal, .toast-region .toast, .toast-region .alarm-toast,
+  .content[data-enter], .nav-count, .btn, .btn::before, .btn::after,
+  .icon-btn, .icon-button, .login-submit, .login-submit::before,
+  .filter-chip, .nav-link, .theme-icon-toggle, .liquid-glass-toggle,
+  .login-card, .field.is-error, .select-field.is-error,
+  .btn-success-pulse, .btn-check {
     animation: none !important;
     transition: none !important;
     transform: none !important;
