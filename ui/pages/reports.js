@@ -100,6 +100,35 @@ function reportsPage(){
  '<p class="report-scope" role="status">التصفية المطبقة: '+safe(scope)+' · '+total+' من '+all.length+' سجل · تحديث '+safe(new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',dateStyle:'short',timeStyle:'short'}).format(new Date()))+'</p>'+
  (!total?'<div class="empty-state">لا توجد شكاوى تطابق التصفية؛ غيّر الفترة أو أعد ضبط المرشحات.</div>':'')+
  '<div class="mini-card-grid report-summary">'+[['إجمالي السجلات',total],['سجلات مغلقة',model.closed],['سجلات مفتوحة',records.filter(c=>!['draft','closed','cancelled'].includes(c.status)).length],['سجلات متجاوزة للمهلة',model.late]].map(([label,count])=>'<div class="mini-card"><small>'+label+'</small><strong>'+count+'</strong></div>').join('')+'</div>'+
- '<div class="report-chart-grid">'+panel('الشكاوى المسجلة خلال الفترة',chartSubtitle,bars,'report-trend')+panel('الاتجاه التراكمي للتسجيل',chartSubtitle,trend)+panel('توزيع الحالات','الأعداد والنسب من نتائج التصفية المطبقة',donut)+panel('توزيع الأولويات','مقارنة أعداد الشكاوى حسب درجة الأولوية',horizontal(model.group('priority').map(([p,n])=>[REPORT_PRIORITY_LABELS[p]||p,n]),'لا توجد أولويات مسجلة.'))+panel('حسب التصنيف','الأكثر تسجيلًا أولًا',horizontal(model.group('category'),'لا توجد تصنيفات مسجلة.'))+panel('حسب المحافظة','التوزيع الجغرافي لنتائج التصفية',horizontal(model.group('province'),'لا توجد محافظات مسجلة.'))+panel('حسب المسؤول','أعداد السجلات المسندة لكل مسؤول',horizontal(model.group('owner'),'لا توجد سجلات مسندة.'))+panel('عمر السجلات','العمر منذ التسجيل، وليس مدة الإغلاق',horizontal(['أقل من 7 أيام','من 7 إلى 30 يومًا','أكثر من 30 يومًا','تاريخ غير معروف'].map((label,i)=>[label,model.ageCounts[i]]).filter(([,n])=>n>0),'لا توجد سجلات لعرض أعمارها.'))+
+ reportProcessingMetrics(records)+'<div class="report-chart-grid">'+panel('الشكاوى المسجلة خلال الفترة',chartSubtitle,bars,'report-trend')+panel('الاتجاه التراكمي للتسجيل',chartSubtitle,trend)+panel('توزيع الحالات','الأعداد والنسب من نتائج التصفية المطبقة',donut)+panel('توزيع الأولويات','مقارنة أعداد الشكاوى حسب درجة الأولوية',horizontal(model.group('priority').map(([p,n])=>[REPORT_PRIORITY_LABELS[p]||p,n]),'لا توجد أولويات مسجلة.'))+panel('حسب التصنيف','الأكثر تسجيلًا أولًا',horizontal(model.group('category'),'لا توجد تصنيفات مسجلة.'))+panel('حسب المحافظة','التوزيع الجغرافي لنتائج التصفية',horizontal(model.group('province'),'لا توجد محافظات مسجلة.'))+panel('حسب المسؤول','أعداد السجلات المسندة لكل مسؤول',horizontal(model.group('owner'),'لا توجد سجلات مسندة.'))+panel('عمر السجلات','العمر منذ التسجيل، وليس مدة الإغلاق',horizontal(['أقل من 7 أيام','من 7 إلى 30 يومًا','أكثر من 30 يومًا','تاريخ غير معروف'].map((label,i)=>[label,model.ageCounts[i]]).filter(([,n])=>n>0),'لا توجد سجلات لعرض أعمارها.'))+
  panel('امتثال المهلة الإجمالي','يُحسب فقط عند اعتماد سياسة المهلة', '<div class="report-compliance"><div class="compliance-ring" style="--value:'+(model.compliance??0)+'" role="img" aria-label="امتثال المهلة '+(model.compliance===null?'غير متاح':model.compliance+' بالمئة')+'"><strong>'+(model.compliance===null?'—':model.compliance+'%')+'</strong></div><p>'+(model.compliance===null?'لا توجد مهل معتمدة قابلة للحساب.':model.compliant+' من '+model.eligible+' سجلًا ضمن المهلة. تعتمد السجلات المغلقة تاريخ الإغلاق، والمفتوحة الوقت الحالي.')+'</p></div>')+'</div></div>';
 }
+
+let reportListPage=1;
+function reportMatchingRecords(reset=true){
+ if(reset)reportListPage=1;
+ const records=filteredReportRecords(db.complaints,reportFilters);
+ const pages=Math.max(1,Math.ceil(records.length/50));reportListPage=Math.min(pages,Math.max(1,reportListPage));
+ modal('سجلات التقرير','نتائج مطابقة للتصفية المطبقة · '+records.length+' سجل',complaintTable(records.slice((reportListPage-1)*50,reportListPage*50)),
+ '<button class="btn" data-action="report-list-prev" '+(reportListPage===1?'disabled':'')+'>السابق</button><span>'+reportListPage+' / '+pages+'</span><button class="btn" data-action="report-list-next" '+(reportListPage===pages?'disabled':'')+'>التالي</button>',true);
+}
+function reportProcessingMetrics(records){
+ const durations=[],reasons=new Map();let reopened=0;
+ for(const c of records){
+  const history=c.statusHistory||[];
+  const closed=history.filter(h=>h.to==='closed').at(-1)?.at||c.closedAt;
+  const days=(Date.parse(closed)-Date.parse(c.created))/86400000;
+  if(c.status==='closed'&&Number.isFinite(days)&&days>=0)durations.push(days);
+  if(history.some(h=>['closed','cancelled'].includes(h.from)&&h.to==='in_progress'))reopened++;
+  if(db.settings?.slaApproved&&!['draft','closed','cancelled'].includes(c.status)&&Number.isFinite(Date.parse(c.due))&&Date.parse(c.due)<Date.now()){
+   const reason=String(c.delayReason||'سبب التأخير غير مسجل');reasons.set(reason,(reasons.get(reason)||0)+1);
+  }
+ }
+ return '<section class="panel"><div class="panel-body"><h2>المعالجة وإعادة الفتح</h2><p>متوسط المدة حتى آخر إغلاق: <strong>'+(durations.length?(durations.reduce((a,b)=>a+b,0)/durations.length).toFixed(1)+' يوم':'غير متاح')+'</strong> · محسوب من '+durations.length+' سجل مغلق بتواريخ صالحة.</p><p>سجلات أُعيد فتحها: <strong>'+reopened+'</strong></p><h3>أسباب التأخر المسجلة</h3>'+([...reasons].map(([reason,n])=>'<p>'+esc(reason)+': '+n+'</p>').join('')||'<p>لا توجد سجلات متأخرة.</p>')+'<button class="btn" data-action="report-matching-records">عرض السجلات المطابقة</button></div></section>';
+}
+if(typeof document!=='undefined')document.addEventListener?.('click',e=>{
+ const action=e.target.closest?.('[data-action]')?.dataset.action;
+ if(action==='report-matching-records')reportMatchingRecords();
+ if(action==='report-list-prev'){reportListPage--;reportMatchingRecords(false);}
+ if(action==='report-list-next'){reportListPage++;reportMatchingRecords(false);}
+});

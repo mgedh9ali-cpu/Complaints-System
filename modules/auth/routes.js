@@ -44,6 +44,8 @@ function createAuthRouter({ authService, middleware, audit, rolesService }) {
     req.session.regenerate((err) => {
       if (err) return next(err);
       req.session.cookie.maxAge = req.body.rememberMe === true ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
+      req.session.lastUserActivity=Date.now();
+      req.session.idleMinutes=30;
       req.session.user = { id: result.user.id, version: result.user.sessionVersion || 0 };
       // Persist only the signed session cookie, never the user's credentials.
       req.session.cookie.maxAge = req.body?.rememberMe === true
@@ -58,6 +60,15 @@ function createAuthRouter({ authService, middleware, audit, rolesService }) {
         res.json({ user: { ...result.user, permissions: rolesService?.effectivePermissions(result.user) } });
       });
     });
+  });
+
+  router.post('/auth/activity',requireAuth,requireCsrf,(req,res)=>{
+    const minutes=req.body?.idleMinutes;
+    if(minutes!==undefined&&![15,30,60].includes(minutes))return res.status(400).json({error:'اختر 15 أو 30 أو 60 دقيقة.'});
+    if(minutes!==undefined)req.session.idleMinutes=minutes;
+    if(req.session.cookie)req.session.cookie.maxAge=Math.max(req.session.cookie.originalMaxAge||1800000,(req.session.idleMinutes||30)*60000);
+    req.session.lastUserActivity=Date.now();
+    res.json({ok:true,idleMinutes:req.session.idleMinutes||30});
   });
 
   router.post('/auth/logout', requireAuth, requireCsrf, (req, res) => {

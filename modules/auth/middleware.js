@@ -11,6 +11,12 @@ function createAuthMiddleware({ db, audit }) {
     if (!user || user.active !== 1 || (req.session.user.version || 0) !== user.session_version) {
       return req.session.destroy(() => res.status(401).json({ error: 'الحساب غير فعال.' }));
     }
+    const now=Date.now();
+    const minutes=[15,30,60].includes(req.session.idleMinutes)?req.session.idleMinutes:30;
+    if(!Number.isFinite(req.session.lastUserActivity))req.session.lastUserActivity=now;
+    if(now-req.session.lastUserActivity>=minutes*60000){
+      return req.session.destroy(()=>res.status(401).json({error:'انتهت الجلسة بسبب الخمول. سجّل الدخول مجددًا.',code:'SESSION_IDLE'}));
+    }
     req.user = user;
     next();
   }

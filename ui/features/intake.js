@@ -204,7 +204,7 @@ function renderIntakeWizard() {
   const draftBanner = intakeWizard.step === 0 && hasComplaintDraft()
     ? '<div class="intake-draft" id="draftBanner"><span>لديك مسودة محفوظة</span><div class="right-actions"><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div></div>'
     : '';
-  const body = draftBanner + '<form id="newComplaintForm" novalidate><div id="intakeStepMount">' + intakeRenderStepBody() + '</div></form>';
+  const body = draftBanner + '<form id="newComplaintForm" novalidate><div id="intakeStepMount">' + intakeRenderStepBody() + '</div><p id="intakeDraftStatus" class="small-copy" role="status" aria-live="polite"></p></form>';
   modal(intakeTitle(), intakeSubtitle(), body, intakeFooterHtml(), true);
   $('.modal')?.classList.add('intake-dialog');
   const focusEl = $('#intakeStepMount input, #intakeStepMount select, #intakeStepMount textarea, #intakeStepMount button.intake-type-card');
@@ -294,10 +294,16 @@ function saveComplaintDraft() {
     const el = $('#' + id);
     if (el) draft[id] = el.type === 'checkbox' ? el.checked : el.value;
   });
-  try {
-    localStorage.setItem(key, JSON.stringify(draft));
-    sessionStorage.setItem(key, JSON.stringify(draft));
-  } catch (e) {}
+  const status=$('#intakeDraftStatus');
+  let saved=false;
+  const text=JSON.stringify(draft);
+  try { localStorage.setItem(key,text); saved=true; } catch (_) {}
+  try { sessionStorage.setItem(key,text); saved=true; } catch (_) {}
+  if(status){
+    status.textContent=saved?'مسودة محفوظة على هذا الجهاز · '+new Date(draft._savedAt).toLocaleTimeString('ar-SY-u-nu-latn'):'تعذر حفظ المسودة على هذا الجهاز. احتفظ بالنموذج مفتوحًا وأعد المحاولة.';
+    status.classList.toggle('danger-text',!saved);
+  }
+  return saved;
 }
 
 function restoreComplaintDraft(force) {

@@ -538,3 +538,17 @@ test('save and add another persists one record and opens a clean intake form',as
  assert.match(ui.node('#modalRoot').innerHTML,/ما الذي تريد تسجيله/);
  assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/سجل للحفظ المتتابع/);
 });
+
+test('saved filters are visible and isolated between authenticated accounts',async()=>{
+ const shared=new Map([['complaints_saved_filters_v1:u1',JSON.stringify([{name:'مرشح الحساب الأول',filters:{}}])]]);
+ const owner=createFakeBrowser('admin',null,'u1',shared),other=createFakeBrowser('admin',null,'u2',shared);
+ for(let i=0;i<30;i++)await Promise.resolve();owner.goto('complaints');other.goto('complaints');
+ assert.match(owner.node('#content').innerHTML,/مرشح الحساب الأول/);assert.doesNotMatch(other.node('#content').innerHTML,/مرشح الحساب الأول/);
+});
+test('record overview uses the newest event and timeline filters preserve the stored events',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ const c=ui.state.complaints[0];c.timeline=[{event:'إجراء حديث',by:'admin',at:'2026-11-10T10:00:00Z'},{event:'إجراء قديم',by:'staff',at:'2026-11-09T10:00:00Z'}];
+ ui.click('detail',c.id);assert.match(ui.node('#content').innerHTML,/<dt>آخر إجراء<\/dt><dd>إجراء حديث/);
+ ui.events.get('change')({target:{dataset:{timelineFilter:'by'},value:'staff',classList:{contains:()=>false}}});
+ assert.match(ui.node('#content').innerHTML,/1 من 2 إجراء/);assert.equal(c.timeline.length,2);
+});

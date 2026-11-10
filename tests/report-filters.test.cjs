@@ -81,3 +81,9 @@ test('HTTP export route forwards category and priority filters to the existing e
  const query=new URLSearchParams(filters);const response=await fetch('http://127.0.0.1:'+server.address().port+'/api/export/csv?'+query);assert.equal(response.status,200);await response.text();
  for(const [key,value] of Object.entries(filters))assert.equal(seen[key],value);
 });
+
+test('processing report measures closure duration, reopening, and recorded delay reasons from filtered records',()=>{
+ const context=setup([{id:'a',created:'2026-01-01',status:'closed',statusHistory:[{from:'closed',to:'in_progress',at:'2026-01-02'},{to:'closed',at:'2026-01-04'}]},{id:'b',created:'2026-01-01',status:'new',due:'2026-01-02',delayReason:'انتظار رد الجهة'}]);
+ const html=vm.runInContext('reportProcessingMetrics(db.complaints)',context);
+ assert.match(html,/3.0 يوم/);assert.match(html,/سجلات أُعيد فتحها: <strong>1/);assert.match(html,/انتظار رد الجهة: 1/);
+});

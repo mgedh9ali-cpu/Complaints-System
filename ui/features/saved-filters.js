@@ -1,16 +1,19 @@
 /** Saved registry filter presets (local to this browser user). */
 const SAVED_FILTERS_KEY = 'complaints_saved_filters_v1';
+function savedFilterKey(){return authenticatedUser?.id?SAVED_FILTERS_KEY+':'+encodeURIComponent(authenticatedUser.id):null;}
 
 function loadSavedFilterPresets(){
   try{
-    const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+    const key=savedFilterKey();if(!key)return [];
+    const raw = localStorage.getItem(key);
     const list = JSON.parse(raw || '[]');
     return Array.isArray(list) ? list.slice(0, 12) : [];
   }catch(_){ return []; }
 }
 
 function storeSavedFilterPresets(list){
-  try{ localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list.slice(0, 12))); }catch(_){}
+  const key=savedFilterKey();if(!key)return false;
+  try{ localStorage.setItem(key, JSON.stringify(list.slice(0, 12)));return true; }catch(_){return false;}
 }
 
 function currentRegistryFilterSnapshot(){
@@ -67,7 +70,7 @@ function savedFiltersBarHtml(){
       if(html.indexOf('saved-filters-bar') >= 0) return html;
       const bar = savedFiltersBarHtml();
       if(html.indexOf('filters-row') >= 0){
-        html = html.replace('<div class="filters-row"', bar + '<div class="filters-row"');
+        html = html.replace('<div class="filters-row', bar + '<div class="filters-row');
       }
       return html;
     }
@@ -88,7 +91,7 @@ function savedFiltersBarHtml(){
       if(!name || !String(name).trim()) return;
       const list = loadSavedFilterPresets();
       list.unshift({ name: String(name).trim().slice(0, 40), filters: currentRegistryFilterSnapshot(), at: new Date().toISOString() });
-      storeSavedFilterPresets(list);
+      if(!storeSavedFilterPresets(list)){toast('تعذر حفظ المرشحات على هذا الجهاز.','error');return;}
       if(typeof toast === 'function') toast('تم حفظ المرشح.');
       if(typeof render === 'function') render();
       return;
@@ -108,7 +111,7 @@ function savedFiltersBarHtml(){
       const list = loadSavedFilterPresets();
       if(!list[i]) return;
       list.splice(i, 1);
-      storeSavedFilterPresets(list);
+      if(!storeSavedFilterPresets(list)){toast('تعذر حفظ المرشحات على هذا الجهاز.','error');return;}
       if(typeof toast === 'function') toast('حُذف المرشح.');
       if(typeof render === 'function') render();
     }

@@ -42,8 +42,8 @@ function confirmDialog(opts={}){
   const footer='<button type="button" class="btn" data-action="confirm-dialog-cancel">'+esc(cancelLabel)+'</button>'+
     '<button type="button" class="btn '+(danger?'btn-danger':'btn-primary')+'" data-action="confirm-dialog-ok">'+esc(confirmLabel)+'</button>';
   return new Promise(resolve=>{
-    confirmDialogResolve=resolve;
     modal(title, danger?'هذا الإجراء يحتاج مراجعة قبل التنفيذ.':'راجع التفاصيل ثم أكّد أو ألغِ.', body, footer);
+    confirmDialogResolve=resolve;
     const okBtn=$('[data-action="confirm-dialog-ok"]');
     if(okBtn) okBtn.focus();
   });

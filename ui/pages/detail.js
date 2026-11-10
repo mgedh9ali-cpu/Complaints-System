@@ -1,3 +1,23 @@
+const recordTimelineFilters=new Map();
+function recordTimelineHtml(c){
+ const f=recordTimelineFilters.get(c.id)||{event:'',by:'',from:'',to:''};
+ const all=c.timeline||[];
+ const options=(key,label)=>'<label>'+label+'<select class="select-field" data-timeline-filter="'+key+'"><option value="">الكل</option>'+[...new Set(all.map(t=>t[key]).filter(Boolean))].map(v=>'<option value="'+esc(v)+'" '+(f[key]===v?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></label>';
+ const rows=all.filter(t=>{const day=Number.isFinite(Date.parse(t.at))?workDayKey(t.at):'';return (!f.event||t.event===f.event)&&(!f.by||t.by===f.by)&&(!f.from||(day&&day>=f.from))&&(!f.to||(day&&day<=f.to));});
+ return '<section class="detail-section" id="complaint-timeline"><h3>سجل الإجراءات</h3><div class="record-filter-grid">'+options('event','الإجراء')+options('by','المستخدم')+['from','to'].map(k=>'<label>'+(k==='from'?'من تاريخ':'إلى تاريخ')+'<input class="field" type="date" data-timeline-filter="'+k+'" value="'+esc(f[k])+'"></label>').join('')+'</div><p class="small-copy">'+rows.length+' من '+all.length+' إجراء</p><div class="timeline">'+(rows.map(t=>'<div class="timeline-item"><strong>'+esc(t.event)+'</strong><p class="detail-prose">'+esc(t.detail||'')+'</p><small>'+esc(t.by||'')+' · '+timeText(t.at)+'</small></div>').join('')||'<p class="detail-empty">لا توجد إجراءات تطابق التصفية.</p>')+'</div></section>';
+}
+document.addEventListener('change',e=>{
+ const key=e.target?.dataset?.timelineFilter;
+ if(!['event','by','from','to'].includes(key))return;
+ const f=recordTimelineFilters.get(currentId)||{event:'',by:'',from:'',to:''};
+ f[key]=e.target.value;recordTimelineFilters.set(currentId,f);render();
+});
+function recordOverviewHtml(c){
+ const last=(c.timeline||[])[0];
+ const pending=(c.referrals||[]).filter(r=>!r.response&&!r.completedAt).map(r=>r.due).filter(Boolean).sort();
+ const due=[...(!['closed','cancelled'].includes(c.status)?[c.due]:[]),...pending].filter(Boolean).sort()[0];
+ return '<dl class="record-overview">'+[['الحالة',statusLabel(c.status)],['المسؤول',c.owner||'غير مسند'],['آخر إجراء',last?.event||'لا توجد إجراءات'],['الموعد القادم',due?dateText(due):'غير محدد']].map(([k,v])=>'<div><dt>'+k+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>';
+}
 /* Record view: one heading, readable data, and a separate processing column. */
 function complaintDetailField(label, value, direction = '') {
   return '<div class="detail-field"><dt>' + esc(label) + '</dt><dd' +
@@ -51,15 +71,14 @@ function complaintDetailPage() {
     (uiCan('complaints.update') && !c.archivedAt && !['closed','cancelled'].includes(c.status) ? '<details class="glass-inline-menu"><summary>تغيير الأولوية</summary><div class="form-field"><label for="detailPriority">الأولوية</label><select class="select-field" id="detailPriority">' +
       db.settings.priorities.map(p => '<option value="' + esc(p.value) + '" ' + (c.priority === p.value ? 'selected' : '') + '>' + esc(p.label) + '</option>').join('') +
       (!db.settings.priorities.some(p => p.value === c.priority) && c.priority ? '<option value="' + esc(c.priority) + '" selected>' + esc(priorityLabel(c.priority)) + '</option>' : '') + '</select></div></details>' : '') + '</section>';
-  const timeline = '<section class="detail-section" id="complaint-timeline"><h3>سجل الإجراءات</h3><div class="timeline">' +
-    ((c.timeline || []).map(t => '<div class="timeline-item"><strong>' + esc(t.event) + '</strong><p class="detail-prose">' + esc(t.detail || '') + '</p><small>' + esc(t.by || '') + ' · ' + timeText(t.at) + '</small></div>').join('') || '<p class="detail-empty">لا توجد إجراءات مسجلة بعد.</p>') + '</div></section>';
+  const timeline = recordTimelineHtml(c);
   const notes = '<section class="detail-section" id="complaint-notes"><h3>الملاحظات الداخلية</h3>' +
     ((c.notes || []).map(n => '<div class="record-note"><strong>' + esc(n.by || '') + '</strong><p class="detail-prose">' + esc(n.text) + '</p><small>' + timeText(n.at) + '</small></div>').join('') || '<p class="detail-empty">لا توجد ملاحظات داخلية.</p>') + '</section>';
   const referralActions = uiCan('complaints.update') ? action('referral-create', 'إضافة إحالة') + action('survey', 'تسجيل رأي المتصل') : '';
   return '<article class="complaint-page' + (authenticatedUser?.role === 'reviewer' ? ' readonly' : '') + (authenticatedUser?.role === 'admin' ? ' can-approve' : '') + '" data-complaint-id="' + esc(id) + '">' +
     '<div class="complaint-page-header"><button class="btn" data-action="detail-back">العودة إلى السجل</button><div class="complaint-page-heading"><span class="eyebrow">ملف ' + label + '</span><h1>' + esc(c.summary) + '</h1><p class="record-reference">الرقم المرجعي <strong class="ticket-id" dir="ltr"><bdi>' + esc(id) + '</bdi></strong></p>' +
     '<div class="complaint-page-badges">' + (typeof pillRecordType === 'function' ? pillRecordType(c) : '') + pillStatus(c.status) + pillPriority(c.priority) + slaIndicator(c) + '<span class="age-badge' + (isLate(c) ? ' late' : '') + '">مدة البقاء: ' + ageDays(c) + ' يوم</span></div></div></div>' +
-    '<div class="complaint-record-actions" aria-label="إجراءات السجل">' + complaintRecordActions(c, false) + action('print-complaint-cover', 'طباعة', 'btn-print') +
+    recordOverviewHtml(c) + '<div class="complaint-record-actions" aria-label="إجراءات السجل">' + complaintRecordActions(c, false) + action('print-complaint-cover', 'طباعة', 'btn-print') +
     (uiCan('complaints.update') ? action('set-reminder', 'تذكير') + action('add-note', 'ملاحظة داخلية') : '') + '</div>' +
     '<nav class="complaint-page-tabs" aria-label="أقسام ملف السجل">' +
     [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-actions','المعالجة'],['complaint-reply','الردود'],['complaint-referrals','الإحالات'],['complaint-timeline','سجل الأحداث'],['complaint-notes','الملاحظات']].map(([target, title]) => '<button type="button" data-action="detail-section" data-target="' + target + '">' + title + '</button>').join('') +

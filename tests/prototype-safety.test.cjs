@@ -56,7 +56,7 @@ test("modal opening and tab navigation share visible focus targets", () => {
     "focus targets must be visible",
   );
   assert.ok(
-    app.includes("const items=modalFocusables(dlg);(items[0]||dlg).focus()"),
+    /const items=modalFocusables\(dlg\);\s*\(items\[0\]\|\|dlg\)\.focus\(\)/.test(app),
     "opening a modal must focus the first visible target",
   );
   assert.ok(

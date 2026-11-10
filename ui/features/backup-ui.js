@@ -182,6 +182,7 @@ function renderDataProtectionCenter(metrics, history) {
     '</div>' +
     '<div class="panel-body">' +
     '<div class="dp-status-grid">' +
+    '<div class="dp-status-card"><span>الإصدار</span><strong>'+esc(metrics?.version||'—')+'</strong><small>المساحة المتاحة: '+(Number.isFinite(metrics?.freeBytes)?esc((metrics.freeBytes/1073741824).toFixed(1))+' غ.ب':'غير متاحة')+'</small></div>' +
     '<div class="dp-status-card ' + state.className + '">' +
     '<span class="dp-status-label">حالة الحماية</span>' +
     '<strong class="dp-status-value">' + esc(state.label) + '</strong></div>' +

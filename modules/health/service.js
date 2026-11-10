@@ -39,8 +39,11 @@ function createHealthService({ db, databasePath, version, backupScheduler }) {
       dbSize = fs.statSync(databasePath).size;
     } catch (_) {}
 
+    let freeBytes=null;
+    try{const disk=fs.statfsSync(path.dirname(path.resolve(databasePath)));freeBytes=disk.bavail*disk.bsize;}catch(_){}
     return {
       ...info,
+      freeBytes,
       integrity,
       foreignKeyViolations: foreignKeys,
       counts,
