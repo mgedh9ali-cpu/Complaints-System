@@ -233,6 +233,7 @@ const PUBLIC_FILES = {
   '/ui-icon-motion.css': 'ui-icon-motion.css',
   '/ui-table-motion.css': 'ui-table-motion.css',
   '/ui-prod.css': 'ui-prod.css',
+  '/ui-focus-mode.css': 'ui-focus-mode.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/assets/fonts/cairo-arabic-wght-normal.woff2': 'assets/fonts/cairo-arabic-wght-normal.woff2',
   '/assets/fonts/cairo-latin-wght-normal.woff2': 'assets/fonts/cairo-latin-wght-normal.woff2',
