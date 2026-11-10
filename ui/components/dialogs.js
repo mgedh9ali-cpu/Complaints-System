@@ -40,11 +40,10 @@ function confirmDialog(opts={}){
   const body='<div class="confirm-dialog'+(danger?' is-danger':'')+'">'+ 
     '<p class="confirm-message">'+esc(message)+'</p>'+detail+'</div>';
   const footer='<button type="button" class="btn" data-action="confirm-dialog-cancel">'+esc(cancelLabel)+'</button>'+
-    '<button type="button" class="btn '+(danger?'btn-danger':'btn-primary')+'" data-action="confirm-dialog-ok" autofocus>'+esc(confirmLabel)+'</button>';
+    '<button type="button" class="btn '+(danger?'btn-danger':'btn-primary')+'" data-action="confirm-dialog-ok">'+esc(confirmLabel)+'</button>';
   return new Promise(resolve=>{
     confirmDialogResolve=resolve;
     modal(title, danger?'هذا الإجراء يحتاج مراجعة قبل التنفيذ.':'راجع التفاصيل ثم أكّد أو ألغِ.', body, footer);
-    // Prefer focusing the primary/confirm button for keyboard users
     const okBtn=$('[data-action="confirm-dialog-ok"]');
     if(okBtn) okBtn.focus();
   });
@@ -55,6 +54,15 @@ function resolveConfirmDialog(ok){
   closeModal();
   if(typeof done==='function') done(Boolean(ok));
 }
+
+/* Capture-phase so confirm buttons resolve even if events.js has no case. */
+document.addEventListener('click',function(e){
+  const el=e.target&&e.target.closest&&e.target.closest('[data-action="confirm-dialog-ok"],[data-action="confirm-dialog-cancel"]');
+  if(!el||!confirmDialogResolve) return;
+  e.preventDefault();
+  e.stopPropagation();
+  resolveConfirmDialog(el.getAttribute('data-action')==='confirm-dialog-ok');
+},true);
 
 function askSyncPassword(confirmPassword=false){
  modal('حماية ملف المزامنة','استخدم عبارة مرور من 16 إلى 200 حرف، وشاركها مع المستلم بطريقة منفصلة.',
