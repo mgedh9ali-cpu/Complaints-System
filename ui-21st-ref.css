@@ -6,12 +6,21 @@
 
 :root {
   --claude-bg: #faf9f5;
-  --claude-surface: #ffffff;
-  --claude-ink: #1a1a1a;
-  --claude-muted: #6b6b6b;
-  --claude-line: #e8e6dc;
+  --claude-surface: #faf9f5;
+  --claude-ink: #3d3929;
+  --claude-muted: #83827d;
+  --claude-line: #dad9d4;
+  --claude-accent: #c96442;
+  --claude-accent-soft: color-mix(in srgb, var(--claude-accent) 14%, transparent);
+}
+
+html[data-theme="dark"] {
+  --claude-bg: #262624;
+  --claude-surface: #262624;
+  --claude-ink: #c3c0b6;
+  --claude-muted: #b7b5a9;
+  --claude-line: #3e3e38;
   --claude-accent: #d97757;
-  --claude-accent-soft: color-mix(in srgb, #d97757 14%, transparent);
 }
 
 .liquid-glass-toggle {
@@ -52,10 +61,10 @@
   background: color-mix(in srgb, var(--forest, #0B7A5E) 70%, #1a3d32);
 }
 .liquid-glass-toggle.is-on .lgt-drop {
-  transform: translateX(-20px);
+  transform: translateX(20px);
 }
 html[dir="rtl"] .liquid-glass-toggle.is-on .lgt-drop {
-  transform: translateX(20px);
+  transform: translateX(-20px);
 }
 .liquid-glass-toggle:focus-visible {
   outline: 2px solid var(--forest, #0B7A5E);
@@ -157,4 +166,8 @@ html.glass-off .login-card {
 .btn-copy:hover {
   border-color: var(--forest, #0B7A5E);
   color: var(--forest, #0B7A5E);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass-toggle .lgt-drop, .liquid-glass-toggle .lgt-track { transition: none; }
 }

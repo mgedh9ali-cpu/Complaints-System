@@ -6,8 +6,10 @@ async function printApprovedReply(id){
     return toast('يلزم رد معتمد قبل الطباعة.','warn');
   try{
     const proof=await api('/api/documents/reply/'+encodeURIComponent(id),{method:'POST',body:JSON.stringify({})});
-    const w=window.open('','blank','noopener,noreferrer');
+    const w=window.open('','_blank');
     if(!w)return toast('اسمح بالنوافذ المنبثقة لطباعة المستند.','warn');
+    w.opener=null;
+    w.onload=()=>w.print();
     const code=proof.code||proof.digest||'';
     w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>رد معتمد · ${esc(c.id)}</title>
 <style>body{font-family:"Thmanyah Sans","ThmanyahSans","Cairo","Noto Sans Arabic",Tahoma,Arial,sans-serif;padding:28px;color:#0F1F17;line-height:1.8}h1{color:#1E3A2E;font-size:18px;margin:0 0 8px}
@@ -19,7 +21,7 @@ async function printApprovedReply(id){
 <div class="box">${esc(c.reply.text||'')}</div>
 <div class="stamp">معتمد · رمز تحقق</div>
 <div class="foot">رمز التحقق (SHA-256): <span dir="ltr">${esc(code)}</span><br>أُصدر من نظام الشكاوى المحلي · يمكن التحقق من صفحة الإعدادات.</div>
-<script>window.onload=()=>{window.print();}</script></body></html>`);
+</body></html>`);
     w.document.close();
     toast('تم إصدار مستند الرد مع رمز تحقق.');
   }catch(error){toast(error.message||'تعذر إصدار المستند','error');}
@@ -95,8 +97,10 @@ async function runAuditIntegrityCheck(){
 function printComplaintCover(id){
   const c=db.complaints.find(x=>x?.id===id);
   if(!c)return toast('الشكوى غير موجودة.','error');
-  const w=window.open('','blank','noopener,noreferrer');
+  const w=window.open('','_blank');
   if(!w)return toast('اسمح بالنوافذ المنبثقة.','warn');
+  w.opener=null;
+  w.onload=()=>w.print();
   const refs=(c.referrals||[]).map(r=>esc(r.entity||r.to||'—')).join('، ')||'—';
   const att=(c.attachments||[]).length;
   const st=typeof statusLabel==='function'?statusLabel(c.status):c.status;
@@ -128,7 +132,7 @@ function printComplaintCover(id){
   '<div><div class="label">عدد المرفقات</div><div class="value">'+att+'</div></div></div>'+
   '<div class="sig"><div>توقيع المستلم</div><div>توقيع المسؤول</div></div>'+
   '<div class="foot"><span>تاريخ الطباعة: '+esc(new Date().toLocaleString('ar-IQ'))+'</span><span dir="ltr">'+esc(c.id)+'</span></div>'+
-  '<script>window.onload=function(){window.print()}<\/script></body></html>');
+  '</body></html>');
   w.document.close();
   toast('تم فتح غلاف الشكوى للطباعة.');
 }
@@ -137,6 +141,7 @@ function complaintRecordActions(c,withView=true){
  const action=(label,name,extra='')=>'<button type="button" class="btn btn-sm '+extra+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
  let html=withView?action('عرض','detail'):'';
  if(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status))html+=action('تعديل','edit-complaint');
+ if(withView)html+=action('طباعة','print-complaint-cover','btn-print');
  return html+action('المزيد','complaint-more');
 }
 function complaintActionsModal(id){

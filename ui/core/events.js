@@ -36,7 +36,14 @@ window.withButtonLock = withButtonLock;
 
 document.addEventListener('click',async e=>{
 const destination=e.target.closest('[data-page]')||e.target.closest('[data-goto]');
-if(destination){e.preventDefault?.();if(authenticatedUser)go(destination.dataset.page||destination.dataset.goto);return;}
+if(destination){
+  e.preventDefault?.();
+  if(authenticatedUser){
+    const target=destination.dataset.page||destination.dataset.goto;
+    try{if(target==='notifications')await loadDb();go(target);}catch(error){toast(error.message,'error');}
+  }
+  return;
+}
 const el=e.target.closest('[data-action]');
 if(!el)return;
 const a=el.dataset.action,id=el.dataset.id;
@@ -81,7 +88,8 @@ case 'print-complaint-cover':printComplaintCover(id);break;
 case 'toggle-liquid-glass':if(typeof toggleLiquidGlass==='function')toggleLiquidGlass();break;
 case 'toggle-theme':if(typeof toggleUiTheme==='function')toggleUiTheme();break;
 case 'copy-complaint':await withButtonLock(el,()=>copyComplaint(id));break;
-case 'goto-notifications':page='notifications';render();try{pollNotificationAlerts();}catch(_){}break;
+case 'goto-notifications':await loadDb();go('notifications');break;
+case 'notification-open':await loadDb();detailModal(id);break;
 case 'verify-document-dialog':verifyDocumentDialog();break;
 case 'verify-document':await verifyDocument();break;
 case 'audit-verify':await withButtonLock(el,()=>runAuditIntegrityCheck());break;
@@ -139,7 +147,7 @@ case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';cate
 case 'filter-due-soon':quickView='due-soon';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';dateTypeFilter='created';dateFrom='';dateTo='';quickView='all';registryPage=1;render();break;
-case 'quick-filter':quickView=el.dataset.value||'all';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';render();break;
+case 'quick-filter':quickView=el.dataset.value||'all';recordTypeFilter='all';registryPage=1;statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';render();break;
 case 'my-complaints':quickView='mine';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'bulk-open':bulkOpen();break;

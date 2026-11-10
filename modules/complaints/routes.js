@@ -51,6 +51,12 @@ function createComplaintsRouter({
     res.json({ state, updatedAt, revision });
   });
 
+  router.get('/notifications', requireAuth, requirePermission('complaints.read'), (req, res) => {
+    const { state } = complaintsService.readState();
+    res.set('Cache-Control', 'no-store');
+    res.json({ notifications: state.notifications || [] });
+  });
+
   /** Instant duplicate hint for intake (phone / name / summary). */
   router.get('/complaints/duplicates', requireAuth, requirePermission('complaints.read'), (req, res) => {
     const phone = normalizePhone(req.query.phone || '');

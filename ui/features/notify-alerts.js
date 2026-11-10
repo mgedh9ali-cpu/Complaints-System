@@ -1,18 +1,24 @@
 /* إشعارات تنبيه للرسائل الجديدة — toast + صوت خفيف + نقطة الشريط */
 (function(){
-  const SEEN_KEY='complaints-notif-seen-id';
-  let lastCount=0;
-  function unreadList(){
-    return (db?.notifications||[]).filter(n=>!n.read);
+  let activeUser=null, seen=new Set(), remoteList=null, pending=false;
+  function notificationKey(n){
+    return JSON.stringify([n.id,n.date||n.at,n.title,n.body,n.complaintId]);
   }
-  function maxId(list){
-    let m=0;
-    for(const n of list){
-      const id=Number(n.id)||Date.parse(n.date||n.at)||0;
-      if(id>m) m=id;
+  function resetUser(){
+    const user=authenticatedUser;
+    if(user!==activeUser){
+      activeUser=user;seen=new Set();remoteList=null;
+      document.querySelectorAll('.notif-alert').forEach(node=>node.remove());
     }
-    return m;
   }
+  window.updateNotificationIndicators=function(){
+    resetUser();
+    const unread=authenticatedUser?(remoteList||db?.notifications||[]).filter(n=>!n.read):[];
+    const top=$('#topUnread');
+    if(top){top.hidden=unread.length===0;top.style.display=unread.length?'block':'none';}
+    const count=$('#navNotificationsCount');
+    if(count)count.textContent=String(unread.length);
+  };
   function softBeep(){
     try{
       const ctx=new (window.AudioContext||window.webkitAudioContext)();
@@ -33,43 +39,45 @@
       '<p>'+esc((n.body||'').slice(0,140))+'</p>'+
       '<small>'+esc(typeof timeText==='function'?timeText(n.date||n.at):'')+'</small></div>'+
       '<div class="alarm-toast-actions">'+
-      (n.complaintId?'<button type="button" class="btn btn-sm btn-primary" data-action="detail" data-id="'+esc(n.complaintId)+'">فتح</button>':'')+
-      '<button type="button" class="btn btn-sm" data-action="goto-notifications">الإشعارات</button>'+
+      (n.complaintId?'<button type="button" class="btn btn-sm btn-primary" data-action="notification-open" data-id="'+esc(n.complaintId)+'">فتح الشكوى</button>':'')+
+      '<button type="button" class="btn btn-sm" data-action="goto-notifications">مركز الإشعارات</button>'+
       '</div>';
     (document.getElementById('toastRegion')||document.body).appendChild(node);
     setTimeout(()=>node.remove(),8000);
   }
-  window.pollNotificationAlerts=function(){
-    if(!authenticatedUser||!db) return;
-    const unread=unreadList();
-    const top=$('#topUnread');
-    if(top) top.hidden=unread.length===0;
-    const countEl=$('#navNotificationsCount');
-    if(countEl) countEl.textContent=String(unread.length||0);
-    let seen=0;
-    try{seen=Number(localStorage.getItem(SEEN_KEY)||0)||0;}catch(_){}
-    const newest=maxId(db.notifications||[]);
-    if(newest>seen){
-      const fresh=(db.notifications||[]).filter(n=>{
-        const id=Number(n.id)||Date.parse(n.date||n.at)||0;
-        return id>seen && !n.read;
-      }).slice(0,3);
-      if(fresh.length){
-        softBeep();
-        fresh.forEach(showNewAlert);
-      }
-      try{localStorage.setItem(SEEN_KEY,String(newest));}catch(_){}
-    }
-    lastCount=unread.length;
-  };
-  const orig=window.loadDb;
-  if(typeof orig==='function'){
-    window.loadDb=async function(){
-      const r=await orig.apply(this,arguments);
-      try{pollNotificationAlerts();}catch(_){}
-      return r;
-    };
+  function processNotifications(list){
+    resetUser();
+    if(!authenticatedUser)return;
+    remoteList=list;
+    window.updateNotificationIndicators();
+    const fresh=list.filter(n=>!n.read&&!seen.has(notificationKey(n)));
+    list.forEach(n=>seen.add(notificationKey(n)));
+    if(fresh.length){softBeep();fresh.slice(-3).forEach(showNewAlert);}
   }
-  setInterval(()=>{ try{pollNotificationAlerts();}catch(_){} }, 45000);
-  document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{try{pollNotificationAlerts();}catch(_){}},1200));
+  window.pollNotificationAlerts=async function(){
+    resetUser();
+    if(!authenticatedUser||!stateLoaded||pending)return;
+    const user=authenticatedUser;
+    pending=true;
+    try{
+      const response=await api('/api/notifications');
+      // A response from an earlier session must never reach the current user.
+      if(user===authenticatedUser&&Array.isArray(response.notifications)){
+        processNotifications(response.notifications);
+      }
+    }catch(_){/* Retry at the next interval; keep edits and state revision intact. */}
+    finally{pending=false;}
+  };
+  // loadDb is a lexical binding inside the assembled UI, not window.loadDb.
+  const originalLoadDb=loadDb;
+  loadDb=async function(){
+    const result=await originalLoadDb.apply(this,arguments);
+    processNotifications(db.notifications||[]);
+    return result;
+  };
+  setInterval(()=>{void window.pollNotificationAlerts();},45000);
+  document.addEventListener('complaints:render',()=>{
+    if(page==='notifications')remoteList=db.notifications||[];
+    window.updateNotificationIndicators();
+  });
 })();

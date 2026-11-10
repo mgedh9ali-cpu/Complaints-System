@@ -3,7 +3,7 @@ function complaintDetailPage(){const id=currentId;ensureManagedSettings();const 
 return '<article class="complaint-page'+(readonly?' readonly':'')+(canApprove?' can-approve':'')+'" data-complaint-id="'+esc(id)+'">'+
 '<div class="complaint-page-header"><button class="btn" data-action="detail-back">← العودة إلى السجل</button>'+
 '<div class="complaint-page-heading"><span class="eyebrow">ملف الشكوى / الاستفسار</span><h1>'+esc(c.summary)+'</h1><p>رقم الشكوى: <strong dir="ltr"><bdi>'+esc(id)+'</bdi></strong> · المسؤول: '+esc(c.owner||'غير مسند')+'</p>'+
-'<div class="complaint-page-badges">'+pillStatus(c.status)+pillPriority(c.priority)+slaIndicator(c)+'<span>مدة البقاء: '+ageDays(c)+' يوم</span></div></div></div>'+
+'<div class="complaint-page-badges">'+pillStatus(c.status)+pillPriority(c.priority)+slaIndicator(c)+'<span class="age-badge'+(isLate(c)?' late':'')+'">مدة البقاء: '+ageDays(c)+' يوم</span></div></div></div>'+
 '<div class="complaint-record-actions" aria-label="إجراءات الشكوى">'+complaintRecordActions(c,false)+'</div>'+
 '<nav class="complaint-page-tabs" aria-label="أقسام ملف الشكوى">'+
 [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-actions','المعالجة'],['complaint-reply','الردود'],['complaint-referrals','الإحالات'],['complaint-timeline','سجل الأحداث'],['complaint-notes','الملاحظات']].map(([target,label])=>'<button type="button" data-action="detail-section" data-target="'+target+'">'+label+'</button>').join('')+

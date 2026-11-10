@@ -48,6 +48,7 @@ async function logout(){
   try{await api('/api/auth/logout',{method:'POST',body:'{}'});}catch(_){}
   authenticatedUser=null;stateLoaded=false;db=cleanState();
   try{if(draftKey)sessionStorage.removeItem(draftKey);sessionStorage.removeItem(DRAFT_KEY);localStorage.removeItem(DRAFT_KEY);}catch(_){}
+  window.updateNotificationIndicators?.();
   updateSignedInUi();showLogin();
 }
 async function refreshAssignees(){try{const r=await api('/api/assignees');assignees=r.users||[];}catch(_){}}

@@ -93,14 +93,14 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
    if(selector==='[data-page]')return{dataset:{page}};
    return null;
   }};
-  events.get('click')({target,preventDefault(){},stopPropagation(){}});
+  return events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
  function goto(page){
   const target={closest(selector){
    if(selector==='[data-goto]')return{dataset:{goto:page}};
    return null;
   }};
-  events.get('click')({target,preventDefault(){},stopPropagation(){}});
+  return events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
  return {node,events,windowEvents,location,historyEntries,click,navigate,goto,calls,state,window,downloads,localStorage,sessionStorage};
 }
@@ -228,7 +228,7 @@ test('all seven working pages render from the modular bundle without errors',asy
  const ui=createFakeBrowser();
  for(let i=0;i<20;i++)await Promise.resolve();
  for(const page of ['dashboard','complaints','referrals','replies','notifications','reports','settings']){
-  assert.doesNotThrow(()=>ui.navigate(page),'failed route '+page);
+  await ui.navigate(page);
   assert.ok(ui.node('#content').innerHTML.length>100,'empty route '+page);
   assert.equal(ui.location.hash,'#'+page);
  }
@@ -424,7 +424,8 @@ test('registry keeps primary actions compact and exposes secondary actions by pe
   const ui=createFakeBrowser(role);for(let i=0;i<25;i++)await Promise.resolve();
   ui.navigate('complaints');const html=ui.node('#content').innerHTML;
   assert.match(html,/data-action="complaint-more"/);
-  assert.doesNotMatch(html,/data-action="(?:print-complaint-cover|copy-complaint|request-complaint-delete|export-complaint-pdf|export-complaint-word)"/);
+  assert.match(html,/data-action="print-complaint-cover"/);
+  assert.doesNotMatch(html,/data-action="(?:copy-complaint|request-complaint-delete|export-complaint-pdf|export-complaint-word)"/);
   ui.click('complaint-more','SY-2026-10001');const actions=ui.node('#modalRoot').innerHTML;
   assert.match(actions,/data-action="print-complaint-cover"/);
   if(role==='admin'){
@@ -434,4 +435,18 @@ test('registry keeps primary actions compact and exposes secondary actions by pe
    assert.doesNotMatch(actions,/data-action="(?:export-complaint-pdf|export-complaint-word|request-complaint-delete|copy-complaint)"/);
   }
  }
+});
+
+
+test('complaint printing writes an escaped A4 cover and uses a callable load handler under CSP',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ let html='',printed=false,opened;
+ const popup={opener:{},document:{write:markup=>{html=markup;},close(){}} ,print(){printed=true;}};
+ ui.window.open=(...args)=>{opened=args;return popup;};
+ ui.state.complaints[0].summary='<script>unsafe</script>';
+ await ui.click('print-complaint-cover','SY-2026-10001');
+ assert.equal(opened[1],'_blank');assert.equal(popup.opener,null);
+ assert.match(html,/@page\{size:A4/);assert.match(html,/&lt;script&gt;unsafe&lt;\/script&gt;/);
+ assert.doesNotMatch(html,/<script>/);assert.equal(typeof popup.onload,'function');
+ popup.onload();assert.equal(printed,true);
 });

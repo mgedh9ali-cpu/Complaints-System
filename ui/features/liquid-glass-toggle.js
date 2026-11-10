@@ -25,7 +25,7 @@
   };
   window.mountLiquidGlassToggle=function(){
     if($('#liquidGlassToggle')) return;
-    const host=$('.account-menu-panel');
+    const host=$('.top-actions');
     if(!host) return;
     const b=document.createElement('button');
     b.type='button';

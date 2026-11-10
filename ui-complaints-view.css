@@ -79,6 +79,11 @@
   .registry-tools .filter-actions > .btn { flex: 1 1 auto; }
 }
 
+.registry-panel .registry-table-wrap {
+  max-height: 65vh;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
 .registry-table-wrap {
   border-radius: 0 0 14px 14px;
 }
@@ -345,4 +350,8 @@
   .registry-table .col-pri { display: none; }
   .complaint-page-tabs { top: 56px; }
   .detail-field { grid-template-columns: 1fr; gap: 2px; }
+}
+
+@media print {
+  .registry-panel .registry-table-wrap { max-height: none; overflow: visible; }
 }
