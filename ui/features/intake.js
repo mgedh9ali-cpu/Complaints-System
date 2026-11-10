@@ -353,12 +353,12 @@ function duplicateCheck() {
 
 let intakeSavePending = false;
 async function createComplaint(asDraft = false, addAnother = false) {
-  if(intakeSavePending)return;
+  if(intakeSavePending)return false;
   intakeCollectVisible();
   const d = intakeWizard.data;
   const form = $('#newComplaintForm');
-  if (!form) return;
-  if (!asDraft && !intakeRequireSummary()) return;
+  if (!form) return false;
+  if (!asDraft && !intakeRequireSummary()) return false;
   const isInquiry = intakeWizard.recordType === 'inquiry';
   const body = {
     name: String(d.cName || '').trim(),

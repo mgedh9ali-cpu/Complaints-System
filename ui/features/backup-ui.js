@@ -289,7 +289,7 @@ async function deleteBackupFile(name) {
   const ok = window.confirm(
     'حذف ملف النسخة التالي نهائيًا من مجلد النسخ؟\n' + name + '\n\nهذا لا يمس البيانات الحية. لا يمكن التراجع.'
   );
-  if (!ok) return;
+  if (!ok) return false;
   await api('/api/backup/file', { method: 'DELETE', body: JSON.stringify({ name }) });
   toast('تم حذف ملف النسخة.');
   _backupHistoryLoadedAt = 0;
@@ -357,7 +357,7 @@ function restoreWizardStart(name) {
 
 async function restoreWizardStep2() {
   const name = $('#restorePick')?.value || _restoreWizard.name;
-  if (!name) { toast('اختر نسخة كاملة (.csb).', 'warn'); return; }
+  if (!name) return toast('اختر نسخة كاملة (.csb).', 'warn');
   _restoreWizard = { step: 2, name, result: null };
   modal(
     'معالج الاستعادة — الخطوة 2/5',
@@ -373,6 +373,7 @@ async function restoreWizardStep2() {
     });
     _restoreWizard = { step: 3, name, result };
     restoreWizardStep3();
+    return result;
   } catch (error) {
     _restoreWizard = { step: 2, name, result: { ok: false, error: error.message } };
     modal(
@@ -384,6 +385,7 @@ async function restoreWizardStep2() {
     );
     _protectionStatusLoadedAt = 0;
     await loadProtectionStatus(true);
+    return false;
   }
 }
 

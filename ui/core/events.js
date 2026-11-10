@@ -1,37 +1,38 @@
 /* Events bootstrap — data-action switch and global listeners. */
 
-async function withButtonLock(btn, fn) {
-  if (!btn || btn.disabled || btn.classList.contains('is-loading')) return;
-  const originalBusy = btn.getAttribute('aria-busy');
+async function withButtonLock(btn, fn, loadingText = 'جارٍ التنفيذ…') {
+  if (!btn || btn.disabled || btn.classList.contains('is-loading')) return false;
   const originalHtml = btn.innerHTML;
+  const wasDisabled = btn.disabled;
+  const originalBusy = btn.getAttribute('aria-busy');
+  function restore() {
+    btn.classList.remove('is-loading', 'btn-success-pulse');
+    btn.innerHTML = originalHtml;
+    btn.disabled = wasDisabled;
+    if (originalBusy == null) btn.removeAttribute('aria-busy');
+    else btn.setAttribute('aria-busy', originalBusy);
+  }
   btn.disabled = true;
   btn.classList.add('is-loading');
   btn.setAttribute('aria-busy', 'true');
-  btn.innerHTML = '<span aria-hidden="true">…</span> جارٍ التنفيذ';
-  let ok = false;
+  btn.textContent = loadingText;
   try {
     const result = await fn();
-    ok = result !== false;
-    return result;
-  } finally {
-    btn.classList.remove('is-loading');
-    if (ok) {
-      btn.classList.add('btn-success-pulse');
-      btn.innerHTML = '<span class="btn-check" aria-hidden="true">✓</span> تم';
-      window.setTimeout(() => {
-        if (!document.contains(btn)) return;
-        btn.classList.remove('btn-success-pulse');
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-        if (originalBusy == null) btn.removeAttribute('aria-busy');
-        else btn.setAttribute('aria-busy', originalBusy);
-      }, 900);
-    } else {
-      btn.innerHTML = originalHtml;
-      btn.disabled = false;
-      if (originalBusy == null) btn.removeAttribute('aria-busy');
-      else btn.setAttribute('aria-busy', originalBusy);
+    // Validation and cancellation must not be reported as a successful save.
+    if (result === false || result?.ok === false || result?.success === false) {
+      restore();
+      return result;
     }
+    btn.disabled = true;
+    btn.classList.remove('is-loading');
+    btn.classList.add('btn-success-pulse');
+    btn.innerHTML = '<span class="btn-check" aria-hidden="true">✓</span> تم';
+    // Restore detached buttons too, so reinserting a node never leaves it locked.
+    window.setTimeout(restore, 900);
+    return result;
+  } catch (error) {
+    restore();
+    throw error;
   }
 }
 window.withButtonLock = withButtonLock;
@@ -53,8 +54,8 @@ try{
 switch(a){
 case 'complaint-more':complaintActionsModal(id);break;
 case 'request-complaint-delete':requestComplaintDeletion(id);break;
-case 'export-complaint-pdf':await withButtonLock(el,()=>exportComplaintDocument(id,'pdf'));break;
-case 'export-complaint-word':await withButtonLock(el,()=>exportComplaintDocument(id,'docx'));break;
+case 'export-complaint-pdf':await withButtonLock(el,()=>exportComplaintDocument(id,'pdf'),'جارٍ إنشاء PDF…');break;
+case 'export-complaint-word':await withButtonLock(el,()=>exportComplaintDocument(id,'docx'),'جارٍ إنشاء Word…');break;
 case 'attachment-preview':{const url='/api/attachments/'+encodeURIComponent(el.dataset.file);modal('معاينة المرفق',esc(el.dataset.name),'<img class="attachment-viewer" src="'+url+'" alt="'+esc(el.dataset.name)+'">','<a class="btn" href="'+url+'" target="_blank" rel="noopener">فتح المرفق</a>');break;}
 case 'referral-next':{const v=$('#refComplaint')?.value;closeModal();if(v)newReferral(v);break;}
 case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEditor(v);break;}
@@ -93,9 +94,10 @@ case 'goto-notifications':await loadDb();go('notifications');break;
 case 'notification-open':await loadDb();detailModal(id);break;
 case 'verify-document-dialog':verifyDocumentDialog();break;
 case 'verify-document':await verifyDocument();break;
+case 'diagnose-fonts':await withButtonLock(el,()=>diagnoseLocalFonts(),'جارٍ فحص الخط…');break;
 case 'audit-verify':await withButtonLock(el,()=>runAuditIntegrityCheck());break;
-case 'database-backup':await withButtonLock(el,()=>runDatabaseBackup());break;
-case 'backup-database-only':await withButtonLock(el,()=>runDatabaseOnlyBackup());break;
+case 'database-backup':await withButtonLock(el,()=>runDatabaseBackup(),'جارٍ إنشاء النسخة الكاملة…');break;
+case 'backup-database-only':await withButtonLock(el,()=>runDatabaseOnlyBackup(),'جارٍ نسخ قاعدة البيانات…');break;
 case 'show-update-help':showUpdateHelp();break;
 case 'show-restore-guide':showRestoreGuide();break;
 case 'refresh-protection-status':await withButtonLock(el,()=>refreshProtectionStatusAndRender());break;
@@ -112,35 +114,35 @@ case 'read-notice':{
   break;
 }
 case 'set-reminder':openReminderModal(id);break;
-case 'save-reminder':await withButtonLock(el,()=>submitReminder(id));break;
+case 'save-reminder':await withButtonLock(el,()=>submitReminder(id),'جارٍ حفظ التذكير…');break;
 case 'alarm-dismiss':await dismissReminder(el.dataset.reminder);break;
 case 'alarm-open':await dismissReminder(el.dataset.reminder);detailModal(id);break;
 case 'command-open':commandPalette();break;
 case 'command-page':closeModal();go(el.dataset.pageTarget);break;
-case 'export-selected':await withButtonLock(el,()=>exportSelected());break;
-case 'export-registry-pdf':await withButtonLock(el,()=>previewRegistryExport('pdf'));break;
+case 'export-selected':await withButtonLock(el,()=>exportSelected(),'جارٍ تجهيز التصدير…');break;
+case 'export-registry-pdf':await withButtonLock(el,()=>previewRegistryExport('pdf'),'جارٍ تجهيز PDF…');break;
 case 'close-modal':cancelPendingSyncImport?.();closeModal();break;
 case 'backdrop-close':if(e.target===el){cancelPendingSyncImport?.();closeModal();}break;
 case 'new-complaint':newComplaint();break;
-case 'save-complaint':await withButtonLock(el,()=>createComplaint());break;
-case 'save-and-new':await withButtonLock(el,()=>createComplaint(false,true));break;
-case 'save-incomplete':await withButtonLock(el,()=>createComplaint(true));break;
+case 'save-complaint':await withButtonLock(el,()=>createComplaint(),'جارٍ حفظ الشكوى…');break;
+case 'save-and-new':await withButtonLock(el,()=>createComplaint(false,true),'جارٍ الحفظ وفتح سجل جديد…');break;
+case 'save-incomplete':await withButtonLock(el,()=>createComplaint(true),'جارٍ حفظ المسودة…');break;
 case 'detail':recentComplaintIds=[id,...recentComplaintIds.filter(x=>x!==id)].slice(0,8);detailModal(id);break;
 case 'detail-back':go(detailReturnPage==='complaint-detail'?'complaints':detailReturnPage);break;
 case 'detail-section':scrollComplaintSection(el.dataset.target,el);break;
 case 'glass-step':await chooseWorkflowStep(el.dataset.status);break;
-case 'change-status':await withButtonLock(el,()=>changeStatus(id));break;
+case 'change-status':await withButtonLock(el,()=>changeStatus(id),'جارٍ تحديث الحالة…');break;
 case 'change-priority':changePriority(id);break;
 case 'add-note':addNote(id);break;
-case 'save-note':await withButtonLock(el,()=>saveNote(id));break;
+case 'save-note':await withButtonLock(el,()=>saveNote(id),'جارٍ حفظ الملاحظة…');break;
 case 'new-referral':newReferralGlobal();break;
 case 'referral-create':newReferral(id);break;
-case 'save-referral':await withButtonLock(el,()=>saveReferral(id));break;
+case 'save-referral':await withButtonLock(el,()=>saveReferral(id),'جارٍ حفظ الإحالة…');break;
 case 'survey':surveyModal(id);break;
-case 'save-survey':await withButtonLock(el,()=>saveSurvey(id));break;
+case 'save-survey':await withButtonLock(el,()=>saveSurvey(id),'جارٍ حفظ النتيجة…');break;
 case 'new-reply':newReply();break;
 case 'reply-create':replyEditor(id);break;
-case 'save-reply':await withButtonLock(el,()=>saveReply(id));break;
+case 'save-reply':await withButtonLock(el,()=>saveReply(id),'جارٍ حفظ الرد…');break;
 case 'reply-review':await withButtonLock(el,()=>replyAction(id,a));break;
 case 'reply-approve':await withButtonLock(el,()=>replyAction(id,a));break;
 case 'reply-sent':await withButtonLock(el,()=>replyAction(id,a));break;
@@ -161,8 +163,8 @@ case 'select-all':{
 }
 case 'clear-selection':selectedIds.clear();render();break;
 case 'report-period':setReportPeriod([14,30,90].includes(Number(el.dataset.days))?Number(el.dataset.days):0);break;
-case 'export-csv':if(page==='reports')await withButtonLock(el,()=>exportReport('csv'));else await withButtonLock(el,()=>exportCsv());break;
-case 'export-xlsx':await withButtonLock(el,()=>exportXlsx());break;
+case 'export-csv':if(page==='reports')await withButtonLock(el,()=>exportReport('csv'),'جارٍ إنشاء CSV…');else await withButtonLock(el,()=>exportCsv(),'جارٍ إنشاء CSV…');break;
+case 'export-xlsx':await withButtonLock(el,()=>exportXlsx(),'جارٍ إنشاء Excel…');break;
 case 'print-report':window.print();break;
 case 'sync-import':$('#syncImportFile')?.click();break;
 case 'sync-export':toast('استخدم تصدير المزامنة من لوحة الإعدادات مع عبارة مرور.','warn');break;
@@ -175,11 +177,11 @@ case 'delete-setting':await deleteSetting(el.dataset.type,el.dataset.value);brea
 case 'clear-setting-type':await clearSettingType(el.dataset.type);break;
 case 'restore-settings':await restoreDefaultSettings(el.dataset.type||'all');break;
 case 'save-setting':await withButtonLock(el,()=>saveSetting(el.dataset.type,el.dataset.mode,el.dataset.original));break;
-case 'save-sla':await withButtonLock(el,()=>saveSlaSettings());break;
+case 'save-sla':await withButtonLock(el,()=>saveSlaSettings(),'جارٍ حفظ الإعداد…');break;
 case 'add-category':addSetting('categories');break;
 case 'change-password':passwordChangeModal();break;
-case 'save-password-change':await withButtonLock(el,()=>savePasswordChange());break;
-case 'save-complaint-edit':await withButtonLock(el,()=>saveComplaintEdit(id));break;
+case 'save-password-change':await withButtonLock(el,()=>savePasswordChange(),'جارٍ تغيير كلمة المرور…');break;
+case 'save-complaint-edit':await withButtonLock(el,()=>saveComplaintEdit(id),'جارٍ حفظ التعديلات…');break;
 case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
 case 'registry-next':registryPage+=1;render();break;
 case 'registry-layout':{

@@ -70,8 +70,9 @@ test('encrypted database and audit survive restart without exposing complaint co
   const state=f.complaints.readState(); state.state.complaints[0].summary='تعديل اصطناعي سري';
   assert.equal(f.complaints.saveState({state:state.state,userId:'s1',expectedRevision:state.revision}).conflict,false);
   const event=f.auditService.listEvents().find(e=>e.action==='complaint_updated');
-  assert.equal(event.details.changes.summary.before,c.summary);
-  assert.equal(event.details.changes.summary.after,'تعديل اصطناعي سري');
+  assert.deepEqual(event.details.changes.summary.before,{redacted:true,length:c.summary.length});
+  assert.deepEqual(event.details.changes.summary.after,{redacted:true,length:'تعديل اصطناعي سري'.length});
+  assert.equal(JSON.stringify(event).includes(c.summary),false);
   f.db.pragma('wal_checkpoint(TRUNCATE)');
   assert.equal(fs.readFileSync(f.file).includes(Buffer.from(c.summary)),false);
   assert.equal(f.auditService.verifyChain().ok,true);

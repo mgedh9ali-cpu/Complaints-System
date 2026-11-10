@@ -85,7 +85,7 @@ const middleware = createAuthMiddleware({ db, audit });
 const rejectTeamOperations=require('./lib/single-operator').installSingleOperator({db,authService,middleware,username:env.adminUsername});
 const { ensureCsrfToken } = middleware;
 
-const rolesService = createRolesService({ db });
+const rolesService = createRolesService({ db, audit });
 const complaintsService = createComplaintsService({ db, audit, logger, rolesService, singleOperator:true });
 const remindersService = createRemindersService({ db, complaintsService, audit });
 const dashboardService = createDashboardService({ complaintsService });

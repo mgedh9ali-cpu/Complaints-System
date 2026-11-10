@@ -49,7 +49,7 @@ const CUSTOMIZABLE = Object.freeze([
   'dashboard.view', 'audit.read', 'sync.export'
 ]);
 
-function createRolesService({ db } = {}) {
+function createRolesService({ db, audit } = {}) {
   if (db) db.exec(`CREATE TABLE IF NOT EXISTS user_permissions (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
     overrides_json TEXT NOT NULL CHECK(json_valid(overrides_json))
@@ -86,6 +86,10 @@ function createRolesService({ db } = {}) {
   function requirePermission(action) {
     return (req, res, next) => {
       if (!req.user || !can(req.user, action)) {
+        // Record only action metadata, never request URLs, query strings or bodies.
+        if (req.user?.id && typeof audit === 'function') {
+          audit(req.user.id, 'permission_denied', 'permission', action, { method: req.method || 'UNKNOWN' });
+        }
         return res.status(403).json({ error: 'ليس لديك صلاحية لتنفيذ هذه العملية.' });
       }
       next();

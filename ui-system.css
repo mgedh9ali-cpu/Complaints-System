@@ -144,10 +144,14 @@ small, .small-copy, .subheading { font-size: var(--t-sm); color: var(--ink-2); }
 .btn-sm { min-height: 36px; padding: var(--s1) var(--s3); font-size: var(--t-sm); }
 .icon-button, .icon-btn { width: 44px; padding: 0; }
 .btn:disabled, .btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
-.btn.is-loading { position: relative; color: transparent; pointer-events: none; }
-.btn.is-loading::after { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%;
-  border: 2px solid currentColor; border-top-color: transparent; color: var(--ink-2); animation: spin .7s linear infinite; }
-.btn-primary.is-loading::after { color: var(--brand-fg); }
+.btn.is-loading { position: relative; padding-inline-start: 38px; opacity: 1; pointer-events: none; cursor: progress; }
+.btn.is-loading::after { content: ""; position: absolute; inset-inline-start: 12px; top: 50%;
+  width: 16px; height: 16px; margin: 0; border: 2px solid currentColor;
+  border-top-color: transparent; border-radius: 50%; transform: translateY(-50%);
+  animation: button-loading-spin .7s linear infinite; }
+@keyframes button-loading-spin { to { transform: translateY(-50%) rotate(360deg); } }
+html[data-motion="off"] .btn.is-loading::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .btn.is-loading::after { animation: none !important; } }
 .btn-success-pulse { animation: pulse-ok 600ms var(--ease); }
 .btn-check { font-weight: 700; }
 
@@ -591,3 +595,6 @@ html{scroll-behavior:auto}
   .modal-footer { position: sticky; bottom: 0; background: var(--surface); z-index: 2; }
   .modal-footer .btn { min-height: 44px; }
 }
+
+.font-diagnostics { padding-inline-start: var(--s5); margin-block: var(--s4); }
+.font-diagnostics li { padding-block: var(--s2); overflow-wrap: anywhere; }

@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const { hashAuditEvent } = require('../../lib/audit-integrity');
 const { storageFor } = require('../../lib/storage-codec');
 const { verifyAuditRows } = require('../../lib/audit-integrity');
+const { sanitizeAuditDetails } = require('../../lib/audit-privacy');
 
 function createAuditService({ db, logger, databasePath }) {
   const dbPath = databasePath || process.env.DATABASE_PATH || './data/complaints.sqlite';
@@ -42,7 +43,7 @@ function createAuditService({ db, logger, databasePath }) {
       details_json: null,
       created_at: new Date().toISOString()
     };
-    event.details_json = storage.encodeJson(details, 'audit:' + event.id);
+    event.details_json = storage.encodeJson(sanitizeAuditDetails(details), 'audit:' + event.id);
     const previousHash =
       db.prepare('SELECT event_hash FROM audit_events ORDER BY rowid DESC LIMIT 1').get()
         ?.event_hash ?? null;

@@ -44,7 +44,7 @@ async function printComplaintReceipt(id){
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),2000);
     toast('تم تنزيل إيصال الاستلام PDF.');
-  }catch(error){toast(error.message,'error');}
+  }catch(error){return toast(error.message,'error');}
 }
 
 function verifyDocumentDialog(){
@@ -87,10 +87,11 @@ async function runAuditIntegrityCheck(){
         +(health.counts?'<br>شكاوى: '+health.counts.complaints+' · أحداث تدقيق: '+health.counts.audit_events:'')
         +'</div>';
     }
-    toast(audit.ok?'فحص النزاهة ناجح.':'فشل فحص النزاهة.','warn');
+    toast(audit.ok?'فحص النزاهة ناجح.':'فشل فحص النزاهة.',audit.ok?'':'error');
+    return audit;
   }catch(error){
     if(mount)mount.innerHTML='<span style="color:#8b3a3a">'+esc(error.message)+'</span>';
-    toast(error.message,'error');
+    return toast(error.message,'error');
   }
 }
 
@@ -170,7 +171,7 @@ async function exportComplaintDocument(id,format){
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download='شكوى-'+id+'.'+format;document.body.appendChild(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1500);toast('تم تصدير الشكوى '+(format==='docx'?'Word':'PDF')+'.');
- }catch(error){toast(error.message||'تعذر تصدير الشكوى.','error');}
+ }catch(error){return toast(error.message||'تعذر تصدير الشكوى.','error');}
 }
 
 async function copyComplaint(id){
@@ -207,7 +208,7 @@ async function copyComplaint(id){
     if(newId) detailModal(newId);
     else {page='complaints';render();}
   }catch(error){
-    toast(error.message||'تعذر نسخ الشكوى.','error');
+    return toast(error.message||'تعذر نسخ الشكوى.','error');
   }
 }
 

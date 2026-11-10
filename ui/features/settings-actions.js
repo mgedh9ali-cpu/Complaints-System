@@ -79,9 +79,9 @@ function editComplaintModal(id){
   '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-complaint-edit" data-id="'+esc(id)+'">حفظ البيانات</button>');
 }
 async function saveComplaintEdit(id){
-  if(!$('#editComplaintForm')?.reportValidity())return;
+  if(!$('#editComplaintForm')?.reportValidity())return false;
   const body={firstContactDate:$('#editFirstContactDate')?.value||null,name:$('#editName').value.trim(),phone:phoneNorm($('#editPhone').value),province:$('#editProvince').value,category:$('#editCategory').value,nature:$('#editNature')?.value||'',entity:$('#editEntity').value,summary:$('#editSummary').value.trim(),details:$('#editDetails').value.trim()};
-  try{await flushUiBeforeAction();await api('/api/complaints/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)});closeModal();await reloadStoredState();toast('حُفظت بيانات الشكوى.');}catch(error){toast(error.message,'error');}
+  try{await flushUiBeforeAction();await api('/api/complaints/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)});closeModal();await reloadStoredState();toast('حُفظت بيانات الشكوى.');}catch(error){return toast(error.message,'error');}
 }
 async function flushUiBeforeAction(){if(stateConflict)throw new Error('حل تعارض البيانات قبل تنفيذ إجراء جديد.');await persistQueue;if(persistTimer)await persistUiNow();}
 async function reloadStoredState(){const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number(stored.revision)||0;stateConflict=false;stateLoaded=true;render();}
@@ -95,7 +95,7 @@ function maintenancePanel(){
 }
 
 function passwordChangeModal(){modal('تغيير كلمة المرور','أدخل كلمة المرور الحالية والجديدة.','<div class="form-field"><label for="currentPassword">الحالية</label><input class="field" id="currentPassword" type="password"></div><div class="form-field"><label for="newPassword">الجديدة</label><input class="field" id="newPassword" type="password" minlength="12"></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-password-change">حفظ</button>');}
-async function savePasswordChange(){try{await api('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:$('#currentPassword')?.value,newPassword:$('#newPassword')?.value})});closeModal();toast('تم تغيير كلمة المرور.');}catch(e){toast(e.message,'error');}}
+async function savePasswordChange(){try{await api('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:$('#currentPassword')?.value,newPassword:$('#newPassword')?.value})});closeModal();toast('تم تغيير كلمة المرور.');}catch(e){return toast(e.message,'error');}}
 
 
 
@@ -122,7 +122,7 @@ async function confirmSyncPassword(){
     const input=$('#syncImportFile');if(input)input.value='';
     pendingSyncPackage=null;syncImportTarget=null;closeModal();
     await reloadStoredState();toast('تم استيراد ملف المزامنة.');
-  }catch(error){toast(error.message,'error');}
+  }catch(error){return toast(error.message,'error');}
   finally{finishSyncImportWait();}
 }
 function cancelPendingSyncImport(){pendingSyncPackage=null;if(syncImportTarget){try{syncImportTarget.value='';}catch(_){}}syncImportTarget=null;finishSyncImportWait();}

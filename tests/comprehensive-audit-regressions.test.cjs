@@ -19,7 +19,8 @@ test('field update returns success consistent with durable encrypted state and a
  const {db,service,auditService,id}=fixture(t);
  const result=service.updateComplaint({complaintId:id,body:{summary:'تعديل اختبار'},userId:'a',username:'director'});
  assert.equal(result.ok,true);assert.equal(service.readState().state.complaints[0].summary,'تعديل اختبار');
- assert.equal(auditService.listEvents()[0].details.changes.summary.after,'تعديل اختبار');
+ assert.equal(auditService.listEvents()[0].details.changes.summary.after.redacted,true);
+ assert.doesNotMatch(JSON.stringify(auditService.listEvents()),/تعديل اختبار/);
  assert.equal(db.prepare('SELECT state_json FROM app_state').get().state_json.includes('تعديل اختبار'),false);
 });
 test('generic state writes reject forged notes and audit legitimate notes with before and after',t=>{

@@ -30,7 +30,7 @@ async function changeStatus(id){
       confirmLabel:isCancel?'تأكيد الإلغاء':'تأكيد الإغلاق',
       danger:true
     });
-    if(!ok) return;
+    if(!ok) return false;
   }else if(['closed','cancelled'].includes(c.status)&&next==='in_progress'){
     const ok=await confirmDialog({
       title:'تأكيد إعادة الفتح',
@@ -39,7 +39,7 @@ async function changeStatus(id){
       confirmLabel:'إعادة الفتح',
       danger:false
     });
-    if(!ok) return;
+    if(!ok) return false;
   }
 
   const button=$('[data-action="change-status"]');
@@ -68,6 +68,7 @@ async function changeStatus(id){
   }catch(error){
     toast('تعذر تغيير الحالة: '+error.message,'error');
     if(error.status===409||error.status===428)stateConflict=true;
+    return false;
   }finally{if(button&&document.contains(button))button.disabled=false;}
 }
 async function saveDetailChange(id,change,success){
@@ -88,12 +89,13 @@ async function saveDetailChange(id,change,success){
   if(error.status===409||error.status===428)stateConflict=true;
   render();
   toast('تعذر حفظ الإجراء: '+error.message,'error');
+  return false;
  }
 }
 async function changePriority(id){
  const priority=$('#detailPriority')?.value;
  if(!priority)return toast('اختر الأولوية.','warn');
- await saveDetailChange(id,c=>{
+ return await saveDetailChange(id,c=>{
   const old=priorityLabel(c.priority);
   c.priority=priority;
   logEvent(c,'تغيير الأولوية',old+' ← '+priorityLabel(priority));
@@ -110,7 +112,7 @@ function addNote(id){
 async function saveNote(id){
  const text=$('#noteText')?.value.trim();
  if(!text)return toast('اكتب الملاحظة أولاً.','warn');
- await saveDetailChange(id,c=>{
+ return await saveDetailChange(id,c=>{
   c.notes ||= [];
   c.notes.unshift({text,by:authenticatedUser.username,at:new Date().toISOString()});
   logEvent(c,'إضافة ملاحظة داخلية','تم حفظ ملاحظة داخلية.');
@@ -159,6 +161,7 @@ async function saveReferral(id){
     }catch(_) {}
     if(error.status===409||error.status===428)stateConflict=true;
     toast('تعذر حفظ الإحالة: '+error.message,'error');
+    return false;
   }finally{if(button&&document.contains(button))button.disabled=false;}
 }
 function surveyModal(id){const c=db.complaints.find(x=>x.id===id);if(!c)return;modal('تسجيل رأي المشتكي','توثيق ما إذا أُخذ الرأي وهل عولجت الشكوى','<form id="surveyForm">'+selectField('هل عولجت الشكوى؟','surveyResolved',[{value:'yes',label:'نعم'},{value:'partly',label:'جزئيًا'},{value:'no',label:'لا'},{value:'unknown',label:'لم يحدد'}],c.survey?.resolved||'',true)+'<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:11px"><input type="checkbox" id="surveyAsked" '+(c.survey?.asked?'checked':'')+'> تم أخذ رأي المشتكي</label></form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-survey" data-id="'+esc(id)+'">حفظ</button>');}
@@ -167,7 +170,7 @@ async function saveSurvey(id){
  const asked=Boolean($('#surveyAsked')?.checked);
  if(!resolved)return toast('حدد نتيجة المعالجة.','warn');
  const label=$('#surveyResolved')?.selectedOptions?.[0]?.text||resolved;
- await saveDetailChange(id,c=>{
+ return await saveDetailChange(id,c=>{
   c.survey={resolved,asked,at:new Date().toISOString()};
   logEvent(c,'تسجيل رأي المشتكي','نتيجة المعالجة: '+label+'؛ أخذ الرأي: '+(asked?'نعم':'لا'));
  },'تم حفظ رأي المشتكي في قاعدة البيانات.');
