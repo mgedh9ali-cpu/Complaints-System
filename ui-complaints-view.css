@@ -434,3 +434,13 @@
   .record-data-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detail-section { break-inside: auto; box-shadow: none; }
 }
+
+/* Local display preferences never add persistent rendering work. */
+html[data-density="compact"] .registry-table :is(td,th) { padding-block: 7px; }
+html[data-density="compact"] .detail-section { padding: 12px 14px; }
+html[data-density="compact"] .record-data-grid .detail-field { padding-block: 8px; }
+html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="off"] *::after {
+  animation: none !important; transition: none !important; scroll-behavior: auto !important;
+}
+html[data-motion="off"] ::view-transition-group(*), html[data-motion="off"] ::view-transition-old(*), html[data-motion="off"] ::view-transition-new(*) { animation: none !important; }
+@media (pointer: coarse) { .btn, .icon-btn, .complaint-page-tabs button { min-height: 44px; } }

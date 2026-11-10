@@ -44,7 +44,7 @@ test('sync encryption authenticates the entire package and rejects plaintext and
 });
 test('cancelled form files never leak into a later complaint; only submission snapshot uploads',async()=>{
  let mutation,createdHandler,currentForm,currentInput,currentPreview;const uploads=[];
- function newForm(){currentForm={dataset:{},querySelector:()=>({appendChild(){}})};currentInput={files:[],handlers:{},addEventListener(t,f){this.handlers[t]=f;}};currentPreview={hidden:true,innerHTML:''};}
+ function newForm(){currentForm={dataset:{},querySelector:()=>({appendChild(){}})};currentInput={files:[],handlers:{},addEventListener(t,f){this.handlers[t]=f;}};currentPreview={hidden:true,innerHTML:'',addEventListener(){}};}
  const document={body:{},querySelector(s){if(s==='#newComplaintForm')return currentForm;if(s==='#cAttachments')return currentInput;if(s==='#cAttachPreview')return currentPreview;return null;},querySelectorAll:()=>[],createElement:()=>({})};
  const context={document,window:{addEventListener(t,f){if(t==='complaints:created')createdHandler=f;},__uploadAttachments:async(id,files)=>{uploads.push({id,files});return files;}},MutationObserver:class{constructor(f){mutation=f;}observe(){}},console:{log(){},info(){}}};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../attachments-ui-bridge.js'),'utf8'),context);
@@ -64,7 +64,7 @@ test('intake attachments mount only on review and selections survive a wizard re
   mount=review?{appendChild(){appends++;}}:null;
   form={dataset:{},querySelector:()=>mount};
   input={files:[],handlers:{},addEventListener(t,fn){this.handlers[t]=fn;}};
-  preview={hidden:true,innerHTML:''};mutation();
+  preview={hidden:true,innerHTML:'',addEventListener(){}};mutation();
  }
  step(false);assert.equal(appends,0);assert.equal(form.dataset.attachInjected,undefined);
  step(true);input.files=[{name:'<private>.txt',size:40}];input.handlers.change();

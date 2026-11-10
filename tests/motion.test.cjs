@@ -33,3 +33,12 @@ test('hidden pages pause status cues and stop counter work until visible again',
  assert.equal(f.counter.textContent,'24');assert.equal(f.attrs.size,0);
  f.show();assert.equal(f.root.dataset.motionPaused,'false');assert.equal(f.frames.size,0);
 });
+
+test('local motion preference stops active work and rejects unknown display values',()=>{
+ const f=fixture();f.render('dashboard');assert.equal(f.frames.size,1);
+ f.window.setDisplayPreference('motion','off');assert.equal(f.frames.size,0);assert.equal(f.counter.textContent,'24');
+ f.render('reports');assert.equal(f.frames.size,0);assert.equal(f.attrs.size,0);
+ f.window.setDisplayPreference('density','compact');assert.equal(f.root.dataset.density,'compact');
+ f.window.setDisplayPreference('density','invalid');assert.equal(f.root.dataset.density,'comfortable');
+ f.window.setDisplayPreference('motion','light');f.render('settings');assert.equal(f.frames.size,1);
+});

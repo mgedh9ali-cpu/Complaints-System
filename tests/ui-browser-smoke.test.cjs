@@ -526,3 +526,15 @@ test('reopening a closed record exposes the same required reason control as clos
  record.status='new';update();assert.equal(reason.required,false);assert.equal(wrapper.hidden,true);
  select.value='cancelled';update();assert.equal(reason.required,true);assert.equal(wrapper.hidden,false);
 });
+
+test('save and add another persists one record and opens a clean intake form',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});
+ ui.node('#cSummary').value='سجل للحفظ المتتابع';ui.click('intake-next');ui.click('intake-next');ui.click('intake-next');
+ assert.match(ui.node('#modalRoot').innerHTML,/data-action="save-and-new"/);
+ const first=ui.click('save-and-new');const second=ui.click('save-complaint');await Promise.all([first,second]);
+ for(let i=0;i<40;i++)await Promise.resolve();
+ assert.equal(ui.calls.filter(c=>c.url==='/api/complaints'&&c.method==='POST').length,1);
+ assert.match(ui.node('#modalRoot').innerHTML,/ما الذي تريد تسجيله/);
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/سجل للحفظ المتتابع/);
+});

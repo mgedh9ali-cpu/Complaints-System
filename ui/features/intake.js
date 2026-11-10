@@ -181,6 +181,7 @@ function intakeFooterHtml() {
     /* type step */
   } else if (last) {
     html += '<button type="button" class="btn" data-action="save-incomplete">حفظ كمسودة</button>';
+    html += '<button type="button" class="btn" data-action="save-and-new">حفظ وإضافة جديد</button>';
     html += '<button type="button" class="btn btn-primary" data-action="save-complaint">حفظ ' + (intakeWizard.recordType === 'inquiry' ? 'الاستفسار' : 'الشكوى') + '</button>';
   } else {
     html += '<button type="button" class="btn btn-primary" data-action="intake-next">التالي</button>';
@@ -345,7 +346,9 @@ function duplicateCheck() {
     matches.slice(0, 6).map(c => '<div><span class="ticket-id" dir="ltr">' + esc(c.id) + '</span> · ' + esc(c.summary) + '</div>').join('') + '</div>';
 }
 
-async function createComplaint(asDraft = false) {
+let intakeSavePending = false;
+async function createComplaint(asDraft = false, addAnother = false) {
+  if(intakeSavePending)return;
   intakeCollectVisible();
   const d = intakeWizard.data;
   const form = $('#newComplaintForm');
@@ -370,6 +373,7 @@ async function createComplaint(asDraft = false) {
     asDraft
   };
   const files = Array.from(intakeWizard.files?.length ? intakeWizard.files : form.querySelector('#cAttachments')?.files || []);
+  intakeSavePending = true;
   try {
     const hadPendingSave = Boolean(persistTimer);
     if (persistTimer) {
@@ -404,13 +408,15 @@ async function createComplaint(asDraft = false) {
     closeModal();
     page = 'complaints';
     history.replaceState({ view: 'complaints' }, '', '#complaints');
-    detailModal(response.complaint.id);
+    if(!addAnother)detailModal(response.complaint.id);
     window.dispatchEvent(new CustomEvent('complaints:created', { detail: { id: response.complaint.id, files } }));
+    intakeWizard.files = [];
+    if(addAnother){render();newComplaint();}
     toast('تم حفظ السجل ' + response.complaint.id);
   } catch (error) {
     toast('تعذر حفظ السجل: ' + error.message, 'error');
     throw error;
-  }
+  } finally { intakeSavePending = false; }
 }
 
 /* Wizard actions — capture phase so they work without events.js changes */

@@ -3,7 +3,7 @@
   const root=document.documentElement,content=document.getElementById('content');
   if(!root||!content)return;
   const media=window.matchMedia?.('(prefers-reduced-motion: reduce)');
-  const still=()=>media?.matches===true;
+  const still=()=>media?.matches===true||root.dataset.motion==='off';
   const palettes=new Set(['emerald','ocean','ember']);
   window.setPalette=name=>{
     const palette=palettes.has(name)?name:'emerald';
@@ -42,7 +42,18 @@
       entry.frame=window.requestAnimationFrame(tick);
     });
   }
-  document.addEventListener('complaints:render',event=>enter(event.detail?.route));
+  window.setDisplayPreference=(kind,value)=>{
+    if(!['density','motion'].includes(kind))return;
+    const chosen=kind==='density'?(value==='compact'?'compact':'comfortable'):(value==='off'?'off':'light');
+    root.dataset[kind]=chosen;
+    try{localStorage.setItem('complaints-display-'+kind,chosen);}catch(_){}
+    if(kind==='motion'&&still())stop();
+  };
+  for(const kind of ['density','motion']){
+    let value;try{value=localStorage.getItem('complaints-display-'+kind);}catch(_){}
+    window.setDisplayPreference(kind,value);
+  }
+  document.addEventListener('complaints:render' ,event=>enter(event.detail?.route));
   media?.addEventListener?.('change',()=>{if(still())stop();});
   function syncVisibility(){
     const hidden=document.visibilityState==='hidden';

@@ -48,7 +48,7 @@ function scrollComplaintSection(target,source){
  if(!allowed.has(target))return;
  const section=document.getElementById(target);if(!section)return;
  $$('[data-action="detail-section"]').forEach(tab=>{if(tab===source)tab.setAttribute('aria-current','location');else tab.removeAttribute('aria-current');});
- section.scrollIntoView?.({behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+ section.scrollIntoView?.({behavior:document.documentElement?.dataset.motion==='off'||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
  section.setAttribute('tabindex','-1');section.focus?.({preventScroll:true});
 }
 async function chooseWorkflowStep(status){

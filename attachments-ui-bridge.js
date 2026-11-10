@@ -45,8 +45,17 @@
       const box = $('#cAttachPreview');
       if (!box) return;
       box.hidden = !files.length;
-      box.innerHTML = files.map(f => `<span class="attach-chip">${escapeHtml(f.name)} <small>(${Math.round(f.size / 1024)} ك.ب)</small></span>`).join('');
+      box.innerHTML = files.map((f,index) => `<span class="attach-chip">${escapeHtml(f.name)} <small>(${Math.round(f.size / 1024)} ك.ب)</small><button type="button" class="btn btn-sm" data-remove-intake-file="${index}" aria-label="إزالة ${escapeHtml(f.name)}">إزالة</button></span>`).join('');
     }
+    $('#cAttachPreview')?.addEventListener('click', event => {
+      const button=event.target.closest('[data-remove-intake-file]');
+      if(!button||typeof intakeWizard!=='object')return;
+      const index=Number(button.dataset.removeIntakeFile);
+      if(!Number.isInteger(index)||index<0||index>=intakeWizard.files.length)return;
+      intakeWizard.files=intakeWizard.files.filter((_,i)=>i!==index);
+      if(input)input.value='';
+      showSelected(intakeWizard.files);
+    });
     showSelected(selectedFiles());
     input?.addEventListener('change', () => {
       const files = Array.from(input.files || []);
