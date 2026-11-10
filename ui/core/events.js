@@ -203,8 +203,14 @@ document.addEventListener('keydown',e=>{
   if(mod&&e.key.toLowerCase()==='n'&&authenticatedUser.role!=='reviewer'){e.preventDefault();newComplaint();return;}
   if(e.altKey&&e.key.toLowerCase()==='n'&&authenticatedUser.role!=='reviewer'){e.preventDefault();newComplaint();return;}
   if(mod&&e.key.toLowerCase()==='s'){
-    const saveBtn=$('[data-action="save-complaint"]')||$('[data-action="save-reply"]')||$('[data-action="save-note"]')||$('[data-action="save-referral"]');
+    const saveBtn=$('[data-action="save-complaint"]')||$('[data-action="save-complaint-edit"]')||$('[data-action="save-reply"]')||$('[data-action="save-note"]')||$('[data-action="save-referral"]')||$('[data-action="save-password-change"]');
     if(saveBtn&&!saveBtn.disabled){e.preventDefault();saveBtn.click();}
+    return;
+  }
+  // Ctrl/Cmd+Enter → save the currently open form (same as primary save button)
+  if(mod&&e.key==='Enter'){
+    const saveBtn=$('[data-action="save-complaint"]')||$('[data-action="save-complaint-edit"]')||$('[data-action="save-reply"]')||$('[data-action="save-note"]')||$('[data-action="save-referral"]')||$('[data-action="save-password-change"]')||$('[data-action="save-setting"]')||$('[data-action="save-sla"]');
+    if(saveBtn&&!saveBtn.disabled&&!saveBtn.classList.contains('is-loading')){e.preventDefault();saveBtn.click();}
   }
 });
 if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));if($('#navBackdrop'))$('#navBackdrop').hidden=!open;});

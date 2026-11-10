@@ -10,9 +10,10 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
 
   // Local connections share one loopback IP. Avoid locking all staff out
   // when a single account has repeated incorrect credentials.
+  // Slightly tighter: 8 attempts / 15 min per username+IP (was 10).
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 10,
+    limit: 8,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     skipSuccessfulRequests: true,
@@ -24,6 +25,17 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
       return String(req.ip || 'loopback') + ':' + digest;
     },
     message: { error: 'تم تجاوز عدد محاولات الدخول لهذا الحساب. حاول لاحقًا.' }
+  });
+
+  // Separate limiter for password change / 2FA sensitive actions.
+  const sensitiveLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 6,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    keyGenerator: (req) => String(req.ip || 'loopback') + ':sensitive:' + (req.user?.id || 'anon'),
+    message: { error: 'تم تجاوز عدد المحاولات لهذه العملية. حاول لاحقًا.' }
   });
 
   router.get('/csrf', requireAuth, (req, res) => {
@@ -86,22 +98,22 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
       permissions: rolesService?.effectivePermissions(req.user) } });
   });
 
-  router.post('/auth/2fa/setup', requireAuth, requireCsrf, loginLimiter, (req,res) => {
+  router.post('/auth/2fa/setup', requireAuth, requireCsrf, sensitiveLimiter, (req,res) => {
     const result=authService.beginTwoFactor({userId:req.user.id,password:req.body?.password});
     if(!result.ok)return res.status(result.status||400).json({error:result.error});
     req.session.pendingTwoFactor=result.pending;
     res.json({secret:result.secret,uri:result.uri});
   });
-  router.post('/auth/2fa/confirm', requireAuth, requireCsrf, loginLimiter, (req,res) => {
+  router.post('/auth/2fa/confirm', requireAuth, requireCsrf, sensitiveLimiter, (req,res) => {
     const result=authService.confirmTwoFactor({userId:req.user.id,pending:req.session.pendingTwoFactor,code:req.body?.code});
     res.status(result.ok?200:result.status||400).json(result);
   });
-  router.post('/auth/2fa/disable', requireAuth, requireCsrf, loginLimiter, (req,res) => {
+  router.post('/auth/2fa/disable', requireAuth, requireCsrf, sensitiveLimiter, (req,res) => {
     const result=authService.disableTwoFactor({userId:req.user.id,password:req.body?.password,code:req.body?.code});
     res.status(result.ok?200:result.status||400).json(result);
   });
 
-  router.post('/auth/change-password', requireAuth, requireCsrf, (req, res, next) => {
+  router.post('/auth/change-password', requireAuth, requireCsrf, sensitiveLimiter, (req, res, next) => {
     const body = req.body || {};
     const currentSid = req.sessionID || null;
     const result = authService.changePassword({

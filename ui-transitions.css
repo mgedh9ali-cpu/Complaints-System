@@ -1,16 +1,17 @@
-/* Motion reference: https://transitions.dev — adapted to the existing RTL UI. */
+/* Motion reference: https://transitions.dev — adapted to the existing RTL UI.
+ * 2026-11-10: slightly faster defaults for a snappier feel while keeping reduced-motion. */
 :root {
-  --duration-micro: 80ms;
-  --duration-quick: 120ms;
-  --duration-fast: 200ms;
-  --duration-medium: 280ms;
+  --duration-micro: 70ms;
+  --duration-quick: 110ms;
+  --duration-fast: 160ms;
+  --duration-medium: 220ms;
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out: ease-out;
   --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
   --modal-open-dur: var(--duration-fast);
-  --modal-scale: 0.98;
+  --modal-scale: 0.985;
   --toast-open: var(--duration-medium);
-  --toast-distance: 10px;
+  --toast-distance: 8px;
 }
 
 .modal-backdrop {
@@ -55,13 +56,13 @@
   transition: transform var(--duration-quick) var(--ease-smooth-out), opacity var(--duration-fast) var(--ease-out);
 }
 :is(.btn, .icon-btn, .icon-button, .login-submit, .filter-chip, .theme-icon-toggle, .liquid-glass-toggle):not(:disabled):not([aria-disabled="true"]):not(.is-loading):not([aria-busy="true"]):is(:hover, :focus-visible) {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 .nav-link { --nav-nudge: 2px; }
 html[dir="rtl"] .nav-link { --nav-nudge: -2px; }
 .nav-link:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) { transform: translateX(var(--nav-nudge)); }
 :is(.btn, .icon-btn, .icon-button, .login-submit, .filter-chip, .nav-link, .theme-icon-toggle, .liquid-glass-toggle):not(:disabled):not([aria-disabled="true"]):not(.is-loading):not([aria-busy="true"]):active {
-  transform: scale(.97);
+  transform: scale(.98);
   transition-duration: var(--duration-micro);
 }
 .btn-primary, .login-submit { position: relative; overflow: hidden; }
@@ -78,11 +79,11 @@ html[dir="rtl"] .nav-link { --nav-nudge: -2px; }
 }
 .btn-primary:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible),
 .login-submit:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) {
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--forest) 25%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--forest, #1E3A2E) 25%, transparent);
 }
 .btn-primary:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible)::before,
 .login-submit:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible)::before {
-  animation: t-button-sheen 600ms var(--ease-out);
+  animation: t-button-sheen 520ms var(--ease-out);
 }
 @keyframes t-button-sheen {
   0% { transform: translateX(-110%); opacity: 0; }
@@ -97,7 +98,7 @@ html[dir="rtl"] .nav-link { --nav-nudge: -2px; }
   pointer-events: none;
   background: rgb(255 255 255 / .12);
   transform: none;
-  animation: t-loading-glow 1.6s ease-in-out infinite;
+  animation: t-loading-glow 1.4s ease-in-out infinite;
 }
 @keyframes t-loading-glow { 0%, 100% { opacity: .15; } 50% { opacity: .85; } }
 :is(.btn, .icon-btn, .icon-button, .login-submit, .filter-chip, .nav-link, .theme-icon-toggle, .liquid-glass-toggle):is(:disabled, [aria-disabled="true"]) {
@@ -105,7 +106,7 @@ html[dir="rtl"] .nav-link { --nav-nudge: -2px; }
   transition: none;
 }
 :is(.btn, .login-submit):disabled:not(.is-loading)::before { animation: none; opacity: 0; }
-.login-fields[aria-busy="true"] .login-submit:disabled::before { animation: t-loading-glow 1.6s ease-in-out infinite; }
+.login-fields[aria-busy="true"] .login-submit:disabled::before { animation: t-loading-glow 1.4s ease-in-out infinite; }
 /* The success check animates inside the locked button, keeping its hit area still. */
 .btn-success-pulse .btn-check { display: inline-block; animation: t-success-flash var(--duration-medium) var(--ease-bounce); }
 :is(button:disabled, [aria-disabled="true"]):not(.is-loading):not(.btn-success-pulse):not(.login-submit),
@@ -119,21 +120,45 @@ html[data-motion-paused="true"] .login-submit::before { animation-play-state: pa
 }
 @keyframes t-success-flash {
   0%, 100% { transform: scale(1); }
-  40% { transform: scale(1.03); }
+  40% { transform: scale(1.025); }
 }
 
 .field.is-error,
 .select-field.is-error {
-  animation: t-shake 280ms var(--ease-out);
+  animation: t-shake 240ms var(--ease-out);
 }
 @keyframes t-shake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
 }
 
 .login-card {
   animation: t-modal-in var(--duration-medium) var(--ease-smooth-out) both;
+}
+
+/* Skeleton placeholders for content loading */
+.skeleton-block,
+.skeleton-line,
+.skeleton-card {
+  background: linear-gradient(90deg, #e8ebe0 0%, #f4f5ef 40%, #e8ebe0 80%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+  border-radius: 8px;
+}
+.skeleton-line { height: 12px; margin-block: 8px; }
+.skeleton-line.short { width: 42%; }
+.skeleton-line.medium { width: 68%; }
+.skeleton-card { min-height: 72px; border-radius: 12px; }
+html[data-theme="dark"] .skeleton-block,
+html[data-theme="dark"] .skeleton-line,
+html[data-theme="dark"] .skeleton-card {
+  background: linear-gradient(90deg, #1a2620 0%, #24332c 40%, #1a2620 80%);
+  background-size: 200% 100%;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -142,9 +167,18 @@ html[data-motion-paused="true"] .login-submit::before { animation-play-state: pa
   .icon-btn, .icon-button, .login-submit, .login-submit::before,
   .filter-chip, .nav-link, .theme-icon-toggle, .liquid-glass-toggle,
   .login-card, .field.is-error, .select-field.is-error,
-  .btn-success-pulse, .btn-check {
+  .btn-success-pulse, .btn-check,
+  .skeleton-block, .skeleton-line, .skeleton-card {
     animation: none !important;
     transition: none !important;
     transform: none !important;
+  }
+  .skeleton-block, .skeleton-line, .skeleton-card {
+    background: #e8ebe0;
+  }
+  html[data-theme="dark"] .skeleton-block,
+  html[data-theme="dark"] .skeleton-line,
+  html[data-theme="dark"] .skeleton-card {
+    background: #1a2620;
   }
 }

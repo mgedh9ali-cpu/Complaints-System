@@ -43,8 +43,12 @@
   const remaining=window.sessionIdleMinutes()*60000-(Date.now()-lastActivity);
   if(remaining<=0){void lock();return;}
   if(remaining<=60000&&!$('#idleSessionWarning')){
-   const warning=document.createElement('div');warning.id='idleSessionWarning';warning.className='idle-session-warning';warning.setAttribute('role','status');
-   warning.textContent='سيُقفل التطبيق خلال دقيقة بسبب الخمول. اضغط أي مفتاح أو تفاعل مع الصفحة للمتابعة.';document.body.append(warning);
+   const warning=document.createElement('div');
+   warning.id='idleSessionWarning';
+   warning.className='idle-session-warning';
+   warning.setAttribute('role','status');
+   warning.innerHTML='<strong>تنبيه الخمول</strong><span>سيُقفل التطبيق خلال دقيقة. اضغط أي مفتاح أو تفاعل مع الصفحة للمتابعة.</span>';
+   document.body.append(warning);
   }
  },5000);
 })();

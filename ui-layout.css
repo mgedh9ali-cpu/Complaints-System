@@ -2,6 +2,7 @@
  * ui-layout.css — Layout & UI Polish
  * Hierarchy: one primary CTA · secondary outline · danger safe-gap
  * Performance: no blur on tables; blur only modal-backdrop + topbar
+ * 2026-11-10: denser hierarchy, idle warning, skeleton support
  * ============================================================ */
 
 :root {
@@ -92,6 +93,7 @@ html[data-theme="dark"] .topbar {
   margin-inline-start: var(--safe-danger-gap) !important;
 }
 
+/* Secondary / quiet buttons stay visually quieter than primary */
 .btn-quiet,
 .filter-chip,
 .workspace-shortcuts button {
@@ -172,7 +174,6 @@ html[data-theme="dark"] .topbar {
 .sla-ring[data-level="warn"] { color: var(--sla-warn); }
 .sla-ring[data-level="late"] {
   color: var(--sla-late);
-  /* Static warning color: no permanent animation per complaint. */
   animation: none;
 }
 .sla-unset { color: var(--muted); font-size: 12px; }
@@ -280,7 +281,7 @@ html[data-theme="dark"] .topbar {
   background: #1E3A2E;
   color: #C7CBB8;
   box-shadow: 0 12px 36px rgba(15, 31, 23, 0.35);
-  animation: alarm-slide 0.28s ease;
+  animation: alarm-slide 0.22s ease;
 }
 .alarm-toast-icon { font-size: 22px; line-height: 1; }
 .alarm-toast-body { flex: 1; min-width: 0; }
@@ -293,9 +294,38 @@ html[data-theme="dark"] .topbar {
   font-size: 11px !important;
 }
 @keyframes alarm-slide {
-  from { transform: translateY(24px); opacity: 0; }
+  from { transform: translateY(20px); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
+
+/* Idle session warning — denser, clearer */
+.idle-session-warning {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #1E3A2E;
+  color: #C7CBB8;
+  box-shadow: 0 10px 28px rgba(15, 31, 23, 0.32);
+  border: 1px solid rgba(199, 203, 184, 0.25);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.idle-session-warning strong {
+  color: #fff;
+  font-size: 13px;
+}
+html[dir="rtl"] .idle-session-warning {
+  right: auto;
+  left: 20px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .alarm-toast { animation: none; }
 }
@@ -313,7 +343,8 @@ html[data-theme="dark"] .topbar {
     flex: 1 1 100% !important;
     max-width: none !important;
   }
-  .alarm-toast { left: 12px; right: 12px; max-width: none; }
+  .alarm-toast,
+  .idle-session-warning { left: 12px; right: 12px; max-width: none; }
 }
 
 html[data-theme="dark"] {
