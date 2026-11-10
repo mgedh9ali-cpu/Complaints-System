@@ -65,10 +65,19 @@ test('operational reports chart real records, escape labels and retain local exp
 test('approval mark appears only on approved or sent replies and supports print', () => {
   const detail = read('ui/pages/detail.js');
   const css = read('redesign.css');
-  assert.match(detail, /\['approved','sent'\]\.includes\(c\.reply\.status\)/);
-  assert.match(detail, /approval-stamp/);
-  assert.match(detail, /اعتماد إداري داخلي/);
-  assert.match(detail, /approvalEvent/);
+  const render = vm.runInNewContext(detail + ';complaintDetailReply', {
+    esc: value => String(value || ''), uiCan: () => false,
+    authenticatedUser: {id:'viewer',username:'viewer'},
+    timeText: value => value, replyStatusPill: status => status
+  });
+  for (const status of ['draft','review','approval','approved','sent']) {
+    const html = render({id:'SY-TEST',reply:{status,text:'رد للاختبار',approvedAt:'2026-11-10',approvedBy:'manager'}});
+    assert.equal(html.includes('class="approval-stamp"'), ['approved','sent'].includes(status));
+    assert.equal(html.includes('data-action="print-approved-reply"'), ['approved','sent'].includes(status));
+    if (['approved','sent'].includes(status)) {
+      assert.match(html, /اعتماد إداري داخلي/);assert.match(html, /manager · 2026-11-10/);
+    }
+  }
   assert.match(css, /@media print/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /\.daily-chart/);

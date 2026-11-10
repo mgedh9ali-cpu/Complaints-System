@@ -344,7 +344,7 @@ test('legacy empty intake lists display local defaults without rewriting synchro
  ui.state.settings.provinces=[];ui.state.settings.categories=[];ui.state.settings.entities=[];
  const settings=structuredClone(ui.state.settings);
  ui.click('new-complaint');
- ui.click('intake-pick-type',undefined,{type:'complaint'});ui.click('intake-next');
+ ui.click('intake-pick-type',undefined,{type:'complaint'});ui.node('#cSummary').value='اختبار قوائم التصنيف';ui.click('intake-next');
  const html=ui.node('#modalRoot').innerHTML;
  assert.match(html,/<option value="دمشق"/);
  assert.match(html,/<option value="خدمات عامة"/);
@@ -449,4 +449,80 @@ test('complaint printing writes an escaped A4 cover and uses a callable load han
  assert.match(html,/@page\{size:A4/);assert.match(html,/&lt;script&gt;unsafe&lt;\/script&gt;/);
  assert.doesNotMatch(html,/<script>/);assert.equal(typeof popup.onload,'function');
  popup.onload();assert.equal(printed,true);
+});
+
+test('intake stays quiet while typing and checks the subject only when continuing', async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});
+ const markup=ui.node('#modalRoot').innerHTML;
+ assert.doesNotMatch(markup,/risk-note|role="alert"|تنبيه تكرار|سيُنشأ رقم/);
+ ui.click('intake-next');
+ assert.equal(ui.node('#intakeSummaryError').hidden,false);
+ assert.match(ui.node('#modalRoot').innerHTML,/id="cSummary"/);
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="cProvince"/);
+ assert.equal(ui.calls.filter(c=>c.url==='/api/complaints'&&c.method==='POST').length,0);
+ ui.node('#cSummary').value='بلاغ للاختبار';ui.click('intake-next');
+ ui.node('#cPhone').value='0912345678';
+ ui.events.get('input')({target:ui.node('#cPhone')});
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/تنبيه تكرار|field-dup-warn|role="alert"/);
+ assert.doesNotMatch(ui.node('#toastRegion').innerHTML,/مكرر|تكرار/);
+});
+
+test('inquiry review keeps contact details and saves optional fields without an immediate completion alert', async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'inquiry'});
+ ui.node('#cSummary').value='استفسار عن المعاملة';ui.click('intake-next');
+ ui.node('#cName').value='متصل للاختبار';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-11-10';ui.click('intake-next');
+ let review=ui.node('#modalRoot').innerHTML;
+ for(const text of ['مراجعة البيانات','متصل للاختبار','2026-11-10','حفظ الاستفسار'])assert.ok(review.includes(text));
+ ui.click('intake-related');
+ assert.match(ui.node('#duplicateMount').innerHTML,/SY-2026-10001/);
+ assert.doesNotMatch(ui.node('#duplicateMount').innerHTML,/role="alert"|risk-note|تنبيه/);
+ await ui.click('save-complaint');for(let i=0;i<40;i++)await Promise.resolve();
+ const request=ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST');
+ const body=JSON.parse(request.body);
+ assert.equal(body.recordType,'inquiry');assert.equal(body.name,'متصل للاختبار');assert.equal(body.firstContactDate,'2026-11-10');
+ assert.equal(body.details,'');assert.equal(ui.state.notifications.some(n=>n.title==='استكمال بيانات مطلوب'),false);
+});
+
+test('record view uses inquiry labels, escapes long text, and renders the subject only once',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ const c=ui.state.complaints[0];c.recordType='inquiry';c.summary='عنوان وحيد <script>test</script>';c.details='السطر الأول\nالسطر الثاني <img src=x>';
+ ui.click('detail',c.id);const html=ui.node('#content').innerHTML;
+ assert.match(html,/ملف الاستفسار/);assert.match(html,/اسم المتصل/);
+ assert.equal((html.match(/عنوان وحيد/g)||[]).length,1);
+ assert.match(html,/السطر الأول\nالسطر الثاني &lt;img src=x&gt;/);
+ assert.doesNotMatch(html,/<script>test|<img src=x>/);
+ assert.match(html,/class="ticket-id" dir="ltr"/);
+ for(const id of ['complaint-summary','complaint-actions','complaint-reply','complaint-attachments','complaint-timeline','complaint-notes'])
+  assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1);
+});
+
+test('reply approval action is visible only to an independent authorized approver',async()=>{
+ const own=createFakeBrowser('admin',{status:'review',text:'رد للاختبار',authorId:'u1'});
+ const independent=createFakeBrowser('admin',{status:'review',text:'رد للاختبار',authorId:'another'});
+ for(let i=0;i<25;i++)await Promise.resolve();
+ own.click('detail','SY-2026-10001');independent.click('detail','SY-2026-10001');
+ assert.doesNotMatch(own.node('#content').innerHTML,/data-action="reply-approve"/);
+ assert.match(independent.node('#content').innerHTML,/data-action="reply-approve"/);
+});
+
+test('Enter advances intake without inline submit handlers or page navigation',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/onsubmit=/);
+ ui.node('#cSummary').value='متابعة من لوحة المفاتيح';let prevented=false;
+ ui.events.get('submit')({target:{id:'newComplaintForm'},preventDefault(){prevented=true;}});
+ assert.equal(prevented,true);assert.match(ui.node('#modalRoot').innerHTML,/id="cProvince"/);
+});
+
+test('reopening a closed record exposes the same required reason control as closing',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const source=fs.readFileSync(path.join(__dirname,'../ui/core/format.js'),'utf8');
+ const start=source.indexOf('function updateReasonSheet()'),end=source.indexOf('function scrollComplaintSection',start);
+ const wrapper={hidden:true},reason={closest:()=>wrapper},select={value:'in_progress'},record={id:'A',status:'closed'};
+ const update=vm.runInNewContext(source.slice(start,end)+';updateReasonSheet',{$:s=>s==='#statusReason'?reason:select,db:{complaints:[record]},currentId:'A'});
+ update();assert.equal(reason.required,true);assert.equal(wrapper.hidden,false);
+ record.status='new';update();assert.equal(reason.required,false);assert.equal(wrapper.hidden,true);
+ select.value='cancelled';update();assert.equal(reason.required,true);assert.equal(wrapper.hidden,false);
 });

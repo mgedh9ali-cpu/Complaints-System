@@ -42,7 +42,7 @@ function enhanceGlassDetail(){
  const reason=$('#statusReason');if(reason)reason.closest?.('.form-field')?.classList.add('reason-sheet');
  if($('#detailStatus'))updateReasonSheet();
 }
-function updateReasonSheet(){const reason=$('#statusReason');if(reason){const required=['closed','cancelled'].includes($('#detailStatus')?.value);reason.required=required;const wrap=reason.closest?.('.form-field');if(wrap)wrap.hidden=!required;}}
+function updateReasonSheet(){const reason=$('#statusReason');if(reason){const next=$('#detailStatus')?.value;const current=db.complaints.find(c=>c.id===currentId);const required=Boolean(next)&&(['closed','cancelled'].includes(next)||['closed','cancelled'].includes(current?.status));reason.required=required;const wrap=reason.closest?.('.form-field');if(wrap)wrap.hidden=!required;}}
 function scrollComplaintSection(target,source){
  const allowed=new Set(['complaint-summary','complaint-attachments','complaint-actions','complaint-reply','complaint-referrals','complaint-timeline','complaint-notes']);
  if(!allowed.has(target))return;

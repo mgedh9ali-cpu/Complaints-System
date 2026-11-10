@@ -20,12 +20,14 @@
   function injectIntoNewForm() {
     const form = $('#newComplaintForm');
     if (!form || form.dataset.attachInjected) return;
+    const mount = form.querySelector('#intakeAttachmentsMount');
+    if (!mount) return;
     form.dataset.attachInjected = '1';
 
     const wrap = document.createElement('div');
     wrap.className = 'form-field full attach-field';
     wrap.innerHTML = `
-      <label>مرفقات (اختياري)</label>
+      <label for="cAttachments">مرفقات (اختياري)</label>
       <div class="attach-dropzone" id="cAttachZone">
         <input type="file" id="cAttachments" class="attach-input-hidden" multiple
           accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.txt,.csv">
@@ -34,23 +36,22 @@
       </div>
       <div id="cAttachPreview" class="attach-preview" hidden></div>
     `;
-    form.querySelector('.form-grid')?.appendChild(wrap);
+    mount.appendChild(wrap);
 
     const input = $('#cAttachments');
     $('#cAttachPick')?.addEventListener('click', () => input?.click());
-    input?.addEventListener('change', () => {
-      const pendingFiles = input.files && input.files.length ? input.files : null;
+    const selectedFiles = () => typeof intakeWizard === 'object' ? intakeWizard.files || [] : [];
+    function showSelected(files) {
       const box = $('#cAttachPreview');
       if (!box) return;
-      if (!pendingFiles) {
-        box.hidden = true;
-        box.innerHTML = '';
-        return;
-      }
-      box.hidden = false;
-      box.innerHTML = [...pendingFiles]
-        .map((f) => `<span class="attach-chip">${escapeHtml(f.name)} <small>(${Math.round(f.size / 1024)} ك.ب)</small></span>`)
-        .join('');
+      box.hidden = !files.length;
+      box.innerHTML = files.map(f => `<span class="attach-chip">${escapeHtml(f.name)} <small>(${Math.round(f.size / 1024)} ك.ب)</small></span>`).join('');
+    }
+    showSelected(selectedFiles());
+    input?.addEventListener('change', () => {
+      const files = Array.from(input.files || []);
+      if (typeof intakeWizard === 'object') intakeWizard.files = files;
+      showSelected(files);
     });
   }
 

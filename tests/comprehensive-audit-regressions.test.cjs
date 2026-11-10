@@ -52,3 +52,23 @@ test('cancelled form files never leak into a later complaint; only submission sn
  await createdHandler({detail:{id:'SY-NEXT'}});assert.equal(uploads.length,0);
  await createdHandler({detail:{id:'SY-CURRENT',files:[{name:'correct.txt',size:4}]}});assert.equal(uploads.length,1);assert.equal(uploads[0].id,'SY-CURRENT');assert.equal(uploads[0].files[0].name,'correct.txt');
 });
+
+
+test('intake attachments mount only on review and selections survive a wizard rerender',()=>{
+ let mutation,form,input,preview,mount,appends=0;
+ const wizard={files:[]};
+ const document={body:{},querySelector(s){if(s==='#newComplaintForm')return form;if(s==='#cAttachments')return input;if(s==='#cAttachPreview')return preview;return null;},createElement:()=>({})};
+ const context={document,intakeWizard:wizard,window:{addEventListener(){}},MutationObserver:class{constructor(fn){mutation=fn;}observe(){}},console:{log(){},info(){}}};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../attachments-ui-bridge.js'),'utf8'),context);
+ function step(review){
+  mount=review?{appendChild(){appends++;}}:null;
+  form={dataset:{},querySelector:()=>mount};
+  input={files:[],handlers:{},addEventListener(t,fn){this.handlers[t]=fn;}};
+  preview={hidden:true,innerHTML:''};mutation();
+ }
+ step(false);assert.equal(appends,0);assert.equal(form.dataset.attachInjected,undefined);
+ step(true);input.files=[{name:'<private>.txt',size:40}];input.handlers.change();
+ assert.equal(wizard.files[0].name,'<private>.txt');assert.match(preview.innerHTML,/&lt;private&gt;/);
+ step(false);step(true);
+ assert.equal(preview.hidden,false);assert.match(preview.innerHTML,/&lt;private&gt;/);assert.equal(appends,2);
+});
