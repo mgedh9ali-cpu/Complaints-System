@@ -155,7 +155,33 @@ html[data-theme="dark"] .floating-actions {
   order: 1;
 }
 
-/* ---------- Button hierarchy polish (complements palette.css) ---------- */
+/* ---------- Confirm dialog ---------- */
+.confirm-dialog {
+  padding: 4px 2px 8px;
+}
+.confirm-dialog .confirm-message {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink);
+  font-weight: 600;
+}
+.confirm-dialog .confirm-detail {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--line) 28%, var(--surface));
+  border: 1px solid var(--line);
+  color: var(--muted);
+  line-height: 1.55;
+}
+.confirm-dialog.is-danger .confirm-detail {
+  background: var(--red-bg);
+  border-color: color-mix(in srgb, var(--red) 35%, var(--line));
+  color: var(--red);
+}
+
+/* ---------- Button hierarchy polish ---------- */
 .btn-quiet {
   background: transparent !important;
   border: 1px solid var(--line) !important;
@@ -168,8 +194,6 @@ html[data-theme="dark"] .floating-actions {
   border-color: var(--green-800) !important;
   color: var(--ink) !important;
 }
-
-/* Clear visual hierarchy for primary vs secondary groups */
 .heading-actions .btn-primary,
 .modal-footer .btn-primary,
 .floating-actions .btn-primary {
@@ -198,25 +222,113 @@ html[data-theme="dark"] .floating-actions {
   }
 }
 
-/* ---------- Dark mode table/panel safety ---------- */
+/* ---------- Dark mode: panels, tables, rows, text ---------- */
 html[data-theme="dark"] .panel,
 html[data-theme="dark"] .stat-card,
 html[data-theme="dark"] .mini-card,
 html[data-theme="dark"] .table-panel,
-html[data-theme="dark"] .login-card {
+html[data-theme="dark"] .login-card,
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .account-menu-panel {
   background: var(--surface) !important;
   border-color: var(--line) !important;
   color: var(--ink);
 }
-html[data-theme="dark"] .table-wrap thead th {
-  background: color-mix(in srgb, var(--surface) 88%, #000) !important;
+html[data-theme="dark"] body,
+html[data-theme="dark"] .main,
+html[data-theme="dark"] .content {
+  background: var(--bg);
+  color: var(--ink);
+}
+html[data-theme="dark"] .table-wrap,
+html[data-theme="dark"] .registry-table-wrap {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+html[data-theme="dark"] .table-wrap thead th,
+html[data-theme="dark"] .registry-table thead th {
+  background: color-mix(in srgb, var(--surface) 80%, #000) !important;
   color: var(--ink-2) !important;
+  border-bottom-color: var(--line) !important;
+}
+html[data-theme="dark"] .registry-table tbody tr,
+html[data-theme="dark"] .table-wrap tbody tr {
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+html[data-theme="dark"] .registry-table tbody tr:hover,
+html[data-theme="dark"] .table-wrap tbody tr:hover,
+html[data-theme="dark"] .registry-table tbody tr.is-selected {
+  background: color-mix(in srgb, var(--green-800) 28%, var(--surface)) !important;
+}
+html[data-theme="dark"] .registry-table tbody tr.is-late {
+  background: color-mix(in srgb, var(--sla-late) 12%, var(--surface)) !important;
+}
+html[data-theme="dark"] .row-title,
+html[data-theme="dark"] .text-link,
+html[data-theme="dark"] .ticket-id,
+html[data-theme="dark"] .row-sub,
+html[data-theme="dark"] .owner-chip,
+html[data-theme="dark"] .page-heading h1,
+html[data-theme="dark"] .page-heading p,
+html[data-theme="dark"] .stat-item strong,
+html[data-theme="dark"] .stat-item span {
+  color: var(--ink) !important;
+}
+html[data-theme="dark"] .row-sub,
+html[data-theme="dark"] .muted,
+html[data-theme="dark"] .eyebrow {
+  color: var(--muted) !important;
 }
 html[data-theme="dark"] .field,
 html[data-theme="dark"] .select-field,
 html[data-theme="dark"] input.field,
-html[data-theme="dark"] textarea.field {
+html[data-theme="dark"] textarea.field,
+html[data-theme="dark"] .textarea-field {
   background: var(--inner) !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+html[data-theme="dark"] .table-tools,
+html[data-theme="dark"] .filters-row,
+html[data-theme="dark"] .registry-summary,
+html[data-theme="dark"] .bulk-bar {
+  background: color-mix(in srgb, var(--surface) 92%, #000) !important;
+  border-color: var(--line) !important;
+  color: var(--ink-2) !important;
+}
+html[data-theme="dark"] .filter-chip {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+  color: var(--ink-2) !important;
+}
+html[data-theme="dark"] .filter-chip.active {
+  background: color-mix(in srgb, var(--green-800) 45%, var(--surface)) !important;
+  border-color: var(--green-700) !important;
+  color: var(--on-forest) !important;
+}
+html[data-theme="dark"] .pill {
+  border-color: transparent;
+}
+html[data-theme="dark"] .modal-header,
+html[data-theme="dark"] .modal-footer {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+html[data-theme="dark"] .modal-body {
+  color: var(--ink);
+}
+html[data-theme="dark"] .detail-section,
+html[data-theme="dark"] .record-note,
+html[data-theme="dark"] .timeline-item {
+  background: color-mix(in srgb, var(--surface) 96%, #000);
+  border-color: var(--line);
+  color: var(--ink);
+}
+html[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger) {
+  background: color-mix(in srgb, var(--surface) 90%, #000) !important;
   border-color: var(--line) !important;
   color: var(--ink) !important;
 }
