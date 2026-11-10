@@ -24,10 +24,24 @@ let authenticatedUser=null, persistTimer=null, persistQueue=Promise.resolve(), s
 let recentComplaintIds=[], intakeDefaults={}, detailReturnPage='complaints';
 function uiCan(action){if(!authenticatedUser)return false;if(authenticatedUser.role==='admin')return true;if(Array.isArray(authenticatedUser.permissions))return authenticatedUser.permissions.includes(action);const map={staff:['complaints.read','complaints.create','complaints.update','complaints.status','attachments.read','attachments.upload','export.csv','export.xlsx','dashboard.view','settings.read','replies.draft','replies.send','approvals.request','sync.export','backup.database'],reviewer:['complaints.read','attachments.read','export.csv','dashboard.view','settings.read']};const list=map[authenticatedUser.role]||[];return list.includes(action)||(authenticatedUser.permissions||[]).includes(action);}
 async function getWriteCsrf(){const r=await fetch('/api/csrf',{credentials:'same-origin'});const j=await r.json().catch(()=>({}));return j.csrfToken||j.token||'';}
-async function api(url,opts={}){const headers=Object.assign({'Content-Type':'application/json'},opts.headers||{});if(opts.method&&opts.method!=='GET'){try{headers['X-CSRF-Token']=await getWriteCsrf();}catch(_){headers['X-CSRF-Token']='';}}let res;try{res=await fetch(url,Object.assign({credentials:'same-origin'},opts,{headers}));}catch(netErr){const error=new Error('تعذر الاتصال بالخادم المحلي. أغلق التطبيق ثم افتحه من جديد، أو تحقق أن المنفذ غير مستخدم.');error.status=0;error.cause=netErr;throw error;}const data=await res.json().catch(()=>({}));if(!res.ok){const msg=data.error||(res.status===401?'يلزم تسجيل الدخول.':res.status===403?'ليس لديك صلاحية.':'خطأ من الخادم ('+res.status+')');const error=new Error(msg);error.status=res.status;throw error;}return data;}
+async function requestApi(url,opts={}){const headers=Object.assign({'Content-Type':'application/json'},opts.headers||{});if(opts.method&&opts.method!=='GET'){try{headers['X-CSRF-Token']=await getWriteCsrf();}catch(_){headers['X-CSRF-Token']='';}}let res;try{res=await fetch(url,Object.assign({credentials:'same-origin'},opts,{headers}));}catch(netErr){const error=new Error('تعذر الاتصال بالخادم المحلي. أغلق التطبيق ثم افتحه من جديد، أو تحقق أن المنفذ غير مستخدم.');error.status=0;error.cause=netErr;throw error;}const data=await res.json().catch(()=>({}));if(!res.ok){const msg=data.error||(res.status===401?'يلزم تسجيل الدخول.':res.status===403?'ليس لديك صلاحية.':'خطأ من الخادم ('+res.status+')');const error=new Error(msg);error.status=res.status;throw error;}return data;}
+let pendingWrites=0,writeFailed=false,saveState='saved',saveDirtyVersion=0;
+function showSaveState(state){
+ if(state==='dirty')saveDirtyVersion++;
+ saveState=state;const el=$('#saveStateIndicator');
+ if(el){el.dataset.state=state;el.textContent=({dirty:'تغييرات غير محفوظة',saving:'جارٍ الحفظ…',saved:'محفوظ',failed:'تعذر الحفظ — راجع الخطأ وأعد المحاولة'})[state];}
+}
+async function api(url,opts={}){
+ const dirtyVersion=saveDirtyVersion;
+ const write=opts.method&&!['GET','HEAD'].includes(opts.method.toUpperCase())&&!/^\/api\/(auth|csrf)(?:\/|$)/.test(url);
+ if(write){if(!pendingWrites)writeFailed=false;pendingWrites++;showSaveState('saving');}
+ try{return await requestApi(url,opts);}
+ catch(error){if(write)writeFailed=true;throw error;}
+ finally{if(write){pendingWrites--;showSaveState(pendingWrites?'saving':writeFailed?'failed':persistTimer||saveDirtyVersion!==dirtyVersion?'dirty':'saved');}}
+}
 async function loadDb(){const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number.isSafeInteger(stored.revision)?stored.revision:0;stateLoaded=true;stateConflict=false;}
 async function persistUiNow(){if(!stateLoaded)return;const saved=await api('/api/state',{method:'PUT',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify(db)});stateRevision=saved.revision;}
-function persist(){if(persistTimer)clearTimeout(persistTimer);persistTimer=setTimeout(()=>{persistTimer=null;persistQueue=persistQueue.then(()=>persistUiNow()).catch(e=>toast(e.message,'error'));},400);}
+function persist(){showSaveState('dirty');if(persistTimer)clearTimeout(persistTimer);persistTimer=setTimeout(()=>{persistTimer=null;persistQueue=persistQueue.then(()=>persistUiNow()).catch(e=>toast(e.message,'error'));},400);}
 function updateSignedInUi(){
   const name=authenticatedUser?.username||'';
   const el=$('#signedInUser');if(el)el.textContent=name;
@@ -44,6 +58,8 @@ function updateSignedInUi(){
 }
 function showLogin(){const overlay=$('#loginOverlay');if(overlay)overlay.hidden=false;$('#appShell')&&($('#appShell').hidden=true);document.body.dataset.signedIn='false';}
 async function logout(){
+  closeModal();
+  if(typeof workdayListRows!=='undefined')workdayListRows=[];
   const draftKey=complaintDraftStorageKey();
   try{await api('/api/auth/logout',{method:'POST',body:'{}'});}catch(_){}
   authenticatedUser=null;stateLoaded=false;db=cleanState();

@@ -176,12 +176,13 @@ async function saveSurvey(id){
  },'تم حفظ رأي المشتكي في قاعدة البيانات.');
 }
 
-function showStatusUndo(id,token,expiresAt){
- const node=document.createElement('div');node.className='toast';node.textContent='تم تغيير الحالة · ';
+function showStatusUndo(id,token,expiresAt,kind='status'){
+ const node=document.createElement('div');node.className='toast';node.textContent=(kind==='edit'?'تم تعديل البيانات':'تم تغيير الحالة')+' · ';
  const button=document.createElement('button');button.type='button';button.className='btn btn-sm';button.textContent='تراجع';node.append(button);$('#toastRegion').append(node);
+ if(kind==='status'&&!['closed','cancelled'].includes(db.complaints.find(c=>c.id===id)?.status)){const follow=document.createElement('button');follow.type='button';follow.className='btn btn-sm';follow.dataset.action='set-reminder';follow.dataset.id=id;follow.textContent='تحديد متابعة';node.append(follow);}
  const timer=setTimeout(()=>node.remove(),Math.max(0,expiresAt-Date.now()));
  button.addEventListener('click',async()=>{button.disabled=true;try{
-  await api('/api/complaints/'+encodeURIComponent(id)+'/status/undo',{method:'POST',body:JSON.stringify({token})});
+  await api('/api/complaints/'+encodeURIComponent(id)+(kind==='edit'?'/edit/undo':'/status/undo'),{method:'POST',body:JSON.stringify({token})});
   const stored=await api('/api/state');db=stored.state;stateRevision=stored.revision;stateConflict=false;render();toast('تم التراجع وتوثيقه في سجل التدقيق.');
  }catch(error){toast(error.message,'error');}finally{clearTimeout(timer);node.remove();}});
 }

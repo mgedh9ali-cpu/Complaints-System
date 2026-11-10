@@ -56,7 +56,7 @@ case 'complaint-more':complaintActionsModal(id);break;
 case 'request-complaint-delete':requestComplaintDeletion(id);break;
 case 'export-complaint-pdf':await withButtonLock(el,()=>exportComplaintDocument(id,'pdf'),'جارٍ إنشاء PDF…');break;
 case 'export-complaint-word':await withButtonLock(el,()=>exportComplaintDocument(id,'docx'),'جارٍ إنشاء Word…');break;
-case 'attachment-preview':{const url='/api/attachments/'+encodeURIComponent(el.dataset.file);modal('معاينة المرفق',esc(el.dataset.name),'<img class="attachment-viewer" src="'+url+'" alt="'+esc(el.dataset.name)+'">','<a class="btn" href="'+url+'" target="_blank" rel="noopener">فتح المرفق</a>');break;}
+case 'attachment-preview':await withButtonLock(el,()=>previewAttachment(el.dataset.file,el.dataset.name,el.dataset.mime),'جارٍ فتح المرفق…');break;
 case 'referral-next':{const v=$('#refComplaint')?.value;closeModal();if(v)newReferral(v);break;}
 case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEditor(v);break;}
 case 'add-entity':addSetting('entities');break;

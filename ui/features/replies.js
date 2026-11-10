@@ -1,3 +1,9 @@
+function availableReplyTemplates(){
+ const custom=db.templates||[];
+ const builtins=[{name:'متابعة رد الجهة',version:1,text:'إلى {{الجهة}}: يرجى تزويدنا بآخر إجراءات الشكوى رقم {{رقم_الشكوى}} المتعلقة بـ {{التصنيف}}. تاريخ المتابعة: {{التاريخ}}.'},
+ {name:'إفادة بإتمام المعالجة',version:1,text:'بخصوص الشكوى رقم {{رقم_الشكوى}}: تمت مراجعة المعالجة لدى {{الجهة}} بتاريخ {{التاريخ}}. أضف نتيجة المعالجة قبل اعتماد الرد.'}];
+ return [...custom,...builtins.filter(t=>!custom.some(c=>c.name===t.name))];
+}
 function replyTemplatePlaceholders(c){
   const phone=c.phone||'';
   const province=c.province||'';
@@ -19,7 +25,7 @@ function replyTemplatePlaceholders(c){
 function fillReplyTemplateText(templateText,c){
   let filled=String(templateText||'');
   const map=replyTemplatePlaceholders(c);
-  Object.keys(map).forEach(key=>{filled=filled.split(key).join(map[key]);});
+  filled=filled.replace(/\{\{[^{}]+\}\}/g,key=>Object.hasOwn(map,key)?String(map[key]):key);
   return filled;
 }
 
@@ -27,7 +33,7 @@ function replyEditor(id){
   const c=db.complaints.find(x=>x.id===id);
   if(!c)return;
   const text=c.reply?.text||'';
-  const templateOptions=[{value:'',label:'بدون قالب'},...(db.templates||[]).map((t,i)=>({value:String(i),label:(t.name||('قالب '+(i+1)))+' · إصدار '+(t.version||1)}))];
+  const templateOptions=[{value:'',label:'بدون قالب'},...availableReplyTemplates().map((t,i)=>({value:String(i),label:(t.name||('قالب '+(i+1)))+' · إصدار '+(t.version||1)}))];
   modal(
     'صياغة رد خارجي',
     'المسودة منفصلة عن الملاحظات الداخلية؛ يمكن اعتماد الرد ثم توثيق الإرسال',
@@ -49,7 +55,7 @@ async function applyReplyTemplate(id){
   const idx=$('#replyTemplate')?.value;
   const ta=$('#replyText');
   if(!c||!ta||idx===''||idx==null)return;
-  const t=(db.templates||[])[Number(idx)];
+  const t=availableReplyTemplates()[Number(idx)];
   if(!t)return;
   const filled=fillReplyTemplateText(t.text,c);
   const existing=(ta.value||'').trim();

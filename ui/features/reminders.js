@@ -38,7 +38,7 @@ function openReminderModal(complaintId) {
   modal(
     'ضبط موعد تذكير',
     'سينبّهك النظام عند الموعد مع ملاحظة المتابعة المرتبطة بالشكوى ' + esc(complaintId) + '.',
-    '<form id="reminderForm"><div class="form-field"><label for="alarmTime">تاريخ ووقت المنبه</label><input class="field" id="alarmTime" type="datetime-local" required value="' +
+    '<div class="footer-actions"><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="1">غدًا</button><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="3">بعد ثلاثة أيام</button><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="7">بعد أسبوع</button></div><form id="reminderForm"><div class="form-field"><label for="alarmTime">تاريخ ووقت المنبه</label><input class="field" id="alarmTime" type="datetime-local" required value="' +
       local +
       '"></div><div class="form-field" style="margin-top:12px"><label for="alarmNote">ملاحظة التذكير</label><textarea class="textarea-field" id="alarmNote" required maxlength="500" placeholder="مثال: الاتصال بالمشتكي بخصوص المرفقات"></textarea></div><div class="form-field" style="margin-top:12px"><label for="alarmPriority">الأولوية</label><select class="select-field" id="alarmPriority"><option value="normal">عادية</option><option value="high">مرتفعة</option><option value="urgent">عاجلة</option><option value="low">منخفضة</option></select></div></form>',
     '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-reminder" data-id="' +
@@ -52,8 +52,9 @@ async function submitReminder(complaintId) {
   const note = ($('#alarmNote')?.value || '').trim();
   const priority = $('#alarmPriority')?.value || 'normal';
   if (!timeLocal || !note) return toast('حدّد الوقت واكتب ملاحظة التذكير.', 'warn');
-  const iso = new Date(timeLocal).toISOString();
-  if (!Number.isFinite(Date.parse(iso))) return toast('وقت التذكير غير صالح.', 'error');
+  const parsed = Date.parse(timeLocal);
+  if (!Number.isFinite(parsed)) return toast('وقت التذكير غير صالح.', 'error');
+  const iso=new Date(parsed).toISOString();
   try {
     await api('/api/complaints/' + encodeURIComponent(complaintId) + '/reminders', {
       method: 'POST',
@@ -61,6 +62,7 @@ async function submitReminder(complaintId) {
     });
     closeModal();
     toast('تم ضبط المنبه بنجاح.');
+    if(typeof refreshWorkday==='function'){workdayLoadedAt=0;void refreshWorkday(true);}
   } catch (error) {
     toast(error.message || 'تعذر حفظ التذكير', 'error');
     throw error;
@@ -114,6 +116,7 @@ async function dismissReminder(id) {
   } catch (_) {}
   document.getElementById('alarm-toast-' + id)?.remove();
   markReminderShown(id);
+  if(typeof refreshWorkday==='function'){workdayLoadedAt=0;void refreshWorkday(true);}
 }
 
 async function checkDueReminders() {

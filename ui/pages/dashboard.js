@@ -133,6 +133,7 @@ function dashboard(){
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
   const totalActive=db.complaints.filter(c=>!c.archivedAt).length;
   return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل شكوى','new-complaint','btn-primary'):'')+
+    (typeof workdayPanel==='function'?workdayPanel():'')+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
       [['جميع السجلات',totalActive],['مفتوحة',open.length],['متأخرة',late.length],['بانتظار رد الجهة',countStatus('awaiting_reply')]].map(([label,n],i)=>
         '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'

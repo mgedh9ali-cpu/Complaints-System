@@ -1,5 +1,6 @@
 'use strict';
 const { storageFor } = require('../../lib/storage-codec');
+const {dayBoundary,dayKey}=require('../../lib/work-time');
 function createRemindersService({ db, complaintsService, audit }) {
   const storage = storageFor(db);
   function syncAudit() { if (!db.inTransaction && typeof audit?.syncHead === 'function') audit.syncHead(); }
@@ -34,12 +35,13 @@ function createRemindersService({ db, complaintsService, audit }) {
       (includeDismissed ? '' : ' AND is_dismissed = 0') + ' ORDER BY reminder_time ASC').all(String(complaintId || '').trim());
     return rows.map(mapRow);
   }
-  function listDue({ limit = 10 } = {}) {
+  function listDue({ limit = 10, today = false } = {}) {
     const safe = Math.min(Math.max(Number(limit) || 10, 1), 50);
-    const rows = db.prepare('SELECT id, complaint_id, reminder_time, note, note_encrypted, priority, is_dismissed, created_at FROM complaint_reminders WHERE is_dismissed=0 AND reminder_time<=? ORDER BY reminder_time ASC LIMIT ?')
-      .all(new Date().toISOString(), safe);
+    const until=today?new Date(dayBoundary(dayKey(new Date()),true)).toISOString():new Date().toISOString();
+    const rows = db.prepare('SELECT id, complaint_id, reminder_time, note, note_encrypted, priority, is_dismissed, created_at FROM complaint_reminders WHERE is_dismissed=0 AND reminder_time<=? ORDER BY reminder_time ASC').all(until);
     const byId = new Map((complaintsService.readState().state.complaints || []).map(c => [c.id, c]));
-    return rows.map(row => { const c = byId.get(row.complaint_id); return { ...mapRow(row), name: c?.name || '', summary: c?.summary || '', status: c?.status || null }; });
+    const active=rows.filter(row=>{const c=byId.get(row.complaint_id);return c&&!c.archivedAt&&!['closed','cancelled'].includes(c.status);}).map(row => { const c = byId.get(row.complaint_id); return { ...mapRow(row), name: c?.name || '', summary: c?.summary || '', status: c?.status || null }; });
+    return today?active:active.slice(0,safe);
   }
   function dismiss(reminderId, userId) {
     const id = Number(reminderId);

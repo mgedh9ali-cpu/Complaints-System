@@ -222,6 +222,13 @@ function createComplaintsRouter({
     }
   );
 
+  router.post('/complaints/:id/edit/undo', requireAuth, requirePermission('complaints.update'), requireCsrf, (req,res)=>{
+    if(typeof req.body?.token!=='string'||!/^[a-f0-9]{64}$/.test(req.body.token))return res.status(400).json({error:'رمز التراجع غير صالح.'});
+    const result=complaintsService.undoEdit({complaintId:req.params.id,token:req.body.token,userId:req.user.id,username:req.user.username});
+    if(!result.ok)return res.status(result.status||409).json({error:result.error});
+    res.json(result);
+  });
+
   router.delete(
     '/complaints/:id',
     requireAuth,

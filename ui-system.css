@@ -598,3 +598,11 @@ html{scroll-behavior:auto}
 
 .font-diagnostics { padding-inline-start: var(--s5); margin-block: var(--s4); }
 .font-diagnostics li { padding-block: var(--s2); overflow-wrap: anywhere; }
+
+.save-state { color:var(--ink-2); font-size:var(--t-xs); }
+.save-state[data-state="failed"],.save-state[data-state="dirty"] { color:var(--danger); }
+.workday-panel { margin-block:var(--s4); }
+.workday-row,.backup-home-status { display:flex; flex-wrap:wrap; gap:var(--s3); align-items:center; padding-block:var(--s3); border-bottom:1px solid var(--line); }
+.workday-row>div { flex:1; min-width:160px; }
+.workday-row small { display:block; }
+.attachment-pdf-viewer { width:100%; height:min(65dvh,700px); border:1px solid var(--line); }

@@ -12,7 +12,11 @@ function createRemindersRouter({ remindersService, middleware, rolesService }) {
 
   router.get('/reminders/due', requireAuth, requirePermission('complaints.read'), (req, res) => {
     const limit = req.query.limit ? Number(req.query.limit) : 10;
-    res.json({ reminders: remindersService.listDue({ limit }) });
+    res.set('Cache-Control','no-store');res.json({ reminders: remindersService.listDue({ limit }) });
+  });
+
+  router.get('/reminders/today',requireAuth,requirePermission('complaints.read'),(req,res)=>{
+    res.set('Cache-Control','no-store');res.json({reminders:remindersService.listDue({limit:50,today:true})});
   });
 
   router.post(

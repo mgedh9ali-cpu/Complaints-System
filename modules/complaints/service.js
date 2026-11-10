@@ -35,6 +35,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
   const actorFor = userId => db.prepare('SELECT id, username, role FROM users WHERE id=?').get(userId);
   function syncAudit() { if (!db.inTransaction && typeof audit?.syncHead === 'function') audit.syncHead(); }
   const statusUndos = new Map();
+  const editUndos = new Map();
 
   function readState() {
     const row = db.prepare('SELECT state_json, updated_at, revision FROM app_state WHERE id = 1').get();
@@ -322,7 +323,31 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
     persistState(state, userId, now, nextRevision, [{ action: 'complaint_updated', id: complaintId, details: { changes } }]);
-    return { ok: true, complaint, revision: nextRevision };
+    for (const [key,value] of editUndos) if(value.expiresAt<Date.now())editUndos.delete(key);
+    if(editUndos.size>=100)editUndos.delete(editUndos.keys().next().value);
+    const undoToken=crypto.randomBytes(32).toString('hex'),undoExpiresAt=Date.now()+60000;
+    editUndos.set(undoToken,{complaintId,userId,changes,revision:nextRevision,expiresAt:undoExpiresAt});
+    return { ok: true, complaint, revision: nextRevision, undoToken, undoExpiresAt };
+  }
+
+  function undoEdit({complaintId,token,userId,username}) {
+    const record=editUndos.get(token);
+    if(!record||record.complaintId!==complaintId)return {ok:false,status:409,error:'رمز التراجع غير صالح.'};
+    if(record.userId!==userId)return {ok:false,status:403,error:'غير مصرح بالتراجع.'};
+    if(record.changes.owner&&!roles.can(actorFor(userId),'complaints.assign'))return {ok:false,status:403,error:'ليس لديك صلاحية الإسناد.'};
+    const {state,revision}=readState(),idx=findIndex(state,complaintId);
+    if(Date.now()>record.expiresAt||revision!==record.revision||idx<0){editUndos.delete(token);return {ok:false,status:409,error:'انتهت مهلة التراجع أو وُجد تعديل أحدث.'};}
+    const complaint=state.complaints[idx];
+    if(complaint.archivedAt||['closed','cancelled'].includes(complaint.status))return {ok:false,status:409,error:'لا يمكن التراجع بعد إغلاق السجل.'};
+    const changes={};
+    for(const [key,value] of Object.entries(record.changes)){
+      changes[key]={before:complaint[key],after:value.before};
+      if(value.before===undefined)delete complaint[key];else complaint[key]=value.before;
+    }
+    const now=new Date().toISOString();complaint.updated=now;
+    complaint.timeline.unshift({event:'تراجع عن تعديل البيانات',by:username||'system',at:now,detail:Object.keys(changes).join(', ')});
+    persistState(state,userId,now,revision+1,[{action:'complaint_edit_undone',id:complaintId,details:{changes}}]);
+    editUndos.delete(token);return {ok:true,complaint,revision:revision+1};
   }
 
   function changeStatus({ complaintId, toStatus, reason, userId, username, closureException, approvalId }) {
@@ -590,7 +615,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
 
   return {
     readState, saveState, createComplaint, updateComplaint, deleteComplaint, archiveComplaint,
-    changeStatus, undoStatus, addReferral, recordReferralResponse, linkDuplicate, actOnReply, runReminders,
+    changeStatus, undoStatus, undoEdit, addReferral, recordReferralResponse, linkDuplicate, actOnReply, runReminders,
     ALLOWED_TRANSITIONS, REASON_REQUIRED, STATUS_LABELS
   };
 }

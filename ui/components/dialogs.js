@@ -1,6 +1,7 @@
 let modalOpener=null, syncPasswordResolve=null, confirmDialogResolve=null;
 function modalFocusables(dlg){return $$('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])',dlg).filter(el=>el.offsetParent!==null);}
 function modal(title,subtitle,body,footer='',wide=false){
+  if(typeof releaseAttachmentPreview==='function')releaseAttachmentPreview();
   if(typeof preserveIntakeDraft==='function')preserveIntakeDraft();
   if(syncPasswordResolve){const done=syncPasswordResolve;syncPasswordResolve=null;done(null);}
   if(confirmDialogResolve){const done=confirmDialogResolve;confirmDialogResolve=null;done(false);}
@@ -14,6 +15,8 @@ function modal(title,subtitle,body,footer='',wide=false){
   document.dispatchEvent?.(new CustomEvent('complaints:modal'));
 }
 function closeModal(){
+  if(typeof pendingWrites!=='undefined'&&!pendingWrites&&!persistTimer&&!writeFailed)showSaveState('saved');
+  if(typeof releaseAttachmentPreview==='function')releaseAttachmentPreview();
   if(typeof preserveIntakeDraft==='function')preserveIntakeDraft();
   $('#modalRoot')?.classList.remove('auth-recovery');
   if(syncPasswordResolve){const done=syncPasswordResolve;syncPasswordResolve=null;done(null);}
