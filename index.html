@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="ui-icon-motion.css" />
     <link rel="stylesheet" href="ui-table-motion.css" />
     <link rel="stylesheet" href="ui-tokens.css" />
+    <link rel="stylesheet" href="ui-focus-mode.css" />
   </head>
   <body>
     <a class="skip-link" href="#content">الانتقال إلى المحتوى</a>
@@ -68,6 +69,7 @@
             <h1>نظام الشكاوى المحلي</h1>
           </div>
           <div class="top-actions">
+            <button type="button" class="focus-mode-toggle" id="focusModeToggle" data-action="toggle-focus-mode" title="إخفاء القائمة والاختصارات للتركيز على العمل" aria-pressed="false">تركيز</button>
             <button type="button" class="btn btn-primary top-create-button" id="headerCreateButton" data-action="new-complaint" hidden><span>تسجيل شكوى</span></button>
             <i id="topUnread" hidden></i>
             <div class="top-user">
