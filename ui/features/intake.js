@@ -1,267 +1,122 @@
-/* Sequential intake wizard: شكوى / استفسار step-by-step with تخطي */
-
-let intakeWizard = {
-  step: 0,
-  recordType: null,
-  data: {},
-  files: []
-};
+/* Single-screen intake; keep the shared draft/file state used by attachments. */
+let intakeWizard = { step: 1, recordType: 'complaint', data: {}, files: [] };
+let intakePhoneHintTimer = null;
+let intakeDraftFiles = { owner: null, files: [] };
 
 function intakeCollectVisible() {
   const form = $('#newComplaintForm');
   if (!form) return;
   form.querySelectorAll('input, select, textarea').forEach(el => {
-    if (el.type === 'file') return;
-    if (!el.id && el.type !== 'radio') return;
-    if (el.type === 'radio') {
-      if (el.checked) intakeWizard.data[el.name || el.id] = el.value;
-      return;
-    }
-    if (el.type === 'checkbox') {
-      intakeWizard.data[el.id] = el.checked;
-      return;
-    }
-    if (el.id) intakeWizard.data[el.id] = el.value;
+    if (el.type === 'file' || !el.id) return;
+    intakeWizard.data[el.id] = el.type === 'checkbox' ? el.checked : el.value;
   });
 }
 
-function intakeStepCount() {
-  if (intakeWizard.recordType === 'inquiry') return 4;
-  if (intakeWizard.recordType === 'complaint') return 5;
-  return 1;
-}
-
-function intakeProgressHtml() {
-  const labels = !intakeWizard.recordType ? ['نوع السجل'] : intakeWizard.recordType === 'inquiry'
-    ? ['نوع السجل', 'الموضوع', 'التواصل', 'المراجعة والحفظ']
-    : ['نوع السجل', 'الموضوع', 'التصنيف', 'التواصل', 'المراجعة والحفظ'];
-  return '<ol class="intake-steps" aria-label="خطوات التسجيل">' + labels.map((label, i) =>
-    '<li class="' + (i < intakeWizard.step ? 'is-complete' : '') + '"' +
-    (i === intakeWizard.step ? ' aria-current="step"' : '') + '><span aria-hidden="true">' +
-    (i < intakeWizard.step ? '✓' : i + 1) + '</span>' + esc(label) + '</li>').join('') + '</ol>';
-}
-
-function intakeSectionTitle(title, text) {
-  return '<div class="intake-section-heading"><h3>' + title + '</h3><p>' + text + '</p></div>';
-}
-
-function intakeSummaryField(label, placeholder) {
-  return '<div class="form-field full"><label for="cSummary">' + label + ' <span class="intake-required">مطلوب</span></label>' +
-    '<input class="field" id="cSummary" name="cSummary" required maxlength="180" aria-describedby="intakeSummaryError" placeholder="' + placeholder + '" value="' + esc(intakeWizard.data.cSummary || '') + '">' +
-    '<p class="field-error" id="intakeSummaryError" hidden></p></div>';
-}
-
-function intakeReviewHtml() {
-  const d = intakeWizard.data;
-  const rows = [['الموضوع', d.cSummary], ['الاسم', d.cName], ['رقم التواصل', d.cPhone],
-    ['تاريخ أول تواصل', d.cFirstContactDate]];
-  if (intakeWizard.recordType === 'complaint') rows.push(['المحافظة', d.cProvince], ['التصنيف', d.cCategory]);
-  return '<section class="intake-review" aria-label="مراجعة بيانات السجل"><h4>مراجعة البيانات</h4><dl>' +
-    rows.map(([label, value]) => '<div><dt>' + label + '</dt><dd' + (label === 'رقم التواصل' ? ' dir="ltr"' : '') + '>' + esc(value || '—') + '</dd></div>').join('') +
-    '</dl></section><div id="intakeAttachmentsMount"></div><button type="button" class="btn btn-sm" data-action="intake-related">البحث عن سجلات مرتبطة</button><div id="duplicateMount" aria-live="polite"></div>';
-}
-
-function intakeTypeStep() {
-  return intakeProgressHtml() + intakeSectionTitle('ما الذي تريد تسجيله؟', 'اختر نوع السجل لعرض الحقول المناسبة.') +
-    '<div class="intake-type-cards" role="group" aria-label="نوع السجل">' +
-    '<button type="button" class="intake-type-card" data-action="intake-pick-type" data-type="complaint">' +
-    '<span class="intake-type-icon" aria-hidden="true">!</span><strong>شكوى</strong><span>تسجيل شكوى للمتابعة والمعالجة</span></button>' +
-    '<button type="button" class="intake-type-card" data-action="intake-pick-type" data-type="inquiry">' +
-    '<span class="intake-type-icon" aria-hidden="true">?</span><strong>استفسار</strong><span>سؤال أو طلب معلومة بدون شكوى رسمية</span></button>' +
-    '</div>';
-}
-
-function intakeInquirySubjectStep() {
-  const d = intakeWizard.data;
-  return intakeProgressHtml() +
-    '<div class="form-grid">' +
-    intakeSummaryField('موضوع الاستفسار', 'بماذا يستفسر المتصل؟') +
-    '<div class="form-field full"><label>هل متعلق بالوضع الحالي؟</label>' +
-    '<div class="intake-choice-row">' +
-    '<label class="intake-choice"><input type="radio" name="cRelatedToCurrent" value="yes"' + (d.cRelatedToCurrent === 'yes' ? ' checked' : '') + '> نعم</label>' +
-    '<label class="intake-choice"><input type="radio" name="cRelatedToCurrent" value="no"' + (d.cRelatedToCurrent === 'no' ? ' checked' : '') + '> لا</label>' +
-    '<label class="intake-choice"><input type="radio" name="cRelatedToCurrent" value="unknown"' + (!d.cRelatedToCurrent || d.cRelatedToCurrent === 'unknown' ? ' checked' : '') + '> غير محدد</label>' +
-    '</div></div></div>';
-}
-
-function intakeInquiryContactStep() {
-  const d = intakeWizard.data;
-  return intakeProgressHtml() +
-    '<div class="form-grid">' +
-    field('اسم المتصل', 'cName', d.cName || '', 'text', false, 'autocomplete="off"') +
-    field('رقم التواصل', 'cPhone', d.cPhone || '', 'tel', false, 'dir="ltr" inputmode="tel" autocomplete="off"') +
-    selectField('كيفية التواصل', 'cSource', [
-      { value: 'phone', label: 'الهاتف' },
-      { value: 'whatsapp', label: 'واتساب' },
-      { value: 'telegram', label: 'تلغرام' },
-      { value: 'other', label: 'أخرى' }
-    ], d.cSource || 'phone', false) +
-    field('تاريخ أول تواصل', 'cFirstContactDate', d.cFirstContactDate || workDayKey(new Date()), 'date', false) +
-    '</div>';
-}
-
-function intakeInquiryFinishStep() {
-  const d = intakeWizard.data;
-  return intakeProgressHtml() +
-    '<div class="form-grid">' +
-    '<div class="form-field full"><label for="cDetails">تفاصيل إضافية (اختياري)</label><textarea class="textarea-field" id="cDetails" placeholder="أي ملاحظة تساعد على الرد">' + esc(d.cDetails || '') + '</textarea></div>' +
-    '</div>' + intakeReviewHtml();
-}
-
-function intakeComplaintSubjectStep() {
-  const d = intakeWizard.data;
-  return intakeProgressHtml() +
-    '<div class="form-grid">' +
-    intakeSummaryField('موضوع الشكوى', 'اكتب ملخصًا واضحًا ومختصرًا') +
-    '<div class="form-field full"><label for="cDetails">التفاصيل</label><textarea class="textarea-field" id="cDetails" placeholder="ما ذكره المتصل وما يلزم متابعته">' + esc(d.cDetails || '') + '</textarea></div>' +
-    '</div>';
-}
-
-function intakeComplaintClassifyStep() {
-  const d = intakeWizard.data;
-  return intakeProgressHtml() +
-    '<div class="form-grid">' +
-    selectField('المحافظة', 'cProvince', db.settings.provinces, d.cProvince || '', false) +
-    selectField('التصنيف', 'cCategory', db.settings.categories, d.cCategory || '', false) +
-    selectField('طبيعة الشكاوي', 'cNature', db.settings.natures || [], d.cNature || '', false) +
-    selectField('الجهة المختصة', 'cEntity', db.settings.entities, d.cEntity || '', false) +
-    '</div>';
-}
-
-function intakeComplaintContactStep() {
-  const d = intakeWizard.data;
-  return intakeProgressHtml() +
-    '<div class="form-grid">' +
-    field('اسم المشتكي', 'cName', d.cName || '', 'text', false, 'autocomplete="off"') +
-    field('رقم الهاتف', 'cPhone', d.cPhone || '', 'tel', false, 'dir="ltr" inputmode="tel" autocomplete="off"') +
-    selectField('قناة الورود', 'cSource', [
-      { value: 'phone', label: 'الهاتف' },
-      { value: 'whatsapp', label: 'واتساب (تسجيل يدوي)' },
-      { value: 'telegram', label: 'تلغرام (تسجيل يدوي)' },
-      { value: 'other', label: 'أخرى' }
-    ], d.cSource || 'phone', false) +
-    field('تاريخ أول تواصل', 'cFirstContactDate', d.cFirstContactDate || workDayKey(new Date()), 'date', false) +
-    '</div>';
-}
-
-function intakeComplaintExtraStep() {
-  const d = intakeWizard.data;
-  return intakeProgressHtml() +
-    '<div class="form-grid">' +
-    selectField('الأولوية', 'cPriority', db.settings.priorities, d.cPriority || 'normal', false) +
-    '</div>' + intakeReviewHtml();
-}
-
-function intakeRenderStepBody() {
-  const t = intakeWizard.recordType;
-  const s = intakeWizard.step;
-  if (s === 0 || !t) return intakeTypeStep();
-  if (t === 'inquiry') {
-    if (s === 1) return intakeInquirySubjectStep();
-    if (s === 2) return intakeInquiryContactStep();
-    return intakeInquiryFinishStep();
+function intakeSuggestions(key, configured = []) {
+  const counts = new Map();
+  for (const c of db.complaints || []) {
+    const value = String(c[key] || '').trim();
+    if (value && !c.archivedAt) counts.set(value, (counts.get(value) || 0) + 1);
   }
-  if (s === 1) return intakeComplaintSubjectStep();
-  if (s === 2) return intakeComplaintClassifyStep();
-  if (s === 3) return intakeComplaintContactStep();
-  return intakeComplaintExtraStep();
+  for (const value of configured) if (typeof value === 'string' && value.trim() && !counts.has(value)) counts.set(value, 0);
+  return [...counts].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0], 'ar')).slice(0,60)
+    .map(([value]) => '<option value="'+esc(value)+'"></option>').join('');
 }
 
+function intakeTextField(label, id, options = {}) {
+  const value = intakeWizard.data[id] || '';
+  return '<div class="form-field '+(options.full?'full':'')+'"><label for="'+id+'">'+label+
+    (options.required?' <span class="intake-required">مطلوب</span>':'')+'</label><input class="field" id="'+id+'" name="'+id+'" type="'+(options.type||'text')+'" '+
+    (options.required?'required ':'')+'maxlength="'+(options.max||120)+'" autocomplete="off" '+
+    (options.list?'list="'+options.list+'" ':'')+(options.type==='tel'?'dir="ltr" inputmode="tel" ':'')+
+    'aria-describedby="'+id+'Error" value="'+esc(value)+'"><p class="field-error" id="'+id+'Error" hidden></p></div>';
+}
+
+function intakeQuickFormHtml() {
+  const d = intakeWizard.data, inquiry = intakeWizard.recordType === 'inquiry';
+  return '<div class="intake-record-type" role="group" aria-label="نوع السجل">'+
+    [['complaint','شكوى'],['inquiry','استفسار']].map(([type,label])=>'<button type="button" class="btn btn-sm" data-action="intake-pick-type" data-type="'+type+'" aria-pressed="'+(type===intakeWizard.recordType)+'">'+label+'</button>').join('')+'</div>'+
+    '<div class="form-grid">'+
+    intakeTextField(inquiry?'اسم مقدم الاستفسار':'اسم مقدم الشكوى','cName',{list:'intakeNames'})+
+    intakeTextField('الهاتف','cPhone',{type:'tel',max:40})+
+    '<div class="form-field full"><div id="duplicateMount" class="intake-phone-hint" role="status" aria-live="polite"></div></div>'+
+    intakeTextField('الجهة المختصة','cEntity',{list:'intakeEntities'})+
+    intakeTextField('التصنيف','cCategory',{list:'intakeCategories'})+
+    intakeTextField(inquiry?'ملخص الاستفسار':'ملخص الشكوى','cSummary',{required:true,max:180,full:true})+
+    '<div class="form-field full"><label for="cDetails">التفاصيل</label><textarea class="textarea-field" id="cDetails" maxlength="10000" aria-describedby="cDetailsError">'+esc(d.cDetails||'')+'</textarea><p class="field-error" id="cDetailsError" hidden></p></div></div>'+
+    '<datalist id="intakeNames">'+intakeSuggestions('name')+'</datalist>'+
+    '<datalist id="intakeEntities">'+intakeSuggestions('entity',db.settings.entities?.length?db.settings.entities:seed.settings.entities||[])+'</datalist>'+
+    '<datalist id="intakeCategories">'+intakeSuggestions('category',db.settings.categories?.length?db.settings.categories:seed.settings.categories||[])+'</datalist>'+
+    '<details class="intake-additional" id="intakeAdditional"><summary>تفاصيل إضافية <span class="small-copy">اختياري</span></summary><div class="form-grid">'+
+    selectField('المحافظة','cProvince',db.settings.provinces,d.cProvince||'',false)+
+    selectField('طبيعة السجل','cNature',db.settings.natures||[],d.cNature||'',false)+
+    selectField('الأولوية','cPriority',db.settings.priorities,d.cPriority||'normal',false)+
+    selectField('قناة الورود','cSource',[{value:'phone',label:'الهاتف'},{value:'whatsapp',label:'واتساب'},{value:'telegram',label:'تلغرام'},{value:'other',label:'أخرى'}],d.cSource||'phone',false)+
+    field('تاريخ أول تواصل','cFirstContactDate',d.cFirstContactDate||workDayKey(new Date()),'date',false)+
+    '<div class="form-field"><label for="cRelatedToCurrent">متعلق بالوضع الحالي</label><select class="select-field" id="cRelatedToCurrent">'+[['unknown','غير محدد'],['yes','نعم'],['no','لا']].map(([v,l])=>'<option value="'+v+'" '+((d.cRelatedToCurrent||'unknown')===v?'selected':'')+'>'+l+'</option>').join('')+'</select></div></div>'+
+    '<div id="intakeAttachmentsMount"></div><p class="small-copy">تُحفظ بيانات المسودة على هذا الجهاز. بعد إعادة تشغيل التطبيق أعد اختيار المرفقات قبل الحفظ.</p></details>';
+}
+
+function intakeTitle() { return intakeWizard.recordType==='inquiry'?'تسجيل استفسار':'تسجيل شكوى'; }
 function intakeFooterHtml() {
-  const s = intakeWizard.step;
-  const last = s >= intakeStepCount() - 1 && intakeWizard.recordType;
-  const canBack = s > 0;
-  const canSkip = s > 1 && !last;
-  let html = '<div class="right-actions intake-actions">';
-  html += '<button type="button" class="btn" data-action="close-modal">إلغاء</button>';
-  if (canBack) html += '<button type="button" class="btn" data-action="intake-back">رجوع</button>';
-  if (canSkip) html += '<button type="button" class="btn" data-action="intake-skip">تخطي</button>';
-  if (!intakeWizard.recordType) {
-    /* type step */
-  } else if (last) {
-    html += '<button type="button" class="btn" data-action="save-incomplete">حفظ كمسودة</button>';
-    html += '<button type="button" class="btn" data-action="save-and-new">حفظ وإضافة جديد</button>';
-    html += '<button type="button" class="btn btn-primary" data-action="save-complaint">حفظ ' + (intakeWizard.recordType === 'inquiry' ? 'الاستفسار' : 'الشكوى') + '</button>';
-  } else {
-    html += '<button type="button" class="btn btn-primary" data-action="intake-next">التالي</button>';
-  }
-  html += '</div>';
-  return html;
+  return '<div class="intake-save-actions"><span class="small-copy">Ctrl + Enter للحفظ</span>'+
+    '<button type="button" class="btn btn-primary" data-action="save-complaint">حفظ '+(intakeWizard.recordType==='inquiry'?'الاستفسار':'الشكوى')+'</button></div>';
 }
-
-function intakeTitle() {
-  if (!intakeWizard.recordType) return 'تسجيل جديد';
-  return intakeWizard.recordType === 'inquiry' ? 'تسجيل استفسار' : 'تسجيل شكوى';
-}
-
-function intakeSubtitle() {
-  if (!intakeWizard.recordType) return 'اختر نوع السجل أولاً — خطوة واحدة تلو الأخرى';
-  return 'الموضوع مطلوب، وبقية البيانات يمكن استكمالها لاحقًا.';
-}
-
 function renderIntakeWizard() {
-  const draftBanner = intakeWizard.step === 0 && hasComplaintDraft()
-    ? '<div class="intake-draft" id="draftBanner"><span>لديك مسودة محفوظة</span><div class="right-actions"><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div></div>'
-    : '';
-  const body = draftBanner + '<form id="newComplaintForm" novalidate><div id="intakeStepMount">' + intakeRenderStepBody() + '</div><p id="intakeDraftStatus" class="small-copy" role="status" aria-live="polite"></p></form>';
-  modal(intakeTitle(), intakeSubtitle(), body, intakeFooterHtml(), true);
-  $('.modal')?.classList.add('intake-dialog');
-  const focusEl = $('#intakeStepMount input, #intakeStepMount select, #intakeStepMount textarea, #intakeStepMount button.intake-type-card');
-  focusEl?.focus?.();
+  const banner = intakeWizard.offerDraft && hasComplaintDraft()
+    ? '<div class="intake-draft" id="draftBanner"><span>لديك مسودة محفوظة</span><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div>' : '';
+  intakeWizard.rendering=true;
+  try{modal(intakeTitle(),'الملخص مطلوب. يمكنك استكمال بقية البيانات لاحقًا.',banner+
+    '<form id="newComplaintForm" novalidate>'+intakeQuickFormHtml()+'<p id="intakeDraftStatus" class="small-copy" role="status" aria-live="polite"></p></form>',intakeFooterHtml(),true);}finally{intakeWizard.rendering=false;}
+  $('.modal')?.classList.add('intake-dialog','intake-quick');
+  $('#cName')?.focus?.();
+  intakePhoneHint();
 }
-
-function intakeRequireSummary() {
-  if (String(intakeWizard.data.cSummary || '').trim()) return true;
-  intakeWizard.step = 1;
-  renderIntakeWizard();
-  const input = $('#cSummary'), error = $('#intakeSummaryError');
-  if (input) { input.setAttribute('aria-invalid', 'true'); input.focus(); }
-  if (error) { error.hidden = false; error.textContent = 'اكتب موضوع السجل للمتابعة.'; }
+function intakeFieldError(id, message) {
+  const input=$('#'+id), error=$('#'+id+'Error');
+  if(input){input.setAttribute('aria-invalid','true');input.focus?.();}
+  if(error){error.hidden=false;error.textContent=message;}
   return false;
 }
-
+function intakeRequireSummary() {
+  if(String(intakeWizard.data.cSummary||'').trim())return true;
+  return intakeFieldError('cSummary','اكتب ملخصًا للسجل قبل الحفظ.');
+}
+function intakeValidate() {
+  if(!intakeRequireSummary())return false;
+  const d=intakeWizard.data;
+  for(const [id,max,label] of [['cName',120,'الاسم'],['cPhone',40,'رقم الهاتف'],['cEntity',120,'الجهة'],['cCategory',120,'التصنيف'],['cSummary',180,'الملخص'],['cDetails',10000,'التفاصيل']]) {
+    if(String(d[id]||'').length>max)return intakeFieldError(id,label+' أطول من الحد المسموح ('+max+' حرفًا).');
+  }
+  if(d.cPhone&&!/^[\d٠-٩۰-۹\s+().-]*$/.test(d.cPhone))return intakeFieldError('cPhone','استخدم أرقامًا ورمز + فقط مع المسافات أو الشرطات.');
+  return true;
+}
 function newComplaint() {
-  if (!uiCan('complaints.create')) return toast('لا تملك صلاحية إنشاء شكوى.', 'error');
-  intakeWizard = { step: 0, recordType: null, data: {}, files: [] };
+  if(!uiCan('complaints.create'))return toast('لا تملك صلاحية إنشاء شكوى.','error');
+  preserveIntakeDraft();
+  intakeWizard={step:1,recordType:'complaint',data:{...intakeDefaults,cFirstContactDate:workDayKey(new Date()),cSource:'phone',cPriority:'normal'},files:[],offerDraft:true,startedAt:Date.now()};
   renderIntakeWizard();
 }
-
 function intakePickType(type) {
-  if (type !== 'complaint' && type !== 'inquiry') return;
-  intakeWizard.recordType = type;
-  intakeWizard.step = 1;
-  if (type === 'inquiry') {
-    intakeWizard.data.cCategory = intakeWizard.data.cCategory || 'استفسار عام';
-    intakeWizard.data.cNature = intakeWizard.data.cNature || 'استفسار';
-    intakeWizard.data.cPriority = intakeWizard.data.cPriority || 'normal';
-  }
-  renderIntakeWizard();
-}
-
-function intakeGoNext() {
+  if(!['complaint','inquiry'].includes(type)||intakeSavePending)return;
   intakeCollectVisible();
-  if (intakeWizard.step === 1 && !intakeRequireSummary()) return;
-  const max = intakeStepCount() - 1;
-  if (intakeWizard.step < max) {
-    intakeWizard.step += 1;
-    renderIntakeWizard();
-  }
+  intakeWizard.recordType=type;
+  // Rerendering retains the full draft and selected files; nothing is submitted.
+  renderIntakeWizard();saveComplaintDraft();
 }
-
-function intakeGoBack() {
-  intakeCollectVisible();
-  if (intakeWizard.step <= 1) {
-    intakeWizard.step = 0;
-    intakeWizard.recordType = null;
-  } else {
-    intakeWizard.step -= 1;
-  }
-  renderIntakeWizard();
+function preserveIntakeDraft() {
+  if($('#newComplaintForm')&&!intakeSavePending&&!intakeWizard.completed&&!intakeWizard.rendering)saveComplaintDraft();
 }
-
-function intakeSkip() {
-  intakeCollectVisible();
-  intakeGoNext();
+function intakePhoneHint() {
+  const mount=$('#duplicateMount');if(!mount||!authenticatedUser)return;
+  const phone=phoneNorm($('#cPhone')?.value||intakeWizard.data.cPhone||'');
+  const matches=phone.length>=7?(db.complaints||[]).filter(c=>!c.archivedAt&&phoneNorm(c.phone||'')===phone):[];
+  mount.innerHTML=matches.length?'<details><summary>لهذا الرقم '+matches.length+' سجل سابق — يمكنك متابعة التسجيل</summary>'+matches.slice(0,5).map(c=>'<button type="button" class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'"><bdi>'+esc(c.id)+'</bdi> · '+esc(c.summary||'')+'</button>').join('')+'</details>':'';
+}
+function duplicateCheck() { intakeCollectVisible();intakePhoneHint(); }
+function intakeSavedModal(id, elapsed) {
+  modal('تم حفظ السجل','رقم السجل: '+esc(id),'<p class="intake-saved-id"><bdi>'+esc(id)+'</bdi></p><p class="small-copy">من فتح النموذج إلى الحفظ: '+elapsed+' ثانية.</p>',
+    '<button type="button" class="btn" data-action="intake-view" data-id="'+esc(id)+'">عرض الشكوى</button><button type="button" class="btn btn-primary" data-action="intake-new">تسجيل شكوى أخرى</button>');
 }
 
 function hasComplaintDraft() {
@@ -273,7 +128,7 @@ function hasComplaintDraft() {
     const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
     if (!raw) return false;
     const d = JSON.parse(raw);
-    return d && typeof d === 'object' && d._ownerUserId === String(authenticatedUser?.id || '') && Object.values(d).some(v => String(v || '').trim());
+    return d && typeof d === 'object' && d._ownerUserId === String(authenticatedUser?.id || '') && ['cName','cPhone','cSummary','cDetails','cEntity','cCategory'].some(k=>String(d[k]||'').trim());
   } catch (_) {
     return false;
   }
@@ -281,8 +136,9 @@ function hasComplaintDraft() {
 
 function saveComplaintDraft() {
   const key=complaintDraftStorageKey();
-  if(!key)return;
+  if(!key||intakeWizard.completed)return;
   intakeCollectVisible();
+  intakeDraftFiles={owner:key,files:Array.from(intakeWizard.files||[])};
   const draft = Object.assign({}, intakeWizard.data, {
     _recordType: intakeWizard.recordType || '',
     _step: intakeWizard.step,
@@ -318,8 +174,10 @@ function restoreComplaintDraft(force) {
     intakeWizard.data = Object.assign({}, draft);
     if (draft._recordType === 'complaint' || draft._recordType === 'inquiry') {
       intakeWizard.recordType = draft._recordType;
-      intakeWizard.step = Math.min(Number(draft._step) || 1, intakeStepCount() - 1);
+      intakeWizard.step = 1;
     }
+    intakeWizard.offerDraft=false;
+    intakeWizard.files=intakeDraftFiles.owner===key?Array.from(intakeDraftFiles.files):[];
     renderIntakeWizard();
     Object.entries(draft).forEach(([id, value]) => {
       if (id.startsWith('_')) return;
@@ -336,21 +194,6 @@ function restoreComplaintDraft(force) {
   } catch (e) {}
 }
 
-/* Related records are requested explicitly; typing never triggers a warning. */
-function duplicateCheck() {
-  intakeCollectVisible();
-  const phone = phoneNorm(intakeWizard.data.cPhone || '');
-  const text = norm(intakeWizard.data.cSummary || '');
-  const matches = db.complaints.filter(c => c && !c.archivedAt && (
-    (phone.length >= 7 && phoneNorm(c.phone) === phone) ||
-    (text.length >= 9 && norm(c.summary).includes(text))
-  ));
-  const mount = $('#duplicateMount');
-  if (!mount) return;
-  mount.innerHTML = '<div class="intake-related"><p>' + (matches.length ? 'سجلات مرتبطة: ' + matches.length : 'لا توجد سجلات مرتبطة بالهاتف أو الموضوع.') + '</p>' +
-    matches.slice(0, 6).map(c => '<div><span class="ticket-id" dir="ltr">' + esc(c.id) + '</span> · ' + esc(c.summary) + '</div>').join('') + '</div>';
-}
-
 let intakeSavePending = false;
 async function createComplaint(asDraft = false, addAnother = false) {
   if(intakeSavePending)return false;
@@ -358,7 +201,7 @@ async function createComplaint(asDraft = false, addAnother = false) {
   const d = intakeWizard.data;
   const form = $('#newComplaintForm');
   if (!form) return false;
-  if (!asDraft && !intakeRequireSummary()) return false;
+  if (!asDraft && !intakeValidate()) return false;
   const isInquiry = intakeWizard.recordType === 'inquiry';
   const body = {
     name: String(d.cName || '').trim(),
@@ -409,10 +252,13 @@ async function createComplaint(asDraft = false, addAnother = false) {
       localStorage.removeItem(DRAFT_KEY);
       sessionStorage.removeItem(DRAFT_KEY);
     } catch (e) {}
+    intakeWizard.completed=true;
+    intakeDraftFiles={owner:null,files:[]};
     closeModal();
     page = 'complaints';
     history.replaceState({ view: 'complaints' }, '', '#complaints');
-    if(!addAnother)detailModal(response.complaint.id);
+    render();
+    if(!addAnother)intakeSavedModal(response.complaint.id,Math.max(0,Math.round((Date.now()-(intakeWizard.startedAt||Date.now()))/1000)));
     window.dispatchEvent(new CustomEvent('complaints:created', { detail: { id: response.complaint.id, files } }));
     intakeWizard.files = [];
     if(addAnother){render();newComplaint();}
@@ -423,24 +269,24 @@ async function createComplaint(asDraft = false, addAnother = false) {
   } finally { intakeSavePending = false; }
 }
 
-/* Wizard actions — capture phase so they work without events.js changes */
-document.addEventListener('click', function intakeWizardClick(e) {
-  const el = e.target.closest('[data-action]');
-  if (!el) return;
-  const a = el.dataset.action;
-  if (a === 'intake-pick-type') { e.preventDefault(); intakePickType(el.dataset.type); }
-  else if (a === 'intake-next') { e.preventDefault(); intakeGoNext(); }
-  else if (a === 'intake-back') { e.preventDefault(); intakeGoBack(); }
-  else if (a === 'intake-related') { e.preventDefault(); duplicateCheck(); }
-  else if (a === 'intake-skip') { e.preventDefault(); intakeSkip(); }
-}, true);
-
-/* Keep Enter inside the wizard; no inline handlers or accidental page reloads. */
-document.addEventListener('submit', function intakeSubmit(e) {
-  if (e.target?.id !== 'newComplaintForm') return;
-  e.preventDefault();
-  if (!intakeWizard.recordType) return;
-  if (intakeWizard.step >= intakeStepCount() - 1) {
-    $('[data-action="save-complaint"]')?.click();
-  } else intakeGoNext();
+document.addEventListener('click',function(e){
+  const el=e.target.closest('[data-action]');if(!el)return;
+  const action=el.dataset.action;
+  if(action==='intake-pick-type'){e.preventDefault();intakePickType(el.dataset.type);}
+  if(action==='intake-new'){e.preventDefault();newComplaint();}
+  if(action==='intake-view'){e.preventDefault();detailModal(el.dataset.id);}
+  if(action==='intake-related'){e.preventDefault();duplicateCheck();}
+},true);
+document.addEventListener('input',function(e){
+  if(!e.target.closest?.('#newComplaintForm'))return;
+  const error=$('#'+e.target.id+'Error');if(error){error.hidden=true;error.textContent='';}e.target.removeAttribute?.('aria-invalid');
+  saveComplaintDraft();
+  if(e.target.id==='cPhone'){clearTimeout(intakePhoneHintTimer);intakePhoneHintTimer=setTimeout(()=>{if($('#newComplaintForm'))intakePhoneHint();},250);}
 });
+document.addEventListener('change',function(e){if(e.target.closest?.('#newComplaintForm')&&e.target.type!=='file')saveComplaintDraft();});
+document.addEventListener('submit',function(e){
+  if(e.target?.id!=='newComplaintForm')return;
+  e.preventDefault();$('[data-action="save-complaint"]')?.click();
+});
+window.addEventListener('pagehide',preserveIntakeDraft);
+window.addEventListener('beforeunload',preserveIntakeDraft);

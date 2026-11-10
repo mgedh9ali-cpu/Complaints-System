@@ -19,6 +19,7 @@ function render(){
 const routeScrollPositions=new Map();
 function restoreRouteScroll(){window.scrollTo?.({top:routeScrollPositions.get(page)||0,behavior:'instant'});}
 function go(p,replace=false){
+ if($('#newComplaintForm')){preserveIntakeDraft();closeModal();}
  if(!['dashboard','complaints','referrals','replies','notifications','reports','settings','complaint-detail'].includes(p))p='dashboard';
  const unchanged=p===page&&!replace&&location.hash==='#'+p;
  routeScrollPositions.set(page,window.scrollY||0);

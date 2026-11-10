@@ -642,3 +642,17 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 }
 @media (pointer: coarse) { .btn, .icon-btn, .complaint-page-tabs button { min-height: 44px; } }
 .registry-panel [hidden]{display:none!important}
+
+/* One-screen intake: basic fields first, optional metadata collapsed. */
+.intake-quick .intake-record-type { display:flex; gap:8px; margin-block-end:16px; }
+.intake-record-type [aria-pressed="true"] { border-color:var(--forest); background:var(--st-progress-bg); color:var(--st-progress-fg); }
+.intake-additional { margin-block-start:16px; border-block-start:1px solid var(--line); padding-block-start:12px; }
+.intake-additional > summary { cursor:pointer; font-weight:500; padding-block:10px; }
+.intake-additional .form-grid { margin-block:12px; }
+.intake-quick .modal-footer { flex-shrink:0; background:var(--surface); }
+.intake-save-actions { display:flex; flex:1; align-items:center; justify-content:space-between; gap:12px; }
+.intake-phone-hint { color:var(--ink-2); font-size:var(--t-sm); }
+.intake-phone-hint:empty { display:none; }
+.intake-phone-hint .btn { margin:4px; }
+.intake-saved-id { font-size:var(--t-xl); font-weight:700; color:var(--forest); margin-block:12px; }
+@media(max-width:600px) { .intake-quick .modal-footer { position:sticky; bottom:0; } .intake-save-actions .btn { min-height:44px; } }

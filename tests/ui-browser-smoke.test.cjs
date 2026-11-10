@@ -12,6 +12,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
    id:key.startsWith('#')?key.slice(1):key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
    classList:{add(){},remove(){},toggle(){return true},contains(){return false}},
    getAttribute(){return null;},setAttribute(){},removeAttribute(){},click(){downloads.push(this.download);},focus(){},scrollIntoView(){this.scrolled=true;},addEventListener(type,fn){events.set(key+':'+type,fn);},append(){},appendChild(){},remove(){},reset(){this.resetCalled=true;},
+   closest(selector){return selector==='#newComplaintForm'&&/^c[A-Z]/.test(this.id)&&node('#modalRoot').innerHTML.includes('id="newComplaintForm"')?node('#newComplaintForm'):null;},
    querySelector(){return node('mock-dialog')},querySelectorAll(){return key==='#newComplaintForm'?[...nodes.values()].filter(item=>/^(?:cName|cPhone|cSource|cFirstContactDate|cCategory|cNature|cEntity|cProvince|cPriority|cOwner|cSummary|cDetails)$/.test(item.id)):[]},reportValidity(){return true}
   });
   return nodes.get(key);
@@ -19,7 +20,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
  const document={
   documentElement:node('html'),readyState:'interactive',
   body:{dataset:{},prepend(){},append(){},appendChild(){}},activeElement:null,
-  querySelector(selector){if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
+  querySelector(selector){if(selector==='#newComplaintForm'&&!node('#modalRoot').innerHTML.includes('id="newComplaintForm"'))return null;if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
   querySelectorAll(selector){if(selector==='.nav-link')return[node('nav-dashboard'),node('nav-registry')];if(selector==='.row-check'){const a=node('row-check-a'),b=node('row-check-b');a.dataset.id='SY-2026-10001';b.dataset.id='SY-2026-10002';return[a,b];}return[];},
   addEventListener(type,fn){const previous=events.get(type);events.set(type,previous?event=>{previous(event);return fn(event);}:fn);},
   getElementById(id){return node('#'+id);},
@@ -239,9 +240,9 @@ test('new complaint uses the authenticated creation endpoint and CSRF token',asy
  for(let i=0;i<20;i++)await Promise.resolve();
  ui.click('new-complaint');
  ui.click('intake-pick-type',undefined,{type:'complaint'});
- ui.node('#cSummary').value='بلاغ جديد للاختبار';ui.node('#cDetails').value='بيانات وهمية';const fields=ui.node('#newComplaintForm').querySelectorAll('input, select, textarea');assert.ok(fields.some(field=>field.id==='cSummary'&&field.value==='بلاغ جديد للاختبار'),'summary control must be visible to the form reader');ui.click('intake-next');
- ui.node('#cProvince').value='دمشق';ui.node('#cCategory').value='خدمات عامة';ui.node('#cEntity').value='مديرية الخدمات العامة';ui.click('intake-next');
- ui.node('#cName').value='مواطن اختباري';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-10-19';ui.click('intake-next');
+ ui.node('#cSummary').value='بلاغ جديد للاختبار';ui.node('#cDetails').value='بيانات وهمية';const fields=ui.node('#newComplaintForm').querySelectorAll('input, select, textarea');assert.ok(fields.some(field=>field.id==='cSummary'&&field.value==='بلاغ جديد للاختبار'),'summary control must be visible to the form reader');
+ ui.node('#cProvince').value='دمشق';ui.node('#cCategory').value='خدمات عامة';ui.node('#cEntity').value='مديرية الخدمات العامة';
+ ui.node('#cName').value='مواطن اختباري';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-10-19';
  const values={cPriority:'normal',cOwner:'admin'};for(const [key,val] of Object.entries(values))ui.node('#'+key).value=val;
  const form=ui.node('#modalRoot').innerHTML;assert.match(form,/id="newComplaintForm"/);assert.match(form,/data-action="save-complaint"/);
  ui.click('save-complaint');
@@ -251,7 +252,9 @@ test('new complaint uses the authenticated creation endpoint and CSRF token',asy
  assert.equal(request.headers['X-CSRF-Token'],'token-from-session');
  assert.match(ui.node('#content').innerHTML,/بلاغ جديد للاختبار/);
  assert.equal(JSON.parse(request.body).firstContactDate,'2026-10-19');
- assert.equal(ui.location.hash,'#complaint/SY-2026-10002');
+ assert.equal(ui.location.hash,'#complaints');
+ assert.match(ui.node('#modalRoot').innerHTML,/data-action="intake-new"/);
+ ui.click('intake-view','SY-2026-10002');
  for(const action of ['edit-complaint','complaint-more'])assert.ok(ui.node('#content').innerHTML.includes('data-action="'+action+'"'));
  ui.click('complaint-more','SY-2026-10002');
  for(const action of ['request-complaint-delete','export-complaint-pdf','export-complaint-word'])assert.ok(ui.node('#modalRoot').innerHTML.includes('data-action="'+action+'"'));
@@ -334,7 +337,7 @@ test('legacy empty intake lists display local defaults without rewriting synchro
  ui.state.settings.provinces=[];ui.state.settings.categories=[];ui.state.settings.entities=[];
  const settings=structuredClone(ui.state.settings);
  ui.click('new-complaint');
- ui.click('intake-pick-type',undefined,{type:'complaint'});ui.node('#cSummary').value='اختبار قوائم التصنيف';ui.click('intake-next');
+ ui.click('intake-pick-type',undefined,{type:'complaint'});ui.node('#cSummary').value='اختبار قوائم التصنيف';
  const html=ui.node('#modalRoot').innerHTML;
  assert.match(html,/<option value="دمشق"/);
  assert.match(html,/<option value="خدمات عامة"/);
@@ -441,17 +444,18 @@ test('complaint printing writes an escaped A4 cover and uses a callable load han
  popup.onload();assert.equal(printed,true);
 });
 
-test('intake stays quiet while typing and checks the subject only when continuing', async()=>{
+test('quick intake validates inline only on save and keeps optional metadata collapsed', async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});
  const markup=ui.node('#modalRoot').innerHTML;
  assert.doesNotMatch(markup,/risk-note|role="alert"|تنبيه تكرار|سيُنشأ رقم/);
- ui.click('intake-next');
- assert.equal(ui.node('#intakeSummaryError').hidden,false);
+
+ await ui.click('save-complaint');
+ assert.equal(ui.node('#cSummaryError').hidden,false);
  assert.match(ui.node('#modalRoot').innerHTML,/id="cSummary"/);
- assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="cProvince"/);
+ assert.match(ui.node('#modalRoot').innerHTML,/<details class="intake-additional" id="intakeAdditional">/);
  assert.equal(ui.calls.filter(c=>c.url==='/api/complaints'&&c.method==='POST').length,0);
- ui.node('#cSummary').value='بلاغ للاختبار';ui.click('intake-next');
+ ui.node('#cSummary').value='بلاغ للاختبار';
  ui.node('#cPhone').value='0912345678';
  ui.events.get('input')({target:ui.node('#cPhone')});
  assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/تنبيه تكرار|field-dup-warn|role="alert"/);
@@ -461,10 +465,12 @@ test('intake stays quiet while typing and checks the subject only when continuin
 test('inquiry review keeps contact details and saves optional fields without an immediate completion alert', async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'inquiry'});
- ui.node('#cSummary').value='استفسار عن المعاملة';ui.click('intake-next');
- ui.node('#cName').value='متصل للاختبار';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-11-10';ui.click('intake-next');
+ ui.node('#cSummary').value='استفسار عن المعاملة';
+ ui.node('#cName').value='متصل للاختبار';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-11-10';
  let review=ui.node('#modalRoot').innerHTML;
- for(const text of ['مراجعة البيانات','متصل للاختبار','2026-11-10','حفظ الاستفسار'])assert.ok(review.includes(text));
+ assert.match(review,/حفظ الاستفسار/);
+ assert.equal(ui.node('#cName').value,'متصل للاختبار');
+ assert.equal(ui.node('#cFirstContactDate').value,'2026-11-10');
  ui.click('intake-related');
  assert.match(ui.node('#duplicateMount').innerHTML,/SY-2026-10001/);
  assert.doesNotMatch(ui.node('#duplicateMount').innerHTML,/role="alert"|risk-note|تنبيه/);
@@ -497,7 +503,7 @@ test('operator can approve their own reviewed reply',async()=>{
  assert.match(independent.node('#content').innerHTML,/data-action="reply-approve"/);
 });
 
-test('Enter advances intake without inline submit handlers or page navigation',async()=>{
+test('Enter submits quick intake without inline handlers or page reloads',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});
  assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/onsubmit=/);
@@ -517,15 +523,18 @@ test('reopening a closed record exposes the same required reason control as clos
  select.value='cancelled';update();assert.equal(reason.required,true);assert.equal(wrapper.hidden,false);
 });
 
-test('save and add another persists one record and opens a clean intake form',async()=>{
+test('quick save persists one record, offers two actions, then opens a clean form',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});
- ui.node('#cSummary').value='سجل للحفظ المتتابع';ui.click('intake-next');ui.click('intake-next');ui.click('intake-next');
- assert.match(ui.node('#modalRoot').innerHTML,/data-action="save-and-new"/);
- const first=ui.click('save-and-new');const second=ui.click('save-complaint');await Promise.all([first,second]);
+ ui.node('#cSummary').value='سجل للحفظ المتتابع';
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/data-action="save-and-new"/);
+ const first=ui.click('save-complaint');const second=ui.click('save-complaint');await Promise.all([first,second]);
  for(let i=0;i<40;i++)await Promise.resolve();
  assert.equal(ui.calls.filter(c=>c.url==='/api/complaints'&&c.method==='POST').length,1);
- assert.match(ui.node('#modalRoot').innerHTML,/ما الذي تريد تسجيله/);
+ assert.match(ui.node('#modalRoot').innerHTML,/data-action="intake-new"/);
+ assert.match(ui.node('#modalRoot').innerHTML,/data-action="intake-view"/);
+ ui.click('intake-new');
+ assert.match(ui.node('#modalRoot').innerHTML,/id="cName"/);
  assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/سجل للحفظ المتتابع/);
 });
 
@@ -548,9 +557,50 @@ test('single operator UI exposes no assignment, collaborators or employee manage
  const forbidden=/assignOwner|coAssistants|newLocalUsername|bulk-assign|col-owner|reportOwner|إسناد المسؤول|المسؤول الرئيسي|المساعدون المشاركون/;
  for(const page of ['dashboard','complaints','replies','reports','settings']){ui.goto(page);assert.doesNotMatch(ui.node('#content').innerHTML,forbidden,page);}
  ui.click('detail','SY-2026-10001');assert.doesNotMatch(ui.node('#content').innerHTML,forbidden);
- ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});ui.node('#cSummary').value='سجل فردي';ui.click('intake-next');ui.click('intake-next');ui.click('intake-next');
+ ui.click('new-complaint');ui.click('intake-pick-type',undefined,{type:'complaint'});ui.node('#cSummary').value='سجل فردي';
  assert.doesNotMatch(ui.node('#modalRoot').innerHTML,forbidden);
  await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
  const body=JSON.parse(ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST').body);assert.equal(Object.hasOwn(body,'owner'),false);assert.equal(Object.hasOwn(body,'coAssistants'),false);
  assert.equal(ui.calls.some(c=>/\/api\/(users|assignees)/.test(c.url)),false);
+});
+
+
+test('quick intake exposes basic fields in order, one save, local suggestions and automatic date',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.state.complaints.push({...ui.state.complaints[0],id:'hint-only',name:'<img onerror=x>',entity:'<unsafe>',category:'متكرر'});
+ await ui.click('new-complaint');const html=ui.node('#modalRoot').innerHTML;
+ const basics=['cName','cPhone','cEntity','cCategory','cSummary','cDetails'].map(id=>html.indexOf('id="'+id+'"'));
+ assert.ok(basics.every((n,i)=>n>=0&&(i===0||n>basics[i-1])));
+ assert.ok(basics.at(-1)<html.indexOf('id="intakeAdditional"'));
+ assert.match(html,/<details class="intake-additional" id="intakeAdditional">/);
+ assert.match(html,/list="intakeNames"/);assert.match(html,/&lt;img onerror=x&gt;/);assert.doesNotMatch(html,/<img/);
+ assert.match(html,/id="cFirstContactDate"[^>]*value="\d{4}-\d{2}-\d{2}"/);
+ assert.equal((html.match(/data-action="save-complaint"/g)||[]).length,1);
+ assert.doesNotMatch(html,/intake-next|save-and-new|cOwner/);
+});
+
+test('quick intake keeps a draft across close and navigation and restores it without overwriting it',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ await ui.click('new-complaint');ui.node('#cName').value='اسم محفوظ';ui.node('#cSummary').value='مسودة لا تضيع';
+ ui.events.get('input')({target:ui.node('#cSummary')});await ui.click('close-modal');
+ const key='complaints-draft-v1:u1';assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'مسودة لا تضيع');
+ ui.node('#cName').value='';ui.node('#cSummary').value='';await ui.click('new-complaint');
+ assert.match(ui.node('#modalRoot').innerHTML,/استعادة المسودة/);
+ await ui.click('restore-draft');assert.equal(ui.node('#cSummary').value,'مسودة لا تضيع');
+ assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'مسودة لا تضيع');
+ ui.node('#cDetails').value='تعديل قبل الانتقال';ui.goto('reports');
+ assert.equal(JSON.parse(ui.localStorage.get(key)).cDetails,'تعديل قبل الانتقال');
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="newComplaintForm"/);
+});
+
+test('invalid phone is explained inline; an existing Arabic-digit phone remains eligible for saving',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ await ui.click('new-complaint');ui.node('#cSummary').value='حفظ دون منع التكرار';ui.node('#cPhone').value='wrong-phone';
+ await ui.click('save-complaint');assert.equal(ui.node('#cPhoneError').hidden,false);
+ assert.equal(ui.calls.filter(c=>c.url==='/api/complaints'&&c.method==='POST').length,0);
+ ui.node('#cPhone').value='٠٩١٢٣٤٥٦٧٨';ui.events.get('input')({target:ui.node('#cPhone')});assert.equal(ui.node('#cPhoneError').hidden,true);
+ await ui.click('intake-related');assert.match(ui.node('#duplicateMount').innerHTML,/سجل سابق/);
+ await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
+ const saved=ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST');assert.equal(JSON.parse(saved.body).phone,'0912345678');
+ assert.match(ui.node('#modalRoot').innerHTML,/SY-2026-10002/);
 });
