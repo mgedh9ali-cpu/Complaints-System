@@ -70,10 +70,10 @@ function dashboard(){
     '<div class="task-row"><div class="task-symbol '+color+'">'+icon+'</div><div class="task-copy"><strong>'+label+'</strong><small>'+description+'</small></div><span class="task-value">'+n+'</span><button class="btn btn-sm" '+(dest?'data-goto="'+dest+'"':'data-action="'+action+'"')+'>مراجعة</button></div>'
   ).join(''):'<div class="empty-state calm-empty">لا شيء يحتاج انتباهك الآن. يمكنك مراجعة السجل أو تسجيل شكوى جديدة.</div>';
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
-  return heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.','')+
+  return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.','')+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
       [['جميع السجلات',db.complaints.filter(c=>!c.archivedAt).length],['مفتوحة',open.length],['متأخرة',late.length],['بانتظار الاعتماد',approvals.length]].map(([label,n],i)=>
-        '<div class="stat-item '+(i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
+        '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+
     '<div class="work-grid"><section class="panel"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة، دون إظهار طوابير فارغة</p></div><button class="text-link" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list">'+taskHtml+'</div></div></section>'+
@@ -82,5 +82,5 @@ function dashboard(){
     ).join('')+'</div></div></section></div>'+
     '<section class="panel table-panel"><div class="panel-header"><div><h2>أولوية المتابعة</h2><p>المتأخرة أولًا، ثم العاجلة، ثم الأقرب إلى انتهاء المهلة</p></div><button class="text-link" data-goto="complaints">عرض جميع الشكاوى</button></div>'+
       complaintTable(priority,{emptyMessage:'لا توجد شكاوى مفتوحة تحتاج إلى متابعة.'})+
-    '</section>';
+    '</section></div>';
 }

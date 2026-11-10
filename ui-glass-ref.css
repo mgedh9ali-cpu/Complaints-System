@@ -1,89 +1,158 @@
-/* ui-glass-ref.css — light glass (performance-tuned)
- * blur capped; tables stay solid; no continuous animation cost
+/* Design reference: Adjustable Glass Dashboard by troyjlorents-gh (21st.dev).
+ * https://21st.dev/@troyjlorents-gh/components/adjustable-glass-dashboard
+ * Adapted to the local Arabic workspace: floating chrome, softly lit edges,
+ * tonal cards. Only the topbar blurs; dense content remains opaque.
  */
-
 :root {
   --gw-blur: 6px;
-  --gw-opacity: 0.85;
+  --gw-opacity: 0.9;
   --gw-sat: 1.05;
-  --gw-edge: 0.4;
-  --gw-tint: color-mix(in srgb, var(--forest) 10%, transparent);
-  --gw-edge-light: color-mix(in srgb, #fff calc(var(--gw-edge) * 100%), transparent);
-  --gw-panel-shadow: 0 4px 16px color-mix(in srgb, var(--forest-deep) 12%, transparent);
-  --gw-soft-shadow: 0 2px 8px color-mix(in srgb, var(--forest-deep) 8%, transparent);
+  --gw-edge: 0.6;
+  --gw-tint: color-mix(in srgb, var(--forest) 6%, var(--surface));
+  --gw-edge-light: color-mix(in srgb, var(--surface) 70%, var(--line));
+  --gw-panel-shadow: 0 12px 32px color-mix(in srgb, var(--forest-deep) 9%, transparent);
+  --gw-soft-shadow: 0 4px 16px color-mix(in srgb, var(--forest-deep) 6%, transparent);
 }
 
-html[data-theme="dark"] {
-  --gw-opacity: 0.7;
-  --gw-tint: color-mix(in srgb, var(--forest) 14%, transparent);
-}
-
-/* Topbar only — modest blur */
-@supports (backdrop-filter: blur(1px)) {
-  @media (prefers-reduced-transparency: no-preference) {
-    .topbar {
-      background: color-mix(in srgb, var(--surface) calc(var(--gw-opacity) * 100%), transparent);
-      backdrop-filter: blur(var(--gw-blur)) saturate(var(--gw-sat));
-      -webkit-backdrop-filter: blur(var(--gw-blur)) saturate(var(--gw-sat));
-      border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent);
-    }
+@media screen {
+  body {
+    background: radial-gradient(ellipse at 80% 0%, color-mix(in srgb, var(--forest) 12%, transparent), transparent 55%),
+      radial-gradient(ellipse at 5% 80%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 50%), var(--paper);
   }
-}
-
-/* Cards — solid surface preferred (no per-card backdrop-filter) */
-.stat-item,
-.mini-card {
-  background: var(--surface);
-  box-shadow: var(--gw-soft-shadow);
-}
-
-/* Modal backdrop — single blur layer ok */
-@supports (backdrop-filter: blur(1px)) {
-  @media (prefers-reduced-transparency: no-preference) {
-    .modal-backdrop,
-    .login-overlay {
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      background: color-mix(in srgb, var(--forest-deep) 40%, transparent);
-    }
-    .login-card,
-    .account-menu-panel {
-      background: color-mix(in srgb, var(--surface) 92%, transparent);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      box-shadow: var(--gw-panel-shadow);
-    }
-  }
-}
-
-/* Never glass dense surfaces */
-.registry-table-wrap,
-.table-panel,
-.table-wrap,
-tbody,
-.content table,
-.panel.table-panel {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  filter: none !important;
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .topbar,
-  .login-card,
-  .account-menu-panel,
-  .modal-backdrop,
-  .login-overlay {
+  .topbar {
+    background: var(--surface) !important;
+    border: 1px solid var(--gw-edge-light) !important;
+    box-shadow: var(--gw-soft-shadow) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
-  .topbar,
-  .login-card,
-  .account-menu-panel {
-    background: var(--surface);
+  .workspace-shortcuts {
+    gap: 8px;
+    background: transparent;
+    border-bottom: 0;
+    padding-block: 16px 0;
   }
-  .modal-backdrop,
-  .login-overlay {
-    background: color-mix(in srgb, var(--forest-deep) 55%, #000);
+  .workspace-shortcuts button {
+    border-radius: 999px;
+    background: var(--surface) !important;
   }
+  .content { padding-block-start: 20px; }
+  .dashboard-workspace {
+    display: grid;
+    gap: 20px;
+    padding: 24px;
+    background: linear-gradient(145deg, var(--gw-tint), var(--paper));
+    border: 1px solid var(--gw-edge-light);
+    border-radius: 28px;
+    box-shadow: var(--gw-panel-shadow), inset 0 1px 0 var(--surface);
+  }
+  .dashboard-workspace > .page-heading,
+  .dashboard-workspace > .dashboard-stats,
+  .dashboard-workspace > .work-grid { margin-bottom: 0 !important; }
+  .dashboard-workspace .page-heading h1 { font-size: clamp(22px, 2vw, 30px); }
+  .dashboard-workspace .page-heading p { max-width: 64ch; }
+  .dashboard-workspace .stat-item,
+  .dashboard-workspace .panel {
+    background: var(--surface) !important;
+    border: 1px solid var(--gw-edge-light) !important;
+    border-radius: 20px !important;
+    box-shadow: var(--gw-soft-shadow), inset 0 1px 0 var(--surface) !important;
+  }
+  .dashboard-workspace .stat-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-height: 132px;
+    padding: 20px !important;
+  }
+  .dashboard-workspace .stat-item strong {
+    font-size: clamp(28px, 3vw, 40px) !important;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+  }
+  .dashboard-workspace .stat-item span { color: var(--ink-2); }
+  .dashboard-workspace .stat-primary {
+    background: var(--grad-brand) !important;
+    border-color: var(--forest) !important;
+    box-shadow: var(--gw-panel-shadow) !important;
+  }
+  .dashboard-workspace .stat-primary strong,
+  .dashboard-workspace .stat-primary span { color: var(--brand-fg) !important; }
+  .dashboard-workspace .stat-item.alert {
+    border-inline-start: 3px solid var(--sla-late) !important;
+  }
+  .dashboard-workspace .panel-header { border-bottom-color: var(--line); }
+  .dashboard-workspace .task-row { padding-block: 12px; }
+  .dashboard-workspace .progress { height: 6px; border-radius: 999px; }
+  .dashboard-workspace .table-panel { overflow: hidden; }
+}
+
+/* Floating navigation retains labels, counters and the existing mobile drawer. */
+@media screen and (min-width: 961px) {
+  .app-shell { grid-template-columns: 252px minmax(0, 1fr); }
+  .sidebar {
+    top: 16px;
+    height: calc(100dvh - 32px);
+    margin-block: 16px;
+    margin-inline-start: 16px;
+    border: 1px solid color-mix(in srgb, var(--on-forest) 20%, transparent);
+    border-radius: 24px;
+    box-shadow: var(--gw-panel-shadow);
+  }
+  .topbar {
+    top: 16px !important;
+    margin: 16px 24px 0;
+    border-radius: 22px;
+  }
+}
+
+/* Single blur layer, with an opaque fallback for unsupported browsers. */
+@supports (backdrop-filter: blur(1px)) {
+  @media screen and (prefers-reduced-transparency: no-preference) {
+    html:not(.glass-off):not(.reduce-transparency) .topbar {
+      background: color-mix(in srgb, var(--surface) calc(var(--gw-opacity) * 100%), transparent) !important;
+      backdrop-filter: blur(var(--gw-blur)) saturate(var(--gw-sat)) !important;
+      -webkit-backdrop-filter: blur(var(--gw-blur)) saturate(var(--gw-sat)) !important;
+    }
+  }
+}
+
+/* The existing preference also removes the tonal workspace surface. */
+html:is(.glass-off, .reduce-transparency) .dashboard-workspace {
+  background: var(--paper);
+  box-shadow: none;
+}
+html.glass-off .dashboard-workspace .stat-primary {
+  background: var(--forest) !important;
+}
+html:is(.glass-off, .reduce-transparency) :is(.topbar, .modal-backdrop, .login-overlay, .login-card, .account-menu-panel) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.registry-table-wrap, .table-panel, .table-wrap, tbody, .content table {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .dashboard-workspace { background: var(--paper); box-shadow: none; }
+  .topbar, .login-card, .account-menu-panel { background: var(--surface) !important; }
+  .topbar, .modal-backdrop, .login-overlay, .login-card, .account-menu-panel {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+@media screen and (max-width: 960px) {
+  .dashboard-workspace { padding: 16px; border-radius: 22px; gap: 16px; }
+  .dashboard-workspace .stat-item { min-height: 112px; }
+}
+@media screen and (max-width: 640px) {
+  .dashboard-workspace { padding: 12px; border-radius: 18px; }
+  .dashboard-workspace .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .dashboard-workspace .stat-item { padding: 14px !important; border-radius: 16px !important; }
+  .dashboard-workspace .panel-header { flex-wrap: wrap; }
+}
+@media print {
+  .dashboard-workspace { display: block; background: #fff; border: 0; box-shadow: none; padding: 0; }
 }
