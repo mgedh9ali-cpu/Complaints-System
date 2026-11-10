@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const THEME_KEY = 'complaints-ui-theme-v1';
+  const FOCUS_KEY = 'complaints-focus-mode';
   const $ = (selector, root = document) => root.querySelector(selector);
   let csrfToken = null;
 
@@ -43,7 +44,6 @@
     headers: () => (csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
   };
 
-  // Each write client provides its own X-CSRF-Token; no global fetch monkey-patching.
   const nativeFetch = window.fetch.bind(window);
 
   window.__uploadAttachments = async function (complaintId, fileList) {
@@ -124,6 +124,39 @@
     if (announce) notify(selected === 'dark' ? 'تم تفعيل الوضع الداكن.' : 'تم تفعيل الوضع الفاتح.');
   }
 
+  function applyFocusMode(on, announce = false) {
+    const enabled = Boolean(on);
+    document.documentElement.classList.toggle('focus-mode', enabled);
+    try {
+      localStorage.setItem(FOCUS_KEY, enabled ? '1' : '0');
+    } catch (_) {}
+    const btn = $('#focusModeToggle');
+    if (btn) {
+      btn.setAttribute('aria-pressed', String(enabled));
+      btn.textContent = enabled ? 'إلغاء التركيز' : 'تركيز';
+      btn.title = enabled
+        ? 'إظهار القائمة والاختصارات'
+        : 'إخفاء القائمة والاختصارات للتركيز على العمل';
+    }
+    if (announce) notify(enabled ? 'وضع التركيز مفعّل.' : 'وضع التركيز متوقف.');
+  }
+
+  function wireFocusMode() {
+    const btn = $('#focusModeToggle');
+    if (!btn || btn.dataset.focusWired) return;
+    btn.dataset.focusWired = '1';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const next = !document.documentElement.classList.contains('focus-mode');
+      applyFocusMode(next, true);
+    });
+    let saved = false;
+    try {
+      saved = localStorage.getItem(FOCUS_KEY) === '1';
+    } catch (_) {}
+    applyFocusMode(saved, false);
+  }
+
   async function exportXlsx() {
     try {
       notify('جاري تجهيز ملف Excel...');
@@ -178,7 +211,6 @@
     }
   }
 
-  // Non-destructive enhancements for dynamically rendered complaint tables and forms.
   function enhanceWorkspace() {
     document.querySelectorAll('.table-wrap').forEach((wrap) => {
       if (!wrap.hasAttribute('tabindex')) wrap.tabIndex = 0;
@@ -288,12 +320,15 @@
         event.preventDefault();
         closeMenu(true);
       }
-
+      if (event.key === 'Escape' && document.documentElement.classList.contains('focus-mode')) {
+        applyFocusMode(false, true);
+      }
     });
   }
 
   function start() {
     wireShell();
+    wireFocusMode();
     let glowFrame=0,glowEvent=null;
     document.addEventListener('pointermove',event=>{
       if(event.pointerType==='touch'||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
@@ -304,11 +339,10 @@
     fetchCsrf();
     enhanceWorkspace();
     if (document.body.dataset.signedIn === 'true') enhanceRegistry();
-    // Render events cover route/filter changes without scanning on every counter,
-    // toast or icon text mutation. The active UI owns all record actions.
     document.addEventListener('complaints:render', () => {
       enhanceWorkspace();
       enhanceRegistry();
+      wireFocusMode();
       const exportButton = $('#excelExportBtn');
       if (exportButton) exportButton.hidden = !window.__complaintsCan?.('export.xlsx');
     });
