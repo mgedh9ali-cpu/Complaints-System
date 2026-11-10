@@ -179,6 +179,18 @@ case 'save-password-change':await withButtonLock(el,()=>savePasswordChange());br
 case 'save-complaint-edit':await withButtonLock(el,()=>saveComplaintEdit(id));break;
 case 'registry-prev':registryPage=Math.max(1,registryPage-1);render();break;
 case 'registry-next':registryPage+=1;render();break;
+case 'registry-layout':{
+  const mode=el.dataset.layout==='cards'?'cards':'table';
+  if(typeof setRegistryLayoutMode==='function')setRegistryLayoutMode(mode);
+  render();
+  break;
+}
+case 'filter-record-type':{
+  recordTypeFilter=el.dataset.value||'all';
+  registryPage=1;
+  render();
+  break;
+}
 }
 }catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');}
 });
@@ -207,7 +219,6 @@ document.addEventListener('keydown',e=>{
     if(saveBtn&&!saveBtn.disabled){e.preventDefault();saveBtn.click();}
     return;
   }
-  // Ctrl/Cmd+Enter → save the currently open form (same as primary save button)
   if(mod&&e.key==='Enter'){
     const saveBtn=$('[data-action="save-complaint"]')||$('[data-action="save-complaint-edit"]')||$('[data-action="save-reply"]')||$('[data-action="save-note"]')||$('[data-action="save-referral"]')||$('[data-action="save-password-change"]')||$('[data-action="save-setting"]')||$('[data-action="save-sla"]');
     if(saveBtn&&!saveBtn.disabled&&!saveBtn.classList.contains('is-loading')){e.preventDefault();saveBtn.click();}
