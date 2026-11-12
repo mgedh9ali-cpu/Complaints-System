@@ -28,7 +28,16 @@ function loadEnv() {
   const databasePath = path.resolve(process.env.DATABASE_PATH || './data/complaints.sqlite');
   const dataDir = path.dirname(databasePath);
 
-  if (process.env.BACKUP_SECRET) requiredEnv('BACKUP_SECRET', 32);
+  // All three secrets must be present and independent. No fallback of DATA_KEY or
+  // BACKUP_SECRET onto SESSION_SECRET — that weakened key separation.
+  const sessionSecret = requiredEnv('SESSION_SECRET', 32);
+  const storageKey = requiredEnv('DATA_KEY', 32);
+  const backupSecret = requiredEnv('BACKUP_SECRET', 32);
+
+  if (storageKey === sessionSecret || backupSecret === sessionSecret || storageKey === backupSecret) {
+    throw new Error('SESSION_SECRET, DATA_KEY and BACKUP_SECRET must be three distinct values.');
+  }
+
   const adminUsername = requiredEnv('ADMIN_USERNAME', 3).trim();
   const adminPassword = requiredEnv('ADMIN_PASSWORD', 12);
   if (!isValidUsername(adminUsername) || !isValidPassword(adminPassword)) throw new Error('Invalid ADMIN_USERNAME or ADMIN_PASSWORD.');
@@ -36,8 +45,8 @@ function loadEnv() {
   return {
     host,
     port,
-    sessionSecret: requiredEnv('SESSION_SECRET', 32),
-    storageKey: process.env.DATA_KEY ? requiredEnv('DATA_KEY', 32) : requiredEnv('SESSION_SECRET', 32),
+    sessionSecret,
+    storageKey,
     adminUsername,
     adminPassword,
     databasePath,
@@ -46,7 +55,7 @@ function loadEnv() {
       process.env.INSTANCE_ID_PATH || path.join(dataDir, 'instance-id')
     ),
     cookieSecure: process.env.COOKIE_SECURE === 'true',
-    backupSecret: process.env.BACKUP_SECRET || requiredEnv('SESSION_SECRET', 32),
+    backupSecret,
     version
   };
 }

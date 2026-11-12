@@ -132,7 +132,7 @@ function createComplaintsRouter({
         state,
         userId: req.user.id,
         expectedRevision,
-        diffComplaints
+        diffComplaints: diffComplaints
       });
 
       if (result.conflict) {
@@ -279,7 +279,9 @@ function createComplaintsRouter({
     res.status(result.ok ? 200 : result.status || 400).json(result);
   });
 
-  router.patch('/complaints/:id/reply', requireAuth, requireCsrf, (req, res) => {
+  // Route-level permission gate (replies.draft is the minimum entry). Service still
+  // enforces action-specific replies.approve / replies.send via applyReplyTransition.
+  router.patch('/complaints/:id/reply', requireAuth, requirePermission('replies.draft'), requireCsrf, (req, res) => {
     const result = complaintsService.actOnReply({ complaintId: req.params.id, action: req.body?.action,
       text: req.body?.text, userId: req.user.id, username: req.user.username });
     res.status(result.ok ? 200 : result.status || 400).json(result);

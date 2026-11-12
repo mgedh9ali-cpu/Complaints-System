@@ -95,7 +95,7 @@ const reportsService = createReportsService({ complaintsService });
 const settingsService = createSettingsService({ complaintsService });
 const backupService = createBackupService({
   databasePath: env.databasePath,
-  sessionSecret: env.backupSecret || env.sessionSecret
+  sessionSecret: env.backupSecret
 });
 const backupScheduler = createBackupScheduler({ backupService,
   directory: path.resolve(process.env.BACKUP_DIR || path.join(dataRoot, 'backups')), logger });
