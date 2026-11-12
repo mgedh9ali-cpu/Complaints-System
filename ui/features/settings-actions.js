@@ -114,6 +114,14 @@ function handleSyncImportChange(target){
   })();
 }
 async function confirmSyncPassword(){
+  if(!pendingSyncPackage && typeof syncPasswordResolve==='function'){
+    const input=$('#syncPassword'), confirmation=$('#syncPasswordConfirm');
+    if(!input||!input.reportValidity())return;
+    if(confirmation&&confirmation.value!==input.value)return toast('عبارتا المرور غير متطابقتين.','warn');
+    const password=input.value,done=syncPasswordResolve;syncPasswordResolve=null;
+    input.value='';if(confirmation)confirmation.value='';closeModal();done?.(password);
+    return;
+  }
   try{
     if(!pendingSyncPackage)return toast('لا توجد حزمة مزامنة معلّقة.','warn');
     const password=$('#syncPassword')?.value||'';
@@ -124,5 +132,20 @@ async function confirmSyncPassword(){
     await reloadStoredState();toast('تم استيراد ملف المزامنة.');
   }catch(error){return toast(error.message,'error');}
   finally{finishSyncImportWait();}
+}
+async function exportEncryptedSync(){
+  if(!uiCan('sync.export')){toast('ليس لديك صلاحية تصدير المزامنة.','error');return false;}
+  const password=await askSyncPassword(true);
+  if(!password)return false;
+  const sealed=await api('/api/sync/export',{method:'POST',body:JSON.stringify({password})});
+  const filename='complaints-sync-'+new Date().toISOString().slice(0,10)+'.json';
+  const blob=new Blob([JSON.stringify(sealed)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.hidden=true;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  toast('تم تنزيل ملف المزامنة المشفر. انقله يدويًا واحفظ عبارة المرور منفصلة.');
+  return true;
 }
 function cancelPendingSyncImport(){pendingSyncPackage=null;if(syncImportTarget){try{syncImportTarget.value='';}catch(_){}}syncImportTarget=null;finishSyncImportWait();}
