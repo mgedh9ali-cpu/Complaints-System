@@ -167,7 +167,7 @@ case 'export-csv':if(page==='reports')await withButtonLock(el,()=>exportReport('
 case 'export-xlsx':await withButtonLock(el,()=>exportXlsx(),'جارٍ إنشاء Excel…');break;
 case 'print-report':window.print();break;
 case 'sync-import':$('#syncImportFile')?.click();break;
-case 'sync-export':toast('استخدم تصدير المزامنة من لوحة الإعدادات مع عبارة مرور.','warn');break;
+case 'sync-export':await withButtonLock(el,()=>exportEncryptedSync(),'جارٍ تجهيز ملف المزامنة…');break;
 case 'confirm-sync-password':await confirmSyncPassword();break;
 case 'restore-draft':restoreComplaintDraft(true);break;
 case 'discard-draft':intakeDraftFiles={owner:null,files:[]};try{const draftKey=complaintDraftStorageKey();if(draftKey){localStorage.removeItem(draftKey);sessionStorage.removeItem(draftKey);}localStorage.removeItem(DRAFT_KEY);sessionStorage.removeItem(DRAFT_KEY);}catch(_){} $('#draftBanner')?.remove();toast('تم تجاهل المسودة.');break;
@@ -201,7 +201,7 @@ case 'filter-record-type':{
 });
 document.addEventListener('submit',e=>{if(e.target.id==='reportFiltersForm'){e.preventDefault();applyReportFilters();}});
 document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}});
-document.addEventListener('change',e=>{if(e.target.id==='displayDensity')window.setDisplayPreference?.('density',e.target.value);if(e.target.id==='displayMotion')window.setDisplayPreference?.('motion',e.target.value);if(e.target.id==='bulkType'){updateBulkValues(e.target.value);return;}if(e.target.id==='paletteSelect'){window.setPalette?.(e.target.value);return;}if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
+document.addEventListener('change',e=>{if(e.target.id==='displayDensity')window.setDisplayPreference?.('density',e.target.value);if(e.target.id==='displayMotion')window.setDisplayPreference?.('motion',e.target.value);if(e.target.id==='bulkType'){if(typeof updateBulkValues==='function')updateBulkValues(e.target.value);return;}if(e.target.id==='paletteSelect'){window.setPalette?.(e.target.value);return;}if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
 document.addEventListener('keydown',e=>{
   const root=$('#modalRoot');
   if(root&&root.dataset.open){
@@ -259,6 +259,8 @@ async function submitLogin(e){
 }
 if($('#csvExportButton'))$('#csvExportButton').addEventListener('click',async e=>{if(uiCan('export.csv'))try{await withButtonLock(e.currentTarget,()=>page==='reports'?exportReport('csv'):exportCsv());}catch(error){toast(error.message,'error');}});
 if($('#loginForm'))$('#loginForm').addEventListener('submit',submitLogin);
-(async()=>{try{const me=await api('/api/auth/me');authenticatedUser=me.user;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
+window.addEventListener('online',()=>toast('عاد الاتصال. يمكن مزامنة البيانات.','info'));
+window.addEventListener('offline',()=>toast('انقطع الاتصال. العمل محلياً حتى عودته.','warn'));
+(async function bootstrap(){try{const me=await api('/api/auth/me');authenticatedUser=me.user||me;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
 
 })();
