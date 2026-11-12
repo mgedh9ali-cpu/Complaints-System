@@ -5,20 +5,6 @@ function newReply(){const rows=db.complaints.filter(c=>!c.reply);if(!rows.length
 
 function newReferralGlobal(){const rows=db.complaints.filter(c=>c.status!=='closed'&&c.status!=='cancelled');modal('إحالة جديدة','اختر الشكوى لبدء تسجيل الإحالة','<div class="form-field"><label for="refComplaint">الشكوى</label><select class="select-field" id="refComplaint">'+rows.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.id+' · '+c.summary)+'</option>').join('')+'</select></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="referral-next">متابعة</button>');}
 
-function updateBulkValues(type){
- const values=db.settings.priorities;
- const input=$('#bulkValue');if(input)input.innerHTML=values.map(v=>'<option value="'+esc(v.value)+'">'+esc(v.label)+'</option>').join('');
-}
-function bulkOpen(type='priority'){
- if(!selectedIds.size)return toast('حدد سجلًا واحدًا على الأقل.','warn');
- if(!uiCan('complaints.update'))return toast('لا تملك صلاحية هذا الإجراء.','error');
- ensureManagedSettings();
- modal('إجراءات جماعية','ستُطبق العملية على '+selectedIds.size+' سجلات',
- selectField('نوع الإجراء','bulkType',[{value:'priority',label:'تغيير الأولوية'}],type,true)+'<div class="form-field"><label for="bulkValue">القيمة</label><select class="select-field" id="bulkValue" required></select></div>',
- '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="bulk-confirm">متابعة للتأكيد</button>');
- updateBulkValues(type);
-}
-
 async function archiveSetting(type,value){
   if(!validSettingType(type)||!db.settings[type].includes(value))return;
   if(!confirm('أرشفة «'+value+'» من القيم المتاحة الجديدة؟ لن تتغير السجلات السابقة.'))return;
