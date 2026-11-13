@@ -226,6 +226,7 @@ const PUBLIC_FILES = {
   '/palette.css': 'palette.css',
   '/ui-tokens.css': 'ui-tokens.css',
   '/ui-layout.css': 'ui-layout.css',
+  '/ui-login.css': 'ui-login.css',
   '/ui-glass-ref.css': 'ui-glass-ref.css',
   '/ui-complaints-view.css': 'ui-complaints-view.css',
   '/ui-21st-ref.css': 'ui-21st-ref.css',

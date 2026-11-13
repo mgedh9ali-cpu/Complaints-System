@@ -1,0 +1,72 @@
+/* Login screen: scoped to the authentication dialog. */
+#loginOverlay {
+  padding: 28px 16px;
+  background: radial-gradient(ellipse at top right, #285e49 0, #123a2b 48%, #0d281f 100%);
+}
+#loginOverlay .login-card {
+  display: flex; flex-direction: column; gap: 24px;
+  width: min(500px, 100%); min-width: 0; margin: auto; padding: 32px;
+  border: 1px solid var(--line); border-radius: 24px;
+  background: var(--surface, #fff); background-image: none;
+  box-shadow: 0 20px 60px rgb(0 0 0 / .18); color: var(--ink);
+}
+#loginOverlay .login-brand {
+  display: flex; align-items: center; justify-content: flex-start; gap: 14px;
+  padding: 0 0 24px; border: 0; border-block-end: 1px solid var(--line);
+  background: transparent; text-align: start; color: var(--ink);
+}
+#loginOverlay .login-brand-mark {
+  display: grid; place-items: center; flex: 0 0 54px; width: 54px; height: 54px;
+  border-radius: 16px; background: #19503b; color: #fff;
+}
+#loginOverlay .login-brand svg { width: 30px; height: 30px; color: inherit; }
+#loginOverlay .login-brand h2 { margin: 0; font-size: 20px; line-height: 1.6; color: var(--ink); }
+#loginOverlay .login-brand p { margin: 3px 0 0; font-size: 13px; line-height: 1.7; color: var(--muted); }
+#loginOverlay .login-fields { display: grid; gap: 20px; padding: 0; background: transparent; }
+#loginOverlay .login-heading h1 { margin: 0; font-size: 25px; line-height: 1.5; color: var(--ink); }
+#loginOverlay .login-subtitle { display: block; margin: 6px 0 0; font-size: 14px; line-height: 1.8; color: var(--muted); }
+#loginOverlay .form-field { display: grid; gap: 8px; margin: 0; min-width: 0; }
+#loginOverlay .form-field label { display: block; font-size: 14px; font-weight: 600; line-height: 1.6; }
+#loginOverlay .field {
+  display: block; width: 100%; min-width: 0; min-height: 50px; padding: 11px 14px;
+  border: 1px solid var(--line-strong); border-radius: 12px; background: var(--paper);
+  font: inherit; color: var(--ink); box-shadow: none; box-sizing: border-box;
+}
+#loginOverlay .field:focus-visible, #loginOverlay button:focus-visible,
+#loginOverlay summary:focus-visible, #loginOverlay input[type="checkbox"]:focus-visible {
+  outline: 3px solid #82ad98; outline-offset: 3px;
+}
+#loginOverlay .ui-login-password-wrap { display: block; position: relative; min-width: 0; }
+#loginOverlay #loginPassword { padding-inline-end: 58px; }
+#loginOverlay .login-password-toggle {
+  position: absolute; inset-inline-end: 6px; top: 5px;
+  display: grid; place-items: center; width: 40px; height: 40px; padding: 8px;
+  border: 0; border-radius: 9px; background: transparent; color: var(--muted);
+  cursor: pointer;
+}
+#loginOverlay .login-password-toggle:hover { background: var(--surface); color: var(--ink); }
+#loginOverlay .login-password-toggle svg {
+  display: block; width: 22px; height: 22px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+#loginOverlay .login-eye-slash { display: none; }
+#loginOverlay .login-password-toggle[aria-pressed="true"] .login-eye-slash { display: block; }
+#loginOverlay .login-code-options { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; }
+#loginOverlay .login-code-options summary { width: fit-content; cursor: pointer; font-size: 13px; font-weight: 600; line-height: 1.7; }
+#loginOverlay .login-code-options[open] .form-field { margin-block-start: 12px; }
+#loginOverlay .login-remember { display: flex; align-items: flex-start; gap: 10px; margin: 0; cursor: pointer; }
+#loginOverlay .login-remember input { flex: 0 0 18px; width: 18px; height: 18px; margin: 3px 0 0; accent-color: #19503b; }
+#loginOverlay .login-remember span { display: block; min-width: 0; }
+#loginOverlay .login-remember strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.7; }
+#loginOverlay .login-remember small { display: block; margin-block-start: 3px; font-size: 12px; line-height: 1.8; color: var(--muted); }
+#loginOverlay .login-submit { width: 100%; min-height: 50px; border-radius: 12px; border: 1px solid #19503b; background: #19503b; color: #fff; font-size: 15px; font-weight: 700; }
+#loginOverlay .login-submit:hover { background: #123e2e; }
+#loginOverlay .login-submit:disabled { opacity: .65; cursor: wait; }
+#loginOverlay .login-error { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--pr-urgent-bg); color: var(--pr-urgent-fg); font-size: 13px; line-height: 1.8; }
+@media (max-width: 480px) {
+  #loginOverlay { padding: 16px 12px; }
+  #loginOverlay .login-card { padding: 24px 20px; gap: 20px; border-radius: 20px; }
+  #loginOverlay .login-brand { gap: 12px; padding-block-end: 20px; }
+  #loginOverlay .login-brand h2 { font-size: 18px; }
+  #loginOverlay .login-heading h1 { font-size: 23px; }
+}
