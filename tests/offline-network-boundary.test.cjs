@@ -60,6 +60,8 @@ test(
       const commonEnv = {
         ...process.env,
         SESSION_SECRET: "test-only-session-secret-at-least-32-characters",
+        DATA_KEY: "test-only-data-key-at-least-32-characters-xx",
+        BACKUP_SECRET: "test-only-backup-secret-at-least-32-characters",
         ADMIN_USERNAME: "test-admin",
         ADMIN_PASSWORD: "test-only-password-long-enough",
         DATABASE_PATH: path.join(tempDir, "should-not-be-created.sqlite"),
