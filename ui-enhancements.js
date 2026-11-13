@@ -257,6 +257,7 @@
       backdrop.hidden = true;
       toggle.setAttribute('aria-expanded', String(!collapsed));
       toggle.setAttribute('title', collapsed ? 'إظهار القائمة الجانبية والاختصارات' : 'إخفاء القائمة الجانبية والاختصارات');
+      if (!collapsed && window.matchMedia('(max-width: 960px)').matches) sidebar.querySelector('.nav-link:not([hidden])')?.focus();
       if (restoreFocus) toggle.focus();
     }
     function closeMenu(restoreFocus = false) {
