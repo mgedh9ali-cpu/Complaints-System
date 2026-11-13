@@ -108,6 +108,8 @@ test('live server never serves database or source code without authentication', 
     env: {
       ...process.env,
       SESSION_SECRET: 'secure-test-session-secret-value-1234567890',
+      DATA_KEY: 'secure-test-data-key-value-1234567890xxxx',
+      BACKUP_SECRET: 'secure-test-backup-secret-value-123456789',
       ADMIN_USERNAME: 'testadmin',
       ADMIN_PASSWORD: 'a-secure-example-test-password',
       DATABASE_PATH: path.join(tempDir, 'complaints.sqlite'),
