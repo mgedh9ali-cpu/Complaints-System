@@ -174,7 +174,7 @@ test('a damaged audit chain refuses server startup before accepting requests',as
  f.db.close();
  const result=await new Promise((resolve,reject)=>{
   const child=spawn(process.execPath,[path.join(__dirname,'../server.js')],{cwd:path.join(__dirname,'..'),windowsHide:true,
-   env:{...process.env,DATABASE_PATH:f.file,DATA_KEY:KEY,SESSION_SECRET:'synthetic-session-secret-for-boot-32chars',ADMIN_USERNAME:'admin',ADMIN_PASSWORD:'Synthetic-Password-123!',HOST:'127.0.0.1',PORT:'39877'}});
+   env:{...process.env,DATABASE_PATH:f.file,DATA_KEY:KEY,SESSION_SECRET:'synthetic-session-secret-for-boot-32chars',BACKUP_SECRET:'synthetic-backup-secret-for-boot-32chars',ADMIN_USERNAME:'admin',ADMIN_PASSWORD:'Synthetic-Password-123!',HOST:'127.0.0.1',PORT:'39877'}});
   let stderr='';child.stderr.on('data',b=>stderr+=b.toString());child.on('error',reject);
   const timer=setTimeout(()=>{child.kill();reject(Error('Damaged audit server did not stop.'));},15000);
   child.on('exit',code=>{clearTimeout(timer);resolve({code,stderr});});
