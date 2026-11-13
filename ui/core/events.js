@@ -228,7 +228,6 @@ document.addEventListener('keydown',e=>{
     if(saveBtn&&!saveBtn.disabled&&!saveBtn.classList.contains('is-loading')){e.preventDefault();saveBtn.click();}
   }
 });
-if($('#menuToggle'))$('#menuToggle').addEventListener('click',()=>{const open=$('#sidebar')?.classList.toggle('open');$('#menuToggle').setAttribute('aria-expanded',String(open));if($('#navBackdrop'))$('#navBackdrop').hidden=!open;});
 
 let loginPending=false;
 function setLoginPasswordVisibility(visible){

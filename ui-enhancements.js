@@ -251,15 +251,20 @@
     const sidebar = $('#sidebar');
     const backdrop = $('#navBackdrop');
     if (!toggle || !sidebar || !backdrop) return;
-    function closeMenu(restoreFocus = false) {
-      if (!sidebar.classList.contains('open')) return;
+    function setNavigationCollapsed(collapsed, restoreFocus = false) {
+      document.documentElement.classList.toggle('navigation-collapsed', collapsed);
       sidebar.classList.remove('open');
       backdrop.hidden = true;
-      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      toggle.setAttribute('title', collapsed ? 'إظهار القائمة الجانبية والاختصارات' : 'إخفاء القائمة الجانبية والاختصارات');
       if (restoreFocus) toggle.focus();
     }
+    function closeMenu(restoreFocus = false) {
+      setNavigationCollapsed(true, restoreFocus);
+    }
+    setNavigationCollapsed(window.matchMedia('(max-width: 960px)').matches);
     toggle.addEventListener('click', () => {
-      if (sidebar.classList.contains('open')) sidebar.querySelector('.nav-link:not([hidden])')?.focus();
+      setNavigationCollapsed(!document.documentElement.classList.contains('navigation-collapsed'));
     });
     backdrop.addEventListener('click', () => closeMenu(true));
     const accountMenu = $('#accountMenu');
@@ -282,7 +287,7 @@
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && accountMenu?.open) { accountMenu.open = false; accountMenu.querySelector('summary')?.focus(); }
-      if (event.key === 'Escape' && sidebar.classList.contains('open')) {
+      if (event.key === 'Escape' && !document.documentElement.classList.contains('navigation-collapsed')) {
         event.preventDefault();
         closeMenu(true);
       }

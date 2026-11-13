@@ -59,7 +59,7 @@
       <div class="nav-backdrop" id="navBackdrop" hidden></div>
       <main class="main">
         <header class="topbar">
-          <button type="button" class="icon-btn menu-toggle" id="menuToggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="sidebar">القائمة</button>
+          <button type="button" class="icon-btn menu-toggle" id="menuToggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="sidebar workspaceShortcuts">القائمة</button>
           <div class="topbar-heading">
             <span id="saveStateIndicator" class="save-state" role="status" aria-live="polite">محفوظ</span><p class="eyebrow" id="pageCrumb">لوحة المتابعة</p>
             <h1>نظام الشكاوى المحلي</h1>
@@ -83,7 +83,7 @@
             </div>
           </div>
         </header>
-        <div class="workspace-shortcuts" aria-label="اختصارات سير العمل">
+        <div id="workspaceShortcuts" class="workspace-shortcuts" aria-label="اختصارات سير العمل">
           <span class="shortcuts-caption">الوصول السريع</span>
           <button type="button" class="btn btn-quiet" data-goto="complaints">السجلات</button>
           <button type="button" class="btn btn-quiet" data-action="filter-missing">استكمال البيانات</button>

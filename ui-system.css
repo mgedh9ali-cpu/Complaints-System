@@ -606,3 +606,15 @@ html{scroll-behavior:auto}
 .workday-row>div { flex:1; min-width:160px; }
 .workday-row small { display:block; }
 .attachment-pdf-viewer { width:100%; height:min(65dvh,700px); border:1px solid var(--line); }
+
+/* The menu toggles navigation only; the work page stays in the main column. */
+@media screen {
+  #menuToggle { display: inline-flex !important; }
+  #navBackdrop { display: none !important; }
+  html.navigation-collapsed #appShell { grid-template-columns: minmax(0, 1fr) !important; }
+  html.navigation-collapsed #sidebar,
+  html.navigation-collapsed #workspaceShortcuts { display: none !important; }
+}
+@media screen and (max-width: 960px) {
+  html:not(.navigation-collapsed) #sidebar { transform: none !important; }
+}
