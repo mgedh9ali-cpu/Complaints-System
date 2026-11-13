@@ -123,11 +123,11 @@ function dashboard(){
     [newToday.length,'blue','＋','جديدة اليوم','وردت أو ما زالت بحالة جديدة','quick-filter','',{value:'all'}]
   ].filter(task=>task[0]>0);
   const taskHtml=tasks.length?tasks.map(([n,color,icon,label,description,action,dest])=>
-    '<div class="task-row">'+
-      '<div class="task-symbol '+color+'">'+icon+'</div>'+
+    '<div class="task-row" role="listitem">'+
+      '<div class="task-symbol '+color+'" aria-hidden="true">'+icon+'</div>'+
       '<div class="task-copy"><strong>'+label+'</strong><small>'+description+'</small></div>'+
-      '<span class="task-value">'+n+'</span>'+
-      '<button class="btn btn-sm" '+(dest?'data-goto="'+dest+'"':(action==='quick-filter'?'data-action="quick-filter" data-value="all"':'data-action="'+action+'"'))+'>مراجعة</button>'+
+      '<div class="task-controls"><span class="task-value" aria-label="عدد السجلات: '+n+'">'+n+'</span>'+
+      '<button type="button" class="btn btn-sm task-review" aria-label="مراجعة '+label+'" '+(dest?'data-goto="'+dest+'"':(action==='quick-filter'?'data-action="quick-filter" data-value="all"':'data-action="'+action+'"'))+'>مراجعة</button></div>'+
     '</div>'
   ).join(''):'<div class="empty-state calm-empty">لا شيء يحتاج انتباهك الآن. يمكنك مراجعة السجل أو تسجيل شكوى جديدة.</div>';
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
@@ -139,7 +139,7 @@ function dashboard(){
         '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+
-    '<div class="work-grid"><section class="panel"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button class="text-link" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list">'+taskHtml+'</div></div></section>'+
+    '<div class="work-grid"><section class="panel dashboard-actions"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button type="button" class="btn btn-sm" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list" role="list" aria-label="المهام التي تحتاج إجراء">'+taskHtml+'</div></div></section>'+
     '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+totalActive+' سجلًا نشطًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
       '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===3?'amber-fill':'')+'" style="width:'+(totalActive?Math.max(n?5:0,n/totalActive*100):0)+'%"></span></div></div>'
     ).join('')+'</div></div></section></div>'+

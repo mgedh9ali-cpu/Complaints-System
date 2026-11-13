@@ -353,3 +353,41 @@ html[data-theme="dark"] {
   --sla-warn: #d4a84b;
   --sla-late: #e07a7a;
 }
+
+/* Dashboard action list: keep descriptions separate from labels and controls. */
+.dashboard-actions { min-width: 0; container-type: inline-size; }
+.dashboard-actions .panel-header { flex-wrap: wrap; gap: 12px; align-items: center; }
+.dashboard-actions .panel-header > div { flex: 1 1 180px; min-width: 0; }
+.dashboard-actions .panel-header h2 { margin: 0; line-height: 1.5; }
+.dashboard-actions .panel-header p { margin: 4px 0 0; line-height: 1.6; }
+.dashboard-actions .panel-header > .btn { flex: 0 0 auto; }
+.dashboard-actions .task-list { display: grid; gap: 0; }
+.dashboard-actions .task-row {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center; gap: 12px; padding: 16px 0;
+}
+.dashboard-actions .task-row + .task-row { border-block-start: 1px solid var(--line); }
+.dashboard-actions .task-row:first-child { padding-block-start: 0; }
+.dashboard-actions .task-row:last-child { padding-block-end: 0; }
+.dashboard-actions .task-symbol {
+  display: grid; place-items: center; width: 36px; height: 36px;
+  border-radius: 10px; font-size: 18px; line-height: 1;
+}
+.dashboard-actions .task-symbol.red { color: var(--pr-urgent-fg); background: var(--pr-urgent-bg); }
+.dashboard-actions .task-symbol.amber { color: var(--pr-high-fg); background: var(--pr-high-bg); }
+.dashboard-actions .task-symbol.blue { color: var(--info-fg, #175580); background: var(--info-bg, #e7f0f8); }
+.dashboard-actions .task-copy { min-width: 0; text-align: start; overflow-wrap: anywhere; }
+.dashboard-actions .task-copy strong { display: block; font-size: 15px; line-height: 1.6; }
+.dashboard-actions .task-copy small { display: block; margin-block-start: 4px; font-size: 13px; line-height: 1.7; color: var(--muted); }
+.dashboard-actions .task-controls { display: flex; align-items: center; gap: 10px; }
+.dashboard-actions .task-value {
+  display: grid; place-items: center; min-width: 32px; min-height: 32px;
+  padding-inline: 6px; border-radius: 8px; background: var(--surface);
+  color: var(--ink); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.dashboard-actions .task-review { min-width: 76px; min-height: 40px; white-space: nowrap; }
+@container (max-width: 430px) {
+  .dashboard-actions .task-row { grid-template-columns: 32px minmax(0, 1fr); gap: 10px; padding-block: 14px; }
+  .dashboard-actions .task-symbol { width: 32px; height: 32px; align-self: start; }
+  .dashboard-actions .task-controls { grid-column: 2; justify-content: flex-end; }
+}
