@@ -1,4 +1,4 @@
-name: Build Windows Portable
+name: Build Windows Installer
 
 on:
   workflow_dispatch:
@@ -98,16 +98,24 @@ jobs:
             dist-desktop/*-setup.exe
             dist-desktop/*-portable.exe
 
-      - name: Upload portable application
+      - name: Upload release verification files (internal)
         uses: actions/upload-artifact@v4
         with:
-          name: complaints-system-windows-portable
+          name: complaints-system-release-verification
           path: |
             dist-desktop/*-setup.exe
             dist-desktop/*-portable.exe
             dist-desktop/SHA256SUMS.txt
             dist-desktop/build-manifest.json
             dist-desktop/startup-*.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload single installer download
+        uses: actions/upload-artifact@v4
+        with:
+          name: complaints-system-windows-installer
+          path: dist-desktop/*-setup.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -128,7 +136,7 @@ jobs:
           node-version: '24'
       - uses: actions/download-artifact@v4
         with:
-          name: complaints-system-windows-portable
+          name: complaints-system-release-verification
           path: dist-desktop
       - name: Publish verified Windows release
         run: node scripts/publish-release.js

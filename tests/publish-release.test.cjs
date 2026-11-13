@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {publish}=require('../scripts/publish-release');
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
-function fixture(t,{existing=false,published=false,mismatch=false,badHost=false,createError=false,wrongTag=false,installer=false}={}){
+function fixture(t,{existing=false,published=false,mismatch=false,badHost=false,createError=false,wrongTag=false,installer=true}={}){
  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'release-publish-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
  const version=require('../package.json').version,commit='a'.repeat(40),filename='complaints-system-'+version+'-portable.exe',bytes=Buffer.from('synthetic executable');
  const manifest={version,commit,filename,bytes:bytes.length,sha256:sha(bytes)};
@@ -16,7 +16,7 @@ function fixture(t,{existing=false,published=false,mismatch=false,badHost=false,
  for(const [name,content]of Object.entries(files))fs.writeFileSync(path.join(directory,name),content);
  const tag='v'+version+'-build.'+commit,repo='mgedh9ali-cpu/Complaints-System',api='https://api.github.com/repos/'+repo;
  let release=existing?record():null;const calls=[];
- function record(){return {id:7,tag_name:tag,target_commitish:commit,draft:!published,upload_url:'https://'+(badHost?'other.example':'uploads.github.com')+'/repos/'+repo+'/releases/7/assets{?name,label}',html_url:'https://github.com/'+repo+'/releases/tag/'+tag,assets:Object.entries(files).map(([name,b],i)=>({id:20+i,name,state:'uploaded',size:b.length,digest:'sha256:'+sha(mismatch&&i===0?Buffer.from('different'):b)}))};}
+ function record(){return {id:7,tag_name:tag,target_commitish:commit,draft:!published,upload_url:'https://'+(badHost?'other.example':'uploads.github.com')+'/repos/'+repo+'/releases/7/assets{?name,label}',html_url:'https://github.com/'+repo+'/releases/tag/'+tag,assets:Object.entries(files).map(([name,b],i)=>({id:20+i,name,state:'uploaded',size:b.length,digest:'sha256:'+sha(mismatch&&name.endsWith('-setup.exe')?Buffer.from('different'):b)}))};}
  const response=(status,data)=>({status,ok:status>=200&&status<300,json:async()=>data});
  const fetchImpl=async(url,options)=>{
   calls.push({url,...options});const method=options.method||'GET';
@@ -40,7 +40,7 @@ function fixture(t,{existing=false,published=false,mismatch=false,badHost=false,
 }
 test('a new source build uses a distinct tag despite an older release with the same package version',async t=>{
  const f=fixture(t);const release=await publish(f.options);assert.equal(release.tag_name,f.tag);assert.equal(release.draft,false);
- assert.equal(f.calls.filter(c=>c.url.startsWith('https://uploads.github.com/')).length,3);
+ assert.equal(f.calls.filter(c=>c.url.startsWith('https://uploads.github.com/')).length,1);
 });
 test('retrying a complete published build performs no mutations',async t=>{
  const f=fixture(t,{existing:true,published:true});await publish(f.options);assert.equal(f.calls.filter(c=>c.method&&c.method!=='GET').length,0);
@@ -65,7 +65,7 @@ test('artifact checksums and branch restrictions are checked before network acce
  f.options.env.GITHUB_REF='refs/pull/66/merge';await assert.rejects(publish(f.options),/canonical main/);assert.equal(f.calls.length,0);
 });
 
-test('configured installer and portable filenames pass manifest generation and publish together',async t=>{
+test('build verifies installer and portable internally but publishes only one installer',async t=>{
  const f=fixture(t,{installer:true}),pkg=require('../package.json');
  const {generateManifest}=require('../scripts/release-manifest');
  const names=[pkg.build.portable.artifactName,pkg.build.nsis.artifactName].map(name=>name.replace('${version}',pkg.version).replace('${ext}','exe'));
@@ -73,7 +73,7 @@ test('configured installer and portable filenames pass manifest generation and p
  const manifest=await generateManifest(f.options.directory,pkg.version,f.options.env.GITHUB_SHA,{requireInstaller:true});
  assert.deepEqual(manifest.artifacts.map(a=>a.filename),names);
  const release=await publish(f.options);assert.equal(release.draft,false);
- assert.equal(f.calls.filter(c=>c.url.startsWith('https://uploads.github.com/')).length,4);
+ assert.equal(f.calls.filter(c=>c.url.startsWith('https://uploads.github.com/')).length,1);
 });
 
 test('a modified installer or unsafe artifact list stops publication before network access',async t=>{

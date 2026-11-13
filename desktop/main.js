@@ -78,7 +78,14 @@ function loadEnvFile(envPath) {
 }
 
 function ensureEnvFile(envPath, root) {
-  if (fs.existsSync(envPath)) return;
+  if (fs.existsSync(envPath)) {
+    const existing=fs.readFileSync(envPath,'utf8');
+    if (/^\s*SESSION_SECRET\s*=/m.test(existing) &&
+        (!/^\s*DATA_KEY\s*=/m.test(existing) || !/^\s*BACKUP_SECRET\s*=/m.test(existing))) {
+      require('./legacy-config').upgradeLegacyConfig(envPath,path.join(path.dirname(envPath),'data','complaints.sqlite'));
+    }
+    return;
+  }
   try {
     const { initializeLocalConfig } = require(path.join(root, 'scripts', 'initialize-local-config.js'));
     const result = initializeLocalConfig(envPath, () => {});
