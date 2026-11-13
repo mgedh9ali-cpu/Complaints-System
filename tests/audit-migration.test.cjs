@@ -88,6 +88,8 @@ test(
       env: {
         ...process.env,
         SESSION_SECRET: "audit-migration-test-secret-value-123456789",
+        DATA_KEY: "audit-migration-test-data-key-value-1234567890",
+        BACKUP_SECRET: "audit-migration-test-backup-secret-value-1234",
         ADMIN_USERNAME: "auditadmin",
         ADMIN_PASSWORD: "audit-migration-test-password-123",
         DATABASE_PATH: databasePath,
