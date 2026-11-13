@@ -1,7 +1,6 @@
 (() => {
   'use strict';
   const THEME_KEY = 'complaints-ui-theme-v1';
-  const FOCUS_KEY = 'complaints-focus-mode';
   const $ = (selector, root = document) => root.querySelector(selector);
   let csrfToken = null;
 
@@ -122,39 +121,6 @@
       button.textContent = selected === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن';
     }
     if (announce) notify(selected === 'dark' ? 'تم تفعيل الوضع الداكن.' : 'تم تفعيل الوضع الفاتح.');
-  }
-
-  function applyFocusMode(on, announce = false) {
-    const enabled = Boolean(on);
-    document.documentElement.classList.toggle('focus-mode', enabled);
-    try {
-      localStorage.setItem(FOCUS_KEY, enabled ? '1' : '0');
-    } catch (_) {}
-    const btn = $('#focusModeToggle');
-    if (btn) {
-      btn.setAttribute('aria-pressed', String(enabled));
-      btn.textContent = enabled ? 'إلغاء التركيز' : 'تركيز';
-      btn.title = enabled
-        ? 'إظهار القائمة والاختصارات'
-        : 'إخفاء القائمة والاختصارات للتركيز على العمل';
-    }
-    if (announce) notify(enabled ? 'وضع التركيز مفعّل.' : 'وضع التركيز متوقف.');
-  }
-
-  function wireFocusMode() {
-    const btn = $('#focusModeToggle');
-    if (!btn || btn.dataset.focusWired) return;
-    btn.dataset.focusWired = '1';
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const next = !document.documentElement.classList.contains('focus-mode');
-      applyFocusMode(next, true);
-    });
-    let saved = false;
-    try {
-      saved = localStorage.getItem(FOCUS_KEY) === '1';
-    } catch (_) {}
-    applyFocusMode(saved, false);
   }
 
   async function exportXlsx() {
@@ -320,15 +286,11 @@
         event.preventDefault();
         closeMenu(true);
       }
-      if (event.key === 'Escape' && document.documentElement.classList.contains('focus-mode')) {
-        applyFocusMode(false, true);
-      }
     });
   }
 
   function start() {
     wireShell();
-    wireFocusMode();
     let glowFrame=0,glowEvent=null;
     document.addEventListener('pointermove',event=>{
       if(event.pointerType==='touch'||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
@@ -342,7 +304,6 @@
     document.addEventListener('complaints:render', () => {
       enhanceWorkspace();
       enhanceRegistry();
-      wireFocusMode();
       const exportButton = $('#excelExportBtn');
       if (exportButton) exportButton.hidden = !window.__complaintsCan?.('export.xlsx');
     });
