@@ -67,6 +67,8 @@ test(
       env: {
         ...process.env,
         SESSION_SECRET: "test-session-secret-at-least-32-characters",
+        DATA_KEY: "test-data-key-value-at-least-32-characters-x",
+        BACKUP_SECRET: "test-backup-secret-at-least-32-characters",
         ADMIN_USERNAME: "localadmin",
         ADMIN_PASSWORD: "Test-admin-password-2026",
         DATABASE_PATH: path.join(temp, "complaints.sqlite"),
