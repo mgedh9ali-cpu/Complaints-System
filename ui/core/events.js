@@ -177,7 +177,6 @@ case 'delete-setting':await deleteSetting(el.dataset.type,el.dataset.value);brea
 case 'clear-setting-type':await clearSettingType(el.dataset.type);break;
 case 'restore-settings':await restoreDefaultSettings(el.dataset.type||'all');break;
 case 'save-setting':await withButtonLock(el,()=>saveSetting(el.dataset.type,el.dataset.mode,el.dataset.original));break;
-case 'save-sla':await withButtonLock(el,()=>saveSlaSettings(),'جارٍ حفظ الإعداد…');break;
 case 'add-category':addSetting('categories');break;
 case 'change-password':passwordChangeModal();break;
 case 'save-password-change':await withButtonLock(el,()=>savePasswordChange(),'جارٍ تغيير كلمة المرور…');break;
@@ -225,7 +224,7 @@ document.addEventListener('keydown',e=>{
     return;
   }
   if(mod&&e.key==='Enter'){
-    const saveBtn=$('[data-action="save-complaint"]')||$('[data-action="save-complaint-edit"]')||$('[data-action="save-reply"]')||$('[data-action="save-note"]')||$('[data-action="save-referral"]')||$('[data-action="save-password-change"]')||$('[data-action="save-setting"]')||$('[data-action="save-sla"]');
+    const saveBtn=$('[data-action="save-complaint"]')||$('[data-action="save-complaint-edit"]')||$('[data-action="save-reply"]')||$('[data-action="save-note"]')||$('[data-action="save-referral"]')||$('[data-action="save-password-change"]')||$('[data-action="save-setting"]');
     if(saveBtn&&!saveBtn.disabled&&!saveBtn.classList.contains('is-loading')){e.preventDefault();saveBtn.click();}
   }
 });

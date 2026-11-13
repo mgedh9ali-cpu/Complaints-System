@@ -59,13 +59,6 @@ async function restoreDefaultSettings(type='all'){
   for(const key of managedTypes){if(type!=='all'&&type!==key)continue;db.settings[key]=key==='priorities'?seed.settings.priorities.map(x=>({...x})): [...(seed.settings[key]||[])];const descKey=settingDescriptionKey(key);if(descKey)db.settings[descKey]={};}
   await persistUiNow();render();toast('تمت استعادة '+labels[type]+' الافتراضية.');
 }
-async function saveSlaSettings(){
-  const days=Number($('#slaDays')?.value);
-  if(!Number.isFinite(days)||days<1||days>365)return toast('أدخل عدد أيام صالحاً (1–365).','warn');
-  db.settings.slaDays=Math.floor(days);
-  db.settings.slaApproved=Boolean($('#slaApproved')?.checked);
-  await persistUiNow();render();toast('حُفظت إعدادات المهلة.');
-}
 function editComplaintModal(id){
   const c=db.complaints.find(c=>c.id===id);if(!c||!uiCan('complaints.update'))return;
   ensureManagedSettings();
