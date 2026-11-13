@@ -12,6 +12,8 @@ async function assertNetworkOverrideRejected(overrides, expectedMessage) {
     env: {
       ...process.env,
       SESSION_SECRET: "network-boundary-test-secret-value-123456",
+      DATA_KEY: "network-boundary-test-data-key-value-123456",
+      BACKUP_SECRET: "network-boundary-test-backup-secret-value-12",
       ADMIN_USERNAME: "localadmin",
       ADMIN_PASSWORD: "network-boundary-test-password-123",
       DATABASE_PATH: path.join(
