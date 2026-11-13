@@ -57,6 +57,8 @@ async function startInstance(root) {
       ADMIN_USERNAME: username,
       ADMIN_PASSWORD: password,
       SESSION_SECRET: crypto.randomBytes(48).toString("hex"),
+      DATA_KEY: crypto.randomBytes(48).toString("hex"),
+      BACKUP_SECRET: crypto.randomBytes(48).toString("hex"),
       UPDATE_PUBLIC_KEY_PATH: path.join(dataDir, "trusted-update-public.pem"),
     },
     stdio: ["ignore", "pipe", "pipe"],
