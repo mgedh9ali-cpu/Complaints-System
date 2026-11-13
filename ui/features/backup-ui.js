@@ -205,7 +205,7 @@ function renderDataProtectionCenter(metrics, history) {
     '<small>حجم ' + esc(dbBytes) + ' · شكاوى ' + esc(String(counts.complaints ?? '—')) + '</small></div>' +
     '</div>' +
     (lastErr ? '<div class="risk-note dp-error-note" role="alert">آخر فشل: ' + lastErr + '</div>' : '') +
-    '<p class="small-copy">وجهة النسخ: <code dir="ltr">' + esc(String(dirLabel)) + '</code>. على Windows يمكن تغييرها من «النسخ والاستعادة ← اختيار مجلد النسخ التلقائي».</p>' +
+    '<p class="small-copy">وجهة النسخ: <code dir="ltr">' + esc(String(dirLabel)) + '</code>. على Windows يمكن تغييرها من «الإعدادات ← النسخ والاستعادة ← اختيار مجلد النسخ التلقائي».</p>' +
     '<div id="dpBackupProgress" class="dp-progress" hidden></div>' +
     '<div class="footer-actions dp-actions">' +
     '<button type="button" class="btn btn-primary btn-backup" data-action="database-backup">إنشاء نسخة كاملة الآن</button>' +
@@ -217,7 +217,7 @@ function renderDataProtectionCenter(metrics, history) {
     renderBackupSettingsForm(auto) +
     '<h3 class="subheading" style="margin-top:18px">سجل النسخ</h3>' +
     renderBackupHistoryTable(history) +
-    '<p class="small-copy">النسخة الكاملة مشفّرة. احفظ مفتاح الاستعادة من قائمة سطح المكتب في مكان منفصل. الحذف من السجل لا يؤثر على البيانات الحية.</p>' +
+    '<p class="small-copy">النسخة الكاملة مشفّرة. احفظ مفتاح الاستعادة من الإعدادات في مكان منفصل. الحذف من السجل لا يؤثر على البيانات الحية.</p>' +
     '</div></section>'
   );
 }
@@ -314,8 +314,8 @@ function showUpdateHelp() {
 function showRestoreGuide() {
   modal(
     'دليل الاستعادة على Windows',
-    'الاستبدال الكامل للبيانات الحية يتم من قائمة سطح المكتب فقط.',
-    '<div class="risk-note"><strong>المسار المعتمد:</strong> «النسخ والاستعادة» ← «استعادة نسخة كاملة…» ← ملف .csb + مفتاح .json. تُجهَّز في recovered-UUID دون حذف البيانات الحالية.</div>' +
+    'الاستبدال الكامل للبيانات الحية يتم من قسم النسخ والاستعادة في الإعدادات.',
+    '<div class="risk-note"><strong>المسار المعتمد:</strong> «الإعدادات» ← «النسخ والاستعادة» ← «استعادة نسخة كاملة» ← ملف .csb + مفتاح .json. تُجهَّز في recovered-UUID دون حذف البيانات الحالية.</div>' +
       '<p class="small-copy">من الواجهة يمكن تشغيل <strong>معالج الفحص / اختبار الاستعادة</strong> على نسخة محفوظة دون استبدال البيانات الحية.</p>',
     '<button class="btn" data-action="close-modal">إغلاق</button><button class="btn btn-primary" data-action="restore-wizard-start">فتح معالج الفحص</button>'
   );
@@ -349,7 +349,7 @@ function restoreWizardStart(name) {
       '<li>5. التحقق والإكمال</li></ol>' +
       '<div class="form-field"><label for="restorePick">النسخة</label>' +
       '<select class="select-field" id="restorePick">' + options + '</select></div>' +
-      '<div class="risk-note">هذا المعالج يفك النسخة في مساحة مؤقتة ويتحقق منها ثم يسجّل «اختبار استعادة». الاستبدال الكامل للتشغيل يتم من قائمة Windows.</div>',
+      '<div class="risk-note">هذا المعالج يفك النسخة في مساحة مؤقتة ويتحقق منها ثم يسجّل «اختبار استعادة». الاستبدال الكامل للتشغيل يتم من قسم النسخ والاستعادة في الإعدادات.</div>',
     '<button class="btn" data-action="close-modal">إلغاء</button>' +
       '<button class="btn btn-primary" data-action="restore-wizard-step2">التالي: الفحص</button>'
   );

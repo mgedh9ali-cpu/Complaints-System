@@ -4,7 +4,7 @@ const path = require('node:path');
 const { readOptions, saveOptions, writeRecoveryKey, readRecoveryKey, assertWritableDirectory, prepareRestoredProfile } = require('./recovery');
 const RELEASES_URL = 'https://github.com/mgedh9ali-cpu/Complaints-System/releases';
 
-function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, paths, runtime }) {
+function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, paths, runtime, ipcMain }) {
   let busy = false;
   async function admin() {
     const response = await window.webContents.session.fetch(origin + '/api/auth/me', { credentials: 'include' });
@@ -18,7 +18,7 @@ function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, path
     try { await run(); } catch (error) { await dialog.showMessageBox(window, {type:'error', message:'تعذر إكمال العملية', detail:error.message}); }
     finally { busy = false; }
   };
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
+  const sections = [
     { label: 'النسخ والاستعادة', submenu: [
       { label: 'اختيار مجلد النسخ التلقائي…', click: action(async () => {
         await admin();
@@ -70,9 +70,34 @@ function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, path
       { type:'separator' }, { role:'quit',label:'إغلاق التطبيق' }
     ]},
     { label:'التحديث والمساعدة',submenu:[
-      { label:'تنزيل أحدث إصدار…',click:action(()=>shell.openExternal(RELEASES_URL)) },
-      { label:'عن التطبيق',click:action(()=>dialog.showMessageBox(window,{type:'info',message:'نظام الاستفسارات والشكاوى '+app.getVersion(),detail:'لتحديث البرنامج: احفظ نسخة كاملة ومفتاح استعادتها، ثم أغلق التطبيق بالكامل وشغّل ملف setup.exe المنشور، أو استبدل ملف portable.exe إن كنت تستخدم النسخة المحمولة. تبقى البيانات محفوظة خارج ملف البرنامج.'})) }
+      { label:'تنزيل أحدث إصدار…',click:action(async()=>{ await admin(); return shell.openExternal(RELEASES_URL); }) },
+      { label:'عن التطبيق',click:action(async()=>{ await admin(); return dialog.showMessageBox(window,{type:'info',message:'نظام الاستفسارات والشكاوى '+app.getVersion(),detail:'لتحديث البرنامج: احفظ نسخة كاملة ومفتاح استعادتها، ثم أغلق التطبيق بالكامل وشغّل ملف setup.exe المنشور، أو استبدل ملف portable.exe إن كنت تستخدم النسخة المحمولة. تبقى البيانات محفوظة خارج ملف البرنامج.'}); }) }
     ]}
-  ]));
+  ];
+  const commands = new Map([
+    ['choose-backup-directory', sections[0].submenu[0].click],
+    ['save-recovery-key', sections[0].submenu[1].click],
+    ['restore-complete', sections[0].submenu[2].click],
+    ['download-update', sections[1].submenu[0].click],
+    ['about', sections[1].submenu[1].click],
+    ['quit', action(async () => { await admin(); app.quit(); })]
+  ]);
+  async function runCommand(command) {
+    if (typeof command !== 'string' || !commands.has(command)) throw new Error('إجراء صيانة غير صالح.');
+    return commands.get(command)();
+  }
+  Menu.setApplicationMenu(null);
+  window.setMenu?.(null);
+  if (ipcMain) {
+    ipcMain.handle('complaints:maintenance', async (event, command) => {
+      if (event.sender !== window.webContents ||
+          event.senderFrame !== window.webContents.mainFrame ||
+          new URL(event.senderFrame.url).origin !== origin) {
+        throw new Error('مصدر إجراء الصيانة غير مسموح.');
+      }
+      return runCommand(command);
+    });
+  }
+  return { runCommand };
 }
 module.exports = { installMaintenanceMenu };

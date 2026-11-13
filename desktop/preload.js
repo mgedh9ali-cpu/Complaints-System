@@ -1,4 +1,9 @@
 'use strict';
-
-// Preload intentionally minimal: no Node APIs exposed to the page.
-// The app UI talks only to the local Express API over http://127.0.0.1:3000.
+const { contextBridge, ipcRenderer } = require('electron');
+const commands = new Set(['choose-backup-directory', 'save-recovery-key', 'restore-complete', 'download-update', 'about', 'quit']);
+contextBridge.exposeInMainWorld('complaintsDesktop', Object.freeze({
+  runMaintenance(command) {
+    if (!commands.has(command)) return Promise.reject(new Error('إجراء صيانة غير صالح.'));
+    return ipcRenderer.invoke('complaints:maintenance', command);
+  }
+}));

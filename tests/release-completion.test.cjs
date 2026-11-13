@@ -34,12 +34,12 @@ test('restore prepares verified encrypted data separately and rejects wrong keys
  assert.deepEqual(fs.readFileSync(path.join(root,'desktop-options.json')),originalOptions);
  assert.deepEqual(fs.readdirSync(root).filter(n=>n.startsWith('recovered-')),[]);
  const recoveryKeyPath=path.join(root,'recovery-key.json');recovery.writeRecoveryKey(recoveryKeyPath,secret);
- let menu,authCalls=0,quitCalls=0;
- require('../desktop/maintenance').installMaintenanceMenu({app:{quit(){quitCalls++;}},Menu:{buildFromTemplate:t=>(menu=t),setApplicationMenu(){}},
+ let authCalls=0,quitCalls=0;
+ const maintenance=require('../desktop/maintenance').installMaintenanceMenu({app:{quit(){quitCalls++;}},Menu:{setApplicationMenu(){}},
   dialog:{async showOpenDialog(_window,options){return {canceled:false,filePaths:[options.title.includes('مفتاح')?recoveryKeyPath:bundle.destination]};},async showMessageBox(){return {response:1};}},shell:{},
   window:{webContents:{session:{async fetch(){authCalls++;return {ok:true,async json(){return {user:{id:'admin-id',role:authCalls<3?'admin':'staff'}};}};}}}},
   origin:'http://127.0.0.1:3000',paths:{applicationBase:root},runtime:{audit(){throw new Error('revoked user must not activate restored data');}}});
- await menu[0].submenu[2].click();assert.equal(authCalls,3);assert.equal(quitCalls,0);
+ await maintenance.runCommand('restore-complete');assert.equal(authCalls,3);assert.equal(quitCalls,0);
  assert.deepEqual(fs.readFileSync(path.join(root,'desktop-options.json')),originalOptions);assert.deepEqual(fs.readdirSync(root).filter(n=>n.startsWith('recovered-')),[]);
  const restored=await recovery.prepareRestoredProfile({base:root,bundlePath:bundle.destination,secret});
  assert.equal(restored.counts.complaints,1);assert.deepEqual(fs.readFileSync(file),before);
@@ -62,9 +62,9 @@ test('recovery settings reject path traversal and credential line injection',t=>
 });
 
 test('native recovery actions require a current administrator before any file dialog',async()=>{
- let template,dialogs=0,errors=0;
- require('../desktop/maintenance').installMaintenanceMenu({app:{},Menu:{buildFromTemplate:t=>(template=t),setApplicationMenu(){}},dialog:{showOpenDialog(){dialogs++;},showSaveDialog(){dialogs++;},async showMessageBox(){errors++;}},shell:{},window:{webContents:{session:{async fetch(){return {ok:true,async json(){return {user:{role:'staff'}};}};}}}},origin:'http://127.0.0.1:3000',paths:{},runtime:{}});
- for(const item of template[0].submenu.filter(x=>x.click))await item.click();
+ let dialogs=0,errors=0;
+ const maintenance=require('../desktop/maintenance').installMaintenanceMenu({app:{},Menu:{setApplicationMenu(){}},dialog:{showOpenDialog(){dialogs++;},showSaveDialog(){dialogs++;},async showMessageBox(){errors++;}},shell:{},window:{webContents:{session:{async fetch(){return {ok:true,async json(){return {user:{role:'staff'}};}};}}}},origin:'http://127.0.0.1:3000',paths:{},runtime:{}});
+ for(const command of ['choose-backup-directory','save-recovery-key','restore-complete'])await maintenance.runCommand(command);
  assert.equal(dialogs,0);assert.equal(errors,3);
 });
 
@@ -80,4 +80,29 @@ test('release manifest binds exact downloadable bytes to the source commit',asyn
  assert.equal(manifest.sha256,crypto.createHash('sha256').update(bytes).digest('hex'));assert.equal(manifest.commit,commit);
  assert.match(fs.readFileSync(path.join(root,'SHA256SUMS.txt'),'utf8'),new RegExp(filename.replace(/\./g,'\\.')));
  await assert.rejects(generateManifest(root,version,'main'),/immutable/);
+});
+
+test('maintenance IPC rejects foreign windows, frames, origins and unknown commands',async()=>{
+ let handler,opened=0,dialogs=0,menu;
+ const frame={url:'http://127.0.0.1:3000/'};
+ const webContents={mainFrame:frame,session:{async fetch(){return {ok:true,async json(){return {user:{role:'admin'}};}};}}};
+ const window={webContents,setMenu(value){assert.equal(value,null);}};
+ require('../desktop/maintenance').installMaintenanceMenu({app:{},Menu:{setApplicationMenu(value){menu=value;}},dialog:{async showMessageBox(){dialogs++;}},shell:{async openExternal(){opened++;}},window,origin:'http://127.0.0.1:3000',paths:{},runtime:{},ipcMain:{handle(channel,fn){assert.equal(channel,'complaints:maintenance');handler=fn;}}});
+ assert.equal(menu,null);
+ await assert.rejects(handler({sender:{},senderFrame:frame},'download-update'));
+ await assert.rejects(handler({sender:webContents,senderFrame:{url:frame.url}},'download-update'));
+ frame.url='https://example.com/';
+ await assert.rejects(handler({sender:webContents,senderFrame:frame},'download-update'));
+ frame.url='http://127.0.0.1:3000/';
+ await assert.rejects(handler({sender:webContents,senderFrame:frame},'arbitrary-file-command'));
+ assert.equal(opened,0);assert.equal(dialogs,0);
+ await handler({sender:webContents,senderFrame:frame},'download-update');assert.equal(opened,1);
+});
+
+test('preload exposes only whitelisted maintenance commands',async()=>{
+ let bridge,calls=0;
+ const source=fs.readFileSync(path.join(__dirname,'../desktop/preload.js'),'utf8');
+ vm.runInNewContext(source,{require(name){assert.equal(name,'electron');return {contextBridge:{exposeInMainWorld(name,value){assert.equal(name,'complaintsDesktop');bridge=value;}},ipcRenderer:{invoke(channel,command){assert.equal(channel,'complaints:maintenance');assert.equal(command,'about');calls++;return Promise.resolve();}}};}});
+ await assert.rejects(bridge.runMaintenance('read-secret-file'));assert.equal(calls,0);
+ await bridge.runMaintenance('about');assert.equal(calls,1);
 });

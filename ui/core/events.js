@@ -98,6 +98,7 @@ case 'diagnose-fonts':await withButtonLock(el,()=>diagnoseLocalFonts(),'جارٍ
 case 'audit-verify':await withButtonLock(el,()=>runAuditIntegrityCheck());break;
 case 'database-backup':await withButtonLock(el,()=>runDatabaseBackup(),'جارٍ إنشاء النسخة الكاملة…');break;
 case 'backup-database-only':await withButtonLock(el,()=>runDatabaseOnlyBackup(),'جارٍ نسخ قاعدة البيانات…');break;
+case 'desktop-maintenance':await withButtonLock(el,()=>runDesktopMaintenance(el.dataset.command));break;
 case 'show-update-help':showUpdateHelp();break;
 case 'show-restore-guide':showRestoreGuide();break;
 case 'refresh-protection-status':await withButtonLock(el,()=>refreshProtectionStatusAndRender());break;

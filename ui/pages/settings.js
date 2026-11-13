@@ -1,3 +1,23 @@
+function desktopMaintenancePanel(){
+  if(!window.complaintsDesktop?.runMaintenance)return '';
+  const button=(command,label)=>'<button type="button" class="btn" data-action="desktop-maintenance" data-command="'+command+'">'+label+'</button>';
+  return '<section class="panel"><div class="panel-header"><h2>النسخ والاستعادة</h2></div><div class="panel-body footer-actions">'+
+    button('choose-backup-directory','اختيار مجلد النسخ التلقائي')+
+    button('save-recovery-key','حفظ مفتاح استعادة النسخ')+
+    button('restore-complete','استعادة نسخة كاملة')+
+    '</div></section><section class="panel"><div class="panel-header"><h2>التحديث والمساعدة</h2></div><div class="panel-body footer-actions">'+
+    button('download-update','تنزيل أحدث إصدار')+button('about','عن التطبيق')+button('quit','إغلاق التطبيق')+'</div></section>';
+}
+async function runDesktopMaintenance(command){
+  try{
+    if(!window.complaintsDesktop?.runMaintenance)return;
+    await window.complaintsDesktop.runMaintenance(command);
+    if(command==='choose-backup-directory'){
+      _protectionStatusLoadedAt=0;_backupHistoryLoadedAt=0;
+      if(page==='settings')render();
+    }
+  }catch(error){toast(error.message,'error');}
+}
 function settingsPageBase(){
   ensureManagedSettings();
   const renderMasterList=(type)=>{
@@ -21,7 +41,7 @@ function settingsPageBase(){
     }
   }
   return heading('الإعدادات','إعدادات التشغيل والنسخ الاحتياطي.','')+
-  protectionSection+
+  protectionSection+desktopMaintenancePanel()+
   '<section class="panel"><div class="panel-body"><h2>العرض والأداء</h2><div class="form-field"><label for="paletteSelect">اللوحة اللونية</label><select class="select-field" id="paletteSelect">'+[['emerald','زمرد'],['ocean','بحري'],['ember','عنبر']].map(([value,label])=>'<option value="'+value+'" '+((document.documentElement?.dataset.palette||'emerald')===value?'selected':'')+'>'+label+'</option>').join('')+'</select></div><div class="form-field"><label for="displayDensity">كثافة العرض</label><select class="select-field" id="displayDensity"><option value="comfortable" '+(document.documentElement?.dataset.density!=='compact'?'selected':'')+'>مريح</option><option value="compact" '+(document.documentElement?.dataset.density==='compact'?'selected':'')+'>مضغوط</option></select></div><div class="form-field"><label for="displayMotion">حركة الواجهة</label><select class="select-field" id="displayMotion"><option value="light" '+(document.documentElement?.dataset.motion!=='off'?'selected':'')+'>خفيفة</option><option value="off" '+(document.documentElement?.dataset.motion==='off'?'selected':'')+'>متوقفة</option></select></div><p class="small-copy">تُحفظ تفضيلات العرض لهذا الجهاز، مع احترام إعداد تقليل الحركة في النظام.</p><div class="form-field"><label for="sessionIdleMinutes">القفل بعد الخمول</label><select class="select-field" id="sessionIdleMinutes">'+[15,30,60].map(n=>'<option value="'+n+'" '+(Number(window.sessionIdleMinutes?.()||30)===n?'selected':'')+'>'+n+' دقيقة</option>').join('')+'</select></div><button class="btn" data-action="verify-document-dialog">التحقق من مستند مطبوع</button><label><input type="checkbox" id="reduceTransparency" '+(glassPreference()?'checked':'')+'> تقليل الشفافية</label><p class="small-copy">يلغي التمويه ويستخدم أسطحاً مصمتة. يُحفظ لهذا الجهاز.</p></div></section>'+
   '<section class="panel" style="margin-bottom:16px"><div class="panel-header"><div><h2>المزامنة اليدوية بين النسختين</h2><p>نقل يدوي فقط، دون اتصال بين الجهازين</p></div></div><div class="panel-body"><p>صدّر ملفًا مشفرًا بعبارة مرور وانقله يدويًا إلى الجهاز الآخر. الاستيراد يستبدل بيانات النسخة الحالية؛ احتفظ بنسخة احتياطية أولًا.</p><div class="footer-actions">'+(uiCan('sync.export')?'<button class="btn btn-primary" data-action="sync-export">تصدير ملف المزامنة</button>':'')+(uiCan('sync.import')?'<button class="btn" data-action="sync-import">استيراد ملف مزامنة</button>':'')+'<input id="syncImportFile" type="file" accept="application/json,.json" hidden></div><p class="small-copy">ينقل الملف بيانات العمل يدويًا. يتضمن المرفقات ضمن حد حجم الحزمة.</p></div></section>'+
   '';

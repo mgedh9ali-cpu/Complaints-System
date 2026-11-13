@@ -9,7 +9,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const net = require('node:net');
-const { app, BrowserWindow, dialog, shell, Menu, Tray, nativeImage, Notification } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu, ipcMain, Tray, nativeImage, Notification } = require('electron');
 const { isLocalAppUrl, isPermittedExternalUrl } = require('./navigation');
 const bootStartedAt = Date.now();
 const startupTimings = {};
@@ -185,7 +185,7 @@ function createWindow(paths) {
     title: 'نظام الشكاوى والاستفسارات',
     show: false,
     backgroundColor: '#05402F',
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -289,7 +289,7 @@ if (!gotLock) {
       // A bounded, local timing record for diagnosing slow devices; no user data.
       try { fs.writeFile(path.join(paths.base, 'startup-timings.json'), JSON.stringify(startupTimings, null, 2), {mode:0o600}, () => {}); } catch (_) {}
       installTray(root);
-      require('./maintenance').installMaintenanceMenu({app,Menu,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
+      require('./maintenance').installMaintenanceMenu({app,Menu,ipcMain,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
     } catch (err) {
       if(process.argv.includes('--release-smoke')) {
         require('./smoke-profile').recordSmokeFailure(err);
