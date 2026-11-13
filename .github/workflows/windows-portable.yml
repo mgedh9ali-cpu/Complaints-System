@@ -90,8 +90,8 @@ jobs:
       - name: Record immutable artifact checksums
         run: node scripts/release-manifest.js
 
-      - name: Attest Windows build provenance
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Attest Windows build provenance (public repositories)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.repository.visibility == 'public'
         uses: actions/attest@v4
         with:
           subject-path: |

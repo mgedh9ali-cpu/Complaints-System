@@ -55,7 +55,7 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
  if(!release){
   try{release=await request(api+'/releases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
    tag_name:tag,target_commitish:commit,name:'نظام الشكاوى '+version+' · '+commit.slice(0,12),draft:true,prerelease:true,
-   body:'ملف واحد فقط للتنزيل: setup.exe. ثبّته ثم افتح البرنامج من اختصار سطح المكتب؛ لا تحتاج ملف CMD أو تثبيت Node.js.\n\nيتضمن التحديث إصلاح الإعدادات القديمة مع الحفاظ على مفتاح البيانات، وحفظ مفتاح استعادة النسخ السابقة محليًا عند الحاجة. أوامر النسخ والاستعادة والتحديث موجودة داخل الإعدادات.\n\nقبل التحديث احتفظ بنسخة كاملة ومفتاحها وأغلق البرنامج. بياناتك محفوظة خارج ملفات التثبيت. بصمات البناء وسجلات الفحص محفوظة ضمن ملفات التحقق في GitHub Actions، وإثبات منشأ المثبت متاح على GitHub.'
+   body:'ملف واحد فقط للتنزيل: setup.exe. ثبّته ثم افتح البرنامج من اختصار سطح المكتب؛ لا تحتاج ملف CMD أو تثبيت Node.js.\n\nيتضمن التحديث إصلاح الإعدادات القديمة مع الحفاظ على مفتاح البيانات، وحفظ مفتاح استعادة النسخ السابقة محليًا عند الحاجة. أوامر النسخ والاستعادة والتحديث موجودة داخل الإعدادات.\n\nقبل التحديث احتفظ بنسخة كاملة ومفتاحها وأغلق البرنامج. بياناتك محفوظة خارج ملفات التثبيت. بصمات البناء وسجلات الفحص محفوظة ضمن ملفات التحقق في GitHub Actions؛ بصمة SHA-256 وسجلات الاختبار متاحة للتحقق من الملف.'
   })});}
   catch(error){if(error.status!==422)throw error;release=await findRelease();if(!release)throw error;}
  }
