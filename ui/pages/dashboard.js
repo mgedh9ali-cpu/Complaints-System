@@ -60,7 +60,7 @@ function complaintTable(rows,opts={}){
   if(layout==='cards')return complaintCards(rows,opts);
   return '<div class="table-wrap registry-table-wrap"><table class="registry-table"><thead><tr>'+
     (opts.select?'<th class="col-check"><input class="table-check" type="checkbox" aria-label="تحديد الكل" data-action="select-all"></th>':'')+
-    '<th class="col-id">رقم السجل</th><th class="col-type">النوع</th><th class="col-subject">الموضوع / المشتكي</th><th class="col-prov">المحافظة</th><th class="col-status">الحالة</th><th class="col-pri">الأولوية</th><th class="col-age">مدة البقاء</th><th class="col-act">الإجراء</th></tr></thead><tbody>'+
+    '<th class="col-id">رقم السجل</th><th class="col-type">النوع</th><th class="col-subject">الموضوع / المشتكي</th><th class="col-prov">المحافظة</th><th class="col-status">الحالة</th><th class="col-pri">الأولوية</th><th class="col-age">مدة البقاء</th><th class="col-act">الإجراءات</th></tr></thead><tbody>'+
     rows.map(c=>{
       const late=isLate(c);
       const incomplete=typeof isIncomplete==='function'&&isIncomplete(c);
@@ -119,6 +119,11 @@ async function retryIncompleteRecords(){
   await flushUiBeforeAction();await loadDb();render();
 }
 
+function dashboardBriefRank(tasks){
+  const order={late:0,'urgent-no-reply':1,'due-soon':2,approvals:3,referrals:4,'new-today':5};
+  return [...tasks].sort((a,b)=>(order[a.key]??99)-(order[b.key]??99));
+}
+
 function dashboard(){
   const late=lateComplaints(),approvals=pendingApprovals();
   const open=db.complaints.filter(c=>!c.archivedAt&&!['closed','cancelled'].includes(c.status));
@@ -131,26 +136,42 @@ function dashboard(){
     const due=c=>{const n=new Date(c.due).getTime();return Number.isFinite(n)?n:Number.MAX_SAFE_INTEGER;};
     return score(a)-score(b)||due(a)-due(b);
   }).slice(0,5);
-  const tasks=[
-    [late.length,'red','!','شكاوى متجاوزة للمهلة','وفق المهلة المعتمدة — عالجها أولًا','filter-late',null],
-    [urgentNoReply.length,'red','⚡','عاجلة بلا رد','أولوية عاجلة ولم يُصغَ رد بعد','urgent-no-reply',null],
-    [dueSoon.length,'amber','◷','مهل تستحق خلال 48 ساعة','ابدأ المتابعة قبل تجاوز المهلة','filter-due-soon',null],
-    [approvals.length,'amber','✓','ردود تنتظر الاعتماد','راجع نص الرد ثم اعتمده من حسابك','', 'replies'],
-    [pendingReferrals.length,'blue','↗','سجلات بانتظار رد جهة','افتح السجل لمراجعة الإحالة وتسجيل رد الجهة','registry-queue',null,'waiting-referrals'],
-    [newToday.length,'blue','＋','جديدة اليوم','السجلات المفتوحة المسجلة اليوم بتوقيت دمشق','registry-queue',null,'new-today']
-  ].filter(task=>task[0]>0);
-  const taskHtml=tasks.length?tasks.map(([n,color,icon,label,description,action,dest,queue])=>
-    '<div class="task-row" role="listitem">'+
-      '<div class="task-symbol '+color+'" aria-hidden="true">'+icon+'</div>'+
-      '<div class="task-copy"><strong>'+label+'</strong><small>'+description+'</small></div>'+
-      '<div class="task-controls"><span class="task-value" aria-label="عدد السجلات: '+n+'">'+n+'</span>'+
-      '<button type="button" class="btn btn-sm task-review" aria-label="مراجعة '+label+'" '+(queue?'data-action="registry-queue" data-queue="'+queue+'"':dest?'data-goto="'+dest+'"':(action==='quick-filter'?'data-action="quick-filter" data-value="all"':'data-action="'+action+'"'))+'>فتح السجلات</button></div>'+
+
+  const rawTasks=[
+    {key:'late',n:late.length,color:'red',icon:'!',label:'شكاوى متجاوزة للمهلة',description:'وفق المهلة المعتمدة — عالجها أولًا',action:'filter-late'},
+    {key:'urgent-no-reply',n:urgentNoReply.length,color:'red',icon:'⚡',label:'عاجلة بلا رد',description:'أولوية عاجلة ولم يُصغَ رد بعد',action:'urgent-no-reply'},
+    {key:'due-soon',n:dueSoon.length,color:'amber',icon:'◷',label:'مهل تستحق خلال 48 ساعة',description:'ابدأ المتابعة قبل تجاوز المهلة',action:'filter-due-soon'},
+    {key:'approvals',n:approvals.length,color:'amber',icon:'✓',label:'ردود تنتظر الاعتماد',description:'راجع نص الرد ثم اعتمده من حسابك',dest:'replies'},
+    {key:'referrals',n:pendingReferrals.length,color:'blue',icon:'↗',label:'سجلات بانتظار رد جهة',description:'افتح السجل لمراجعة الإحالة وتسجيل رد الجهة',queue:'waiting-referrals'},
+    {key:'new-today',n:newToday.length,color:'blue',icon:'＋',label:'جديدة اليوم',description:'السجلات المفتوحة المسجلة اليوم بتوقيت دمشق',queue:'new-today'}
+  ].filter(t=>t.n>0);
+
+  const tasks=dashboardBriefRank(rawTasks);
+  const attentionCount=tasks.reduce((s,t)=>s+t.n,0);
+
+  const taskHtml=tasks.length?tasks.map(t=>
+    '<div class="task-row task-row-'+t.color+'" role="listitem" data-brief-key="'+t.key+'">'+ 
+      '<div class="task-symbol '+t.color+'" aria-hidden="true">'+t.icon+'</div>'+
+      '<div class="task-copy"><strong>'+t.label+'</strong><small>'+t.description+'</small></div>'+
+      '<div class="task-controls"><span class="task-value" aria-label="عدد السجلات: '+t.n+'">'+t.n+'</span>'+
+      '<button type="button" class="btn btn-sm task-review" aria-label="مراجعة '+t.label+'" '+
+        (t.queue?'data-action="registry-queue" data-queue="'+t.queue+'"':
+         t.dest?'data-goto="'+t.dest+'"':
+         'data-action="'+t.action+'"')+
+      '>فتح السجلات</button></div>'+
     '</div>'
-  ).join(''):'';
+  ).join(''):'<div class="brief-empty calm-empty"><p class="small-copy">لا توجد مهام عاجلة الآن. يمكنك متابعة السجل أو تسجيل سجل جديد.</p></div>';
+
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
   const totalActive=db.complaints.filter(c=>!c.archivedAt).length;
+
+  const briefBanner=attentionCount
+    ? '<div class="brief-banner" role="status"><strong>موجز اليوم</strong><span>'+attentionCount+' بند يحتاج انتباهًا</span></div>'
+    : '<div class="brief-banner brief-banner-ok" role="status"><strong>موجز اليوم</strong><span>لا يوجد ما يستدعي إجراءً عاجلاً</span></div>';
+
   return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل شكوى','new-complaint','btn-primary'):'')+
     (typeof workdayPanel==='function'?workdayPanel():'')+
+    briefBanner+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
       [['جميع السجلات',totalActive],['مفتوحة',open.length],['متأخرة',late.length],['بانتظار رد الجهة',countStatus('awaiting_reply')]].map(([label,n],i)=>
         '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
