@@ -2,6 +2,7 @@
  * https://21st.dev/@troyjlorents-gh/components/adjustable-glass-dashboard
  * Adapted to the local Arabic workspace: floating chrome, softly lit edges,
  * tonal cards. Only the topbar blurs; dense content remains opaque.
+ * 2026-11-14: stronger dark-mode contrast + brief banner + RTL logical edges.
  */
 :root {
   --gw-blur: 6px;
@@ -14,10 +15,19 @@
   --gw-soft-shadow: 0 4px 16px color-mix(in srgb, var(--forest-deep) 6%, transparent);
 }
 
+html[data-theme="dark"] {
+  --gw-opacity: 0.88;
+  --gw-sat: 1.08;
+  --gw-tint: color-mix(in srgb, var(--forest) 14%, var(--surface));
+  --gw-edge-light: color-mix(in srgb, var(--line) 80%, #4a5c52);
+  --gw-panel-shadow: 0 12px 36px rgba(0, 0, 0, 0.42);
+  --gw-soft-shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
+}
+
 @media screen {
   body {
     background: radial-gradient(ellipse at 80% 0%, color-mix(in srgb, var(--forest) 12%, transparent), transparent 55%),
-      radial-gradient(ellipse at 5% 80%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 50%), var(--paper);
+      radial-gradient(ellipse at 5% 80%, color-mix(in srgb, var(--accent, var(--sage)) 10%, transparent), transparent 50%), var(--paper);
   }
   .topbar {
     background: var(--surface) !important;
@@ -48,7 +58,8 @@
   }
   .dashboard-workspace > .page-heading,
   .dashboard-workspace > .dashboard-stats,
-  .dashboard-workspace > .work-grid { margin-bottom: 0 !important; }
+  .dashboard-workspace > .work-grid,
+  .dashboard-workspace > .brief-banner { margin-bottom: 0 !important; }
   .dashboard-workspace .page-heading h1 { font-size: clamp(22px, 2vw, 30px); }
   .dashboard-workspace .page-heading p { max-width: 64ch; }
   .dashboard-workspace .stat-item,
@@ -85,8 +96,39 @@
   }
   .dashboard-workspace .panel-header { border-bottom-color: var(--line); }
   .dashboard-workspace .task-row { padding-block: 12px; }
+  .dashboard-workspace .task-row-red { border-inline-start: 3px solid var(--sla-late); padding-inline-start: 10px; }
+  .dashboard-workspace .task-row-amber { border-inline-start: 3px solid var(--sla-warn); padding-inline-start: 10px; }
+  .dashboard-workspace .task-row-blue { border-inline-start: 3px solid var(--green-800, #3E5A3F); padding-inline-start: 10px; }
   .dashboard-workspace .progress { height: 6px; border-radius: 999px; }
   .dashboard-workspace .table-panel { overflow: hidden; }
+
+  /* Daily brief banner */
+  .brief-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+    padding: 12px 18px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--forest) 10%, var(--surface));
+    border: 1px solid var(--gw-edge-light);
+    box-shadow: var(--gw-soft-shadow);
+    color: var(--ink);
+  }
+  .brief-banner strong { font-weight: 700; }
+  .brief-banner span { color: var(--ink-2); font-size: 0.95em; }
+  .brief-banner-ok {
+    background: color-mix(in srgb, var(--sla-ok) 12%, var(--surface));
+  }
+  html[data-theme="dark"] .brief-banner {
+    background: color-mix(in srgb, var(--forest) 22%, var(--surface));
+    border-color: var(--line);
+  }
+  html[data-theme="dark"] .brief-banner-ok {
+    background: color-mix(in srgb, var(--sla-ok) 18%, var(--surface));
+  }
+  .brief-empty { padding: 12px 4px; }
 }
 
 /* Floating navigation retains labels, counters and the existing mobile drawer. */
@@ -135,6 +177,34 @@ html:is(.glass-off, .reduce-transparency) :is(.topbar, .modal-backdrop, .login-o
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* Dark mode: raise contrast on tables and cards (no translucent text on busy glass). */
+html[data-theme="dark"] .dashboard-workspace .stat-item,
+html[data-theme="dark"] .dashboard-workspace .panel {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+html[data-theme="dark"] .registry-table thead th,
+html[data-theme="dark"] .table-wrap thead th {
+  background: color-mix(in srgb, var(--surface) 70%, #000) !important;
+  color: var(--ink-2) !important;
+}
+html[data-theme="dark"] .registry-table tbody tr,
+html[data-theme="dark"] .table-wrap tbody tr {
+  color: var(--ink) !important;
+}
+html[data-theme="dark"] .registry-card {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+  color: var(--ink) !important;
+}
+
+/* RTL-safe logical spacing for task rows and cards */
+.task-controls { margin-inline-start: auto; }
+.registry-card .card-footer { gap: 8px; }
+.registry-table .col-id,
+.registry-table .ticket-id { text-align: start; }
+
 @media (prefers-reduced-transparency: reduce) {
   .dashboard-workspace { background: var(--paper); box-shadow: none; }
   .topbar, .login-card, .account-menu-panel { background: var(--surface) !important; }
@@ -152,7 +222,9 @@ html:is(.glass-off, .reduce-transparency) :is(.topbar, .modal-backdrop, .login-o
   .dashboard-workspace .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .dashboard-workspace .stat-item { padding: 14px !important; border-radius: 16px !important; }
   .dashboard-workspace .panel-header { flex-wrap: wrap; }
+  .brief-banner { padding: 10px 12px; }
 }
 @media print {
   .dashboard-workspace { display: block; background: #fff; border: 0; box-shadow: none; padding: 0; }
+  .brief-banner { border: 1px solid #ccc; }
 }
