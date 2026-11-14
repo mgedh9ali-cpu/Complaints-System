@@ -32,6 +32,13 @@ html, body, button, input, select, textarea {
 .intake-record-type .btn[aria-pressed="true"] {
   background: var(--forest); color: var(--on-forest); border-color: var(--forest);
 }
+.registry-active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
+.registry-active-filters .filter-chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.registry-advanced { flex: 1 1 100%; min-width: 0; border-block-start: 1px solid var(--line); padding-block: 10px; }
+.registry-advanced summary { cursor: pointer; font-weight: 600; line-height: 1.8; }
+.registry-advanced-fields { display: flex; flex-wrap: wrap; gap: 12px; padding-block-start: 12px; }
+.registry-advanced-fields .filter-group { flex-wrap: wrap; }
+.registry-advanced-fields .field, .registry-advanced-fields .select-field { min-width: 0; }
 
 .table-wrap,
 .table-wrap *,
@@ -417,3 +424,4 @@ html[data-theme="dark"] {
 .completion-footer { margin-block-start: 10px; }
 .completion-footer .btn { min-height: 40px; }
 .missing-reason { margin-block: 6px; overflow-wrap: anywhere; }
+

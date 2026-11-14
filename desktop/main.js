@@ -293,7 +293,10 @@ if (!gotLock) {
       await mainWindow.loadURL(APP_URL);
       if (process.argv.includes('--release-smoke')) {
         const fonts = await require('./verify-fonts').verifyRenderedFonts(mainWindow.webContents);
-        fs.writeFileSync(path.join(paths.base, 'font-verification.json'), JSON.stringify(fonts), {mode: 0o600});
+        const workflow = await require('./verify-workflow').verifyWorkflow(mainWindow.webContents, {
+          username: process.env.ADMIN_USERNAME, password: process.env.ADMIN_PASSWORD
+        });
+        fs.writeFileSync(path.join(paths.base, 'font-verification.json'), JSON.stringify({...fonts, workflow}), {mode: 0o600});
       }
       startupTimings.loginPageLoadedMs = Date.now() - bootStartedAt;
       console.info('[startup]', startupTimings);
@@ -323,5 +326,3 @@ if (!gotLock) {
     if (quitting) app.quit();
   });
 }
-
-

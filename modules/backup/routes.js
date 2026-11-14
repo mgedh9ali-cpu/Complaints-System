@@ -111,6 +111,8 @@ function createBackupRouter({ backupService, middleware, audit, rolesService, ba
           counts: result.counts,
           attachmentCount: result.attachmentCount,
           files: result.files,
+          contentVerified: result.contentVerified === true,
+          contentCounts: result.contentCounts || null,
           automatic: backupScheduler?.status?.() || null
         });
       } catch (error) {

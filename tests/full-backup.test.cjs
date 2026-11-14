@@ -19,7 +19,10 @@ test('full backup archives SQLite, attachments and audit integrity head with aut
   const dataDir = path.join(dir, 'data');
   fs.mkdirSync(path.join(dataDir, 'attachments'), { recursive: true });
   const dbPath = path.join(dataDir, 'complaints.sqlite');
-  const db = openDatabase(dbPath);
+  const storageKey = 'synthetic-storage-key-for-backup-test-32-characters';
+  const oldKey = process.env.DATA_KEY; process.env.DATA_KEY = storageKey;
+  t.after(() => { if(oldKey === undefined) delete process.env.DATA_KEY; else process.env.DATA_KEY = oldKey; });
+  const db = openDatabase(dbPath, {storageKey});
   db.prepare('INSERT INTO users(id,username,password_hash,role,active,created_at) VALUES (?,?,?,?,?,?)')
     .run('admin-id', 'admin', 'test-hash', 'admin', 1, '2026-11-01T00:00:00Z');
   const audit = createAuditService({ db, databasePath: dbPath, logger: null });
@@ -28,7 +31,8 @@ test('full backup archives SQLite, attachments and audit integrity head with aut
 
   const attachmentName = 'SY-2026-001_12345678-1234-1234-1234-123456789abc.pdf';
   const fileBytes = Buffer.from('%PDF-1.7\nattachment-test-data\n', 'utf8');
-  fs.writeFileSync(path.join(dataDir, 'attachments', attachmentName), fileBytes);
+  const protectedBytes = require('../lib/storage-codec').createStorageCodec(storageKey).seal(fileBytes, 'attachment:' + attachmentName);
+  fs.writeFileSync(path.join(dataDir, 'attachments', attachmentName), protectedBytes);
 
   const backupDir = path.join(dir, 'backup');
   const saved = await createEncryptedBundle({
@@ -52,7 +56,7 @@ test('full backup archives SQLite, attachments and audit integrity head with aut
     bundlePath: saved.destination, secret: SECRET, outputDir: restoredDir
   });
   assert.equal(result.verified, true);
-  assert.deepEqual(fs.readFileSync(path.join(restoredDir, 'attachments', attachmentName)), fileBytes);
+  assert.deepEqual(fs.readFileSync(path.join(restoredDir, 'attachments', attachmentName)), protectedBytes);
   assert.equal(fs.readFileSync(path.join(restoredDir, 'audit-head.hash'), 'utf8').trim(), auditHead.eventHash);
 
   await assert.rejects(extractEncryptedBundle({

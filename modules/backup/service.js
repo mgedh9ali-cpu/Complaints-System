@@ -66,7 +66,7 @@ function createBackupService({ databasePath, sessionSecret }) {
       if (!verified.verified || verified.attachmentCount !== result.attachmentCount) {
         throw new Error('Complete backup verification failed.');
       }
-      return { ...result, verified: true };
+      return { ...result, verified: true, contentVerified: verified.contentVerified, contentCounts: verified.contentCounts };
     } catch (error) {
       fs.rmSync(backupDir, { recursive: true, force: true });
       throw error;
@@ -123,7 +123,9 @@ function createBackupService({ databasePath, sessionSecret }) {
       filename: name,
       counts: result.counts || null,
       attachmentCount: result.attachmentCount ?? null,
-      files: result.files ?? null
+      files: result.files ?? null,
+      contentVerified: result.contentVerified === true,
+      contentCounts: result.contentCounts || null
     };
   }
 

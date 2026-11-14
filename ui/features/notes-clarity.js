@@ -9,11 +9,11 @@
       if(typeof html !== 'string') return html;
       html = html.replace(
         '<h3>الملاحظات الداخلية</h3>',
-        '<h3>الملاحظات الداخلية <span class="pill" style="font-size:10px;background:#f3e8d0;color:#5c4a1e;border:1px solid #d9c48a">للفريق فقط — ليست ردًا للمشتكي</span></h3>'
+        '<h3>الملاحظات الداخلية <span class="pill" style="font-size:10px;background:#f3e8d0;color:#5c4a1e;border:1px solid #d9c48a">خاصة — لا تُرسل للمشتكي</span></h3>'
       );
       html = html.replace(
         '<h3>الرد الخارجي</h3>',
-        '<h3>الرد الخارجي <span class="pill" style="font-size:10px;background:#e8f0fa;color:#1e4a7a;border:1px solid #b7c9e0">يُرسل للمشتكي بعد الاعتماد</span></h3>'
+        '<h3>الرد الخارجي <span class="pill" style="font-size:10px;background:#e8f0fa;color:#1e4a7a;border:1px solid #b7c9e0">للمشتكي — الاعتماد والإرسال خطوتان منفصلتان</span></h3>'
       );
       return html;
     }

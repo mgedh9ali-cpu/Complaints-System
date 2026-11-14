@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { extractEncryptedBundle } = require('../lib/full-backup');
-const { createStorageCodec } = require('../lib/storage-codec');
+const { verifyRestoredData, readStorageKey } = require('../lib/restored-data');
 
 function readOptions(base) {
   const file = path.join(base, 'desktop-options.json');
@@ -57,28 +57,12 @@ async function prepareRestoredProfile({ base, bundlePath, secret }) {
   const profileRoot = path.join(base, profile);
   const data = path.join(profileRoot, 'data');
   fs.mkdirSync(profileRoot, { mode: 0o700 });
-  let db;
   try {
     const result = await extractEncryptedBundle({ bundlePath, secret, outputDir: data });
     const keyFile = path.join(data, 'storage-key');
-    if (!fs.existsSync(keyFile)) throw new Error('هذه الواجهة تتطلب نسخة كاملة مشفرة من الإصدار 1.0 أو أحدث.');
-    const storageKey = fs.readFileSync(keyFile, 'utf8');
-    if (storageKey.length > 1024 || /[\r\n\0]/.test(storageKey)) throw new Error('مفتاح محتوى غير صالح.');
-    const codec = createStorageCodec(storageKey);
+    const storageKey = readStorageKey(data);
+    const content = verifyRestoredData({ directory: data, storageKey });
     const sqlite = path.join(data, 'database.sqlite');
-    db = new (require('better-sqlite3'))(sqlite, { readonly: true, fileMustExist: true });
-    codec.decodeJson(db.prepare('SELECT key_check FROM storage_metadata WHERE id=1').get().key_check, 'key-check');
-    for (const row of db.prepare('SELECT id,payload_json FROM complaints').all()) codec.decodeJson(row.payload_json, 'complaint:' + row.id);
-    const state = db.prepare('SELECT state_json FROM app_state WHERE id=1').get();
-    if (state) codec.decodeJson(state.state_json, 'app-state');
-    if (!db.prepare("SELECT id FROM users WHERE role='admin' AND active=1").get()) throw new Error('النسخة لا تحتوي على حساب مدير فعال.');
-    db.close(); db = null;
-    for (const folder of ['attachments', 'retired-attachments']) {
-      const directory = path.join(data, folder);
-      if (fs.existsSync(directory)) for (const name of fs.readdirSync(directory)) {
-        codec.open(fs.readFileSync(path.join(directory, name)), 'attachment:' + name);
-      }
-    }
     fs.renameSync(sqlite, path.join(data, 'complaints.sqlite'));
     const fresh = () => crypto.randomBytes(48).toString('base64url');
     fs.writeFileSync(path.join(profileRoot, '.env'), [
@@ -86,9 +70,8 @@ async function prepareRestoredProfile({ base, bundlePath, secret }) {
       'BACKUP_SECRET="' + secret + '"', 'ADMIN_USERNAME=admin', 'ADMIN_PASSWORD=' + fresh(), ''
     ].join('\n'), { flag: 'wx', mode: 0o600 });
     fs.unlinkSync(keyFile);
-    return { profile, counts: result.counts, attachmentCount: result.attachmentCount };
+    return { profile, counts: result.counts, attachmentCount: result.attachmentCount, ...content };
   } catch (error) {
-    if (db) db.close();
     fs.rmSync(profileRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     throw error;
   }

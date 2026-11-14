@@ -667,3 +667,49 @@ test('reviewer completion preview exposes missing fields and view without edit c
  await ui.click('complete-draft',ui.state.complaints[0].id);
  assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="editComplaintForm"/);
 });
+
+test('work queues clear unrelated filters and show only matching open records',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<30;i++)await Promise.resolve();
+ const base=ui.state.complaints[0];
+ base.referrals=[{entity:'جهة',response:'',due:'2026-11-20'}];
+ ui.state.complaints.push({...base,id:'SY-2026-10002',status:'closed'});
+ ui.state.complaints.push({...base,id:'SY-2026-10003',referrals:[]});
+ ui.goto('complaints');
+ ui.events.get('change')({target:{id:'dateFrom',value:'2099-01-01',classList:{contains:()=>false}}});
+ ui.click('filter-record-type',undefined,{value:'inquiry'});
+ ui.goto('dashboard');ui.click('registry-queue',undefined,{queue:'waiting-referrals'});
+ const html=ui.node('#content').innerHTML;
+ assert.equal(ui.location.hash,'#complaints');assert.match(html,/SY-2026-10001/);assert.doesNotMatch(html,/SY-2026-10002|SY-2026-10003/);
+ assert.match(html,/data-filter-key="queue"/);assert.doesNotMatch(html,/2099-01-01/);
+ ui.click('remove-registry-filter',undefined,{filterKey:'queue'});
+ assert.match(ui.node('#content').innerHTML,/SY-2026-10003/);
+});
+
+test('active filter chips escape text and removing one preserves the other filters',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<30;i++)await Promise.resolve();ui.goto('complaints');
+ ui.events.get('change')({target:{id:'categoryFilter',value:'<img src=x>',classList:{contains:()=>false}}});
+ ui.events.get('change')({target:{id:'priorityFilter',value:'urgent',classList:{contains:()=>false}}});
+ assert.match(ui.node('#content').innerHTML,/&lt;img/);assert.doesNotMatch(ui.node('#content').innerHTML,/<img src=x>/);
+ ui.click('remove-registry-filter',undefined,{filterKey:'priority'});
+ assert.match(ui.node('#content').innerHTML,/data-filter-key="category"/);assert.doesNotMatch(ui.node('#content').innerHTML,/data-filter-key="priority"/);
+});
+
+test('next-step guidance offers incomplete editing and separates closed records and internal notes',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<30;i++)await Promise.resolve();const c=ui.state.complaints[0];
+ c.name='';c.category='غير مصنفة';ui.click('detail',c.id);
+ assert.match(ui.node('#content').innerHTML,/استكمال الآن/);
+ ui.click('edit-complaint',c.id);assert.match(ui.node('#modalRoot').innerHTML,/id="editComplaintForm"/);
+ ui.click('close-modal');c.status='closed';ui.click('detail',c.id);
+ assert.doesNotMatch(ui.node('#content').innerHTML,/استكمال الآن/);
+ assert.match(ui.node('#content').innerHTML,/خاصة — لا تُرسل للمشتكي/);
+});
+
+test('returning from a complaint preserves registry pagination and visible result count',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<30;i++)await Promise.resolve();
+ const base=ui.state.complaints[0];
+ for(let i=2;i<=65;i++)ui.state.complaints.push({...base,id:'PAGE-'+String(i).padStart(3,'0')});
+ ui.goto('complaints');ui.click('registry-next');
+ assert.match(ui.node('#content').innerHTML,/صفحة 2 \/ 2/);
+ ui.click('detail','PAGE-060');ui.click('detail-back');
+ assert.match(ui.node('#content').innerHTML,/صفحة 2 \/ 2/);assert.match(ui.node('#content').innerHTML,/65/);
+});

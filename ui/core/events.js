@@ -150,12 +150,14 @@ case 'reply-review':await withButtonLock(el,()=>replyAction(id,a));break;
 case 'reply-approve':await withButtonLock(el,()=>replyAction(id,a));break;
 case 'reply-sent':await withButtonLock(el,()=>replyAction(id,a));break;
 case 'read-all':db.notifications.forEach(n=>n.read=true);await persistUiNow();render();toast('تم تحديد الإشعارات كمقروءة.');break;
-case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
-case 'filter-due-soon':quickView='due-soon';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
-case 'filter-missing':recordTypeFilter='all';dateFrom='';dateTo='';registryPage=1;quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
-case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';dateTypeFilter='created';dateFrom='';dateTo='';recordTypeFilter='all';quickView='all';registryPage=1;render();break;
-case 'quick-filter':quickView=el.dataset.value||'all';recordTypeFilter='all';registryPage=1;statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';render();break;
-case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
+case 'filter-late':openRegistryQueue('late');break;
+case 'filter-due-soon':openRegistryQueue('due-soon');break;
+case 'filter-missing':openRegistryQueue('missing');break;
+case 'clear-filters':resetRegistryFilters();render();break;
+case 'quick-filter':openRegistryQueue(el.dataset.value||'all');break;
+case 'registry-queue':openRegistryQueue(el.dataset.queue);break;
+case 'remove-registry-filter':removeRegistryFilter(el.dataset.filterKey);break;
+case 'urgent-no-reply':openRegistryQueue('urgent-no-reply');break;
 case 'bulk-open':bulkOpen();break;
 case 'bulk-priority':bulkChangeModal('priority');break;
 case 'bulk-apply':await applyBulkChange(el.dataset.field);break;
@@ -204,6 +206,7 @@ case 'filter-record-type':{
 document.addEventListener('submit',e=>{if(e.target.id==='reportFiltersForm'){e.preventDefault();applyReportFilters();}});
 document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'&&!e.isComposing)scheduleRegistrySearch(e.target);});
 document.addEventListener('compositionend',e=>{if(e.target.id==='complaintSearch')scheduleRegistrySearch(e.target);});
+document.addEventListener('toggle',e=>{if(e.target.id==='registryAdvanced')registryAdvancedOpen=e.target.open;},true);
 document.addEventListener('change',e=>{if(e.target.id==='displayDensity')window.setDisplayPreference?.('density',e.target.value);if(e.target.id==='displayMotion')window.setDisplayPreference?.('motion',e.target.value);if(e.target.id==='bulkType'){if(typeof updateBulkValues==='function')updateBulkValues(e.target.value);return;}if(e.target.id==='paletteSelect'){window.setPalette?.(e.target.value);return;}if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
 document.addEventListener('keydown',e=>{
   const root=$('#modalRoot');
@@ -266,5 +269,3 @@ window.addEventListener('offline',()=>toast('انقطع الاتصال. العم
 (async function bootstrap(){try{const me=await api('/api/auth/me');authenticatedUser=me.user||me;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
 
 })();
-
-

@@ -362,7 +362,7 @@ async function restoreWizardStep2() {
   modal(
     'معالج الاستعادة — الخطوة 2/5',
     'جاري فحص السلامة…',
-    '<p class="small-copy">فك التشفير، مطابقة البصمات، سلامة القاعدة، سلسلة التدقيق، وعيّنة المرفقات.</p>' +
+    '<p class="small-copy">فك الحزمة، مطابقة البصمات، سلامة القاعدة وسلسلة التدقيق، ثم فك جميع الشكاوى وحالة التطبيق والتدقيق والتذكيرات والمرفقات النشطة والمؤرشفة بمفتاح المحتوى.</p>' +
       '<p dir="ltr">' + esc(name) + '</p>',
     '<button class="btn" data-action="close-modal">إلغاء</button>'
   );
@@ -394,14 +394,17 @@ function restoreWizardStep3() {
   const counts = r.counts || {};
   modal(
     'معالج الاستعادة — الخطوة 3/5',
-    'عرض الأثر — النسخة سليمة للفحص',
+    r.contentVerified ? 'نجح فحص الحزمة ومحتواها المشفر' : 'عرض نتيجة فحص النسخة',
     '<div class="risk-note">لو اعتمدت الاستبدال لاحقًا من Windows، ستُستبدل الشكاوى والمرفقات بمحتوى هذه النسخة؛ التعديلات الأحدث لن تظهر.</div>' +
       '<ul class="update-steps">' +
       '<li>الملف: <code dir="ltr">' + esc(_restoreWizard.name || '') + '</code></li>' +
       '<li>شكاوى في النسخة: ' + esc(String(counts.complaints ?? '—')) + '</li>' +
       '<li>مستخدمون: ' + esc(String(counts.users ?? '—')) + '</li>' +
       '<li>مرفقات: ' + esc(String(r.attachmentCount ?? '—')) + '</li>' +
-      '<li>ملفات في الحزمة: ' + esc(String(r.files ?? '—')) + '</li></ul>',
+      '<li>ملفات في الحزمة: ' + esc(String(r.files ?? '—')) + '</li></ul>' +
+      (r.contentVerified ? '<h3>المحتوى الذي تم فكّه والتحقق منه</h3><ul class="update-steps">' +
+        [['complaints','الشكاوى'],['appState','حالة التطبيق'],['auditEvents','أحداث التدقيق'],['reminders','ملاحظات التذكير'],['attachments','المرفقات النشطة'],['retiredAttachments','المرفقات المؤرشفة'],['attachmentMetadata','بيانات المرفقات الوصفية'],['approvalReasons','أسباب الموافقات والقرارات'],['twoFactorSecrets','مفاتيح التحقق الثنائي']].map(([key,label])=>'<li>'+label+': '+esc(String(r.contentCounts?.[key]??0))+'</li>').join('') +
+        '</ul><p class="small-copy">يُستخدم فاحص المحتوى نفسه عند الاستعادة الفعلية. يتطلب التفعيل أيضًا نجاح كتابة الملف المستعاد وإعداداته على الجهاز.</p>' : ''),
     '<button class="btn" data-action="close-modal">إلغاء</button>' +
       '<button class="btn btn-primary" data-action="restore-wizard-step4">التالي</button>'
   );

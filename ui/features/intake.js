@@ -74,7 +74,7 @@ function intakeFooterHtml() {
 }
 function renderIntakeWizard() {
   const banner = intakeWizard.offerDraft && hasComplaintDraft()
-    ? '<div class="intake-draft" id="draftBanner"><span>لديك مسودة محفوظة</span><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div>' : '';
+    ? '<div class="intake-draft" id="draftBanner"><span>لديك مسودة محفوظة — يمكنك استعادتها أو بدء سجل جديد</span><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div>' : '';
   intakeWizard.rendering=true;
   try{modal(intakeTitle(),'الملخص مطلوب فقط. يُحفظ السجل كمسودة برقم رسمي حتى تُستكمل الجهة والتصنيف والمحافظة.',banner+
     '<form id="newComplaintForm" novalidate>'+intakeQuickFormHtml()+'<p id="intakeDraftStatus" class="small-copy" role="status" aria-live="polite"></p></form>',intakeFooterHtml(),true);}finally{intakeWizard.rendering=false;}
@@ -167,6 +167,7 @@ function saveComplaintDraft() {
   if(status){
     status.textContent=saved?'مسودة محفوظة على هذا الجهاز · '+new Date(draft._savedAt).toLocaleTimeString('ar-SY-u-nu-latn'):'تعذر حفظ المسودة على هذا الجهاز. احتفظ بالنموذج مفتوحًا وأعد المحاولة.';
     status.classList.toggle('danger-text',!saved);
+    status.dataset.state=saved?'saved':'failed';
   }
   return saved;
 }
@@ -301,5 +302,3 @@ document.addEventListener('submit',function(e){
 });
 window.addEventListener('pagehide',preserveIntakeDraft);
 window.addEventListener('beforeunload',preserveIntakeDraft);
-
-

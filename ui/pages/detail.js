@@ -14,8 +14,9 @@ document.addEventListener('change',e=>{
 });
 function recordOverviewHtml(c){
  const last=(c.timeline||[])[0];
- const pending=(c.referrals||[]).filter(r=>!r.response&&!r.completedAt).map(r=>r.due).filter(Boolean).sort();
- const due=[...(!['closed','cancelled'].includes(c.status)?[c.due]:[]),...pending].filter(Boolean).sort()[0];
+ const open=!c.archivedAt&&!['closed','cancelled'].includes(c.status);
+ const pending=open?(c.referrals||[]).filter(r=>!r.response&&!r.completedAt).map(r=>r.due):[];
+ const due=[...(open?[c.due]:[]),...pending].filter(value=>value&&Number.isFinite(Date.parse(value))).sort((a,b)=>Date.parse(a)-Date.parse(b))[0];
  return '<dl class="record-overview">'+[['الحالة',statusLabel(c.status)],['آخر إجراء',last?.event||'لا توجد إجراءات'],['الموعد القادم',due?dateText(due):'غير محدد']].map(([k,v])=>'<div><dt>'+k+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>';
 }
 /* Record view: one heading, readable data, and a separate processing column. */
