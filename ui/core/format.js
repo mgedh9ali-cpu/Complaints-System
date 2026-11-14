@@ -5,7 +5,7 @@ function phoneNorm(s=''){let n=String(s).replace(/[٠-٩]/g,c=>String(c.charCode
 function dateText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',day:'2-digit',month:'short',year:'numeric'}).format(d);}
 function timeText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(d);}
 function ageDays(c){return Math.max(0,Math.floor((Date.now()-new Date(c.created).getTime())/86400000));}
-function isIncomplete(c){return c.status==='draft'||!c.name||!c.phone||!c.details||!c.province||c.province==='غير محددة'||c.category==='غير مصنفة';}
+function isIncomplete(c){return c.status==='draft'||!String(c.entity||'').trim()||!c.province||c.province==='غير محددة'||!String(c.category||'').trim()||c.category==='غير مصنفة';}
 function isLate(c){return !c.archivedAt && db.settings.slaApproved && !['closed','cancelled','draft'].includes(c.status) && Number.isFinite(new Date(c.due).getTime()) && Date.now()>new Date(c.due).getTime();}
 function isDueSoon(c,now=Date.now()){const due=Date.parse(c?.due);return Boolean(c&&!c.archivedAt&&db.settings.slaApproved&&!['closed','cancelled','draft'].includes(c.status)&&Number.isFinite(due)&&due>now&&due<=now+48*60*60*1000);}
 function statusLabel(s){return ({draft:'غير مكتملة',new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
@@ -84,3 +84,4 @@ async function exportXlsx(){
   if(page==='reports')return exportReport('xlsx');
   return previewRegistryExport('xlsx');
 }
+

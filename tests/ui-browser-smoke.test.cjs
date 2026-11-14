@@ -20,7 +20,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
  const document={
   documentElement:node('html'),readyState:'interactive',
   body:{dataset:{},prepend(){},append(){},appendChild(){}},activeElement:null,
-  querySelector(selector){if(selector==='#newComplaintForm'&&!node('#modalRoot').innerHTML.includes('id="newComplaintForm"'))return null;if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
+  querySelector(selector){if(selector==='[data-action="save-complaint"]')return node('#modalRoot').innerHTML.includes('data-action="save-complaint"')?node(selector):null;if(selector==='#newComplaintForm'&&!node('#modalRoot').innerHTML.includes('id="newComplaintForm"'))return null;if(['#syncImportFile','#syncPassword','#syncPasswordConfirm'].includes(selector)){const html=node(selector==='#syncImportFile'?'#content':'#modalRoot').innerHTML;if(!html.includes('id="'+selector.slice(1)+'"'))return null;}if(selector.startsWith('#')||selector==='.env-chip'||selector==='.prototype-note')return node(selector);return null;},
   querySelectorAll(selector){if(selector==='.nav-link')return[node('nav-dashboard'),node('nav-registry')];if(selector==='.row-check'){const a=node('row-check-a'),b=node('row-check-b');a.dataset.id='SY-2026-10001';b.dataset.id='SY-2026-10002';return[a,b];}return[];},
   addEventListener(type,fn){const previous=events.get(type);events.set(type,previous?event=>{previous(event);return fn(event);}:fn);},
   getElementById(id){return node('#'+id);},
@@ -56,7 +56,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
   else if(url==='/api/csrf')response={csrfToken:'token-from-session'};
   else if(url==='/api/complaints'&&options.method==='POST'){
    const data=JSON.parse(options.body);
-   const complaint={...data,id:'SY-2026-10002',status:'new',
+   const complaint={...data,id:'SY-2026-10002',status:data.asDraft?'draft':'new',
     created:new Date().toISOString(),updated:new Date().toISOString(),
     notes:[],timeline:[],referrals:[],reply:null};
    state.complaints.push(complaint);
@@ -468,7 +468,7 @@ test('inquiry review keeps contact details and saves optional fields without an 
  ui.node('#cSummary').value='استفسار عن المعاملة';
  ui.node('#cName').value='متصل للاختبار';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-11-10';
  let review=ui.node('#modalRoot').innerHTML;
- assert.match(review,/حفظ الاستفسار/);
+ assert.match(review,/حفظ كمسودة/);
  assert.equal(ui.node('#cName').value,'متصل للاختبار');
  assert.equal(ui.node('#cFirstContactDate').value,'2026-11-10');
  ui.click('intake-related');
@@ -569,9 +569,12 @@ test('quick intake exposes basic fields in order, one save, local suggestions an
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.state.complaints.push({...ui.state.complaints[0],id:'hint-only',name:'<img onerror=x>',entity:'<unsafe>',category:'متكرر'});
  await ui.click('new-complaint');const html=ui.node('#modalRoot').innerHTML;
- const basics=['cName','cPhone','cEntity','cCategory','cSummary','cDetails'].map(id=>html.indexOf('id="'+id+'"'));
+ const basics=['cSummary','cName','cPhone'].map(id=>html.indexOf('id="'+id+'"'));
  assert.ok(basics.every((n,i)=>n>=0&&(i===0||n>basics[i-1])));
  assert.ok(basics.at(-1)<html.indexOf('id="intakeAdditional"'));
+ for(const id of ['cEntity','cCategory','cDetails','cProvince','cNature','cPriority','cSource','cFirstContactDate','intakeAttachmentsMount'])
+  assert.ok(html.indexOf('id="'+id+'"')>html.indexOf('id="intakeAdditional"'),id+' belongs in additional details');
+ assert.match(html,/اتركه فارغًا إذا كان البلاغ مجهولًا/);
  assert.match(html,/<details class="intake-additional" id="intakeAdditional">/);
  assert.match(html,/list="intakeNames"/);assert.match(html,/&lt;img onerror=x&gt;/);assert.doesNotMatch(html,/<img/);
  assert.match(html,/id="cFirstContactDate"[^>]*value="\d{4}-\d{2}-\d{2}"/);
@@ -603,4 +606,32 @@ test('invalid phone is explained inline; an existing Arabic-digit phone remains 
  await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
  const saved=ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST');assert.equal(JSON.parse(saved.body).phone,'0912345678');
  assert.match(ui.node('#modalRoot').innerHTML,/SY-2026-10002/);
+});
+
+
+test('anonymous quick intake saves a numbered draft with safe defaults and offers completion',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ await ui.click('new-complaint');ui.node('#cSummary').value='بلاغ مجهول مفهوم';
+ await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
+ const body=JSON.parse(ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST').body);
+ assert.equal(body.name,'');assert.equal(body.phone,'');assert.equal(body.entity,'');
+ assert.equal(body.category,'غير مصنفة');assert.equal(body.province,'غير محددة');
+ assert.equal(body.priority,'normal');assert.equal(body.source,'phone');assert.equal(body.asDraft,true);
+ const saved=ui.state.complaints.at(-1);assert.equal(saved.status,'draft');
+ assert.match(ui.node('#modalRoot').innerHTML,/تم حفظ المسودة/);
+ assert.match(ui.node('#modalRoot').innerHTML,/فتح السجل/);
+ assert.match(ui.node('#modalRoot').innerHTML,/SY-2026-10002/);
+});
+
+test('known metadata opens an anonymous record without requiring optional contact or long details',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ await ui.click('new-complaint');
+ ui.node('#cSummary').value='سجل بلا معلومات شخصية';ui.node('#cEntity').value='جهة معروفة';
+ ui.node('#cCategory').value='خدمات';ui.node('#cProvince').value='دمشق';
+ ui.events.get('input')({target:ui.node('#cEntity')});
+ assert.equal(ui.node('[data-action="save-complaint"]').textContent,'فتح سجل');
+ await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
+ const body=JSON.parse(ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST').body);
+ assert.equal(body.asDraft,false);assert.equal(body.name,'');assert.equal(body.details,'');
+ assert.match(ui.node('#modalRoot').innerHTML,/تم فتح السجل/);
 });

@@ -29,7 +29,7 @@ function intakeTextField(label, id, options = {}) {
     (options.required?' <span class="intake-required">مطلوب</span>':'')+'</label><input class="field" id="'+id+'" name="'+id+'" type="'+(options.type||'text')+'" '+
     (options.required?'required ':'')+'maxlength="'+(options.max||120)+'" autocomplete="off" '+
     (options.list?'list="'+options.list+'" ':'')+(options.type==='tel'?'dir="ltr" inputmode="tel" ':'')+
-    'aria-describedby="'+id+'Error" value="'+esc(value)+'"><p class="field-error" id="'+id+'Error" hidden></p></div>';
+    'aria-describedby="'+id+'Error'+(options.hint?' '+id+'Hint':'')+'" value="'+esc(value)+'">'+(options.hint?'<p class="small-copy" id="'+id+'Hint">'+esc(options.hint)+'</p>':'')+'<p class="field-error" id="'+id+'Error" hidden></p></div>';
 }
 
 function intakeQuickFormHtml() {
@@ -37,17 +37,17 @@ function intakeQuickFormHtml() {
   return '<div class="intake-record-type" role="group" aria-label="نوع السجل">'+
     [['complaint','شكوى'],['inquiry','استفسار']].map(([type,label])=>'<button type="button" class="btn btn-sm" data-action="intake-pick-type" data-type="'+type+'" aria-pressed="'+(type===intakeWizard.recordType)+'">'+label+'</button>').join('')+'</div>'+
     '<div class="form-grid">'+
-    intakeTextField(inquiry?'اسم مقدم الاستفسار':'اسم مقدم الشكوى','cName',{list:'intakeNames'})+
-    intakeTextField('الهاتف','cPhone',{type:'tel',max:40})+
-    '<div class="form-field full"><div id="duplicateMount" class="intake-phone-hint" role="status" aria-live="polite"></div></div>'+
-    intakeTextField('الجهة المختصة','cEntity',{list:'intakeEntities'})+
-    intakeTextField('التصنيف','cCategory',{list:'intakeCategories'})+
     intakeTextField(inquiry?'ملخص الاستفسار':'ملخص الشكوى','cSummary',{required:true,max:180,full:true})+
-    '<div class="form-field full"><label for="cDetails">التفاصيل</label><textarea class="textarea-field" id="cDetails" maxlength="10000" aria-describedby="cDetailsError">'+esc(d.cDetails||'')+'</textarea><p class="field-error" id="cDetailsError" hidden></p></div></div>'+
+    intakeTextField(inquiry?'اسم مقدم الاستفسار (اختياري)':'اسم مقدم الشكوى (اختياري)','cName',{list:'intakeNames',hint:'اتركه فارغًا إذا كان البلاغ مجهولًا.'})+
+    intakeTextField('الهاتف (اختياري)','cPhone',{type:'tel',max:40})+
+    '<div class="form-field full"><div id="duplicateMount" class="intake-phone-hint" role="status" aria-live="polite"></div></div></div>'+
     '<datalist id="intakeNames">'+intakeSuggestions('name')+'</datalist>'+
     '<datalist id="intakeEntities">'+intakeSuggestions('entity',db.settings.entities?.length?db.settings.entities:seed.settings.entities||[])+'</datalist>'+
     '<datalist id="intakeCategories">'+intakeSuggestions('category',db.settings.categories?.length?db.settings.categories:seed.settings.categories||[])+'</datalist>'+
     '<details class="intake-additional" id="intakeAdditional"><summary>تفاصيل إضافية <span class="small-copy">اختياري</span></summary><div class="form-grid">'+
+    intakeTextField('الجهة (إن عُرفت)','cEntity',{list:'intakeEntities'})+
+    intakeTextField('التصنيف (إن عُرف)','cCategory',{list:'intakeCategories'})+
+    '<div class="form-field full"><label for="cDetails">التفاصيل المطولة (اختياري)</label><textarea class="textarea-field" id="cDetails" maxlength="10000" aria-describedby="cDetailsError">'+esc(d.cDetails||'')+'</textarea><p class="field-error" id="cDetailsError" hidden></p></div>'+
     selectField('المحافظة','cProvince',db.settings.provinces,d.cProvince||'',false)+
     selectField('طبيعة السجل','cNature',db.settings.natures||[],d.cNature||'',false)+
     selectField('الأولوية','cPriority',db.settings.priorities,d.cPriority||'normal',false)+
@@ -58,23 +58,33 @@ function intakeQuickFormHtml() {
 }
 
 function intakeTitle() { return intakeWizard.recordType==='inquiry'?'تسجيل استفسار':'تسجيل شكوى'; }
+function intakeNeedsCompletion() {
+  const d = intakeWizard.data;
+  return !String(d.cEntity||'').trim() || !String(d.cCategory||'').trim() ||
+    d.cCategory==='غير مصنفة' || !d.cProvince || d.cProvince==='غير محددة';
+}
+function intakeSaveLabel() { return intakeNeedsCompletion() ? 'حفظ كمسودة' : 'فتح سجل'; }
+function intakeUpdateSaveLabel() {
+  const button=$('[data-action="save-complaint"]');
+  if(button&&!intakeSavePending)button.textContent=intakeSaveLabel();
+}
 function intakeFooterHtml() {
   return '<div class="intake-save-actions"><span class="small-copy">Ctrl + Enter للحفظ</span>'+
-    '<button type="button" class="btn btn-primary" data-action="save-complaint">حفظ '+(intakeWizard.recordType==='inquiry'?'الاستفسار':'الشكوى')+'</button></div>';
+    '<button type="button" class="btn btn-primary" data-action="save-complaint">'+intakeSaveLabel()+'</button></div>';
 }
 function renderIntakeWizard() {
   const banner = intakeWizard.offerDraft && hasComplaintDraft()
     ? '<div class="intake-draft" id="draftBanner"><span>لديك مسودة محفوظة</span><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div>' : '';
   intakeWizard.rendering=true;
-  try{modal(intakeTitle(),'الملخص مطلوب. يمكنك استكمال بقية البيانات لاحقًا.',banner+
+  try{modal(intakeTitle(),'الملخص مطلوب فقط. يُحفظ السجل كمسودة برقم رسمي حتى تُستكمل الجهة والتصنيف والمحافظة.',banner+
     '<form id="newComplaintForm" novalidate>'+intakeQuickFormHtml()+'<p id="intakeDraftStatus" class="small-copy" role="status" aria-live="polite"></p></form>',intakeFooterHtml(),true);}finally{intakeWizard.rendering=false;}
   $('.modal')?.classList.add('intake-dialog','intake-quick');
-  $('#cName')?.focus?.();
+  $('#cSummary')?.focus?.();
   intakePhoneHint();
 }
 function intakeFieldError(id, message) {
   const input=$('#'+id), error=$('#'+id+'Error');
-  if(input){input.setAttribute('aria-invalid','true');input.focus?.();}
+  if(input){const additional=input.closest?.('#intakeAdditional');if(additional)additional.open=true;input.setAttribute('aria-invalid','true');input.focus?.();}
   if(error){error.hidden=false;error.textContent=message;}
   return false;
 }
@@ -111,12 +121,12 @@ function intakePhoneHint() {
   const mount=$('#duplicateMount');if(!mount||!authenticatedUser)return;
   const phone=phoneNorm($('#cPhone')?.value||intakeWizard.data.cPhone||'');
   const matches=phone.length>=7?(db.complaints||[]).filter(c=>!c.archivedAt&&phoneNorm(c.phone||'')===phone):[];
-  mount.innerHTML=matches.length?'<details><summary>لهذا الرقم '+matches.length+' سجل سابق — يمكنك متابعة التسجيل</summary>'+matches.slice(0,5).map(c=>'<button type="button" class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'"><bdi>'+esc(c.id)+'</bdi> · '+esc(c.summary||'')+'</button>').join('')+'</details>':'';
+  mount.innerHTML=matches.length?'<details><summary>لهذا الرقم '+matches.length+' سجل سابق — افتحه للمراجعة أو تابع تسجيل سجل جديد</summary>'+matches.slice(0,5).map(c=>'<button type="button" class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'"><bdi>'+esc(c.id)+'</bdi> · '+esc(c.summary||'')+'</button>').join('')+'</details>':'';
 }
 function duplicateCheck() { intakeCollectVisible();intakePhoneHint(); }
-function intakeSavedModal(id, elapsed) {
-  modal('تم حفظ السجل','رقم السجل: '+esc(id),'<p class="intake-saved-id"><bdi>'+esc(id)+'</bdi></p><p class="small-copy">من فتح النموذج إلى الحفظ: '+elapsed+' ثانية.</p>',
-    '<button type="button" class="btn" data-action="intake-view" data-id="'+esc(id)+'">عرض الشكوى</button><button type="button" class="btn btn-primary" data-action="intake-new">تسجيل شكوى أخرى</button>');
+function intakeSavedModal(id, elapsed, asDraft = false) {
+  modal(asDraft?'تم حفظ المسودة':'تم فتح السجل','رقم السجل: '+esc(id),'<p class="intake-saved-id"><bdi>'+esc(id)+'</bdi></p><p class="small-copy">'+(asDraft?'مسودة تحتاج استكمال الجهة أو التصنيف أو المحافظة من صفحة السجل.':'يمكن متابعة السجل من صفحته.')+'</p><p class="small-copy">من فتح النموذج إلى الحفظ: '+elapsed+' ثانية.</p>',
+    '<button type="button" class="btn" data-action="intake-view" data-id="'+esc(id)+'">فتح السجل</button><button type="button" class="btn btn-primary" data-action="intake-new">تسجيل شكوى أخرى</button>');
 }
 
 function hasComplaintDraft() {
@@ -201,7 +211,8 @@ async function createComplaint(asDraft = false, addAnother = false) {
   const d = intakeWizard.data;
   const form = $('#newComplaintForm');
   if (!form) return false;
-  if (!asDraft && !intakeValidate()) return false;
+  if (!intakeValidate()) return false;
+  asDraft = asDraft || intakeNeedsCompletion();
   const isInquiry = intakeWizard.recordType === 'inquiry';
   const body = {
     name: String(d.cName || '').trim(),
@@ -258,11 +269,11 @@ async function createComplaint(asDraft = false, addAnother = false) {
     page = 'complaints';
     history.replaceState({ view: 'complaints' }, '', '#complaints');
     render();
-    if(!addAnother)intakeSavedModal(response.complaint.id,Math.max(0,Math.round((Date.now()-(intakeWizard.startedAt||Date.now()))/1000)));
+    if(!addAnother)intakeSavedModal(response.complaint.id,Math.max(0,Math.round((Date.now()-(intakeWizard.startedAt||Date.now()))/1000)),asDraft);
     window.dispatchEvent(new CustomEvent('complaints:created', { detail: { id: response.complaint.id, files } }));
     intakeWizard.files = [];
     if(addAnother){render();newComplaint();}
-    toast('تم حفظ السجل ' + response.complaint.id);
+    toast((asDraft?'تم حفظ المسودة ':'تم فتح السجل ') + response.complaint.id);
   } catch (error) {
     toast('تعذر حفظ السجل: ' + error.message, 'error');
     throw error;
@@ -280,13 +291,14 @@ document.addEventListener('click',function(e){
 document.addEventListener('input',function(e){
   if(!e.target.closest?.('#newComplaintForm'))return;
   const error=$('#'+e.target.id+'Error');if(error){error.hidden=true;error.textContent='';}e.target.removeAttribute?.('aria-invalid');
-  saveComplaintDraft();
+  saveComplaintDraft();intakeUpdateSaveLabel();
   if(e.target.id==='cPhone'){clearTimeout(intakePhoneHintTimer);intakePhoneHintTimer=setTimeout(()=>{if($('#newComplaintForm'))intakePhoneHint();},250);}
 });
-document.addEventListener('change',function(e){if(e.target.closest?.('#newComplaintForm')&&e.target.type!=='file')saveComplaintDraft();});
+document.addEventListener('change',function(e){if(e.target.closest?.('#newComplaintForm')&&e.target.type!=='file'){saveComplaintDraft();intakeUpdateSaveLabel();}});
 document.addEventListener('submit',function(e){
   if(e.target?.id!=='newComplaintForm')return;
   e.preventDefault();$('[data-action="save-complaint"]')?.click();
 });
 window.addEventListener('pagehide',preserveIntakeDraft);
 window.addEventListener('beforeunload',preserveIntakeDraft);
+
