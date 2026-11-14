@@ -161,12 +161,12 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/api',rejectTeamOperations);
-app.use('/api', createHealthRouter({ healthService, middleware }));
 app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
+app.use('/api',rejectTeamOperations);
+app.use('/api', createHealthRouter({ healthService, middleware }));
 app.use('/api', createAuthRouter({ authService, middleware, audit, rolesService, singleOperator:true }));
 app.use('/api', createApprovalsRouter({ approvalsService, middleware, rolesService }));
 app.use(

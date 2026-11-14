@@ -105,7 +105,7 @@ function addNote(id){
  if(!db.complaints.some(x=>x?.id===id))return;
  if(!uiCan('complaints.update'))
   return toast('لا تملك صلاحية إضافة ملاحظة.','error');
- modal('إضافة ملاحظة داخلية','هذه الملاحظة للفريق فقط',
+ modal('إضافة ملاحظة داخلية','ملاحظة خاصة داخل السجل',
  '<form id="noteForm"><div class="form-field"><label for="noteText">الملاحظة</label><textarea class="textarea-field" id="noteText" required maxlength="4000" placeholder="اكتب ملاحظة داخلية للفريق"></textarea></div></form>',
  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-note" data-id="'+esc(id)+'">حفظ الملاحظة</button>');
 }
@@ -241,3 +241,4 @@ async function applyBulkChange(field){
  else toast('تم تحديث '+succeeded+' شكوى وتسجيل التغييرات في سجل التدقيق.');
  if(button){button.disabled=false;button.removeAttribute('aria-busy');}
 }
+

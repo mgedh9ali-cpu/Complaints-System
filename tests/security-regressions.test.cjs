@@ -130,6 +130,9 @@ test('live server never serves database or source code without authentication', 
     fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
   await waitFor(url + '/api/health', child);
+  for (const target of ['/api/health', '/api/health/metrics', '/api/state']) {
+    assert.equal((await fetch(url + target)).headers.get('cache-control'), 'no-store', target);
+  }
 
   for (const target of ['/data/complaints.sqlite', '/data/complaints.sqlite-wal',
     '/server.js', '/package.json', '/lib/validation.js', '/config/env.js',
@@ -150,3 +153,4 @@ test('live server never serves database or source code without authentication', 
   assert.equal(await withHost('evil.example:3000'), 421);
   assert.equal(await withHost('localhost.evil:3000'), 421);
 });
+
