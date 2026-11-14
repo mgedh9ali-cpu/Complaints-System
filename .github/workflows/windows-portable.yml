@@ -87,6 +87,21 @@ jobs:
           node scripts/smoke-packaged.js "$executable" | Tee-Object -FilePath dist-desktop/startup-installed-layout.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Verify installing twice updates the same application
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist-desktop/*-setup.exe | Select-Object -First 1).FullName
+          $installDir = Join-Path $env:RUNNER_TEMP 'complaints-reinstall'
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $executable = Join-Path $installDir ($package.build.productName + '.exe')
+          foreach ($pass in 1..2) {
+            $process = Start-Process -FilePath $setup -ArgumentList @('/S', "/D=$installDir") -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "Installer pass $pass failed: $($process.ExitCode)" }
+            if (-not (Test-Path $executable)) { throw 'Installed application is missing' }
+            node scripts/smoke-packaged.js "$executable" | Tee-Object -FilePath "dist-desktop/startup-reinstall-$pass.json"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
       - name: Record immutable artifact checksums
         run: node scripts/release-manifest.js
 
@@ -120,6 +135,9 @@ jobs:
           retention-days: 14
 
   publish-release:
+    concurrency:
+      group: complaints-release-publication
+      cancel-in-progress: false
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-windows
     runs-on: ubuntu-latest
@@ -143,7 +161,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Remove previous releases after verified rc.8 publication
+      - name: Keep only the verified current release
         if: success()
         shell: bash
         env:
@@ -152,10 +170,6 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
-          if (version !== '1.0.0-rc.8') {
-            console.log('One-time release cleanup does not apply to this version.');
-            process.exit(0);
-          }
           const repo = process.env.GITHUB_REPOSITORY;
           const sha = process.env.GITHUB_SHA;
           if (repo !== 'mgedh9ali-cpu/Complaints-System' || process.env.GITHUB_REF !== 'refs/heads/main' || !/^[a-f0-9]{40}$/.test(sha || '')) {
@@ -172,13 +186,15 @@ jobs:
             if (!response.ok) throw new Error(method + ' ' + path + ' failed: ' + response.status);
             return response.status === 204 ? null : response.json();
           }
+          const head = await request('/git/ref/heads/main');
+          if (head.object?.sha !== sha) throw new Error('A newer main commit exists; leave previous releases available until its build succeeds.');
           const tag = 'v' + version + '-build.' + sha;
           const current = await request('/releases/tags/' + encodeURIComponent(tag));
           const manifest = JSON.parse(fs.readFileSync('dist-desktop/build-manifest.json', 'utf8'));
           const installer = manifest.artifacts.find(a => a.filename === 'complaints-system-' + version + '-setup.exe');
           const asset = current.assets.find(a => a.name === installer?.filename);
           const ref = await request('/git/ref/tags/' + encodeURIComponent(tag));
-          if (current.draft || current.target_commitish !== sha || ref.object?.sha !== sha ||
+          if (current.draft || current.assets.length !== 1 || current.target_commitish !== sha || ref.object?.sha !== sha ||
               manifest.commit !== sha || manifest.version !== version || !installer ||
               !asset || asset.state !== 'uploaded' || asset.size !== installer.bytes ||
               asset.digest !== 'sha256:' + installer.sha256) {
@@ -203,3 +219,4 @@ jobs:
           }
           console.log('Verified: only ' + tag + ' remains. Git tags and source history are retained.');
           NODE
+

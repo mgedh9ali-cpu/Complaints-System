@@ -21,6 +21,18 @@ html, body, button, input, select, textarea {
   font-family: var(--ui-font) !important;
 }
 
+/* Keep Arabic labels readable in narrow dialogs and make field errors local. */
+.modal-header > div { min-width: 0; }
+.modal-header h2, .modal-header p { overflow-wrap: anywhere; }
+.modal-close { flex-shrink: 0; min-width: 44px; min-height: 44px; }
+.field[aria-invalid="true"], .textarea-field[aria-invalid="true"] {
+  border-color: var(--red); box-shadow: 0 0 0 1px var(--red);
+}
+.field-error { margin: 0; color: var(--red); font-size: 13px; line-height: 1.7; }
+.intake-record-type .btn[aria-pressed="true"] {
+  background: var(--forest); color: var(--on-forest); border-color: var(--forest);
+}
+
 .table-wrap,
 .table-wrap *,
 .table-panel,
@@ -391,3 +403,4 @@ html[data-theme="dark"] {
   .dashboard-actions .task-symbol { width: 32px; height: 32px; align-self: start; }
   .dashboard-actions .task-controls { grid-column: 2; justify-content: flex-end; }
 }
+

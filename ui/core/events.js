@@ -200,7 +200,8 @@ case 'filter-record-type':{
 }catch(error){toast('لم يُحفظ الإجراء: '+error.message,'error');}
 });
 document.addEventListener('submit',e=>{if(e.target.id==='reportFiltersForm'){e.preventDefault();applyReportFilters();}});
-document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'){if(e.isComposing)return;searchText=e.target.value;registryPage=1;const start=e.target.selectionStart,end=e.target.selectionEnd;render();const input=$('#complaintSearch');if(input){input.focus({preventScroll:true});if(start!==null&&end!==null)input.setSelectionRange(start,end);}}});
+document.addEventListener('input',e=>{if(e.target.id==='commandQuery'){renderCommands(e.target.value);return;}if(e.target.id==='complaintSearch'&&!e.isComposing)scheduleRegistrySearch(e.target);});
+document.addEventListener('compositionend',e=>{if(e.target.id==='complaintSearch')scheduleRegistrySearch(e.target);});
 document.addEventListener('change',e=>{if(e.target.id==='displayDensity')window.setDisplayPreference?.('density',e.target.value);if(e.target.id==='displayMotion')window.setDisplayPreference?.('motion',e.target.value);if(e.target.id==='bulkType'){if(typeof updateBulkValues==='function')updateBulkValues(e.target.value);return;}if(e.target.id==='paletteSelect'){window.setPalette?.(e.target.value);return;}if(e.target.id==='syncImportFile')return handleSyncImportChange(e.target);if(e.target.id==='detailPriority')changePriority(currentId);if(e.target.id==='reduceTransparency')setGlassPreference(e.target.checked);if(e.target.id==='detailStatus')updateReasonSheet();if(e.target.id==='statusFilter'){statusFilter=e.target.value;registryPage=1;render();}if(e.target.id==='priorityFilter'){priorityFilter=e.target.value;registryPage=1;render();}if(e.target.id==='categoryFilter'){categoryFilter=e.target.value;registryPage=1;render();}if(e.target.id==='natureFilter'){natureFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateTypeFilter'){dateTypeFilter=e.target.value;registryPage=1;render();}if(e.target.id==='dateFrom'){dateFrom=e.target.value;registryPage=1;render();}if(e.target.id==='dateTo'){dateTo=e.target.value;registryPage=1;render();}if(e.target.classList.contains('row-check')){if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);render();}});
 document.addEventListener('keydown',e=>{
   const root=$('#modalRoot');
@@ -263,3 +264,4 @@ window.addEventListener('offline',()=>toast('انقطع الاتصال. العم
 (async function bootstrap(){try{const me=await api('/api/auth/me');authenticatedUser=me.user||me;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
 
 })();
+

@@ -34,6 +34,18 @@ async function smoke(executable,serverScript){
   }
   assert.ok(ready,'Packaged app readiness timed out: '+diagnostic);
   const startupReadyMs=Date.now()-launchedAt;
+  if(!serverScript){
+   const resultPath=path.join(smokeRoot,'profile','font-verification.json');
+   const errorPath=path.join(smokeRoot,'startup-error.txt');
+   const deadline=Date.now()+30000;
+   while(!fs.existsSync(resultPath)&&Date.now()<deadline){
+    if(fs.existsSync(errorPath))throw new Error(fs.readFileSync(errorPath,'utf8'));
+    if(child.exitCode!==null)throw new Error('Desktop exited before font verification: '+diagnostic);
+    await new Promise(resolve=>setTimeout(resolve,100));
+   }
+   assert.ok(fs.existsSync(resultPath),'Chromium font verification timed out');
+   assert.equal(JSON.parse(fs.readFileSync(resultPath,'utf8')).ok,true,'Bundled font rendered');
+  }
   const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'release_admin',password})});
   assert.equal(login.status,200,'Packaged login');
   const cookie=login.headers.get('set-cookie').split(';')[0];
@@ -48,7 +60,7 @@ async function smoke(executable,serverScript){
   const metrics=await(await fetch(base+'/api/health/metrics',{headers:{cookie}})).json();
   assert.equal(metrics.integrity,'ok');assert.equal(metrics.contentEncryptionEnabled,true);
   assert.equal((await fetch(base+'/.env')).status,404);
-  console.log(JSON.stringify({passed:true,platform:process.platform,mode:serverScript?'packaged-server':'desktop-application',startupReadyMs,checks:['startup','login','encrypted-sqlite','complaint-write','arabic-pdf','xlsx','private-config']}));
+  console.log(JSON.stringify({passed:true,platform:process.platform,mode:serverScript?'packaged-server':'desktop-application',startupReadyMs,checks:['startup',...(serverScript?[]:['chromium-thmanyah-rendering']),'login','encrypted-sqlite','complaint-write','arabic-pdf','xlsx','private-config']}));
  }finally{
   if(process.platform==='win32'&&child.pid)spawnSync('taskkill',['/PID',String(child.pid),'/T','/F'],{stdio:'ignore',windowsHide:true});
   else if(child.pid&&child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>{const timer=setTimeout(()=>child.kill('SIGKILL'),2000);child.once('exit',()=>{clearTimeout(timer);resolve();});});}
@@ -57,3 +69,4 @@ async function smoke(executable,serverScript){
 }
 if(require.main===module){const [executable,flag,serverScript]=process.argv.slice(2);if(!executable||(flag&&flag!=='--node-server')){console.error('Usage: node scripts/smoke-packaged.js APP [--node-server PACKAGED_SERVER_JS]');process.exitCode=1;}else smoke(executable,serverScript).catch(e=>{console.error(e.message);process.exitCode=1;});}
 module.exports={smoke};
+

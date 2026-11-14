@@ -218,9 +218,7 @@ const PUBLIC_FILES = {
   '/': 'index.html',
   '/index.html': 'index.html',
   '/ui-system.css': 'ui-system.css',
-  '/ui-compat.css': 'ui-compat.css',
   '/styles.css': 'styles.css',
-  '/ui-enhancements.css': 'ui-enhancements.css',
   '/redesign.css': 'redesign.css',
   '/fallback-font.css': 'fallback-font.css',
   '/palette.css': 'palette.css',
@@ -233,7 +231,6 @@ const PUBLIC_FILES = {
   '/ui-transitions.css': 'ui-transitions.css',
   '/ui-icon-motion.css': 'ui-icon-motion.css',
   '/ui-table-motion.css': 'ui-table-motion.css',
-  '/ui-prod.css': 'ui-prod.css',
   '/assets/NotoSansArabic.ttf': 'assets/NotoSansArabic.ttf',
   '/assets/fonts/cairo-arabic-wght-normal.woff2': 'assets/fonts/cairo-arabic-wght-normal.woff2',
   '/assets/fonts/cairo-latin-wght-normal.woff2': 'assets/fonts/cairo-latin-wght-normal.woff2',
@@ -256,6 +253,8 @@ app.get(Object.keys(PUBLIC_FILES), (req, res, next) => {
   if (!rel) return next();
   const full = path.join(__dirname, rel);
   if (!fs.existsSync(full)) return res.status(404).end();
+  // Application assets change in place when the local installer is upgraded.
+  res.setHeader('Cache-Control', 'no-store');
   res.sendFile(full);
 });
 
@@ -282,3 +281,4 @@ app.listen(env.port, env.host, () => {
 });
 startupPhasesMs.total = Math.round(performance.now() - startupStartedAt);
 module.exports = { backupScheduler, backupService, audit, startupPhasesMs };
+

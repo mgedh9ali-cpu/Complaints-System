@@ -3,6 +3,25 @@ let dateTypeFilter='created';
 let recordTypeFilter='all';
 let dateFrom='';
 let dateTo='';
+let registrySearchTimer=null;
+function scheduleRegistrySearch(input){
+  clearTimeout(registrySearchTimer);
+  searchText=input.value;
+  registryPage=1;
+  const owner=authenticatedUser;
+  registrySearchTimer=setTimeout(()=>{
+    registrySearchTimer=null;
+    if(!owner||owner!==authenticatedUser||page!=='complaints'||$('#complaintSearch')!==input)return;
+    const focused=document.activeElement===input;
+    const start=input.selectionStart,end=input.selectionEnd;
+    render();
+    const replacement=$('#complaintSearch');
+    if(focused&&replacement){
+      replacement.focus({preventScroll:true});
+      if(start!==null&&end!==null)replacement.setSelectionRange(start,end);
+    }
+  },150);
+}
 
 function complaintDateValue(c, type){
   if(type==='first_contact') return c.firstContactDate || '';
@@ -93,3 +112,4 @@ function complaintsPage(){
   '<div class="filters-row registry-chips"><button class="filter-chip '+(quickView==='all'?'active':'')+'" data-action="quick-filter" data-value="all">كل السجلات</button><button class="filter-chip '+(recordTypeFilter==='complaint'?'active':'')+'" data-action="filter-record-type" data-value="complaint">شكاوى فقط</button><button class="filter-chip '+(recordTypeFilter==='inquiry'?'active':'')+'" data-action="filter-record-type" data-value="inquiry">استفسارات فقط</button><button class="filter-chip '+(quickView==='urgent-no-reply'?'active':'')+'" data-action="urgent-no-reply">عاجلة بلا رد</button><button class="filter-chip" data-goto="replies">تنتظر الاعتماد</button><button class="filter-chip '+(quickView==='late'?'active':'')+'" data-action="filter-late">متجاوزة المهلة</button><button class="filter-chip '+(quickView==='missing'?'active':'')+'" data-action="quick-filter" data-value="missing">بيانات غير مكتملة</button><button class="filter-chip '+(quickView==='archived'?'active':'')+'" data-action="quick-filter" data-value="archived">الأرشيف</button></div>'+
   '<section class="panel table-panel registry-panel">'+filters()+'<div id="bulkMount">'+(selectedIds.size?'<div class="bulk-bar"><span>تم تحديد '+selectedIds.size+' سجلًا</span><div class="footer-actions"><button class="btn btn-sm" data-action="bulk-priority">تغيير الأولوية</button><button class="btn btn-sm" data-action="export-selected">تصدير المحدد</button><button class="btn btn-sm btn-quiet" data-action="clear-selection">إلغاء التحديد</button></div></div>':'')+'</div>'+complaintTable(visibleRows,{select:true,layout:layout,emptyMessage:db.complaints.length?'لا توجد شكاوى تطابق المرشحات الحالية. امسح المرشحات لعرض السجل.':'لا توجد شكاوى مسجلة بعد. يمكنك تسجيل شكوى جديدة.'})+'<div class="table-footer registry-footer"><span>عرض '+(visibleRows.length?((registryPage-1)*50+1):0)+'–'+((registryPage-1)*50+visibleRows.length)+' من '+rows.length+'</span><div class="pager"><button class="btn btn-sm" data-action="registry-prev" '+(registryPage<=1?'disabled':'')+'>السابق</button> <span class="pager-label">'+registryPage+' / '+totalPages+'</span> <button class="btn btn-sm" data-action="registry-next" '+(registryPage>=totalPages?'disabled':'')+'>التالي</button></div></div></section>';
 }
+

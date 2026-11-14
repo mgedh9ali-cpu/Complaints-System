@@ -291,6 +291,10 @@ if (!gotLock) {
       await waitForServer();
       startupTimings.serverReadyMs = Date.now() - bootStartedAt;
       await mainWindow.loadURL(APP_URL);
+      if (process.argv.includes('--release-smoke')) {
+        const fonts = await require('./verify-fonts').verifyRenderedFonts(mainWindow.webContents);
+        fs.writeFileSync(path.join(paths.base, 'font-verification.json'), JSON.stringify(fonts), {mode: 0o600});
+      }
       startupTimings.loginPageLoadedMs = Date.now() - bootStartedAt;
       console.info('[startup]', startupTimings);
       // A bounded, local timing record for diagnosing slow devices; no user data.
@@ -317,3 +321,4 @@ if (!gotLock) {
     if (quitting) app.quit();
   });
 }
+

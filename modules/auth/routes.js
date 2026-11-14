@@ -55,7 +55,6 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
     }
     req.session.regenerate((err) => {
       if (err) return next(err);
-      req.session.cookie.maxAge = req.body.rememberMe === true ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
       req.session.lastUserActivity=Date.now();
       req.session.idleMinutes=30;
       req.session.user = { id: result.user.id, version: result.user.sessionVersion || 0 };
@@ -194,3 +193,4 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
 }
 
 module.exports = { createAuthRouter };
+

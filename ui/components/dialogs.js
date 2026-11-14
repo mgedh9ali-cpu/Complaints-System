@@ -7,8 +7,9 @@ function modal(title,subtitle,body,footer='',wide=false){
   if(confirmDialogResolve){const done=confirmDialogResolve;confirmDialogResolve=null;done(false);}
   const root=$('#modalRoot');
   if(root.dataset.open!=='true')modalOpener=document.activeElement;
-  root.innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal '+(wide?'wide':'')+'" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDescription" tabindex="-1"><header class="modal-header"><div><h2 id="modalTitle">'+title+'</h2><p id="modalDescription">'+subtitle+'</p></div><button class="modal-close" data-action="close-modal" aria-label="إغلاق النافذة">×</button></header><div class="modal-body">'+body+'</div>'+(footer?'<footer class="modal-footer">'+footer+'</footer>':'')+'</section></div>';
+  root.innerHTML='<div class="modal-backdrop" data-action="backdrop-close"><section class="modal '+(wide?'wide':'')+'" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDescription" tabindex="-1"><header class="modal-header"><div><h2 id="modalTitle">'+esc(title)+'</h2><p id="modalDescription">'+subtitle+'</p></div><button class="modal-close" data-action="close-modal" aria-label="إغلاق النافذة">×</button></header><div class="modal-body">'+body+'</div>'+(footer?'<footer class="modal-footer">'+footer+'</footer>':'')+'</section></div>';
   root.dataset.open='true';
+  const shell=$('#appShell');if(shell)shell.inert=true;
   const dlg=$('.modal',root);
   const items=modalFocusables(dlg);
   (items[0]||dlg).focus();
@@ -28,6 +29,7 @@ function closeModal(){
     exit.onfinish=()=>{if(root.firstElementChild===old)root.innerHTML='';};
   }else root.innerHTML='';
   delete root.dataset.open;
+  const shell=$('#appShell');if(shell)shell.inert=false;
   if(modalOpener&&document.contains(modalOpener))modalOpener.focus();
   modalOpener=null;
 }
@@ -49,7 +51,7 @@ function confirmDialog(opts={}){
   return new Promise(resolve=>{
     modal(title, danger?'هذا الإجراء يحتاج مراجعة قبل التنفيذ.':'راجع التفاصيل ثم أكّد أو ألغِ.', body, footer);
     confirmDialogResolve=resolve;
-    const okBtn=$('[data-action="confirm-dialog-ok"]');
+    const okBtn=$(danger?'[data-action="confirm-dialog-cancel"]':'[data-action="confirm-dialog-ok"]');
     if(okBtn) okBtn.focus();
   });
 }
@@ -84,3 +86,4 @@ function confirmSyncPassword(){
  const password=input.value,done=syncPasswordResolve;syncPasswordResolve=null;
  input.value='';if(confirmation)confirmation.value='';closeModal();done?.(password);
 }
+
