@@ -9,5 +9,5 @@ body{margin:0;background:#073d30;color:#fff;font:18px Thmanyah,Tahoma,sans-serif
 <h1 id="heading">تحديث التطبيق</h1><p id="message" role="status" aria-live="polite">جارٍ التحقق من آخر إصدار…</p>
 <form id="credentials" hidden><label for="token">رمز وصول GitHub للمستودع الخاص</label><p>أنشئ رمز Fine-grained للمستودع Complaints-System فقط بصلاحية Contents: Read-only. يُحفظ مشفرًا على هذا الجهاز.</p><input id="token" type="password" autocomplete="off" required maxlength="300" aria-label="رمز الوصول"><button type="submit">حفظ ومتابعة</button></form>
 <progress id="progress" max="100" aria-label="تقدم تنزيل التحديث"></progress><p id="percent"></p>
-<h2 id="version"></h2><pre id="notes" hidden></pre><button id="close" hidden>إغلاق</button>
+<h2 id="version"></h2><section id="releaseNotes" aria-labelledby="releaseNotesTitle" hidden><h2 id="releaseNotesTitle">ما الجديد في هذا الإصدار؟</h2><pre id="notes"></pre></section><button id="close" hidden>إغلاق</button>
 <script src="update-view.js"></script></body></html>

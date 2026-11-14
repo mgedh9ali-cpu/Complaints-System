@@ -8,7 +8,7 @@ window.updateStatus.subscribe(status => {
   if (typeof status.percent === 'number') progress.value = status.percent;
   else progress.removeAttribute('value');
   document.getElementById('percent').textContent = typeof status.percent === 'number' ? status.percent + '٪' : '';
-  document.getElementById('notes').hidden = !status.notes;
+  document.getElementById('releaseNotes').hidden = !status.notes;
   document.getElementById('notes').textContent = status.notes || '';
   document.getElementById('close').hidden = !status.done;
 });
