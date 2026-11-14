@@ -60,8 +60,8 @@ function intakeQuickFormHtml() {
 function intakeTitle() { return intakeWizard.recordType==='inquiry'?'تسجيل استفسار':'تسجيل شكوى'; }
 function intakeNeedsCompletion() {
   const d = intakeWizard.data;
-  return !String(d.cEntity||'').trim() || !String(d.cCategory||'').trim() ||
-    d.cCategory==='غير مصنفة' || !d.cProvince || d.cProvince==='غير محددة';
+  return missingFields({entity:d.cEntity,category:d.cCategory,province:d.cProvince,details:d.cDetails})
+    .some(field=>field.level==='action');
 }
 function intakeSaveLabel() { return intakeNeedsCompletion() ? 'حفظ كمسودة' : 'فتح سجل'; }
 function intakeUpdateSaveLabel() {
@@ -301,4 +301,5 @@ document.addEventListener('submit',function(e){
 });
 window.addEventListener('pagehide',preserveIntakeDraft);
 window.addEventListener('beforeunload',preserveIntakeDraft);
+
 

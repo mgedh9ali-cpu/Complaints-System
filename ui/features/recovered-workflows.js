@@ -49,7 +49,7 @@ async function saveApprovalDecision(id,decision){
 
 function complaintWorkflowPanel(c){
  return '<div class="detail-section"><h3>المتابعة والاستكمال</h3><button class="btn btn-sm" data-action="edit-complaint" data-id="'+esc(c.id)+'">استكمال وتعديل البيانات</button>'+
- (isIncomplete(c)?'<p class="small-copy">بيانات هذه الشكوى غير مكتملة.</p>':'<p class="small-copy">الحقول الأساسية مكتملة.</p>')+
+ (isIncomplete(c)?missingFieldsHtml(c):'<p class="small-copy">الحقول الأساسية مكتملة.</p>')+
  '<button class="btn btn-sm" data-action="toggle-completion-reminder" data-id="'+esc(c.id)+'">'+(c.completionReminderStopped?'استئناف تذكير الاستكمال':'إيقاف تذكير الاستكمال')+'</button> '+
  (uiCan('approvals.request')&&!c.archivedAt?'<button class="btn btn-sm btn-danger" data-action="request-archive" data-id="'+esc(c.id)+'">طلب أرشفة الشكوى</button> <button class="btn btn-sm" data-action="propose-duplicate" data-id="'+esc(c.id)+'">اقتراح ربط كمكررة</button>':'')+
  (c.archivedAt?'<p class="risk-note">مؤرشفة: '+esc(c.archiveReason||'')+'</p>':'')+
@@ -152,3 +152,4 @@ async function applyRecoveredBulk(type,value){
   await reloadStoredState().catch(()=>{});toast('حُفظ '+saved+' من '+ids.length+'؛ توقف الإجراء: '+error.message,'error');
  }
 }
+

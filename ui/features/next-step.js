@@ -1,9 +1,9 @@
 /** Suggested next action on complaint detail (guidance, not automation). */
 function suggestedNextStep(c){
   if(!c || c.archivedAt) return null;
-  const incomplete = !c.name || !c.phone || !c.details;
-  if(c.status === 'draft' || incomplete)
-    return { title: 'استكمال البيانات', desc: 'بعض الحقول الأساسية ناقصة. أكمل الاسم أو الهاتف أو التفاصيل.', action: 'focus-summary', label: 'عرض البيانات' };
+  const incomplete = isIncomplete(c);
+  if(incomplete)
+    return { title: 'استكمال البيانات', desc: missingFields(c).map(field=>field.label).join('، '), action: 'focus-summary', label: 'عرض البيانات' };
   if(c.status === 'new')
     return { title: 'بدء المعالجة', desc: 'انقل الحالة إلى «قيد المعالجة» وابدأ المتابعة.', action: 'focus-status', label: 'إجراءات الحالة' };
   if(c.status === 'in_progress' && !(c.referrals || []).length && !c.reply)
@@ -93,3 +93,4 @@ if(!installDetailNextStepEnhancer()){
   setTimeout(installDetailNextStepEnhancer, 0);
   setTimeout(installDetailNextStepEnhancer, 50);
 }
+

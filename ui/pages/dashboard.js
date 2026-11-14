@@ -44,7 +44,7 @@ function complaintCards(rows,opts={}){
         pillPriority(c.priority)+
       '</div>'+
       '<button type="button" class="text-link card-title" data-action="detail" data-id="'+esc(c.id)+'">'+esc(c.summary||'بدون موضوع')+'</button>'+
-      '<p class="card-meta">'+esc(meta)+'</p>'+
+      '<p class="card-meta">'+esc(meta)+'</p>'+missingFieldsHtml(c)+
       '<div class="card-footer">'+
         '<div class="sla-cell">'+slaIndicator(c)+'<span class="age '+(late?'late':ageDays(c)>5?'soon':'ok')+'">'+ageDays(c)+'ي'+(late?' · متأخرة':'')+'</span></div>'+
         '<span class="card-date">'+dateText(c.created)+'</span>'+
@@ -70,7 +70,7 @@ function complaintTable(rows,opts={}){
       (opts.select?'<td class="col-check"><input class="table-check row-check" type="checkbox" aria-label="تحديد '+esc(c.id)+'" data-id="'+esc(c.id)+'" '+(selectedIds.has(c.id)?'checked':'')+'></td>':'')+
       '<td class="col-id"><span class="ticket-id" dir="ltr"><bdi>'+esc(c.id)+'</bdi></span><span class="row-sub">'+dateText(c.created)+'</span></td>'+
       '<td class="col-type">'+pillRecordType(c)+'</td>'+
-      '<td class="col-subject"><button class="text-link row-title" data-action="detail" data-id="'+esc(c.id)+'">'+esc(c.summary)+'</button><span class="row-sub">'+esc(meta)+'</span></td>'+
+      '<td class="col-subject"><button class="text-link row-title" data-action="detail" data-id="'+esc(c.id)+'">'+esc(c.summary)+'</button><span class="row-sub">'+esc(meta)+'</span>'+missingFieldsHtml(c)+'</td>'+
       '<td class="col-prov">'+esc(c.province||'—')+'</td>'+
       '<td class="col-status">'+pillStatus(c.status)+'</td>'+
       '<td class="col-pri">'+pillPriority(c.priority)+'</td>'+
@@ -100,11 +100,35 @@ function isCreatedToday(c){
   return day===y+'-'+m+'-'+d;
 }
 
+function incompleteRecords(){
+  const rank=c=>c.status==='draft'?0:missingFields(c).some(field=>field.level==='action')?1:2;
+  const created=c=>{const date=Date.parse(c.created);return Number.isFinite(date)?date:Number.MAX_SAFE_INTEGER;};
+  return db.complaints.filter(isIncomplete).sort((a,b)=>rank(a)-rank(b)||created(a)-created(b)||String(a.id).localeCompare(String(b.id)));
+}
+function incompleteRecordsPanel(){
+  const title='<div class="completion-heading"><h3 id="completionTitle">سجلات تحتاج استكمالًا</h3>';
+  try{
+    const rows=incompleteRecords();
+    return '<section class="completion-card" aria-labelledby="completionTitle">'+title+'<span>'+rows.length+' سجلات</span></div>'+
+      (rows.length?'<ul class="completion-list">'+rows.slice(0,5).map(c=>{
+        const days=ageDays(c),age=Number.isFinite(days)?(days===0?'مسجلة اليوم':'مسجلة منذ '+days+' أيام'):'تاريخ التسجيل غير متاح';
+        const edit=uiCan('complaints.update');
+        return '<li><div class="completion-record"><button type="button" class="text-link" data-action="detail" data-id="'+esc(c.id)+'"><bdi dir="ltr">'+esc(c.id)+'</bdi> · '+esc(c.summary||'بدون موضوع')+'</button>'+pillStatus(c.status)+'</div>'+
+          missingFieldsHtml(c)+'<div class="completion-footer"><small>'+age+'</small><button type="button" class="btn btn-sm" data-action="'+(edit?(c.status==='draft'?'complete-draft':'edit-complaint'):'detail')+'" data-id="'+esc(c.id)+'">'+(edit?(c.status==='draft'?'استكمال المسودة':'استكمال البيانات'):'فتح السجل')+'</button></div></li>';
+      }).join('')+'</ul><button type="button" class="btn btn-sm" data-action="filter-missing">عرض جميع السجلات الناقصة</button>':
+      '<p class="small-copy calm-empty">كل السجلات المفتوحة تحتوي على المعلومات المطلوبة للمتابعة.</p>')+'</section>';
+  }catch(_){
+    return '<section class="completion-card" aria-labelledby="completionTitle">'+title+'</div><p role="alert">تعذر تحميل قائمة السجلات الناقصة.</p><button type="button" class="btn btn-sm" data-action="retry-missing">إعادة المحاولة</button></section>';
+  }
+}
+async function retryIncompleteRecords(){
+  await flushUiBeforeAction();await loadDb();render();
+}
+
 function dashboard(){
   const late=lateComplaints(),approvals=pendingApprovals();
   const open=db.complaints.filter(c=>!c.archivedAt&&!['closed','cancelled'].includes(c.status));
   const dueSoon=open.filter(c=>isDueSoon(c));
-  const missing=open.filter(isIncomplete);
   const pendingReferrals=referralList().filter(r=>!r.response);
   const urgentNoReply=open.filter(c=>c.priority==='urgent'&&!c.reply);
   const newToday=open.filter(c=>c.status==='new'||isCreatedToday(c));
@@ -119,7 +143,6 @@ function dashboard(){
     [dueSoon.length,'amber','◷','مهل تستحق خلال 48 ساعة','ابدأ المتابعة قبل تجاوز المهلة','filter-due-soon',null],
     [approvals.length,'amber','✓','ردود تنتظر الاعتماد','اعتماد الرد من مستخدم مخوّل','', 'replies'],
     [pendingReferrals.length,'blue','↗','إحالات لم يصل ردها','تابع الجهات المحال إليها','', 'referrals'],
-    [missing.length,'amber','≡','سجلات تحتاج استكمالًا','نقص في الحقول الأساسية','filter-missing',null],
     [newToday.length,'blue','＋','جديدة اليوم','وردت أو ما زالت بحالة جديدة','quick-filter','',{value:'all'}]
   ].filter(task=>task[0]>0);
   const taskHtml=tasks.length?tasks.map(([n,color,icon,label,description,action,dest])=>
@@ -129,7 +152,7 @@ function dashboard(){
       '<div class="task-controls"><span class="task-value" aria-label="عدد السجلات: '+n+'">'+n+'</span>'+
       '<button type="button" class="btn btn-sm task-review" aria-label="مراجعة '+label+'" '+(dest?'data-goto="'+dest+'"':(action==='quick-filter'?'data-action="quick-filter" data-value="all"':'data-action="'+action+'"'))+'>مراجعة</button></div>'+
     '</div>'
-  ).join(''):'<div class="empty-state calm-empty">لا شيء يحتاج انتباهك الآن. يمكنك مراجعة السجل أو تسجيل شكوى جديدة.</div>';
+  ).join(''):'';
   const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['بانتظار رد الجهة',countStatus('awaiting_reply')],['بانتظار الاعتماد',countStatus('awaiting_approval')],['مغلقة',countStatus('closed')]];
   const totalActive=db.complaints.filter(c=>!c.archivedAt).length;
   return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل شكوى','new-complaint','btn-primary'):'')+
@@ -139,7 +162,7 @@ function dashboard(){
         '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+
-    '<div class="work-grid"><section class="panel dashboard-actions"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button type="button" class="btn btn-sm" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list" role="list" aria-label="المهام التي تحتاج إجراء">'+taskHtml+'</div></div></section>'+
+    '<div class="work-grid"><section class="panel dashboard-actions"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button type="button" class="btn btn-sm" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list" role="list" aria-label="المهام التي تحتاج إجراء">'+taskHtml+'</div>'+incompleteRecordsPanel()+'</div></section>'+
     '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+totalActive+' سجلًا نشطًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
       '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===3?'amber-fill':'')+'" style="width:'+(totalActive?Math.max(n?5:0,n/totalActive*100):0)+'%"></span></div></div>'
     ).join('')+'</div></div></section></div>'+
@@ -147,3 +170,4 @@ function dashboard(){
       complaintTable(priority,{emptyMessage:'لا توجد شكاوى مفتوحة تحتاج إلى متابعة.'})+
     '</section></div>';
 }
+

@@ -62,6 +62,8 @@ case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEd
 case 'add-entity':addSetting('entities');break;
 case 'archive-setting':await archiveSetting(el.dataset.type,el.dataset.value);break;
 case 'edit-complaint':editComplaintModal(id);break;
+case 'complete-draft':{const c=db.complaints.find(item=>item.id===id);if(c?.status==='draft')editComplaintModal(id);break;}
+case 'retry-missing':await withButtonLock(el,retryIncompleteRecords);break;
 case 'refresh-maintenance':refreshMaintenanceHealth();break;
 case 'save-reminder-period':saveReminderPeriod();break;
 case 'setup-two-factor':twoFactorPasswordModal();break;
@@ -150,7 +152,7 @@ case 'reply-sent':await withButtonLock(el,()=>replyAction(id,a));break;
 case 'read-all':db.notifications.forEach(n=>n.read=true);await persistUiNow();render();toast('تم تحديد الإشعارات كمقروءة.');break;
 case 'filter-late':quickView='late';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'filter-due-soon':quickView='due-soon';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
-case 'filter-missing':quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
+case 'filter-missing':recordTypeFilter='all';dateFrom='';dateTo='';registryPage=1;quickView='missing';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
 case 'clear-filters':searchText='';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';dateTypeFilter='created';dateFrom='';dateTo='';recordTypeFilter='all';quickView='all';registryPage=1;render();break;
 case 'quick-filter':quickView=el.dataset.value||'all';recordTypeFilter='all';registryPage=1;statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';render();break;
 case 'urgent-no-reply':quickView='urgent-no-reply';statusFilter='all';priorityFilter='all';categoryFilter='all';natureFilter='all';searchText='';go('complaints');break;
@@ -264,4 +266,5 @@ window.addEventListener('offline',()=>toast('انقطع الاتصال. العم
 (async function bootstrap(){try{const me=await api('/api/auth/me');authenticatedUser=me.user||me;await loadDb();updateSignedInUi();if(typeof restoreUiRoute==='function')restoreUiRoute();render();refreshApprovals?.();startReminderPolling?.();}catch(_){showLogin();}})();
 
 })();
+
 

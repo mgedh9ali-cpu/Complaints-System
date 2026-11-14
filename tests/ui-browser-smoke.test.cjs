@@ -635,3 +635,35 @@ test('known metadata opens an anonymous record without requiring optional contac
  assert.equal(body.asDraft,false);assert.equal(body.name,'');assert.equal(body.details,'');
  assert.match(ui.node('#modalRoot').innerHTML,/تم فتح السجل/);
 });
+
+
+test('completion preview edits the existing draft and keeps missing filters in sync with the count',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ const base=ui.state.complaints[0];
+ Object.assign(base,{name:'',phone:'',status:'draft',category:'غير مصنفة'});
+ await ui.goto('reports');await ui.goto('dashboard');
+ assert.match(ui.node('#content').innerHTML,/استكمال المسودة/);
+ await ui.click('complete-draft',base.id);
+ assert.match(ui.node('#modalRoot').innerHTML,/استكمال المسودة/);
+ assert.match(ui.node('#modalRoot').innerHTML,/id="editComplaintForm"/);
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="newComplaintForm"/);
+ await ui.click('close-modal');await ui.click('filter-record-type',undefined,{value:'complaint'});
+ ui.node('#dateFrom').value='2099-01-01';await ui.events.get('change')({target:ui.node('#dateFrom')});
+ await ui.goto('dashboard');await ui.click('filter-missing');
+ assert.match(ui.node('#content').innerHTML,/1 نتيجة|<strong>1<\/strong> نتيجة/);
+ assert.match(ui.node('#content').innerHTML,/لاستكمال المتابعة: المسودة/);
+ assert.match(ui.node('#content').innerHTML,/SY-2026-10001/);
+ assert.equal(ui.calls.filter(c=>c.url==='/api/complaints'&&c.method==='POST').length,0);
+});
+
+test('reviewer completion preview exposes missing fields and view without edit controls',async()=>{
+ const ui=createFakeBrowser('reviewer');for(let i=0;i<25;i++)await Promise.resolve();
+ ui.state.complaints[0].category='غير مصنفة';
+ await ui.goto('reports');await ui.goto('dashboard');
+ const preview=ui.node('#content').innerHTML.split('<section class="completion-card"')[1].split('</section>')[0];
+ assert.match(preview,/لاستكمال المتابعة: التصنيف/);
+ assert.match(preview,/فتح السجل/);
+ assert.doesNotMatch(preview,/data-action="edit-complaint"|data-action="complete-draft"/);
+ await ui.click('complete-draft',ui.state.complaints[0].id);
+ assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="editComplaintForm"/);
+});

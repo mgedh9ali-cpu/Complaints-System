@@ -404,3 +404,16 @@ html[data-theme="dark"] {
   .dashboard-actions .task-controls { grid-column: 2; justify-content: flex-end; }
 }
 
+
+
+/* Completion preview shares the registry's missing-field descriptions. */
+.completion-card { margin-block-start: 18px; padding-block-start: 18px; border-block-start: 1px solid var(--line); min-width: 0; }
+.completion-heading, .completion-record, .completion-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.completion-heading h3 { margin: 0; font-size: 16px; }
+.completion-heading > span, .completion-footer small { color: var(--muted); }
+.completion-list { list-style: none; margin: 12px 0; padding: 0; }
+.completion-list > li { padding-block: 14px; border-block-end: 1px solid var(--line); min-width: 0; }
+.completion-record .text-link { text-align: start; overflow-wrap: anywhere; min-width: 0; flex: 1 1 180px; }
+.completion-footer { margin-block-start: 10px; }
+.completion-footer .btn { min-height: 40px; }
+.missing-reason { margin-block: 6px; overflow-wrap: anywhere; }

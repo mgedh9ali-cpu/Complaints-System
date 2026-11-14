@@ -63,7 +63,7 @@ function editComplaintModal(id){
   const c=db.complaints.find(c=>c.id===id);if(!c||!uiCan('complaints.update'))return;
   ensureManagedSettings();
   const options=(items,current)=>items.includes(current)?items:[current,...items].filter(Boolean);
-  modal('استكمال وتعديل بيانات الشكوى','الرقم وتاريخ التسجيل وسجل الإجراءات ثابتة.',
+  modal(c.status==='draft'?'استكمال المسودة':'استكمال وتعديل بيانات الشكوى',c.status==='draft'?'أكمل البيانات ثم افتح السجل من إجراءات الحالة. يبقى الرقم وتاريخ التسجيل ثابتين.':'الرقم وتاريخ التسجيل وسجل الإجراءات ثابتة.',
   '<form id="editComplaintForm"><div class="form-grid">'+field('اسم المشتكي','editName',c.name||'')+field('تاريخ أول تواصل','editFirstContactDate',c.firstContactDate||'','date')+field('رقم الهاتف','editPhone',c.phone||'','tel')+
   selectField('المحافظة','editProvince',options(db.settings.provinces,c.province),c.province,true)+selectField('التصنيف','editCategory',options(db.settings.categories,c.category),c.category,true)+
   selectField('طبيعة الشكاوي','editNature',options(db.settings.natures||[],c.nature||''),c.nature||'',false)+
@@ -142,3 +142,4 @@ async function exportEncryptedSync(){
   return true;
 }
 function cancelPendingSyncImport(){pendingSyncPackage=null;if(syncImportTarget){try{syncImportTarget.value='';}catch(_){}}syncImportTarget=null;finishSyncImportWait();}
+
