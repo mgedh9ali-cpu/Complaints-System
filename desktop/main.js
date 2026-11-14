@@ -301,6 +301,8 @@ if (!gotLock) {
       try { fs.writeFile(path.join(paths.base, 'startup-timings.json'), JSON.stringify(startupTimings, null, 2), {mode:0o600}, () => {}); } catch (_) {}
       installTray(root);
       require('./maintenance').installMaintenanceMenu({app,Menu,ipcMain,dialog,shell,window:mainWindow,origin:APP_URL,paths,runtime:serverRuntime});
+      try { await require('./updater').completeUpdate({app,window:mainWindow,paths}); }
+      catch (_) { console.warn('[update] تعذر تسجيل اكتمال التحديث؛ سيُعاد التحقق في التشغيل القادم.'); }
     } catch (err) {
       if(process.argv.includes('--release-smoke')) {
         require('./smoke-profile').recordSmokeFailure(err);
@@ -321,4 +323,5 @@ if (!gotLock) {
     if (quitting) app.quit();
   });
 }
+
 

@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; font-src 'self'">
+<title>تحديث نظام الشكاوى</title>
+<style>
+@font-face{font-family:Thmanyah;src:url('../assets/fonts/thmanyah/thmanyahsans-Regular.woff2')}
+body{margin:0;background:#073d30;color:#fff;font:18px Thmanyah,Tahoma,sans-serif;padding:32px;line-height:1.8}h1{font-size:25px}progress{width:100%;height:22px;accent-color:#d4b778}p{color:#e3eadf}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:14px;background:#ffffff0d;padding:16px;border-radius:12px;max-height:200px;overflow:auto}button{font:inherit;padding:8px 24px;border:0;border-radius:8px;background:#d4b778;color:#073d30;cursor:pointer}
+</style></head><body>
+<h1 id="heading">تحديث التطبيق</h1><p id="message" role="status" aria-live="polite">جارٍ التحقق من آخر إصدار…</p>
+<form id="credentials" hidden><label for="token">رمز وصول GitHub للمستودع الخاص</label><p>أنشئ رمز Fine-grained للمستودع Complaints-System فقط بصلاحية Contents: Read-only. يُحفظ مشفرًا على هذا الجهاز.</p><input id="token" type="password" autocomplete="off" required maxlength="300" aria-label="رمز الوصول"><button type="submit">حفظ ومتابعة</button></form>
+<progress id="progress" max="100" aria-label="تقدم تنزيل التحديث"></progress><p id="percent"></p>
+<h2 id="version"></h2><pre id="notes" hidden></pre><button id="close" hidden>إغلاق</button>
+<script src="update-view.js"></script></body></html>

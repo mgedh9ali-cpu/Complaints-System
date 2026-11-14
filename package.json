@@ -1,6 +1,6 @@
 {
   "name": "complaints-local-system",
-  "version": "1.0.0-rc.8",
+  "version": "1.0.0-rc.9",
   "private": true,
   "description": "Local-first Arabic complaints system for private office use",
   "main": "desktop/main.js",
@@ -146,3 +146,4 @@
     "uuid": "11.1.1"
   }
 }
+

@@ -11,6 +11,7 @@ function desktopMaintenancePanel(){
 async function runDesktopMaintenance(command){
   try{
     if(!window.complaintsDesktop?.runMaintenance)return;
+    if(command==='download-update')await flushUiBeforeAction();
     await window.complaintsDesktop.runMaintenance(command);
     if(command==='choose-backup-directory'){
       _protectionStatusLoadedAt=0;_backupHistoryLoadedAt=0;
@@ -48,3 +49,4 @@ function settingsPageBase(){
 }
 
 function settingsPage(){return settingsPageBase()+maintenancePanel()+securityPanel()+auditPanel();}
+

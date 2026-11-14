@@ -96,7 +96,8 @@ test('maintenance IPC rejects foreign windows, frames, origins and unknown comma
  frame.url='http://127.0.0.1:3000/';
  await assert.rejects(handler({sender:webContents,senderFrame:frame},'arbitrary-file-command'));
  assert.equal(opened,0);assert.equal(dialogs,0);
- await handler({sender:webContents,senderFrame:frame},'download-update');assert.equal(opened,1);
+ // Source checkouts cannot install an update; report the error without opening a browser.
+ await handler({sender:webContents,senderFrame:frame},'download-update');assert.equal(opened,0);assert.equal(dialogs,1);
 });
 
 test('preload exposes only whitelisted maintenance commands',async()=>{
@@ -106,3 +107,4 @@ test('preload exposes only whitelisted maintenance commands',async()=>{
  await assert.rejects(bridge.runMaintenance('read-secret-file'));assert.equal(calls,0);
  await bridge.runMaintenance('about');assert.equal(calls,1);
 });
+

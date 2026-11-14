@@ -2,7 +2,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { readOptions, saveOptions, writeRecoveryKey, readRecoveryKey, assertWritableDirectory, prepareRestoredProfile } = require('./recovery');
-const RELEASES_URL = 'https://github.com/mgedh9ali-cpu/Complaints-System/releases';
 
 function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, paths, runtime, ipcMain }) {
   let busy = false;
@@ -70,8 +69,8 @@ function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, path
       { type:'separator' }, { role:'quit',label:'إغلاق التطبيق' }
     ]},
     { label:'التحديث والمساعدة',submenu:[
-      { label:'تنزيل أحدث إصدار…',click:action(async()=>{ await admin(); return shell.openExternal(RELEASES_URL); }) },
-      { label:'عن التطبيق',click:action(async()=>{ await admin(); return dialog.showMessageBox(window,{type:'info',message:'نظام الاستفسارات والشكاوى '+app.getVersion(),detail:'لتحديث البرنامج: احفظ نسخة كاملة ومفتاح استعادتها، ثم أغلق التطبيق بالكامل وشغّل ملف setup.exe المنشور، أو استبدل ملف portable.exe إن كنت تستخدم النسخة المحمولة. تبقى البيانات محفوظة خارج ملف البرنامج.'}); }) }
+      { label:'تنزيل أحدث إصدار…',click:action(async()=>{ await admin(); return require('./updater').runUpdate({app,window,paths,runtime,admin}); }) },
+      { label:'عن التطبيق',click:action(async()=>{ await admin(); return dialog.showMessageBox(window,{type:'info',message:'نظام الاستفسارات والشكاوى '+app.getVersion(),detail:'اضغط تنزيل أحدث إصدار لتنزيل التحديث والتحقق منه وحفظ نسخة احتياطية وتثبيته تلقائيًا. تظهر نسبة التنزيل وشريط التثبيت، ثم رقم الإصدار وما الجديد. تبقى بياناتك وإعداداتك محفوظة.'}); }) }
     ]}
   ];
   const commands = new Map([
@@ -101,3 +100,4 @@ function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, path
   return { runCommand };
 }
 module.exports = { installMaintenanceMenu };
+

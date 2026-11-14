@@ -38,6 +38,7 @@ async function desktopBoot(failSplash=false,pathApi=path){
   if(name==='./smoke-profile')return {configureSmokeProfile(){}};
   if(name===pathApi.join('/project','server.js')){events.push('server');return runtime;}
   if(name==='./maintenance')return {installMaintenanceMenu(options){assert.equal(options.runtime,runtime);events.push('maintenance');}};
+  if(name==='./updater')return {async completeUpdate(){events.push('update-confirmation');}};
   throw new Error('Unexpected import '+name);
  }};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../desktop/main.js'),'utf8'),context);
@@ -54,7 +55,7 @@ async function desktopBoot(failSplash=false,pathApi=path){
 test('desktop paints its local startup window before loading the server and attaches maintenance after readiness',async()=>{
  for(const pathApi of [path.posix,path.win32]){
   const events=await desktopBoot(false,pathApi);
-  assert.deepEqual(events,['splash','visible','server','application','maintenance']);
+  assert.deepEqual(events,['splash','visible','server','application','maintenance','update-confirmation']);
  }
 });
 test('missing startup page fails visibly without hanging or launching a hidden server',async()=>{
@@ -85,3 +86,4 @@ test('initial HTML discovers the deferred UI bundle without a loader round trip'
  assert.doesNotMatch(html,/<script[^>]+src="app\.js"/);
  assert.ok(html.indexOf('src="/app.bundle.js"')<html.indexOf('src="ui-enhancements.js"'));
 });
+

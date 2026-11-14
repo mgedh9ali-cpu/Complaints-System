@@ -55,7 +55,7 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
  if(!release){
   try{release=await request(api+'/releases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
    tag_name:tag,target_commitish:commit,name:'نظام الشكاوى '+version+' · '+commit.slice(0,12),draft:true,prerelease:true,
-   body:'ملف واحد فقط للتنزيل: setup.exe. ثبّته ثم افتح البرنامج من اختصار سطح المكتب؛ لا تحتاج ملف CMD أو تثبيت Node.js.\n\nيتضمن التحديث إصلاح الإعدادات القديمة مع الحفاظ على مفتاح البيانات، وحفظ مفتاح استعادة النسخ السابقة محليًا عند الحاجة. أوامر النسخ والاستعادة والتحديث موجودة داخل الإعدادات.\n\nقبل التحديث احتفظ بنسخة كاملة ومفتاحها وأغلق البرنامج. بياناتك محفوظة خارج ملفات التثبيت. بصمات البناء وسجلات الفحص محفوظة ضمن ملفات التحقق في GitHub Actions؛ بصمة SHA-256 وسجلات الاختبار متاحة للتحقق من الملف.'
+   body:'الجديد في هذا الإصدار:\n\n• تحديث من داخل التطبيق: تنزيل مع نسبة تقدم، والتحقق من بصمة الملف، ونسخة احتياطية تلقائية قبل التثبيت.\n• شريط تثبيت Windows وإعادة فتح البرنامج تلقائيًا.\n• عرض رقم الإصدار وما الجديد بعد نجاح التشغيل.\n• استبدال ملفات التطبيق القديمة مع الحفاظ على قاعدة البيانات والمرفقات والإعدادات ومفاتيح التشفير.\n\nللمستودع الخاص: أدخل مرة واحدة رمز GitHub للمستودع بصلاحية Contents: Read-only؛ يُحفظ محميًا على جهازك.\n\nثبّت هذا الإصدار أول مرة من setup.exe لتفعيل الآلية الجديدة. النسخة المحمولة تنتقل إلى نسخة مثبتة؛ يُحذف ملفها الأصلي المعروف بعد تأكيد نجاح الجديدة. ملفات التثبيت التي نُزّلت يدويًا تبقى تحت تصرفك.\n\nملف واحد للتنزيل: setup.exe. لا تحتاج Node.js. بصمة SHA-256 متاحة ضمن معلومات الملف في GitHub؛ وسجلات فحص البناء في Actions.'
   })});}
   catch(error){if(error.status!==422)throw error;release=await findRelease();if(!release)throw error;}
  }
@@ -77,3 +77,4 @@ async function publish({env=process.env,directory=path.resolve('dist-desktop'),v
 }
 module.exports={publish};
 if(require.main===module)publish().catch(e=>{console.error(e.message);process.exitCode=1;});
+

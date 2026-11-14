@@ -66,7 +66,13 @@ jobs:
         run: npx electron-builder install-app-deps
 
       - name: Build installer and portable EXE
-        run: npm run dist:win
+        # Confirm startup against this exact build, including reused package versions.
+        env:
+          COMPLAINTS_BUILD_COMMIT: ${{ github.sha }}
+        shell: pwsh
+        run: |
+          node -e "require('fs').writeFileSync('desktop/build-info.json', JSON.stringify({commit:process.env.COMPLAINTS_BUILD_COMMIT}))"
+          npm run dist:win
 
       - name: Smoke test the built portable application
         shell: pwsh
@@ -219,4 +225,5 @@ jobs:
           }
           console.log('Verified: only ' + tag + ' remains. Git tags and source history are retained.');
           NODE
+
 
