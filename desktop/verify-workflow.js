@@ -1,59 +1,87 @@
 'use strict';
 
 // Called only by --release-smoke on its fresh synthetic user-data profile.
+// Exercise the same DOM controls as the operator; the UI's private module stays private.
 async function verifyWorkflow(webContents, credentials) {
   async function exercise({ username, password }) {
     let stage = 'login';
-    const assert = (condition) => { if (!condition) throw new Error('Packaged UI workflow failed: ' + stage); };
-    document.querySelector('#loginUsername').value = username;
-    document.querySelector('#loginPassword').value = password;
-    await submitLogin({ preventDefault() {} });
-    assert(Boolean(authenticatedUser));
+    const assert = condition => { if (!condition) throw new Error('Packaged UI workflow failed: ' + stage); };
+    const find = selector => document.querySelector(selector);
+    const click = selector => { const button=find(selector);assert(button&&!button.disabled);button.click(); };
+    const fill = (selector,value) => { const input=find(selector);assert(input);input.value=value;input.dispatchEvent(new Event('input',{bubbles:true})); };
+    const until = async check => {
+      const deadline=Date.now()+15000;
+      while(!(await check())){
+        assert(Date.now()<deadline);
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+    };
+    const records = async () => {
+      const response=await fetch('/api/state',{credentials:'same-origin',cache:'no-store'});
+      assert(response.ok);return (await response.json()).state.complaints;
+    };
+    await until(()=>find('#loginForm')&&find('#loginForm button[type="submit"]'));
+    fill('#loginUsername',username);fill('#loginPassword',password);
+    find('#loginForm').requestSubmit();
+    await until(()=>document.body.dataset.signedIn==='true'&&find('#loginOverlay').hidden);
 
     stage = 'intake';
-    newComplaint();
-    for (const [id, value] of Object.entries({cName:'بيانات اختبارية',cPhone:'0999999999',cSummary:'اختبار سير العمل للحزمة',cDetails:'سجل اصطناعي لفحص الواجهة فقط'})) {
-      document.getElementById(id).value = value;
-    }
-    document.getElementById('cEntity').value = db.settings.entities[0];
-    document.getElementById('cCategory').value = db.settings.categories[0];
-    document.getElementById('cProvince').value = db.settings.provinces[0];
-    await createComplaint();
-    const record = db.complaints.find(c => c.summary === 'اختبار سير العمل للحزمة');
-    assert(Boolean(record));
-    closeModal();
+    click('#headerCreateButton');
+    await until(()=>find('#newComplaintForm'));
+    find('#intakeAdditional').open=true;
+    for (const [id,value] of Object.entries({cName:'بيانات اختبارية',cPhone:'0999999999',cSummary:'اختبار سير العمل للحزمة',cDetails:'سجل اصطناعي لفحص الواجهة فقط'}))fill('#'+id,value);
+    fill('#cEntity',find('#intakeEntities option').value);
+    fill('#cCategory',find('#intakeCategories option').value);
+    fill('#cProvince',find('#cProvince option[value]:not([value=""])').value);
+    click('[data-action="save-complaint"]');
+    await until(()=>find('.intake-saved-id bdi'));
+    const id=find('.intake-saved-id bdi').textContent.trim();
+    assert((await records()).some(c=>c.id===id&&c.status==='new'));
+    click('[data-action="close-modal"]');
 
     stage = 'search';
-    openRegistryQueue('all');
-    searchText = record.id; render();
-    assert(filteredComplaints().length === 1 && document.querySelector('#content').textContent.includes(record.id));
+    fill('#complaintSearch',id);
+    await until(()=>find('.registry-summary strong')?.textContent==='1'&&find('#content').textContent.includes(id));
+    click('[data-action="detail"][data-id="'+id+'"]');
+    await until(()=>find('.complaint-page')?.dataset.complaintId===id);
 
     stage = 'referral';
-    detailModal(record.id); newReferral(record.id);
-    const entity = document.querySelector('#rEntity'); entity.selectedIndex = 1;
-    document.querySelector('#rNote').value = 'إحالة اصطناعية';
-    await saveReferral(record.id);
-    assert(db.complaints.find(c => c.id === record.id).referrals.length === 1);
+    click('[data-action="referral-create"]');
+    await until(()=>find('#rEntity'));
+    fill('#rEntity',find('#rEntity option[value]:not([value=""])').value);
+    fill('#rNote','إحالة اصطناعية');
+    click('[data-action="save-referral"]');
+    await until(async()=>((await records()).find(c=>c.id===id)?.referrals||[]).length===1);
+    await until(()=>!find('#modalRoot').dataset.open&&find('[data-action="referral-response"]'));
 
     stage = 'queue';
-    // A previous search and closed-status filter must not hide this queue.
-    searchText = 'unrelated'; statusFilter = 'closed'; dateFrom = '2099-01-01'; recordTypeFilter = 'inquiry';
-    openRegistryQueue('waiting-referrals');
-    assert(filteredComplaints().some(c => c.id === record.id));
-    assert(document.querySelector('#content').querySelector('[data-filter-key="queue"]'));
+    click('.nav-link[data-page="complaints"]');
+    await until(()=>find('#statusFilter'));
+    find('#statusFilter').value='closed';find('#statusFilter').dispatchEvent(new Event('change',{bubbles:true}));
+    find('#dateFrom').value='2099-01-01';find('#dateFrom').dispatchEvent(new Event('change',{bubbles:true}));
+    click('[data-action="filter-record-type"][data-value="inquiry"]');
+    click('.nav-link[data-page="dashboard"]');
+    await until(()=>find('[data-action="registry-queue"][data-queue="waiting-referrals"]'));
+    click('[data-action="registry-queue"][data-queue="waiting-referrals"]');
+    await until(()=>find('[data-filter-key="queue"]')&&find('#content').textContent.includes(id));
+    assert(find('#statusFilter').value==='all'&&find('#dateFrom').value==='');
 
     stage = 'referral response';
-    detailModal(record.id); referralResponseModal(record.id, 0);
-    document.querySelector('#referralResponse').value = 'رد جهة اصطناعي';
-    await saveReferralResponse(record.id, 0);
-    assert(db.complaints.find(c => c.id === record.id).referrals[0].response === 'رد جهة اصطناعي');
+    click('[data-action="detail"][data-id="'+id+'"]');
+    await until(()=>find('[data-action="referral-response"][data-index="0"]'));
+    click('[data-action="referral-response"][data-index="0"]');
+    await until(()=>find('#referralResponse'));
+    fill('#referralResponse','رد جهة اصطناعي');click('[data-action="save-referral-response"]');
+    await until(async()=>(await records()).find(c=>c.id===id)?.referrals[0]?.response==='رد جهة اصطناعي');
+    await until(()=>!find('#modalRoot').dataset.open&&find('#content').textContent.includes('رد جهة اصطناعي'));
 
     stage = 'reply';
-    replyEditor(record.id); document.querySelector('#replyText').value = 'مسودة رد اصطناعية';
-    await saveReply(record.id);
-    assert(db.complaints.find(c => c.id === record.id).reply.status === 'draft');
-    assert(document.querySelector('#complaint-notes') && document.querySelector('#complaint-reply'));
-    return {passed: true, checks: ['login','intake','search','queue-reset','referral','referral-response','reply-draft']};
+    click('#complaint-reply [data-action="reply-create"]');
+    await until(()=>find('#replyText'));
+    fill('#replyText','مسودة رد اصطناعية');click('[data-action="save-reply"]');
+    await until(async()=>(await records()).find(c=>c.id===id)?.reply?.status==='draft');
+    await until(()=>!find('#modalRoot').dataset.open&&find('#complaint-notes')&&find('#complaint-reply'));
+    return {passed:true,checks:['login','intake','search','queue-reset','referral','referral-response','reply-draft']};
   }
   return webContents.executeJavaScript('(' + exercise.toString() + ')(' + JSON.stringify(credentials) + ')');
 }
