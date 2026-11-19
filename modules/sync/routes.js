@@ -11,10 +11,10 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
   }
   const requirePermission = (action) => rolesService.requirePermission(action);
 
-  router.post('/sync/export', requireAuth, requirePermission('sync.export'), requireCsrf, (req, res) => {
+  router.post('/sync/export', requireAuth, requirePermission('sync.export'), requireCsrf, async (req, res) => {
     try {
     const bundle = syncService.exportPackage();
-    const sealed = sealPackage(bundle, req.body?.password);
+    const sealed = await sealPackage(bundle, req.body?.password);
     if (auditService) {
       auditService.record(req.user.id, 'sync_exported', 'sync', bundle.syncId, {
         complaintCount: Array.isArray(bundle.state?.complaints) ? bundle.state.complaints.length : 0
@@ -30,9 +30,9 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
     }catch(error){res.status(400).json({error:error.message});}
   });
 
-  router.post('/sync/preview', requireAuth, requirePermission('sync.import'), requireCsrf, (req, res) => {
+  router.post('/sync/preview', requireAuth, requirePermission('sync.import'), requireCsrf, async (req, res) => {
     try {
-    const result = syncService.previewPackage(openPackage(req.body?.package,req.body?.password));
+    const result = syncService.previewPackage(await openPackage(req.body?.package,req.body?.password));
     res.status(result.ok ? 200 : 400).json(result);
     }catch(error){res.status(400).json({error:error.message});}
   });
@@ -45,7 +45,7 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
           req.body.forceReplace === 1 ||
           req.body.forceReplace === '1' ||
           req.body.forceReplace === 'true');
-      const payload = openPackage(req.body?.package,req.body?.password);
+      const payload = await openPackage(req.body?.package,req.body?.password);
       const preview = syncService.previewPackage(payload);
       if (!preview.ok) return res.status(preview.status || 400).json({ error: preview.error });
       if (!Number.isSafeInteger(req.body.expectedRevision) || req.body.expectedRevision !== preview.revision) {
