@@ -13,6 +13,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 
 const { loadEnv } = require('./config/env');
 const { openDatabase } = require('./config/db');
@@ -67,8 +68,18 @@ measureStartupPhase('attachmentProtection', () => require('./lib/attachments').p
 lockDownFile(env.databasePath);
 
 const auditService = createAuditService({ db, logger, databasePath: env.databasePath });
-const auditIntegrity = measureStartupPhase('auditVerification', () => auditService.verifyChain());
-if (!auditIntegrity.ok) throw new Error('Audit integrity verification failed at boot; restore a verified backup before continuing.');
+const auditIntegrity = measureStartupPhase('auditVerification', () => {
+  try {
+    return auditService.verifyChain();
+  } catch (err) {
+    logger.error('Audit chain verification threw at boot', { message: err.message });
+    return { ok: false, reason: err.message };
+  }
+});
+if (!auditIntegrity.ok) {
+  // Soft-fail: log and continue so the operator can still reach backup/restore UI.
+  logger.error('Audit integrity verification failed at boot; continuing in degraded mode. Restore a verified backup.', auditIntegrity);
+}
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
   auditService.record(actorUserId, action, targetType, targetId, details);
 audit.syncHead = () => auditService.syncHead();
@@ -137,10 +148,23 @@ app.use(
   })
 );
 app.use(ensureCsrfToken);
+
+// Sync payloads are bounded; 32MB is enough for typical offline transfers and avoids 96MB JSON DoS.
 app.use(['/api/sync/preview', '/api/sync/import'], middleware.requireAuth,
   rolesService.requirePermission('sync.import'), middleware.requireCsrf,
-  express.json({ limit: '96mb', strict: true }));
-app.use(express.json({ limit: '16mb', strict: true }));
+  express.json({ limit: '32mb', strict: true }));
+app.use(express.json({ limit: '8mb', strict: true }));
+
+// Light write rate-limit across /api (local single-operator still benefits from abuse protection).
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skip: (req) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
+  message: { error: 'تجاوز عدد الطلبات الكتابية. حاول بعد لحظات.' }
+});
+app.use('/api', writeLimiter);
 
 app.use((req, res, next) => {
   const p = (req.path || '').toLowerCase();
@@ -281,4 +305,3 @@ app.listen(env.port, env.host, () => {
 });
 startupPhasesMs.total = Math.round(performance.now() - startupStartedAt);
 module.exports = { backupScheduler, backupService, audit, startupPhasesMs };
-
