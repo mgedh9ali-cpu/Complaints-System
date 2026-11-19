@@ -64,7 +64,7 @@ measureStartupPhase('dataPermissions', () => {
 
 process.env.DATA_KEY = env.storageKey;
 const db = measureStartupPhase('database', () => openDatabase(env.databasePath, { storageKey: env.storageKey }));
-measureStartupPhase('attachmentProtection', () => require('./lib/attachments').protectLegacyAttachments());
+// Attachment encryption of legacy files is deferred until after listen so boot stays responsive.
 lockDownFile(env.databasePath);
 
 const auditService = createAuditService({ db, logger, databasePath: env.databasePath });
@@ -77,7 +77,6 @@ const auditIntegrity = measureStartupPhase('auditVerification', () => {
   }
 });
 if (!auditIntegrity.ok) {
-  // Soft-fail: log and continue so the operator can still reach backup/restore UI.
   logger.error('Audit integrity verification failed at boot; continuing in degraded mode. Restore a verified backup.', auditIntegrity);
 }
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
@@ -149,13 +148,11 @@ app.use(
 );
 app.use(ensureCsrfToken);
 
-// Sync payloads are bounded; 32MB is enough for typical offline transfers and avoids 96MB JSON DoS.
 app.use(['/api/sync/preview', '/api/sync/import'], middleware.requireAuth,
   rolesService.requirePermission('sync.import'), middleware.requireCsrf,
   express.json({ limit: '32mb', strict: true }));
 app.use(express.json({ limit: '8mb', strict: true }));
 
-// Light write rate-limit across /api (local single-operator still benefits from abuse protection).
 const writeLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 120,
@@ -277,11 +274,9 @@ app.get(Object.keys(PUBLIC_FILES), (req, res, next) => {
   if (!rel) return next();
   const full = path.join(__dirname, rel);
   if (!fs.existsSync(full)) return res.status(404).end();
-  // Application assets change in place when the local installer is upgraded.
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile(full);
 });
-
 
 app.use((err, req, res, next) => {
   logger.requestError(err, req);
@@ -294,6 +289,15 @@ app.use((err, req, res, next) => {
 
 app.listen(env.port, env.host, () => {
   backupScheduler.start();
+  // Heavy I/O after the socket is open so the first health/login request is not delayed.
+  setImmediate(() => {
+    try {
+      require('./lib/attachments').protectLegacyAttachments();
+      logger.info('legacy attachment protection finished');
+    } catch (error) {
+      logger.error('legacy attachment protection failed', { message: error.message });
+    }
+  });
   const reminders = setInterval(() => {
     try { complaintsService.runReminders(); } catch (error) { logger.error('Reminder processing failed', { message: error.message }); }
   }, 60000);
