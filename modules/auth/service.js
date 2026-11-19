@@ -65,7 +65,8 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
       return { ok: false, status: 400, error: 'أدخل اسم المستخدم وكلمة المرور.' };
     }
     const user = findByUsername(username.trim());
-    const matches = user ? verifyPassword(password, user.password_hash) : false;
+    // Always run bcrypt (dummy path when user missing) to prevent timing-based username enumeration.
+    const matches = verifyPassword(password, user ? user.password_hash : null);
     if (!user || !matches || user.active !== 1) {
       if (user && typeof audit === 'function') audit(user.id, 'login_failed', 'user', user.id);
       return { ok: false, status: 401, error: 'بيانات الدخول غير صحيحة.' };
