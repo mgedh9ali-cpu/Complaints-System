@@ -224,7 +224,7 @@ test(
     const {sealPackage,openPackage}=require('../lib/sync-envelope');const password='synthetic-transfer-password';
     const exportedResponse=await request(source,'/api/sync/export',{method:'POST',body:JSON.stringify({password})});
     assert.equal(exportedResponse.status,200);
-    const bundle=openPackage(exportedResponse.body,password);
+    const bundle=await openPackage(exportedResponse.body,password);
     assert.equal(bundle.sourceInstanceId.length > 0, true);
 
     bundle.programUpdate.signature = {
@@ -234,12 +234,13 @@ test(
         .toString("base64"),
     };
 
-    const preview = await request(destination, "/api/sync/preview", {method:"POST",body:JSON.stringify({package:sealPackage(bundle,password),password})});
+    const sealedBundle = await sealPackage(bundle,password);
+    const preview = await request(destination, "/api/sync/preview", {method:"POST",body:JSON.stringify({package:sealedBundle,password})});
     assert.equal(preview.status,200);
-    assert.ok(Buffer.byteLength(JSON.stringify({package:sealPackage(bundle,password),password}))>16*1024*1024,'exercise the large authenticated parser');
+    assert.ok(Buffer.byteLength(JSON.stringify({package:sealedBundle,password}))>16*1024*1024,'exercise the large authenticated parser');
     const imported = await request(destination, "/api/sync/import", {
       method: "POST",
-      body: JSON.stringify({package:sealPackage(bundle,password),password,expectedRevision:preview.body.revision}),
+      body: JSON.stringify({package:sealedBundle,password,expectedRevision:preview.body.revision}),
     });
     assert.equal(imported.status, 200, JSON.stringify(imported.body));
     assert.equal(imported.body.imported, true);
@@ -273,7 +274,7 @@ test(
 
     const replay = await request(destination, "/api/sync/import", {
       method: "POST",
-      body: JSON.stringify({package:sealPackage(bundle,password),password,expectedRevision:preview.body.revision}),
+      body: JSON.stringify({package:sealedBundle,password,expectedRevision:preview.body.revision}),
     });
     assert.equal(
       replay.status,
