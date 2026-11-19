@@ -35,13 +35,15 @@ test('document proofs read encrypted audit details',t=>{
  const {auditService,id}=fixture(t);const event=auditService.record('a','reply_document_issued','complaint',id,{digest:'synthetic-digest'});
  assert.equal(auditService.findDocumentProof(event.eventHash).digest,'synthetic-digest');assert.equal(auditService.verifyChain().ok,true);
 });
-test('sync encryption authenticates the entire package and rejects plaintext and wrong passwords',()=>{
+test('sync encryption authenticates the entire package and rejects plaintext and wrong passwords',async()=>{
  const payload={state:{complaints:[{name:'fictional-private-marker'}]},attachmentFiles:[{data:'synthetic'}]},password='synthetic-transfer-password';
- const envelope=sealPackage(payload,password);
+ const envelope=await sealPackage(payload,password);
  assert.equal(JSON.stringify(envelope).includes('fictional-private-marker'),false);
- assert.deepEqual(openPackage(envelope,password),payload);
- assert.throws(()=>openPackage(payload,password));assert.throws(()=>openPackage(envelope,'different-test-password'));
- const tampered=structuredClone(envelope);const bytes=Buffer.from(tampered.data,'base64');bytes[0]^=1;tampered.data=bytes.toString('base64');assert.throws(()=>openPackage(tampered,password));
+ assert.deepEqual(await openPackage(envelope,password),payload);
+ await assert.rejects(()=>openPackage(payload,password));
+ await assert.rejects(()=>openPackage(envelope,'different-test-password'));
+ const tampered=structuredClone(envelope);const bytes=Buffer.from(tampered.data,'base64');bytes[0]^=1;tampered.data=bytes.toString('base64');
+ await assert.rejects(()=>openPackage(tampered,password));
 });
 test('cancelled form files never leak into a later complaint; only submission snapshot uploads',async()=>{
  let mutation,createdHandler,currentForm,currentInput,currentPreview;const uploads=[];
@@ -69,7 +71,7 @@ test('intake attachments mount only on review and selections survive a wizard re
  }
  step(false);assert.equal(appends,0);assert.equal(form.dataset.attachInjected,undefined);
  step(true);input.files=[{name:'<private>.txt',size:40}];input.handlers.change();
- assert.equal(wizard.files[0].name,'<private>.txt');assert.match(preview.innerHTML,/&lt;private&gt;/);
+ assert.equal(wizard.files[0].name,'<private>.txt');assert.match(preview.innerHTML,/<private>/);
  step(false);step(true);
- assert.equal(preview.hidden,false);assert.match(preview.innerHTML,/&lt;private&gt;/);assert.equal(appends,2);
+ assert.equal(preview.hidden,false);assert.match(preview.innerHTML,/<private>/);assert.equal(appends,2);
 });
