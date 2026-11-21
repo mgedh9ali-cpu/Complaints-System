@@ -1,20 +1,24 @@
 /* ============================================================
  * ui-tokens.css — Unified design tokens + polish layer
  * Loaded last: shared tokens and final visual rules override legacy defaults.
- * Institutional green: #0F1F17 / #1E3A2E / #3E5A3F / #6B7F67 / #C7CBB8 / #3D4337
+ * Institutional green: #0F2A1D / #0F2A1D / #375534 / #6B9071 / #E3EED4 / #3D4337
  * ============================================================ */
 
 :root {
   /* Brand greens */
-  --green-950: #0F1F17;
-  --green-900: #1E3A2E;
-  --green-800: #3E5A3F;
-  --green-700: #6B7F67;
-  --green-100: #C7CBB8;
+  --green-950: var(--brand-pine);
+  --green-900: var(--brand-forest);
+  --green-800: var(--brand-forest);
+  --green-700: var(--brand-sage);
+  --green-100: var(--brand-cream);
   --charcoal: #3D4337;
 
   /* Semantic aliases used across the app */
-  --forest-deep: var(--green-950);
+  --forest-deep: var(--brand-pine);
+  --forest-deep-2: var(--brand-forest);
+  --link: var(--brand-forest);
+  --nav-active-bg: var(--brand-cream);
+  --nav-active-fg: var(--brand-pine);
   --forest: var(--green-900);
   --brand: var(--green-800);
   --sage: var(--green-700);
@@ -22,12 +26,12 @@
   --ink: var(--green-950);
   --ink-2: var(--charcoal);
   --muted: var(--charcoal);
-  --line: #b8bda8;
-  --paper: #f4f5ef;
-  --bg: #e8ebe0;
-  --surface: #f7f8f2;
-  --inner: #f7f8f2;
-  --solid: #f4f5ef;
+  --line: var(--brand-mist);
+  --paper: #F1F6EB;
+  --bg: #E3EED4;
+  --surface: #F8FAF5;
+  --inner: #F8FAF5;
+  --solid: #F1F6EB;
   --on-forest: var(--green-100);
   --brand-fg: var(--green-100);
 
@@ -36,7 +40,7 @@
   --red-bg: #f5e8e8;
   --amber: #7a6a3a;
   --amber-bg: #f2eedc;
-  --sla-ok: #3E5A3F;
+  --sla-ok: #375534;
   --sla-warn: #a67c2a;
   --sla-late: #8b3a3a;
 
@@ -47,15 +51,15 @@
   --radius-pill: 999px;
   --shadow: 0 6px 24px rgba(15, 31, 23, 0.08);
   --ui-glow: 0 8px 28px rgba(15, 31, 23, 0.1);
-  --focus-color: #6B7F67;
-  --grad-brand: linear-gradient(135deg, #1E3A2E, #3E5A3F);
-  --aurora: linear-gradient(135deg, #0F1F17 0%, #1E3A2E 45%, #3E5A3F 100%);
+  --focus-color: #6B9071;
+  --grad-brand: linear-gradient(135deg, #0F2A1D, #375534);
+  --aurora: linear-gradient(135deg, #0F2A1D 0%, #0F2A1D 45%, #375534 100%);
 
   /* Motion (consumed by ui-transitions.css) */
   --duration-micro: 80ms;
   --duration-quick: 120ms;
-  --duration-fast: 200ms;
-  --duration-medium: 280ms;
+  --duration-fast: 150ms;
+  --duration-medium: 200ms;
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Layout helpers */
@@ -69,13 +73,13 @@ html[data-theme="dark"] {
   --surface: #1a2620;
   --inner: #1a2620;
   --solid: #1a2620;
-  --ink: #e8ebe0;
-  --ink-2: #c7cbb8;
+  --ink: #E3EED4;
+  --ink-2: #E3EED4;
   --muted: #a8b09a;
   --line: #2a3830;
-  --cream: #3E5A3F;
-  --on-forest: #C7CBB8;
-  --brand-fg: #C7CBB8;
+  --cream: #375534;
+  --on-forest: #E3EED4;
+  --brand-fg: #E3EED4;
   --sla-ok: #8fbc8f;
   --sla-warn: #d4a84b;
   --sla-late: #e07a7a;
@@ -355,16 +359,16 @@ html[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger) {
 /* Unified reading rhythm and controls; no continuous decorative animation. */
 :root {
   --t-xs: 12px; --t-sm: 14px; --t-md: 15px; --t-lg: 20px; --t-xl: 26px; --t-2xl: 32px;
-  --focus: #245CAF;
+  --focus: var(--brand-forest);
   --control-bg: #FFFFFF; --control-hover: #EDF1E8; --control-border: #869681;
-  --control-text: #20382B; --button-primary-bg: #284D39; --button-primary-fg: #FFFFFF;
+  --control-text: #20382B; --button-primary-bg: var(--brand-forest); --button-primary-fg: var(--brand-cream);
   --danger: #8A2929; --danger-surface: #FAECEA;
   --r-ctl: 10px; --r-panel: 16px;
 }
 html[data-theme="dark"] {
   --control-bg: #202E26; --control-hover: #2C3E32; --control-border: #718775;
-  --control-text: #EAF0E5; --button-primary-bg: #365C43; --button-primary-fg: #FFFFFF;
-  --danger: #FFB8AE; --danger-surface: #482E2B; --focus: #A5C7FF;
+  --control-text: #EAF0E5; --button-primary-bg: var(--brand-mist); --button-primary-fg: var(--brand-pine);
+  --danger: #FFB8AE; --danger-surface: #482E2B; --focus: var(--brand-mist);
   --line-strong: #718775;
 }
 html body { font-size: var(--t-md); line-height: 1.8; }
@@ -436,3 +440,5 @@ html[data-motion="off"] body :is(.btn,.ui-tool-button,.action-cell button,.row-a
   html[data-theme] .btn:not(.btn-primary):not(.btn-danger),html body :is(.btn,.btn-primary,.btn-danger,.field,.select-field,.textarea-field) { color:ButtonText !important;background:ButtonFace !important;border-color:ButtonText !important; }
 }
 @media print { html body { font-size: 12pt; background: white !important; color: black !important; } }
+
+html .sidebar :is(.nav-link, button, a):focus-visible { outline-color: var(--brand-cream) !important; }

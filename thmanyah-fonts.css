@@ -34,4 +34,4 @@
   font-display: swap;
   src: url("assets/fonts/thmanyah/thmanyahsans-Black.woff2") format("woff2");
 }
-:root { --serif-text-font: "Thmanyah Sans", "Cairo", serif; --serif-display-font: "Thmanyah Sans", "Cairo", serif; }
+:root { --font: "Thmanyah Sans", "Cairo", "Noto Sans Arabic", Tahoma, sans-serif; --serif-text-font: "Thmanyah Sans", "Cairo", serif; --serif-display-font: "Thmanyah Sans", "Cairo", serif; }

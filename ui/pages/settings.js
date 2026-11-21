@@ -6,7 +6,7 @@ function desktopMaintenancePanel(){
     button('save-recovery-key','حفظ مفتاح استعادة النسخ')+
     button('restore-complete','استعادة نسخة كاملة')+
     '</div></section><section class="panel"><div class="panel-header"><h2>التحديث والمساعدة</h2></div><div class="panel-body footer-actions">'+
-    button('download-update','تنزيل أحدث إصدار')+button('about','عن التطبيق')+button('quit','إغلاق التطبيق')+'</div></section>';
+    button('download-update','التحقق من التحديثات')+button('about','عن التطبيق')+button('quit','إغلاق التطبيق')+'</div></section>';
 }
 async function runDesktopMaintenance(command){
   try{

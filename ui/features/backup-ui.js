@@ -298,6 +298,15 @@ async function deleteBackupFile(name) {
 }
 
 function showUpdateHelp() {
+  if (window.complaintsDesktop) {
+    modal(
+      'تحديث البرنامج',
+      'من الإعدادات، افتح «التحديث والمساعدة» ثم «التحقق من التحديثات».',
+      '<p>راجع ملاحظات الإصدار، ثم اختر «تنزيل وتثبيت». يُنشئ التطبيق نسخة احتياطية قبل التثبيت.</p>',
+      '<button class="btn" data-action="close-modal">إغلاق</button>'
+    );
+    return;
+  }
   modal(
     'تحديث البرنامج',
     'التطبيق يعمل محلياً. التحديث يتم بتثبيت ملف EXE معتمد من الجهة فقط.',

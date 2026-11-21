@@ -10,10 +10,10 @@
   --layout-gap: 12px;
   --layout-gap-lg: 18px;
   --safe-danger-gap: 16px;
-  --sla-ok: #3E5A3F;
+  --sla-ok: #375534;
   --sla-warn: #a67c2a;
   --sla-late: #8b3a3a;
-  --filter-bg: #f7f8f2;
+  --filter-bg: #F8FAF5;
   --topbar-h: 64px;
 }
 
@@ -58,8 +58,8 @@ thead th {
 .mini-card,
 .table-panel,
 .stat-item {
-  background: var(--paper, #f4f5ef) !important;
-  border: 1px solid var(--line, #b8bda8) !important;
+  background: var(--paper, #F1F6EB) !important;
+  border: 1px solid var(--line, #AEC3B0) !important;
   box-shadow: 0 4px 16px rgba(15, 31, 23, 0.06) !important;
 }
 
@@ -75,7 +75,7 @@ thead th {
   flex-shrink: 0 !important;
   min-height: var(--topbar-h) !important;
   background: rgba(255, 255, 255, 0.96) !important;
-  border-bottom: 1px solid var(--line, #b8bda8) !important;
+  border-bottom: 1px solid var(--line, #AEC3B0) !important;
   box-shadow: 0 2px 12px rgba(15, 31, 23, 0.08) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
@@ -117,16 +117,16 @@ html[data-theme="dark"] .topbar {
 .filter-chip,
 .workspace-shortcuts button {
   background: transparent !important;
-  border: 1px solid var(--line, #b8bda8) !important;
+  border: 1px solid var(--line, #AEC3B0) !important;
   color: var(--muted, #3D4337) !important;
   box-shadow: none !important;
   font-weight: 600 !important;
 }
 .filter-chip.active,
 .workspace-shortcuts button:hover {
-  background: var(--green-100, #C7CBB8) !important;
-  border-color: var(--green-800, #3E5A3F) !important;
-  color: var(--ink, #0F1F17) !important;
+  background: var(--green-100, #E3EED4) !important;
+  border-color: var(--green-800, #375534) !important;
+  color: var(--ink, #0F2A1D) !important;
 }
 
 .btn-alarm {
@@ -147,7 +147,7 @@ html[data-theme="dark"] .topbar {
   gap: 10px !important;
   padding: 14px 16px !important;
   background: var(--filter-bg) !important;
-  border-bottom: 1px solid var(--line, #b8bda8);
+  border-bottom: 1px solid var(--line, #AEC3B0);
 }
 
 .table-tools .search-box {
@@ -229,7 +229,7 @@ html[data-theme="dark"] .topbar {
   padding: 14px !important;
   border-radius: 14px !important;
   background: #fafbf7 !important;
-  border: 1px solid var(--line, #b8bda8) !important;
+  border: 1px solid var(--line, #AEC3B0) !important;
 }
 
 .modal {
@@ -245,9 +245,9 @@ html[data-theme="dark"] .topbar {
 }
 .modal-footer {
   flex: none !important;
-  border-top: 1px solid var(--line, #b8bda8) !important;
+  border-top: 1px solid var(--line, #AEC3B0) !important;
   padding: 12px 16px !important;
-  background: var(--paper, #f4f5ef) !important;
+  background: var(--paper, #F1F6EB) !important;
   position: sticky !important;
   bottom: 0 !important;
   z-index: 2 !important;
@@ -266,7 +266,7 @@ html[data-theme="dark"] .topbar {
 .stat-item strong {
   display: block !important;
   font-size: 28px !important;
-  color: var(--ink, #0F1F17) !important;
+  color: var(--ink, #0F2A1D) !important;
 }
 .stat-item.alert strong { color: var(--sla-late) !important; }
 .work-grid {
@@ -297,8 +297,8 @@ html[data-theme="dark"] .topbar {
   max-width: min(420px, calc(100vw - 32px));
   padding: 14px 16px;
   border-radius: 12px;
-  background: #1E3A2E;
-  color: #C7CBB8;
+  background: #0F2A1D;
+  color: #E3EED4;
   box-shadow: 0 12px 36px rgba(15, 31, 23, 0.35);
   animation: alarm-slide 0.22s ease;
 }
@@ -329,8 +329,8 @@ html[data-theme="dark"] .topbar {
   max-width: min(360px, calc(100vw - 32px));
   padding: 12px 16px;
   border-radius: 12px;
-  background: #1E3A2E;
-  color: #C7CBB8;
+  background: #0F2A1D;
+  color: #E3EED4;
   box-shadow: 0 10px 28px rgba(15, 31, 23, 0.32);
   border: 1px solid rgba(199, 203, 184, 0.25);
   font-size: 13px;
@@ -425,3 +425,33 @@ html[data-theme="dark"] {
 .completion-footer .btn { min-height: 40px; }
 .missing-reason { margin-block: 6px; overflow-wrap: anywhere; }
 
+
+/* Use the available width for quick actions on narrow windows. */
+@media (max-width: 760px) {
+  .workspace-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+    gap: 8px;
+  }
+
+  .workspace-shortcuts[hidden] { display: none; }
+
+  .workspace-shortcuts .shortcuts-caption { grid-column: 1 / -1; }
+
+  .workspace-shortcuts .btn {
+    min-block-size: 44px;
+    white-space: normal;
+  }
+
+  .account-menu-panel { min-inline-size: min(240px, calc(100vw - 32px)); }
+}
+
+@media screen and (max-width: 760px) {
+  .topbar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--surface, #fff) !important;
+  }
+
+  html[data-theme="dark"] .topbar { background: var(--surface, #14201a) !important; }
+}

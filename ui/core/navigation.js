@@ -39,7 +39,15 @@ function restoreUiRoute(){
  const route=hash.slice(1);
  page=['dashboard','complaints','referrals','replies','notifications','reports','settings'].includes(route)?route:'dashboard';
 }
-window.addEventListener('popstate',()=>{if(!authenticatedUser)return;routeScrollPositions.set(page,window.scrollY||0);restoreUiRoute();render();restoreRouteScroll();});
+window.addEventListener('popstate', () => {
+  if (!authenticatedUser) return;
+  routeScrollPositions.set(page, window.scrollY || 0);
+  restoreUiRoute();
+  selectedIds.clear();
+  render();
+  restoreRouteScroll();
+  $('#content').focus({ preventScroll: true });
+});
 
 
 // Three-way comparison preserves unrelated edits from the other session.

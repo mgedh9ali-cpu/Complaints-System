@@ -1,37 +1,40 @@
-/* Palette · institutional green system
- * #0F1F17 deepest · #1E3A2E dark · #3E5A3F mid · #6B7F67 sage · #C7CBB8 cream · #3D4337 charcoal
- */
+/* Project palette and shared visual defaults. */
 :root {
-  --green-950: #0F1F17;
-  --green-900: #1E3A2E;
-  --green-800: #3E5A3F;
-  --green-700: #6B7F67;
-  --green-100: #C7CBB8;
-  --gold: #C7CBB8;
-  --ink: #0F1F17;
+  --brand-pine: #0F2A1D;
+  --brand-forest: #375534;
+  --brand-sage: #6B9071;
+  --brand-mist: #AEC3B0;
+  --brand-cream: #E3EED4;
+  --green-950: #0F2A1D;
+  --green-900: #0F2A1D;
+  --green-800: #375534;
+  --green-700: #6B9071;
+  --green-100: #E3EED4;
+  --gold: #E3EED4;
+  --ink: #0F2A1D;
   --muted: #3D4337;
-  --line: #b8bda8;
-  --paper: #f4f5ef;
-  --bg: #e8ebe0;
+  --line: #AEC3B0;
+  --paper: #F1F6EB;
+  --bg: #E3EED4;
   --red: #8b3a3a;
   --red-bg: #f5e8e8;
   --amber: #7a6a3a;
   --amber-bg: #f2eedc;
-  --blue: #3E5A3F;
+  --blue: #375534;
   --blue-bg: #e4e8dc;
   --radius: 16px;
   --shadow: 0 6px 24px rgba(15, 31, 23, 0.08);
   --ui-radius: 16px;
   --ui-glow: 0 8px 28px rgba(15, 31, 23, 0.1);
-  --focus-color: #6B7F67;
-  --brand: #3E5A3F;
+  --focus-color: #6B9071;
+  --brand: #375534;
   --hi: rgba(199, 203, 184, 0.35);
-  --inner: #f7f8f2;
-  --solid: #f4f5ef;
+  --inner: #F8FAF5;
+  --solid: #F1F6EB;
   --g3: rgba(244, 245, 239, 0.92);
   --sh: 15, 31, 23;
-  --aurora: linear-gradient(135deg, #0F1F17 0%, #1E3A2E 45%, #3E5A3F 100%);
-  --sla-ok: #3E5A3F;
+  --aurora: linear-gradient(135deg, #0F2A1D 0%, #0F2A1D 45%, #375534 100%);
+  --sla-ok: #375534;
   --sla-warn: #a67c2a;
   --sla-late: #8b3a3a;
 }
@@ -54,9 +57,9 @@ button.btn {
   min-height: 38px !important;
   padding: 8px 14px !important;
   border-radius: 10px !important;
-  border: 1px solid #b8bda8 !important;
-  background: #f7f8f2 !important;
-  color: #0F1F17 !important;
+  border: 1px solid #AEC3B0 !important;
+  background: #F8FAF5 !important;
+  color: #0F2A1D !important;
   font-weight: 600 !important;
   font-size: 13px !important;
   line-height: 1.4 !important;
@@ -69,8 +72,8 @@ button.btn {
 .ui-tool-button:hover,
 .action-cell button:hover,
 .row-actions button:hover {
-  background: #e8ebe0 !important;
-  border-color: #6B7F67 !important;
+  background: #E3EED4 !important;
+  border-color: #6B9071 !important;
   filter: none !important;
   transform: none !important;
 }
@@ -78,22 +81,22 @@ button.btn {
 .top-create-button,
 .login-fields .login-submit,
 .login-fields button[type="submit"] {
-  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
-  border-color: #3E5A3F !important;
-  color: #C7CBB8 !important;
+  background: linear-gradient(135deg, #0F2A1D, #375534) !important;
+  border-color: #375534 !important;
+  color: #E3EED4 !important;
   box-shadow: 0 6px 18px rgba(30, 58, 46, 0.28) !important;
 }
 .btn-primary:hover,
 .top-create-button:hover {
   filter: brightness(1.08) !important;
-  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
-  color: #C7CBB8 !important;
+  background: linear-gradient(135deg, #0F2A1D, #375534) !important;
+  color: #E3EED4 !important;
 }
 .btn-secondary,
 .btn-glass {
   background: rgba(244, 245, 239, 0.85) !important;
-  border-color: #b8bda8 !important;
-  color: #1E3A2E !important;
+  border-color: #AEC3B0 !important;
+  color: #0F2A1D !important;
 }
 .btn-danger {
   color: #8b3a3a !important;
@@ -135,9 +138,9 @@ button:disabled.is-loading,
 }
 
 .btn.btn-success-pulse {
-  background: linear-gradient(135deg, #1E3A2E, #3E5A3F) !important;
-  border-color: #3E5A3F !important;
-  color: #C7CBB8 !important;
+  background: linear-gradient(135deg, #0F2A1D, #375534) !important;
+  border-color: #375534 !important;
+  color: #E3EED4 !important;
   opacity: 1 !important;
   pointer-events: none !important;
   animation: btn-success-pulse 0.9s ease;
@@ -154,66 +157,66 @@ button:disabled.is-loading,
 
 /* Sidebar */
 .sidebar {
-  background: linear-gradient(170deg, #0F1F17 0%, #1E3A2E 55%, #3E5A3F 100%) !important;
+  background: linear-gradient(170deg, #0F2A1D 0%, #0F2A1D 55%, #375534 100%) !important;
   box-shadow: -6px 0 28px rgba(15, 31, 23, 0.18) !important;
 }
-.brand strong { color: #C7CBB8 !important; }
+.brand strong { color: #E3EED4 !important; }
 .brand small,
 .prototype-note { color: #a8b09a !important; }
-.status-dot { background: #6B7F67 !important; box-shadow: 0 0 0 3px rgba(107, 127, 103, 0.25) !important; }
+.status-dot { background: #6B9071 !important; box-shadow: 0 0 0 3px rgba(107, 127, 103, 0.25) !important; }
 .nav-group-label { color: #8a9480 !important; }
-.nav-link, .nav-quick { color: #C7CBB8 !important; }
+.nav-link, .nav-quick { color: #E3EED4 !important; }
 .nav-link:hover, .nav-quick:hover { background: rgba(199, 203, 184, 0.1) !important; color: #fff !important; }
 .nav-link.active {
-  background: #C7CBB8 !important;
-  color: #0F1F17 !important;
+  background: #E3EED4 !important;
+  color: #0F2A1D !important;
   border-color: #a8b09a !important;
-  box-shadow: inset -3px 0 #3E5A3F !important;
+  box-shadow: inset -3px 0 #375534 !important;
   font-weight: 700 !important;
 }
-.nav-link.active .nav-icon { color: #1E3A2E !important; }
-.nav-link.active .nav-count { background: #b8bda8 !important; color: #0F1F17 !important; }
+.nav-link.active .nav-icon { color: #0F2A1D !important; }
+.nav-link.active .nav-count { background: #AEC3B0 !important; color: #0F2A1D !important; }
 .nav-icon { color: #8a9480 !important; }
-.nav-count { background: rgba(199, 203, 184, 0.15) !important; color: #C7CBB8 !important; }
-.side-user strong, .side-user small { color: #C7CBB8 !important; }
-.avatar { background: #C7CBB8 !important; color: #0F1F17 !important; }
+.nav-count { background: rgba(199, 203, 184, 0.15) !important; color: #E3EED4 !important; }
+.side-user strong, .side-user small { color: #E3EED4 !important; }
+.avatar { background: #E3EED4 !important; color: #0F2A1D !important; }
 
 /* Top bar — light blur only on chrome */
 .topbar {
   background: rgba(244, 245, 239, 0.94) !important;
-  border-bottom-color: #b8bda8 !important;
+  border-bottom-color: #AEC3B0 !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
 }
 
 /* Login */
 .login-overlay {
-  background: linear-gradient(135deg, #0F1F17 0%, #1E3A2E 50%, #3E5A3F 100%) !important;
+  background: linear-gradient(135deg, #0F2A1D 0%, #0F2A1D 50%, #375534 100%) !important;
 }
 .login-brand {
-  background: linear-gradient(155deg, #0F1F17 0%, #1E3A2E 55%, #3E5A3F 100%) !important;
-  color: #C7CBB8 !important;
+  background: linear-gradient(155deg, #0F2A1D 0%, #0F2A1D 55%, #375534 100%) !important;
+  color: #E3EED4 !important;
 }
-.login-brand h2 { color: #C7CBB8 !important; }
+.login-brand h2 { color: #E3EED4 !important; }
 .login-brand p { color: #a8b09a !important; }
 .login-brand small { color: #8a9480 !important; }
-.login-brand svg { color: #C7CBB8 !important; }
-.login-fields h1 { color: #0F1F17 !important; }
+.login-brand svg { color: #E3EED4 !important; }
+.login-fields h1 { color: #0F2A1D !important; }
 .login-fields .login-subtitle,
 .login-fields > p { color: #3D4337 !important; }
 .login-fields .field {
-  border-color: #b8bda8 !important;
-  background: #f7f8f2 !important;
+  border-color: #AEC3B0 !important;
+  background: #F8FAF5 !important;
 }
 .login-fields .field:focus {
-  border-color: #3E5A3F !important;
+  border-color: #375534 !important;
   box-shadow: 0 0 0 3px rgba(62, 90, 63, 0.22) !important;
 }
 
 /* Cards — solid, no blur on tables/rows */
 .panel, .stat-card, .mini-card, .table-panel, .login-card {
   background: var(--paper) !important;
-  border-color: #b8bda8 !important;
+  border-color: #AEC3B0 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -224,10 +227,10 @@ button:disabled.is-loading,
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-.stat-number, .page-heading h1 { color: #0F1F17 !important; }
-.eyebrow { color: #3E5A3F !important; }
-.pill.progressing { background: #e4e8dc; color: #1E3A2E; }
-.pill.new { background: #e8ebe0; color: #3E5A3F; }
+.stat-number, .page-heading h1 { color: #0F2A1D !important; }
+.eyebrow { color: #375534 !important; }
+.pill.progressing { background: #e4e8dc; color: #0F2A1D; }
+.pill.new { background: #E3EED4; color: #375534; }
 
 /* Modal backdrop keeps soft blur (dialogs only) */
 .modal-backdrop {
@@ -242,5 +245,5 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-  outline-color: #6B7F67 !important;
+  outline-color: #6B9071 !important;
 }

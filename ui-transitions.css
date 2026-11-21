@@ -79,7 +79,7 @@ html[dir="rtl"] .nav-link { --nav-nudge: -2px; }
 }
 .btn-primary:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible),
 .login-submit:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) {
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--forest, #1E3A2E) 25%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--forest, #0F2A1D) 25%, transparent);
 }
 .btn-primary:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible)::before,
 .login-submit:not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible)::before {
@@ -141,7 +141,7 @@ html[data-motion-paused="true"] .login-submit::before { animation-play-state: pa
 .skeleton-block,
 .skeleton-line,
 .skeleton-card {
-  background: linear-gradient(90deg, #e8ebe0 0%, #f4f5ef 40%, #e8ebe0 80%);
+  background: linear-gradient(90deg, #E3EED4 0%, #F1F6EB 40%, #E3EED4 80%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.2s ease-in-out infinite;
   border-radius: 8px;
@@ -162,7 +162,7 @@ html[data-theme="dark"] .skeleton-card {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .modal-backdrop, .modal, .toast-region .toast, .toast-region .alarm-toast,
+  .modal-backdrop, .modal, .toast-region .toast, .toast-region .alarm-toast, .toast-region .notif-alert,
   .content[data-enter], .nav-count, .btn, .btn::before, .btn::after,
   .icon-btn, .icon-button, .login-submit, .login-submit::before,
   .filter-chip, .nav-link, .theme-icon-toggle, .liquid-glass-toggle,
@@ -174,7 +174,7 @@ html[data-theme="dark"] .skeleton-card {
     transform: none !important;
   }
   .skeleton-block, .skeleton-line, .skeleton-card {
-    background: #e8ebe0;
+    background: #E3EED4;
   }
   html[data-theme="dark"] .skeleton-block,
   html[data-theme="dark"] .skeleton-line,

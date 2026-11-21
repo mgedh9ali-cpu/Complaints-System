@@ -350,7 +350,7 @@
 .daily-fill {
   width: 100%;
   min-height: 2px;
-  background: linear-gradient(180deg, #3E5A3F, #1E3A2E);
+  background: linear-gradient(180deg, #375534, #0F2A1D);
   border-radius: 6px 6px 0 0;
   transition: height 0.25s ease;
 }
@@ -432,9 +432,9 @@
 .report-line-chart { min-width: 0; }
 .report-line-svg { width: 100%; height: auto; max-height: 200px; }
 .chart-grid { stroke: var(--line, #d3e2da); stroke-width: 1; fill: none; }
-.chart-area { fill: color-mix(in srgb, #3E5A3F 12%, transparent); }
-.chart-line { fill: none; stroke: #1E3A2E; stroke-width: 2.5; stroke-linejoin: round; }
-.chart-point { fill: #3E5A3F; }
+.chart-area { fill: color-mix(in srgb, #375534 12%, transparent); }
+.chart-line { fill: none; stroke: #0F2A1D; stroke-width: 2.5; stroke-linejoin: round; }
+.chart-point { fill: #375534; }
 .report-chart-axis {
   display: flex;
   justify-content: space-between;
@@ -447,7 +447,7 @@
   width: 88px;
   height: 88px;
   border-radius: 50%;
-  background: conic-gradient(#3E5A3F calc(var(--value) * 1%), #d9ddd0 0);
+  background: conic-gradient(#375534 calc(var(--value) * 1%), #d9ddd0 0);
   display: grid;
   place-items: center;
   margin-inline-end: 12px;

@@ -69,8 +69,8 @@ function installMaintenanceMenu({ app, Menu, dialog, shell, window, origin, path
       { type:'separator' }, { role:'quit',label:'إغلاق التطبيق' }
     ]},
     { label:'التحديث والمساعدة',submenu:[
-      { label:'تنزيل أحدث إصدار…',click:action(async()=>{ await admin(); return require('./updater').runUpdate({app,window,paths,runtime,admin}); }) },
-      { label:'عن التطبيق',click:action(async()=>{ await admin(); return dialog.showMessageBox(window,{type:'info',message:'نظام الاستفسارات والشكاوى '+app.getVersion(),detail:'اضغط تنزيل أحدث إصدار لتنزيل التحديث والتحقق منه وحفظ نسخة احتياطية وتثبيته تلقائيًا. تظهر نسبة التنزيل وشريط التثبيت، ثم رقم الإصدار وما الجديد. تبقى بياناتك وإعداداتك محفوظة.'}); }) }
+      { label:'التحقق من التحديثات…',click:action(async()=>{ await admin(); return require('./updater').runUpdate({app,window,paths,runtime,admin}); }) },
+      { label:'عن التطبيق',click:action(async()=>{ await admin(); return dialog.showMessageBox(window,{type:'info',message:'نظام الاستفسارات والشكاوى '+app.getVersion(),detail:'افتح «التحقق من التحديثات» لمراجعة الإصدار المتاح. بعد موافقتك، يُنزّل التطبيق التحديث ويتحقق منه ويحفظ نسخة احتياطية قبل التثبيت.'}); }) }
     ]}
   ];
   const commands = new Map([

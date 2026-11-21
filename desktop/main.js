@@ -187,11 +187,11 @@ function createWindow(paths) {
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 900,
-    minWidth: 960,
-    minHeight: 640,
+    minWidth: 720,
+    minHeight: 560,
     title: 'نظام الشكاوى والاستفسارات',
     show: false,
-    backgroundColor: '#05402F',
+    backgroundColor: '#0F2A1D',
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -201,19 +201,43 @@ function createWindow(paths) {
     }
   });
 
+  const contents = mainWindow.webContents;
+  contents.session.setPermissionCheckHandler(() => false);
+  contents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  contents.on('will-attach-webview', event => event.preventDefault());
+  contents.on('will-redirect', (event, url) => {
+    if (!isLocalAppUrl(url, APP_URL)) event.preventDefault();
+  });
+
   function openTrustedExternal(url) {
     if (isPermittedExternalUrl(url, APP_URL)) {
       shell.openExternal(url).catch(() => {});
     }
   }
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    // The print views write their document into an empty same-origin window.
+    if (url === 'about:blank' && isLocalAppUrl(contents.getURL(), APP_URL)) {
+      return { action: 'allow', overrideBrowserWindowOptions: {
+        webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true }
+      } };
+    }
     if (isLocalAppUrl(url, APP_URL)) return { action: 'allow' };
     openTrustedExternal(url);
     return { action: 'deny' };
   });
 
-  mainWindow.webContents.on('will-navigate', (event, url) => {
+  contents.on('did-create-window', child => {
+    child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    child.webContents.on('will-attach-webview', event => event.preventDefault());
+    const preventExternal = (event, url) => {
+      if (url !== 'about:blank' && !isLocalAppUrl(url, APP_URL)) event.preventDefault();
+    };
+    child.webContents.on('will-navigate', preventExternal);
+    child.webContents.on('will-redirect', preventExternal);
+  });
+
+  contents.on('will-navigate', (event, url) => {
     if (!isLocalAppUrl(url, APP_URL)) {
       event.preventDefault();
       openTrustedExternal(url);

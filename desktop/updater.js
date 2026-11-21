@@ -22,7 +22,7 @@ function statusWindow(parent) {
   const { BrowserWindow } = require('electron');
   const window = new BrowserWindow({ width: 650, height: 570, parent, modal: true, autoHideMenuBar: true, title: 'تحديث التطبيق',
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'update-preload.js') } });
-  let status = { message: 'جارٍ التحقق من آخر إصدار…' }, locked = true, receiveToken;
+  let status = { message: 'جارٍ التحقق من آخر إصدار…' }, locked = true, receiveToken, receiveConfirmation;
   const send = () => { if (!window.isDestroyed()) window.webContents.send('complaints:update-status', status); };
   window.on('close', event => { if (locked) event.preventDefault(); });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -35,10 +35,33 @@ function statusWindow(parent) {
     if (typeof token !== 'string' || !/^(github_pat_|ghp_)[a-zA-Z0-9_]{20,280}$/.test(token)) return false;
     const resolve = receiveToken; receiveToken = null; resolve(token); return true;
   });
-  window.on('closed', () => { ipcMain.removeHandler('complaints:update-token'); receiveToken?.(null); });
+  ipcMain.handle('complaints:update-confirm', event => {
+    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || !receiveConfirmation) throw new Error('مصدر غير مسموح.');
+    const resolve = receiveConfirmation;
+    receiveConfirmation = null;
+    activeStatus.show({ canInstall: false, message: 'جارٍ تجهيز التنزيل…' });
+    resolve(true);
+  });
+  window.on('closed', () => {
+    ipcMain.removeHandler('complaints:update-token');
+    ipcMain.removeHandler('complaints:update-confirm');
+    receiveToken?.(null);
+    receiveConfirmation?.(false);
+  });
   activeStatus = {
-    show(next) { status = { ...status, ...next }; locked = !status.done && !status.needsToken; send(); },
+    show(next) { status = { ...status, ...next }; locked = !status.done && !status.needsToken && !status.canInstall; send(); },
     close() { locked = false; if (!window.isDestroyed()) window.close(); },
+    confirm(release) {
+      return new Promise(resolve => {
+        receiveConfirmation = resolve;
+        this.show({
+          message: 'يتوفر إصدار جديد. ينشئ التطبيق نسخة احتياطية قبل التثبيت، ثم يُعاد تشغيله.',
+          version: release.version,
+          notes: release.notes,
+          canInstall: true
+        });
+      });
+    },
     token() {
       locked = false;
       status = { message: 'يلزم إعداد صلاحية القراءة مرة واحدة. يمكنك إغلاق النافذة للإلغاء.', needsToken: true };
@@ -76,13 +99,14 @@ async function runUpdate({ app, window, paths, runtime, admin }) {
     const releases = await response.json();
     const release = selectRelease(releases, app.getVersion(), previous?.state === 'complete' ? previous.tag : null);
     if (!release) { view.show({ message: 'أنت تستخدم أحدث إصدار متاح.', version: app.getVersion(), done: true }); return; }
+    if (!await view.confirm(release)) return;
     staging = path.join(paths.applicationBase, 'updates', crypto.randomUUID());
     fs.mkdirSync(staging, { recursive: true, mode: 0o700 });
     const installer = path.join(staging, 'setup.exe');
-    view.show({ message: 'جارٍ تنزيل التحديث…', version: release.version, notes: release.notes, percent: 0 });
+    view.show({ message: 'جارٍ تنزيل التحديث…', phase: 'التنزيل', percent: 0 });
     await downloadVerified({ fetch, release, destination: installer, onProgress: percent => view.show({ percent }) });
     await admin();
-    view.show({ message: 'تم التحقق من الملف. جارٍ حفظ نسخة احتياطية قبل التثبيت…', percent: null });
+    view.show({ message: 'تم التحقق من الملف. جارٍ حفظ نسخة احتياطية قبل التثبيت…', phase: 'النسخ الاحتياطي', percent: null });
     if (!await runtime.backupScheduler.runOnce()) throw new Error('لم تكتمل النسخة الاحتياطية. أعد المحاولة بعد اكتمال النسخ أو إصلاح مجلده. لم يبدأ التثبيت.');
     const user = await admin();
     const portable = process.env.PORTABLE_EXECUTABLE_FILE;
@@ -94,7 +118,7 @@ async function runUpdate({ app, window, paths, runtime, admin }) {
     fs.writeFileSync(config, JSON.stringify({ pid: process.pid, installer, sha256: release.sha256 }), { mode: 0o600 });
     runtime.audit(user.id, 'application_update_prepared', 'system', release.version, { tag: release.tag, sha256: release.sha256 });
     saveReceipt(paths.applicationBase, receipt);
-    view.show({ message: 'جارٍ بدء التثبيت. سيُغلق التطبيق ويظهر شريط تثبيت Windows، ثم تفتح النسخة الجديدة تلقائيًا.', percent: null });
+    view.show({ phase: 'التثبيت', message: 'جارٍ بدء التثبيت. سيُغلق التطبيق ويظهر شريط تثبيت Windows، ثم تفتح النسخة الجديدة تلقائيًا.', percent: null });
     const powershell = path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
     const child = spawn(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(staging, 'install.ps1'), '-Config', config], { detached: true, stdio: 'ignore', windowsHide: true, cwd: staging });
     await once(child, 'spawn');
