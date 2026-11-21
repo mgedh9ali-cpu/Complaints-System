@@ -10,6 +10,8 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
 test('Thmanyah Sans is primary across the interface, startup, and printed HTML', () => {
   const system = read('ui-system.css');
+  const update = read('desktop/update.html');
+  const updateStyles = read('desktop/update.css');
   const layout = read('ui-layout.css');
   const html = read('index.html');
   const local = read('thmanyah-fonts.css');
@@ -18,7 +20,8 @@ test('Thmanyah Sans is primary across the interface, startup, and printed HTML',
   const sw = read('sw.js');
   const server = read('server.js');
 
-  assert.match(system, /--font:\s*"Thmanyah Sans","ThmanyahSans","Cairo"/);
+  assert.match(local, /--font:\s*"Thmanyah Sans"/);
+  assert.match(system, /font-family:\s*var\(--font\)/);
   assert.match(layout, /--ui-font:\s*var\(--font\)/);
   assert.match(layout, /font-family:\s*var\(--ui-font\)\s*!important/);
   assert.match(html, /href="thmanyah-fonts\.css"/);
@@ -28,7 +31,9 @@ test('Thmanyah Sans is primary across the interface, startup, and printed HTML',
     assert.match(local, new RegExp('font-weight: ' + weight + ';'));
   }
   assert.doesNotMatch(local, /local\(|https?:\/\//);
-  assert.match(splash, /font:600 18px "Thmanyah Sans"/);
+  assert.match(splash, /font:600 18px var\(--font\)/);
+  assert.ok(update.includes('href="../thmanyah-fonts.css"'));
+  assert.ok(updateStyles.includes('16px/1.6 var(--font)'));
   assert.equal((printed.match(/font-family:"Thmanyah Sans"/g) || []).length, 2);
   assert.match(sw, /'\/thmanyah-fonts\.css'/);
   assert.match(server, /'\/thmanyah-fonts\.css': 'thmanyah-fonts\.css'/);
