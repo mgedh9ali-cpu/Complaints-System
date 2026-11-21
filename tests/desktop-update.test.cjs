@@ -87,14 +87,22 @@ test('Chromium network adapter exposes redirects, streams bytes and honors cance
   controller.abort(new Error('timeout')); await assert.rejects(cancelled);
 });
 
-function harness(t, { backup = true, corrupt = false, revoke = false, bundledCommit = commit, spawnError = false } = {}) {
+function harness(t, { backup = true, corrupt = false, revoke = false, bundledCommit = commit, spawnError = false, approve = true } = {}) {
   const base = temporary(t), messages = [], handlers = new Map();
   const calls = { quit: 0, spawn: 0, backup: 0, admin: 0, audit: 0 };
   const data = path.join(base, 'data'); fs.mkdirSync(data); fs.writeFileSync(path.join(data, 'complaints.sqlite'), 'existing database');
   fs.writeFileSync(path.join(base, '.env'), 'existing encryption keys');
   class Window extends EventEmitter {
     constructor() { super(); this.webContents = new EventEmitter(); this.webContents.mainFrame = {};
-      this.webContents.send = (_channel, status) => messages.push(status);
+      this.webContents.send = (_channel, status) => {
+        messages.push(status);
+        if (!status.canInstall || this.promptHandled) return;
+        this.promptHandled = true;
+        queueMicrotask(() => {
+          if (!approve) { this.close(); return; }
+          handlers.get('complaints:update-confirm')({ sender: this.webContents, senderFrame: this.webContents.mainFrame });
+        });
+      };
       this.webContents.setWindowOpenHandler = () => {}; }
     loadFile() { queueMicrotask(() => this.webContents.emit('did-finish-load')); return Promise.resolve(); }
     isDestroyed() { return this.destroyed || false; }
@@ -119,6 +127,16 @@ function harness(t, { backup = true, corrupt = false, revoke = false, bundledCom
     async admin() { calls.admin++; if (revoke && calls.admin > 1) throw new Error('revoked'); return { id: 'admin' }; } };
   return { base, calls, messages, options, environment: sandbox.process.env, updater: sandbox.module.exports };
 }
+test('closing the release preview cancels before download or installation', async t => {
+  const h = harness(t, { approve: false });
+  await h.updater.runUpdate(h.options);
+  assert.ok(h.messages.some(status => status.canInstall && status.notes));
+  assert.equal(fs.existsSync(path.join(h.base, 'updates')), false);
+  assert.equal(h.calls.backup, 0);
+  assert.equal(h.calls.spawn, 0);
+  assert.equal(h.calls.quit, 0);
+  assert.equal(h.updater.readReceipt(h.base), null);
+});
 test('verified download and backup precede installation; startup of the expected build acknowledges success and preserves data', async t => {
   const h = harness(t);
   await h.updater.runUpdate(h.options);
