@@ -4,7 +4,10 @@ const express = require('express');
 const { validComplaintDraft, validStatePayload } = require('../../lib/validation');
 
 function normalizePhone(s) {
-  let n = String(s || '').replace(/[^\d+]/g, '');
+  let n = String(s || '')
+    .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (c) => String(c.charCodeAt(0) - 0x06F0))
+    .replace(/[^\d+]/g, '');
   if (n.startsWith('+963')) n = '0' + n.slice(4);
   if (n.startsWith('963')) n = '0' + n.slice(3);
   return n;
@@ -14,8 +17,11 @@ function normalizeText(s) {
     .normalize('NFKD')
     .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
     .replace(/[أإآٱ]/g, 'ا')
-    .replace(/[ىئي]/g, 'ي')
+    .replace(/[ىئي\u06CC]/g, 'ي')
+    .replace(/[\u06A9]/g, 'ك')
     .replace(/ة/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    .replace(/ء/g, '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();

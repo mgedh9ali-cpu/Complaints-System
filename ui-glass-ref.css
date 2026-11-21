@@ -121,6 +121,10 @@ html[data-theme="dark"] {
   .brief-banner-ok {
     background: color-mix(in srgb, var(--sla-ok) 12%, var(--surface));
   }
+  .brief-banner-sla {
+    background: color-mix(in srgb, var(--sla-warn, #b8860b) 16%, var(--surface));
+  }
+  .brief-banner .btn { margin-inline-start: auto; }
   html[data-theme="dark"] .brief-banner {
     background: color-mix(in srgb, var(--forest) 22%, var(--surface));
     border-color: var(--line);
