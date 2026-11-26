@@ -162,6 +162,33 @@ function createReportsRouter({ reportsService, middleware, audit, rolesService }
     } catch (error) { next(error); }
   });
 
+
+  // Custom previews and downloads share a single allowlisted server model.
+  const custom = require('./custom');
+  router.get('/reports/custom/preview', requireAuth, requirePermission('export.xlsx'), (req,res,next)=>{
+    try {
+      const model=custom.buildModel(reportsService,req.query);
+      res.setHeader('Cache-Control','no-store');
+      res.json({...model,rows:model.rows.slice(0,100),previewLimit:100});
+    } catch(error){if(error.status===400)return res.status(400).json({error:error.message});next(error);}
+  });
+  router.get('/reports/custom/export/:format', requireAuth, requirePermission('export.xlsx'), async(req,res,next)=>{
+    try {
+      const format=req.params.format;
+      if(!Object.hasOwn(custom.FORMATS,format))return res.sendStatus(404);
+      const model=custom.buildModel(reportsService,req.query);
+      const buffer=await custom.encodeReport(model,format);
+      const filename='report-'+new Date().toISOString().slice(0,10)+'.'+format;
+      if(typeof audit==='function')audit(req.user.id,'custom_report_export','export',filename,{format,count:model.count,columns:model.columns.map(c=>c.key)});
+      res.setHeader('Cache-Control','no-store');
+      res.setHeader('X-Content-Type-Options','nosniff');
+      res.setHeader('Content-Type',custom.FORMATS[format]);
+      res.setHeader('Content-Disposition','attachment; filename="'+filename+'"');
+      res.setHeader('X-Export-Count',String(model.count));
+      res.send(buffer);
+    } catch(error){if(error.status===400)return res.status(400).json({error:error.message});next(error);}
+  });
+
   return router;
 }
 
