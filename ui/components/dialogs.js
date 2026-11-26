@@ -79,7 +79,7 @@ function askSyncPassword(confirmPassword=false){
  $('#syncPassword')?.focus();
  return new Promise(resolve=>{syncPasswordResolve=resolve;});
 }
-function confirmSyncPassword(){
+function confirmExportSyncPassword(){
  const input=$('#syncPassword'), confirmation=$('#syncPasswordConfirm');
  if(!input||!input.reportValidity())return;
  if(confirmation&&confirmation.value!==input.value)return toast('عبارتا المرور غير متطابقتين.','warn');

@@ -143,18 +143,58 @@ async function disableTwoFactor(){
  try{await api('/api/auth/2fa/disable',{method:'POST',body:JSON.stringify({password:$('#twoFactorPassword')?.value,code:$('#twoFactorCode')?.value.trim()})});resetLocalSessionForTwoFactor();closeModal();render();showLogin();}catch(error){toast(error.message,'error');}
 }
 
+let auditViewQuery='',auditViewPage=1,auditViewOwner=null;
+function syncAuditViewSession(){
+ if(auditViewOwner===authenticatedUser)return;
+ auditViewOwner=authenticatedUser;displayedAudit=[];auditCheck=null;auditViewQuery='';auditViewPage=1;
+}
+document.addEventListener('click',event=>{
+ const button=event.target.closest?.('button[data-audit-view]');
+ if(!button||!button.closest('.settings-content')||page!=='settings')return;
+ if(button.dataset.auditView==='search'){auditViewQuery=(document.getElementById('auditViewSearch')?.value||'').trim();auditViewPage=1;}
+ if(button.dataset.auditView==='clear'){auditViewQuery='';auditViewPage=1;}
+ if(button.dataset.auditView==='prev')auditViewPage--;
+ if(button.dataset.auditView==='next')auditViewPage++;
+ render();
+ document.querySelector('[data-audit-view="'+button.dataset.auditView+'"]:not(:disabled)')?.focus({preventScroll:true});
+});
+document.addEventListener('keydown',event=>{
+ if(event.target.id==='auditViewSearch'&&event.key==='Enter'){event.preventDefault();document.querySelector('[data-audit-view="search"]')?.click();}
+});
 function auditPanel(){
+ syncAuditViewSession();
  if(!uiCan('audit.read'))return '';
  const users=new Map(authenticatedUser?[[authenticatedUser.id,authenticatedUser.username]]:[]);
- const labels={complaint_created:'تسجيل شكوى',complaint_updated:'تعديل شكوى',complaint_archived:'أرشفة شكوى',complaint_status_changed:'تغيير حالة',complaint_referred:'تسجيل إحالة',referral_response_recorded:'رد جهة',settings_updated:'تعديل إعدادات',approval_requested:'طلب موافقة',approval_decided:'قرار موافقة',user_permissions_changed:'تعديل صلاحيات',login_succeeded:'دخول ناجح',login_failed:'دخول مرفوض',attachment_uploaded:'رفع مرفق',attachment_accessed:'قراءة مرفق',attachment_deleted:'أرشفة مرفق',csv_export:'تصدير CSV',xlsx_export:'تصدير Excel',two_factor_enabled:'تفعيل التحقق الثنائي',two_factor_disabled:'تعطيل التحقق الثنائي'};
- return '<section class="panel" style="margin-top:16px"><div class="panel-header"><h2>سجل التدقيق الخادمي</h2><div><button class="btn btn-sm" data-action="refresh-audit">عرض آخر الأحداث</button> '+(uiCan('audit.verify')?'<button class="btn btn-sm" data-action="verify-audit">فحص سلامة السلسلة</button>':'')+'</div></div><div class="panel-body">'+
+ const labels={complaint_created:'تسجيل شكوى',complaint_updated:'تعديل شكوى',complaint_archived:'أرشفة شكوى',complaint_status_changed:'تغيير حالة',complaint_referred:'تسجيل إحالة',referral_response_recorded:'رد جهة',settings_updated:'تعديل إعدادات',approval_requested:'طلب موافقة',approval_decided:'قرار موافقة',user_permissions_changed:'تعديل صلاحيات',login_succeeded:'دخول ناجح',login_failed:'دخول مرفوض',attachment_uploaded:'رفع مرفق',attachment_accessed:'قراءة مرفق',attachment_deleted:'أرشفة مرفق',csv_export:'تصدير CSV',xlsx_export:'تصدير Excel',two_factor_enabled:'تفعيل التحقق الثنائي',two_factor_disabled:'تعطيل التحقق الثنائي',backup_file_deleted:'حذف ملف نسخة احتياطية',referral_response:'تسجيل رد إحالة',attachments_listed:'عرض المرفقات',complaint_draft_saved:'حفظ مسودة سجل',application_update_prepared:'تجهيز تحديث التطبيق'};
+ const actor=e=>users.get(e.actorUserId)||e.actorUserId||'النظام';
+ const label=e=>Object.prototype.hasOwnProperty.call(labels,e.action)?labels[e.action]:e.action;
+ const query=auditViewQuery.toLocaleLowerCase('ar');
+ const matched=displayedAudit.filter(e=>!query||[label(e),e.action,actor(e),timeText(e.createdAt),e.targetId].some(v=>String(v??'').toLocaleLowerCase('ar').includes(query)));
+ const pageSize=20,totalPages=Math.max(1,Math.ceil(matched.length/pageSize));
+ auditViewPage=Math.max(1,Math.min(totalPages,auditViewPage));
+ const rows=matched.slice((auditViewPage-1)*pageSize,auditViewPage*pageSize);
+ return '<section class="panel"><div class="panel-header"><div><h2>سجل التدقيق الخادمي</h2><p>متابعة العمليات وفحص نزاهة السجل</p></div><div class="footer-actions"><button class="btn btn-sm" data-action="refresh-audit">عرض آخر الأحداث</button> '+(uiCan('audit.verify')?'<button class="btn btn-sm" data-action="verify-audit">فحص سلامة السلسلة</button>':'')+'</div></div><div class="panel-body">'+
  (auditCheck?'<p role="status">'+(auditCheck.ok?'نجح فحص السلسلة':'فشل فحص السلسلة؛ يلزم مراجعة النسخة الاحتياطية')+' · '+(auditCheck.checked||0)+' حدث</p>':'')+
- '<p class="small-copy">يعرض آخر 500 حدث من الخادم، ولا يتيح تعديلها أو حذفها.</p>'+displayedAudit.map(e=>'<details class="setting-row" style="display:block"><summary>'+esc(labels[e.action]||e.action)+' · '+esc(users.get(e.actorUserId)||e.actorUserId||'النظام')+' · '+timeText(e.createdAt)+'</summary><p><bdi dir="ltr">'+esc(e.targetId||'')+'</bdi></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(JSON.stringify(e.details,null,2))+'</pre></details>').join('')+'</div></section>';
+ '<p class="small-copy">يعرض آخر 500 حدث من الخادم، ولا يتيح تعديلها أو حذفها.</p>'+
+ '<div class="form-field"><label for="auditViewSearch">البحث في الأحداث</label><div class="footer-actions"><input class="field" id="auditViewSearch" maxlength="150" placeholder="اسم العملية أو المستخدم أو التاريخ" value="'+esc(auditViewQuery)+'"><button type="button" class="btn" data-audit-view="search">بحث</button><button type="button" class="btn" data-audit-view="clear">مسح البحث</button></div></div>'+
+ '<p class="small-copy" role="status">'+matched.length+' حدث · صفحة '+auditViewPage+' من '+totalPages+'</p>'+
+ (rows.length?rows.map(e=>'<details class="setting-row" style="display:block"><summary><strong>'+esc(label(e))+'</strong> · '+esc(actor(e))+' · '+timeText(e.createdAt)+'</summary><p><bdi dir="ltr">'+esc(e.targetId||'')+'</bdi></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(JSON.stringify(e.details,null,2))+'</pre></details>').join(''):'<p class="small-copy">لا توجد أحداث مطابقة. يمكنك عرض آخر الأحداث أو تغيير البحث.</p>')+
+ '<div class="footer-actions" style="margin-top:12px"><button type="button" class="btn" data-audit-view="prev" '+(auditViewPage===1?'disabled':'')+'>السابق</button><button type="button" class="btn" data-audit-view="next" '+(auditViewPage>=totalPages?'disabled':'')+'>التالي</button></div></div></section>';
 }
 
-async function refreshAudit(){try{displayedAudit=(await api('/api/audit')).events||[];render();}catch(error){toast(error.message,'error');}}
+async function refreshAudit(){
+ syncAuditViewSession();if(!uiCan('audit.read'))return;
+ const owner=authenticatedUser;
+ try{const result=await api('/api/audit');if(owner!==authenticatedUser||!uiCan('audit.read'))return;displayedAudit=result.events||[];render();}
+ catch(error){if(owner===authenticatedUser)toast(error.message,'error');}
+}
 
-async function verifyAudit(){try{auditCheck=await api('/api/audit/verify');render();}catch(error){toast(error.message,'error');}}
+async function verifyAudit(){
+ syncAuditViewSession();if(!uiCan('audit.verify'))return;
+ const owner=authenticatedUser;
+ try{const result=await api('/api/audit/verify');if(owner!==authenticatedUser||!uiCan('audit.verify'))return;auditCheck=result;render();}
+ catch(error){if(owner===authenticatedUser)toast(error.message,'error');}
+}
 
 async function applyRecoveredBulk(type,value){
  if(type!=='priority'||!value||!uiCan('complaints.update'))return toast('لا تملك صلاحية تنفيذ الإجراء.','error');

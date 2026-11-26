@@ -27,6 +27,8 @@ test('selects immutable published installer builds, rejects downgrade, draft and
   const release = published();
   assert.equal(selectRelease([release], '1.0.0-rc.8').commit, commit);
   assert.equal(selectRelease([release], version, release.tag_name), null);
+  assert.equal(selectRelease([release], version, null, commit), null);
+  assert.equal(selectRelease([release], version, null, 'b'.repeat(40)).commit, commit);
   assert.equal(selectRelease([release], '1.0.0'), null);
   assert.equal(selectRelease([published({ draft: true })], '1.0.0-rc.8'), null);
   assert.equal(selectRelease([published({ tag_name: 'v1.0.0-rc.9' })], '1.0.0-rc.8'), null);
@@ -109,7 +111,7 @@ function harness(t, { backup = true, corrupt = false, revoke = false, bundledCom
     close() { let prevented = false; this.emit('close', { preventDefault() { prevented = true; } }); if (!prevented) { this.destroyed = true; this.emit('closed'); } }
   }
   const source = fs.readFileSync(path.join(__dirname, '../desktop/updater.js'), 'utf8');
-  const sandbox = { module: { exports: {} }, __dirname: path.join(__dirname, '../desktop'), process: { platform: 'win32', pid: process.pid, env: { SystemRoot: 'C:/Windows' } }, AbortSignal, URL,
+  const sandbox = { module: { exports: {} }, __dirname: path.join(__dirname, '../desktop'), process: { platform: 'win32', pid: process.pid, env: { SystemRoot: 'C:/Windows' } }, AbortSignal, AbortController, URL,
     require(name) {
       if (name === 'electron') return { BrowserWindow: Window, ipcMain: { handle: (channel, handler) => handlers.set(channel, handler), removeHandler: channel => handlers.delete(channel) },
         safeStorage: { decryptString() { return 'test-only-token'; } },
@@ -122,7 +124,7 @@ function harness(t, { backup = true, corrupt = false, revoke = false, bundledCom
     }
   };
   vm.runInNewContext(source, sandbox);
-  const options = { app: { isPackaged: true, getVersion: () => version, getPath: () => path.join(base, 'installed.exe'), quit() { calls.quit++; } },
+  const options = { app: { isPackaged: true, getVersion: () => calls.quit ? version : '1.0.0-rc.8', getPath: () => path.join(base, 'installed.exe'), quit() { calls.quit++; } },
     paths: { applicationBase: base }, window: {}, runtime: { backupScheduler: { async runOnce() { calls.backup++; return backup; } }, audit() { calls.audit++; } },
     async admin() { calls.admin++; if (revoke && calls.admin > 1) throw new Error('revoked'); return { id: 'admin' }; } };
   return { base, calls, messages, options, environment: sandbox.process.env, updater: sandbox.module.exports };
@@ -174,4 +176,26 @@ test('the original portable executable is removed only after the new installed b
     assert.equal(fs.existsSync(portable), changed);
     assert.equal(fs.existsSync(path.join(h.base, 'data', 'complaints.sqlite')), true);
   }
+});
+
+test('freshly installed matching build is not downloaded again', async t => {
+  const h = harness(t); h.options.app.getVersion = () => version;
+  await h.updater.runUpdate(h.options);
+  assert.equal(h.calls.spawn, 0); assert.equal(h.calls.backup, 0);
+  assert.ok(h.messages.at(-1).done);
+});
+test('installer helper failure is reported and never acknowledged as successful', async t => {
+  const h = harness(t, { bundledCommit: 'b'.repeat(40) });
+  await h.updater.runUpdate(h.options);
+  const receipt = h.updater.readReceipt(h.base);
+  fs.writeFileSync(path.join(receipt.staging, 'install.json.error'), 'synthetic failure');
+  assert.equal(await h.updater.completeUpdate(h.options), false);
+  assert.equal(h.updater.readReceipt(h.base).state, 'failed');
+  assert.equal(fs.existsSync(receipt.staging), true);
+  assert.ok(JSON.parse(fs.readFileSync(path.join(h.base, 'update-history.json'))).some(e => e.state === 'failed'));
+});
+test('cancelled download deletes the partial file', async t => {
+  const root = temporary(t), destination = path.join(root, 'setup.exe'), controller = new AbortController();
+  await assert.rejects(downloadVerified({fetch: async () => new Response(bytes), release: selectRelease([published()], version), destination, signal: controller.signal, onProgress: () => controller.abort(new Error('cancelled'))}));
+  assert.equal(fs.existsSync(destination), false);
 });

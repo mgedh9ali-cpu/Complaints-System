@@ -84,3 +84,11 @@ test('a modified installer or unsafe artifact list stops publication before netw
  manifest.artifacts[1].filename='../unexpected.exe';fs.writeFileSync(file,JSON.stringify(manifest));
  await assert.rejects(publish(f.options),/Unexpected release artifact/);assert.equal(f.calls.length,0);
 });
+
+test('release notes identify the actual version and never reuse older notes for an unknown version', () => {
+ const {releaseNotes}=require('../scripts/publish-release');
+ const commit='a'.repeat(40);
+ assert.match(releaseNotes('9.9.9',commit),/لم تُرفق ملاحظات/);
+ assert.ok(releaseNotes('9.9.9',commit).includes(commit));
+ assert.match(releaseNotes('1.0.0-rc.20',commit),/سجل التحديثات/);
+});

@@ -14,11 +14,14 @@
     <h1>تحديث التطبيق</h1>
     <span id="version" class="version" dir="ltr" hidden></span>
   </header>
+  <div class="versions"><div><span>الإصدار المثبّت</span><strong id="current-version" dir="ltr">—</strong><small id="current-build" dir="ltr"></small></div><div><span>الإصدار المتاح</span><strong id="available-version" dir="ltr">—</strong><small id="available-build" dir="ltr"></small></div></div>
+  <p id="published" class="meta" hidden></p>
   <p id="message" role="status">جارٍ التحقق من آخر إصدار…</p>
   <div id="progress-group" class="progress-group">
     <label id="progress-label" for="progress">جارٍ التحقق</label>
     <output id="percent" aria-hidden="true"></output>
     <progress id="progress" max="100" aria-labelledby="progress-label"></progress>
+    <small id="download-detail" class="meta"></small>
   </div>
   <form id="credentials" hidden>
     <label for="token">رمز وصول GitHub</label>
@@ -28,9 +31,10 @@
     <button type="submit">حفظ ومتابعة</button>
   </form>
   <section id="release-notes" aria-labelledby="notes-title" hidden>
-    <h2 id="notes-title">ملاحظات الإصدار</h2>
+    <h2 id="notes-title">ما الجديد في هذا الإصدار؟</h2>
     <p id="notes" dir="auto"></p>
   </section>
+  <section id="history-panel" aria-labelledby="history-title"><h2 id="history-title">سجل التحديثات على هذا الجهاز</h2><ol id="history-list"></ol><p id="history-empty" class="meta">لا توجد محاولات مسجلة بعد.</p></section>
   <footer>
     <button id="install" hidden>تنزيل وتثبيت</button>
     <button id="close" class="secondary" hidden>إغلاق</button>

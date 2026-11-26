@@ -41,7 +41,7 @@ function openReminderModal(complaintId) {
     'سينبّهك النظام عند الموعد مع ملاحظة المراجعة المرتبطة بالسجل ' + esc(complaintId) + '.',
     '<div class="footer-actions"><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="1">غدًا</button><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="3">بعد ثلاثة أيام</button><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="7">بعد أسبوع</button></div><form id="reminderForm"><div class="form-field"><label for="alarmTime">تاريخ ووقت المنبه</label><input class="field" id="alarmTime" type="datetime-local" required value="' +
       local +
-      '"></div><div class="form-field" style="margin-top:12px"><label for="alarmNote">ملاحظة التذكير</label><textarea class="textarea-field" id="alarmNote" required maxlength="500">مراجعة السجل</textarea></div><div class="form-field" style="margin-top:12px"><label for="alarmPriority">الأولوية</label><select class="select-field" id="alarmPriority"><option value="normal">عادية</option><option value="high">مرتفعة</option><option value="urgent">عاجلة</option><option value="low">منخفضة</option></select></div></form>',
+      '"></div><div class="form-field" style="margin-top:12px"><label for="alarmNote">تعليق التذكير (ماذا تريد أن تتذكر؟)</label><textarea class="textarea-field" id="alarmNote" required minlength="2" maxlength="500" placeholder="مثال: الاتصال بالجهة ومراجعة الرد">مراجعة السجل</textarea><small>سيظهر تعليقك داخل تنبيه المراجعة عند حلول الموعد.</small></div><div class="form-field" style="margin-top:12px"><label for="alarmPriority">الأولوية</label><select class="select-field" id="alarmPriority"><option value="normal">عادية</option><option value="high">مرتفعة</option><option value="urgent">عاجلة</option><option value="low">منخفضة</option></select></div></form>',
     '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-reminder" data-id="' +
       esc(complaintId) +
       '">حفظ موعد المراجعة</button>'
@@ -91,23 +91,47 @@ function playSoftBeep() {
   } catch (_) {}
 }
 
+function reminderBrief(value, limit = 100) {
+  const full = String(value || '').replace(/\s+/g, ' ').trim();
+  return full.length > limit ? full.slice(0, limit - 1) + '…' : full;
+}
+
+function reminderDisplay(item) {
+  const c = db.complaints.find(x => x?.id === item.complaintId);
+  const type = c && typeof recordTypeOf === 'function' ? recordTypeOf(c) : 'complaint';
+  const label = ({ complaint:'الشكوى', inquiry:'الاستفسار', contact:'التواصل' })[type] || 'السجل';
+  return { label, summary: reminderBrief(item.summary || c?.summary), note: String(item.note || '').trim() };
+}
+
+function reminderNoteHtml(note) {
+  if (!note) return '';
+  const short = reminderBrief(note, 120);
+  return note.length > 120
+    ? '<details><summary>تعليقك: ' + esc(short) + '</summary><p>' + esc(note) + '</p></details>'
+    : '<p><strong>تعليقك: </strong>' + esc(note) + '</p>';
+}
+
 function showAlarmToast(item) {
-  if (document.getElementById('alarm-toast-' + item.id)) return;
+  if (!authenticatedUser || document.visibilityState === 'hidden' || document.getElementById('alarm-toast-' + item.id)) return;
+  const info = reminderDisplay(item);
   playSoftBeep();
   const toastEl = document.createElement('div');
   toastEl.className = 'alarm-toast';
   toastEl.id = 'alarm-toast-' + item.id;
   toastEl.setAttribute('role', 'alert');
   toastEl.innerHTML =
-    '<div class="alarm-toast-icon" aria-hidden="true">⏰</div><div class="alarm-toast-body"><strong>حان موعد متابعة</strong>' +
-    '<p>افتح السجل للاطلاع على تفاصيل التذكير.</p></div><div class="alarm-toast-actions"><button type="button" class="btn btn-sm btn-primary" data-action="alarm-open" data-id="' +
+    '<div class="alarm-toast-icon" aria-hidden="true">⏰</div><div class="alarm-toast-body"><strong>حان موعد مراجعة ' + esc(info.label) + '</strong>' +
+    '<small><bdi>' + esc(String(item.complaintId)) + '</bdi> · ' + esc(timeText(item.reminderTime)) + '</small>' +
+    (info.summary ? '<p>' + esc(info.summary) + '</p>' : '') + reminderNoteHtml(info.note) +
+    '</div><div class="alarm-toast-actions"><button type="button" class="btn btn-sm btn-primary" data-action="detail" data-id="' +
     esc(item.complaintId) +
     '" data-reminder="' +
     esc(String(item.id)) +
     '">فتح</button><button type="button" class="btn btn-sm" data-action="alarm-dismiss" data-reminder="' +
     esc(String(item.id)) +
     '">تم</button></div>';
-  document.body.appendChild(toastEl);
+  toastEl.dataset.reminderId = String(item.id);
+  (document.getElementById('appShell') || document.body).appendChild(toastEl);
 }
 
 async function dismissReminder(id) {
@@ -116,19 +140,23 @@ async function dismissReminder(id) {
       method: 'POST',
       body: JSON.stringify({})
     });
-  } catch (_) {}
+  } catch (error) {
+    toast(error.message || 'تعذّر إنهاء التذكير.', 'error');
+    return;
+  }
   document.getElementById('alarm-toast-' + id)?.remove();
   markReminderShown(id);
   void refreshRecordReview();
+  if (typeof refreshNotificationReminders === 'function') void refreshNotificationReminders();
   if(typeof refreshWorkday==='function'){workdayLoadedAt=0;void refreshWorkday(true);}
 }
 
 async function checkDueReminders() {
-  if (!authenticatedUser || document.visibilityState === 'hidden') return;
+  if (!authenticatedUser || document.visibilityState === 'hidden' || (typeof document.hasFocus === 'function' && !document.hasFocus())) return;
   const reminderUser = authenticatedUser;
   try {
     const data = await api('/api/reminders/due?limit=8');
-    if (reminderUser !== authenticatedUser) return;
+    if (reminderUser !== authenticatedUser || document.visibilityState === 'hidden' || (typeof document.hasFocus === 'function' && !document.hasFocus())) return;
     const list = data.reminders || [];
     const shown = shownReminderIds();
     for (const item of list) {
@@ -142,12 +170,16 @@ async function checkDueReminders() {
 function startReminderPolling() {
   if (reminderPollTimer) return;
   checkDueReminders();
-  reminderPollTimer = setInterval(checkDueReminders, 60000);
+  reminderPollTimer = setInterval(() => {
+    void checkDueReminders();
+    if (typeof refreshNotificationReminders === 'function') void refreshNotificationReminders();
+  }, 60000);
 }
 
 if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') checkDueReminders();
+    else clearVisibleReminderAlerts();
   });
 }
 
@@ -161,6 +193,7 @@ async function refreshRecordReview() {
     const next = (result.reminders || []).find(item => Number.isFinite(Date.parse(item.reminderTime)));
     mount.textContent = next ? timeText(next.reminderTime) : 'لا يوجد موعد مراجعة محفوظ.';
     mount.dataset.reviewTime = next?.reminderTime || '';
+    mount.dataset.reviewNote = next?.note || '';
     paintRecordReview();
   } catch (_) {
     if ($('#recordReviewTimer') === mount) mount.textContent = 'تعذّر تحميل موعد المراجعة.';
@@ -174,8 +207,21 @@ function paintRecordReview() {
   const minutes = Math.ceil((Date.parse(time) - Date.now()) / 60000);
   const countdown = minutes <= 0 ? 'حان موعد المراجعة' :
     'متبقٍ ' + (minutes >= 60 ? Math.floor(minutes / 60) + ' س و' : '') + minutes % 60 + ' د';
-  mount.textContent = timeText(time) + ' · ' + countdown;
+  mount.textContent = timeText(time) + ' · ' + countdown + (mount.dataset.reviewNote ? ' · تعليقك: ' + mount.dataset.reviewNote : '');
 }
 
-document.addEventListener('complaints:render', () => { void refreshRecordReview(); });
+function clearVisibleReminderAlerts() {
+  const shown = shownReminderIds();
+  document.querySelectorAll('.alarm-toast[data-reminder-id]').forEach(node => {
+    shown.delete(node.dataset.reminderId);
+    node.remove();
+  });
+  try { sessionStorage.setItem(SHOWN_REMINDER_KEY, JSON.stringify([...shown])); } catch (_) {}
+}
+document.addEventListener('complaints:render', () => {
+  if (!authenticatedUser) clearVisibleReminderAlerts();
+  void refreshRecordReview();
+});
+window.addEventListener('blur', clearVisibleReminderAlerts);
+window.addEventListener('focus', () => { if (authenticatedUser) void checkDueReminders(); });
 setInterval(paintRecordReview, 30000);
