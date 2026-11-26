@@ -61,7 +61,7 @@ test('export uses applied filters even while form controls have unsaved edits',a
  const requests=[],downloads=[];
  const context=setup([],{
   uiCan:()=>true,$:()=>({value:'unsaved'}),fetch:async url=>{requests.push(url);return {ok:true,blob:async()=>Buffer.from('synthetic')}} ,
-  URL:{createObjectURL:()=> 'blob:synthetic',revokeObjectURL(){}},document:{createElement:()=>({click(){downloads.push(this.download);}})},setTimeout:fn=>fn(),toast(){}
+  URL:{createObjectURL:()=> 'blob:synthetic',revokeObjectURL(){}},document:{addEventListener(){},createElement:()=>({click(){downloads.push(this.download);}})},setTimeout:fn=>fn(),toast(){}
  });
  context.applied={...filters,category:'مياه & صرف'};vm.runInContext('reportFilters=applied',context);
  await vm.runInContext("exportReport('csv')",context);await vm.runInContext("exportReport('xlsx')",context);

@@ -14,8 +14,12 @@ test('bulk actions keep the server-backed dialog and do not leave a dead confirm
   assert.equal(matches.length, 1, 'expected exactly one bulkOpen in assembled UI bundle');
   assert.equal(bundle.includes('data-action="bulk-confirm"'), false);
   assert.match(read('ui/features/complaint-actions.js'), /data-action="bulk-apply"/);
-  assert.match(read('ui/pages/registry.js'), /'bulk-open'/);
+  // The registry no longer renders selection checkboxes or the bulk toolbar (removed with the
+  // simplified registry), so no bulk-open trigger is emitted there; the dispatch wiring and the
+  // server-backed apply action still have to exist.
+  assert.match(read('ui/pages/registry.js'), /complaintTable\(visibleRows,\{select:false/);
   assert.match(read('ui/core/events.js'), /case 'bulk-open'/) ;
+  assert.match(read('ui/core/events.js'), /case 'bulk-apply'/) ;
 });
 
 test('settings sync export downloads an encrypted package instead of a dead-end notice', () => {
