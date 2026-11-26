@@ -65,7 +65,8 @@ function spyCodec(db) {
     calls,
     stateDecodes: () => calls.filter(c => c.kind === 'decode' && c.context === 'app-state').length,
     stateEncodes: () => calls.filter(c => c.kind === 'encode' && c.context === 'app-state').length,
-    complaintEncodes: () => calls.filter(c => c.kind === 'encode' && String(c.context).startsWith('complaint:')).map(c => c.context)
+    complaintEncodes: () => calls.filter(c => c.kind === 'encode' && String(c.context).startsWith('complaint:')).map(c => c.context),
+    complaintDecodes: () => calls.filter(c => c.kind === 'decode' && String(c.context).startsWith('complaint:')).map(c => c.context)
   };
 }
 
@@ -97,6 +98,7 @@ test('PATCH /api/complaints/:id decodes and encodes the state once and rewrites 
   assert.equal(spy.stateDecodes(), 1, 'the request must decode the stored state exactly once, not once per layer');
   assert.equal(spy.stateEncodes(), 1, 'the request must encode the stored state exactly once');
   assert.deepEqual(spy.complaintEncodes(), ['complaint:' + TARGET], 'only the edited complaint may be re-encoded');
+  assert.deepEqual(spy.complaintDecodes(), [], 'an unchanged complaint row must not be decrypted to compare it');
 
   const after = db.prepare('SELECT id, payload_json, updated_at FROM complaints ORDER BY id').all();
   const beforeById = new Map(before.map(row => [row.id, row]));
