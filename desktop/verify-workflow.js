@@ -5,14 +5,14 @@
 async function verifyWorkflow(webContents, credentials) {
   async function exercise({ username, password }) {
     let stage = 'login';
-    const assert = condition => { if (!condition) throw new Error('Packaged UI workflow failed: ' + stage); };
+    const assert = (condition, detail='') => { if (!condition) throw new Error('Packaged UI workflow failed: ' + stage + (detail ? ' — ' + detail : '')); };
     const find = selector => document.querySelector(selector);
-    const click = selector => { const button=find(selector);assert(button&&!button.disabled);button.click(); };
+    const click = selector => { const button=find(selector);assert(button&&!button.disabled&&!button.closest('[hidden]')&&button.getClientRects().length>0,'Control missing, hidden or disabled: '+selector);button.click(); };
     const fill = (selector,value) => { const input=find(selector);assert(input);input.value=value;input.dispatchEvent(new Event('input',{bubbles:true})); };
-    const until = async check => {
+    const until = async (check, detail='Expected UI state did not appear') => {
       const deadline=Date.now()+15000;
       while(!(await check())){
-        assert(Date.now()<deadline);
+        assert(Date.now()<deadline,detail);
         await new Promise(resolve=>setTimeout(resolve,100));
       }
     };
@@ -68,9 +68,11 @@ async function verifyWorkflow(webContents, credentials) {
     find('#statusFilter').value='closed';find('#statusFilter').dispatchEvent(new Event('change',{bubbles:true}));
     find('#dateFrom').value='2099-01-01';find('#dateFrom').dispatchEvent(new Event('change',{bubbles:true}));
     click('[data-action="filter-record-type"][data-value="inquiry"]');
-    click('.nav-link[data-page="dashboard"]');
-    await until(()=>find('[data-action="registry-queue"][data-queue="waiting-referrals"]'));
-    click('[data-action="registry-queue"][data-queue="waiting-referrals"]');
+    // The referral shortcut was deliberately removed from the dashboard. The
+    // waiting-record queue is still available as a visible registry filter.
+    const waitingQueue='#content [data-action="registry-queue"][data-queue="waiting-referrals"]';
+    await until(()=>find(waitingQueue),'Waiting-for-response filter in registry');
+    click(waitingQueue);
     await until(()=>find('[data-filter-key="queue"]')&&find('#content').textContent.includes(id));
     assert(find('#statusFilter').value==='all'&&find('#dateFrom').value==='');
 
@@ -85,8 +87,12 @@ async function verifyWorkflow(webContents, credentials) {
 
     stage = 'reply';
     assert(!find('#complaint-reply'));
-    click('.nav-link[data-page="replies"]');
-    await until(()=>find('#content [data-action="new-reply"]'));
+    // The standalone replies navigation entry is hidden by design. Enter the
+    // same page through the visible registry approval filter instead.
+    click('.nav-link[data-page="complaints"]');
+    await until(()=>find('#content [data-goto="replies"]'),'Registry approval filter');
+    click('#content [data-goto="replies"]');
+    await until(()=>find('#content [data-action="new-reply"]'),'Reply creation action');
     click('#content [data-action="new-reply"]');
     fill('#replyComplaint',id);
     click('[data-action="reply-next"]');

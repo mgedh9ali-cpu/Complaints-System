@@ -46,7 +46,7 @@ async function smoke(executable,serverScript){
    assert.ok(fs.existsSync(resultPath),'Chromium font verification timed out');
    const result=JSON.parse(fs.readFileSync(resultPath,'utf8'));
    assert.equal(result.ok,true,'Bundled font rendered');
-   assert.equal(result.workflow?.passed,true,'Packaged UI intake, search, referral and reply');
+   assert.equal(result.workflow?.passed,true,'Packaged UI intake, search, registry queue, referral and reply');
   }
   const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'release_admin',password})});
   assert.equal(login.status,200,'Packaged login');

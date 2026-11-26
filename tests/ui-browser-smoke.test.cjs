@@ -692,7 +692,8 @@ test('work queues clear unrelated filters and show only matching open records',a
  ui.goto('complaints');
  ui.events.get('change')({target:{id:'dateFrom',value:'2099-01-01',classList:{contains:()=>false}}});
  ui.click('filter-record-type',undefined,{value:'inquiry'});
- ui.goto('dashboard');ui.click('registry-queue',undefined,{queue:'waiting-referrals'});
+ assert.match(ui.node('#content').innerHTML,/data-action="registry-queue" data-queue="waiting-referrals"/);
+ ui.click('registry-queue',undefined,{queue:'waiting-referrals'});
  const html=ui.node('#content').innerHTML;
  assert.equal(ui.location.hash,'#complaints');assert.match(html,/SY-2026-10001/);assert.doesNotMatch(html,/SY-2026-10002|SY-2026-10003/);
  assert.match(html,/data-filter-key="queue"/);assert.doesNotMatch(html,/2099-01-01/);
@@ -787,4 +788,14 @@ test('owner attachment archive uses delegated action and authenticated DELETE on
  assert.doesNotMatch(reviewer.node('#modalRoot').innerHTML,/attachmentDeleteReason/);
  await reviewer.click('confirm-attachment-delete',id,{file});
  assert.equal(reviewer.calls.filter(c=>c.method==='DELETE').length,0);
+});
+
+
+test('packaged smoke routes use visible registry controls without requiring hidden navigation',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.goto('complaints');
+ assert.match(ui.node('#content').innerHTML,/data-action="registry-queue" data-queue="waiting-referrals"/);
+ assert.match(ui.node('#content').innerHTML,/data-goto="replies"/);
+ ui.goto('replies');
+ assert.match(ui.node('#content').innerHTML,/data-action="new-reply"/);
 });
