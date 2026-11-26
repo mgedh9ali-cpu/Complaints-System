@@ -4,6 +4,11 @@ const express = require('express');
 const crypto = require('node:crypto');
 const { rateLimit } = require('express-rate-limit');
 
+function sessionCsrfToken(session) {
+  session.csrfToken ||= crypto.randomBytes(32).toString('hex');
+  return session.csrfToken;
+}
+
 function createAuthRouter({ authService, middleware, audit, rolesService, singleOperator = false }) {
   const router = express.Router();
   const { requireAuth, requireRole, requireCsrf } = middleware;
@@ -38,8 +43,8 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
     message: { error: 'تم تجاوز عدد المحاولات لهذه العملية. حاول لاحقًا.' }
   });
 
-  router.get('/csrf', requireAuth, middleware.ensureCsrfToken, (req, res) => {
-    res.json({ csrfToken: req.session.csrfToken });
+  router.get('/csrf', requireAuth, (req, res) => {
+    res.json({ csrfToken: sessionCsrfToken(req.session) });
   });
 
   router.post('/auth/login', loginLimiter, (req, res, next) => {
@@ -62,10 +67,7 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
       req.session.cookie.maxAge = req.body?.rememberMe === true
         ? 30 * 24 * 60 * 60 * 1000
         : 30 * 60 * 1000;
-      if (!req.session.csrfToken) {
-        const crypto = require('node:crypto');
-        req.session.csrfToken = crypto.randomBytes(32).toString('hex');
-      }
+      sessionCsrfToken(req.session);
       req.session.save((saveErr) => {
         if (saveErr) return next(saveErr);
         res.json({ user: { ...result.user, permissions: rolesService?.effectivePermissions(result.user) } });

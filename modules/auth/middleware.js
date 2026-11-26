@@ -41,15 +41,7 @@ function createAuthMiddleware({ db, audit }) {
     next();
   }
 
-  function ensureCsrfToken(req, res, next) {
-    if (!req.session.csrfToken) {
-      const crypto = require('node:crypto');
-      req.session.csrfToken = crypto.randomBytes(32).toString('hex');
-    }
-    next();
-  }
-
-  return { requireAuth, requireRole, requireCsrf, ensureCsrfToken };
+  return { requireAuth, requireRole, requireCsrf };
 }
 
 module.exports = { createAuthMiddleware };
