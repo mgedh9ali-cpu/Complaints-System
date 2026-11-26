@@ -75,3 +75,12 @@ test('registry date filtering uses Damascus day boundaries and preserves date-on
   assert.equal(c.inDateRange({firstContactDate:'2026-11-10'}),true);
   assert.equal(c.inDateRange({firstContactDate:'invalid'}),false);
 });
+
+test('registry closure date prefers stored completion date and supports legacy history',()=>{
+ const c={Date};vm.createContext(c);
+ vm.runInContext(fs.readFileSync('ui/pages/registry.js','utf8'),c);
+ assert.equal(c.complaintDateValue({status:'closed',closedAt:'2026-11-10'},'closed'),'2026-11-10');
+ assert.equal(c.complaintDateValue({status:'closed',statusHistory:[{to:'closed',at:'2026-11-09'}]},'closed'),'2026-11-09');
+ assert.equal(c.complaintDateValue({status:'in_progress',statusHistory:[{to:'closed',at:'2026-11-09'}]},'closed'),'');
+ assert.equal(c.normalizeRegistryQueue('closed'),'closed');
+});

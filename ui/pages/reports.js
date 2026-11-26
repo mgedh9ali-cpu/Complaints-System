@@ -36,7 +36,7 @@ function buildReportModel(complaints,filters={},settings={},now=Date.now()){
  const eligible=settings.slaApproved?records.filter(c=>!['draft','cancelled'].includes(c.status)&&Number.isFinite(Date.parse(c.created))&&Number.isFinite(Date.parse(c.due))):[];
  const compliant=eligible.filter(c=>{
   if(c.status!=='closed')return now<=Date.parse(c.due);
-  const closedAt=(c.statusHistory||[]).filter(t=>t.to==='closed').at(-1)?.at||c.closedAt||c.closed||c.updated;
+  const closedAt=c.closedAt||(c.statusHistory||[]).filter(t=>t.to==='closed').at(-1)?.at||c.closed||c.updated;
   return Number.isFinite(Date.parse(closedAt))&&Date.parse(closedAt)<=Date.parse(c.due);
  });
  const late=settings.slaApproved?records.filter(c=>!['draft','closed','cancelled'].includes(c.status)&&Number.isFinite(Date.parse(c.due))&&Date.parse(c.due)<now).length:0;
@@ -117,7 +117,7 @@ function reportProcessingMetrics(records){
  const durations=[],reasons=new Map();let reopened=0;
  for(const c of records){
   const history=c.statusHistory||[];
-  const closed=history.filter(h=>h.to==='closed').at(-1)?.at||c.closedAt;
+  const closed=c.closedAt||history.filter(h=>h.to==='closed').at(-1)?.at||c.closed;
   const days=(Date.parse(closed)-Date.parse(c.created))/86400000;
   if(c.status==='closed'&&Number.isFinite(days)&&days>=0)durations.push(days);
   if(history.some(h=>['closed','cancelled'].includes(h.from)&&h.to==='in_progress'))reopened++;

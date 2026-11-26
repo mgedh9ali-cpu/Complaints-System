@@ -371,6 +371,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
     const fromStatus = complaint.status || 'new';
+    const previousClosedAt = complaint.closedAt || complaint.closed || (complaint.statusHistory || []).filter(h => h.to === 'closed').at(-1)?.at || null;
     if (complaint.archivedAt) return { ok: false, status: 409, error: 'السجل مؤرشف.' };
     if (fromStatus === toStatus) return { ok: true, unchanged: true, complaint, revision };
     const allowed = ALLOWED_TRANSITIONS[fromStatus] || [];
@@ -418,7 +419,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       complaintId,
       from: fromStatus,
       to: toStatus,
-      previousClosedAt: fromStatus === 'closed' ? (state.complaints[idx].statusHistory.filter(h => h.to === 'closed').at(-1)?.at || null) : null,
+      previousClosedAt: fromStatus === 'closed' ? previousClosedAt : null,
       userId,
       revision: nextRevision,
       expiresAt: undoExpiresAt

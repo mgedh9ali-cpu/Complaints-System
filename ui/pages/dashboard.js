@@ -162,7 +162,7 @@ function dashboard(){
     '<div class="dashboard-overview-grid">'+(typeof workdayPanel==='function'?workdayPanel():'')+briefBanner+'</div>'+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
       [['جميع السجلات',totalActive],['مفتوحة',open.length],['مغلقة',countStatus('closed')],['غير مكتملة',missing.length],['عاجلة',urgentNoReply.length]].map(([label,n],i)=>
-        '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
+        '<div class="stat-item '+(i===0?'stat-primary':i===3&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+
     '<div class="work-grid"><section class="panel dashboard-actions"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button type="button" class="btn btn-sm" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list" role="list" aria-label="المهام التي تحتاج إجراء">'+taskHtml+'</div>'+incompleteRecordsPanel()+'</div></section>'+
