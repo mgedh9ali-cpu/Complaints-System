@@ -137,14 +137,7 @@ function handleSyncImportChange(target){
   })();
 }
 async function confirmSyncPassword(){
-  if(!pendingSyncPackage && typeof syncPasswordResolve==='function'){
-    const input=$('#syncPassword'), confirmation=$('#syncPasswordConfirm');
-    if(!input||!input.reportValidity())return;
-    if(confirmation&&confirmation.value!==input.value)return toast('عبارتا المرور غير متطابقتين.','warn');
-    const password=input.value,done=syncPasswordResolve;syncPasswordResolve=null;
-    input.value='';if(confirmation)confirmation.value='';closeModal();done?.(password);
-    return;
-  }
+  if(typeof syncPasswordResolve==='function')return confirmExportSyncPassword();
   try{
     if(!pendingSyncPackage)return toast('لا توجد حزمة مزامنة معلّقة.','warn');
     const password=$('#syncPassword')?.value||'', owner=authenticatedUser, transfer=pendingSyncPackage;
