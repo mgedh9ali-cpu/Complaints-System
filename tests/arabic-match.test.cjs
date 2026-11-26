@@ -42,7 +42,14 @@ test('persian keyboard letters and eastern digits match the arabic office spelli
 
 test('dashboard explains a stopped sla clock and does not turn it on', () => {
   const dash = fs.readFileSync(path.join(__dirname, '../ui/pages/dashboard.js'), 'utf8');
-  assert.match(dash, /عدّاد المهلة متوقف/);
-  assert.match(dash, /slaApproved/);
+  // Current contract: without an approved SLA the cell renders the unset marker and explains it.
+  const slaIndicator = vm.runInNewContext(
+    'const db={settings:{slaApproved:false}};\n' + grab(dash, 'slaIndicator') + '\nslaIndicator'
+  );
+  const stopped = slaIndicator({created:'2026-11-01T00:00:00Z',due:'2026-11-10T00:00:00Z'});
+  assert.match(stopped, /class="sla-unset"/);
+  assert.match(stopped, /لا توجد مهلة معتمدة/);
+  assert.doesNotMatch(stopped, /sla-ring/);
+  assert.match(dash, /!db\.settings\.slaApproved/);
   assert.doesNotMatch(dash, /slaApproved\s*=\s*true/);
 });

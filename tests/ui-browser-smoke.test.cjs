@@ -171,11 +171,12 @@ test('workflow step shortcut persists allowed transitions through the status API
  assert.match(ui.node('#content').innerHTML,/قيد المعالجة/);
 });
 
-test('select all marks visible complaint rows and reveals bulk actions',async()=>{
- const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
- ui.goto('complaints');ui.click('select-all',undefined,{checked:true});
- assert.match(ui.node('#content').innerHTML,/تم تحديد 2 سجلًا/);
- assert.doesNotMatch(ui.node('#content').innerHTML,/bulk-assign/);
+test('registry has no selection column or bulk actions',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.goto('complaints');const html=ui.node('#content').innerHTML;
+ assert.doesNotMatch(html,/row-check|select-all|bulkMount|bulk-open|bulk-priority|export-selected|clear-selection/);
+ assert.match(html,/SY-2026-10001/);
+ assert.match(html,/data-action="print-complaint-cover"/);
 });
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
@@ -483,7 +484,7 @@ test('inquiry review keeps contact details and saves optional fields without an 
  ui.node('#cSummary').value='استفسار عن المعاملة';
  ui.node('#cName').value='متصل للاختبار';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-11-10';
  let review=ui.node('#modalRoot').innerHTML;
- assert.match(review,/>حفظ<\/button>/);
+ assert.match(review,/data-action="save-complaint">حفظ السجل<\/button>/);
  assert.equal(ui.node('#cName').value,'متصل للاختبار');
  assert.equal(ui.node('#cFirstContactDate').value,'2026-11-10');
  ui.click('intake-related');
@@ -590,7 +591,7 @@ test('quick intake exposes basic fields in order, one save, local suggestions an
  assert.ok(basics.at(-1)<html.indexOf('id="intakeAdditional"'));
  for(const id of ['cEntity','cCategory','cDetails','cProvince','cNature','cPriority','cSource','cFirstContactDate','intakeAttachmentsMount'])
   assert.ok(html.indexOf('id="'+id+'"')>html.indexOf('id="intakeAdditional"'),id+' belongs in additional details');
- assert.match(html,/اتركه فارغًا إذا كان البلاغ مجهولًا/);
+ assert.match(html,/اترك الاسم فارغًا عند عدم معرفته\./);
  assert.match(html,/<details class="intake-additional" id="intakeAdditional">/);
  assert.match(html,/list="intakeNames"/);assert.match(html,/&lt;img onerror=x&gt;/);assert.doesNotMatch(html,/<img/);
  assert.match(html,/id="cFirstContactDate"[^>]*value="\d{4}-\d{2}-\d{2}"/);
@@ -649,7 +650,7 @@ test('known metadata opens an anonymous record without requiring optional contac
  ui.node('#cSummary').value='سجل بلا معلومات شخصية';ui.node('#cEntity').value='جهة معروفة';
  ui.node('#cCategory').value='خدمات';ui.node('#cProvince').value='دمشق';
  ui.events.get('input')({target:ui.node('#cEntity')});
- assert.match(ui.node('#modalRoot').innerHTML,/data-action="save-complaint">حفظ<\/button>/);
+ assert.match(ui.node('#modalRoot').innerHTML,/data-action="save-complaint">حفظ السجل<\/button>/);
  await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
  const body=JSON.parse(ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST').body);
  assert.equal(body.asDraft,false);assert.equal(body.name,'');assert.equal(body.details,'');
@@ -826,4 +827,25 @@ test('intake coalesces typing, delays record lookup and flushes on close',async(
  ui.node('#cSummary').value='قبل الإغلاق';ui.events.get('input')({target:ui.node('#cSummary')});
  await ui.click('close-modal');assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'قبل الإغلاق');
  ui.runIntakeTimers(350);assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'قبل الإغلاق');
+});
+
+
+test('registry keeps secondary filters and presets inside a collapsed panel',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('complaints');
+ const html=ui.node('#content').innerHTML;
+ const panel=html.indexOf('id="registryAdvanced"');const end=html.indexOf('</details>',panel);
+ assert.ok(panel>=0&&end>panel);assert.doesNotMatch(html.slice(panel,html.indexOf('>',panel)),/\bopen\b/);
+ for(const id of ['statusFilter','priorityFilter','categoryFilter','natureFilter','dateFrom','dateTo'])assert.ok(html.indexOf('id="'+id+'"')>panel&&html.indexOf('id="'+id+'"')<end,id);
+ assert.ok(html.indexOf('saved-filters-bar')>panel&&html.indexOf('saved-filters-bar')<end);
+ assert.doesNotMatch(html,/لا يوجد بعد|data-action="urgent-no-reply"/);assert.match(html,/data-action="global-search"/);
+});
+
+
+test('dashboard groups the daily overview and centralizes its main actions',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('dashboard');
+ const html=ui.node('#content').innerHTML;
+ assert.match(html,/dashboard-overview-grid/);assert.match(html,/id="workdayMount"/);assert.match(html,/id="workdayBackupMount"/);assert.match(html,/dashboard-brief-card/);
+ const header=html.slice(0,html.indexOf('dashboard-overview-grid'));
+ assert.match(header,/data-action="new-complaint"/);assert.match(header,/data-action="refresh-workday"/);assert.match(header,/النسخ والاستعادة/);
+ assert.equal((html.match(/data-action="refresh-workday"/g)||[]).length,1);
 });

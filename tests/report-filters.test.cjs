@@ -61,7 +61,7 @@ test('export uses applied filters even while form controls have unsaved edits',a
  const requests=[],downloads=[];
  const context=setup([],{
   uiCan:()=>true,$:()=>({value:'unsaved'}),fetch:async url=>{requests.push(url);return {ok:true,blob:async()=>Buffer.from('synthetic')}} ,
-  URL:{createObjectURL:()=> 'blob:synthetic',revokeObjectURL(){}},document:{createElement:()=>({click(){downloads.push(this.download);}})},setTimeout:fn=>fn(),toast(){}
+  URL:{createObjectURL:()=> 'blob:synthetic',revokeObjectURL(){}},document:{addEventListener(){},createElement:()=>({click(){downloads.push(this.download);}})},setTimeout:fn=>fn(),toast(){}
  });
  context.applied={...filters,category:'مياه & صرف'};vm.runInContext('reportFilters=applied',context);
  await vm.runInContext("exportReport('csv')",context);await vm.runInContext("exportReport('xlsx')",context);
@@ -86,4 +86,29 @@ test('processing report measures closure duration, reopening, and recorded delay
  const context=setup([{id:'a',created:'2026-01-01',status:'closed',statusHistory:[{from:'closed',to:'in_progress',at:'2026-01-02'},{to:'closed',at:'2026-01-04'}]},{id:'b',created:'2026-01-01',status:'new',due:'2026-01-02',delayReason:'انتظار رد الجهة'}]);
  const html=vm.runInContext('reportProcessingMetrics(db.complaints)',context);
  assert.match(html,/3.0 يوم/);assert.match(html,/سجلات أُعيد فتحها: <strong>1/);assert.match(html,/انتظار رد الجهة: 1/);
+});
+
+
+test('retired waiting states aggregate as processing in reports and exports without mutating records',()=>{
+ const records=['in_progress','awaiting_reply','awaiting_approval','closed'].map((status,i)=>({id:'legacy-'+i,status,created:'2026-11-01T08:00:00Z',statusHistory:[{to:status}]}));
+ const original=JSON.stringify(records);
+ const context=setup(records);context.now=fixed;
+ const model=vm.runInContext('buildReportModel(db.complaints,{status:"in_progress"},db.settings,now)',context);
+ assert.equal(model.records.length,3);assert.equal(model.group('status').length,1);assert.equal(model.group('status')[0][0],'in_progress');assert.equal(model.group('status')[0][1],3);
+ const html=vm.runInContext('reportsPage()',context);assert.match(html,/قيد المعالجة/);assert.doesNotMatch(html,/بانتظار الاعتماد|بانتظار رد الجهة|value="awaiting_reply"|value="awaiting_approval"/);
+ const service=createReportsService({complaintsService:{readState:()=>({state:{complaints:records,settings:{}}})}});
+ assert.deepEqual(service.buildSummaryReport({status:'in_progress'}).totals.byStatus,{in_progress:3});
+ const csv=service.buildCsv({status:'in_progress'});assert.equal(csv.count,3);assert.doesNotMatch(csv.buffer.toString(),/awaiting_reply|awaiting_approval/);
+ assert.equal(JSON.stringify(records),original);
+});
+
+test('completed records remain searchable in reports and exports but do not count as overdue',()=>{
+ const completed=['complaint','inquiry','contact'].map(recordType=>({id:recordType,recordType,status:'closed',created:'2026-11-01',closedAt:'2026-11-02',due:'2026-11-03',category:'مياه'}));
+ const records=[...completed,{id:'open',status:'new',created:'2026-11-01',due:'2026-11-03',category:'مياه'}];
+ const context=setup(records);context.now=fixed;
+ const model=vm.runInContext("buildReportModel(db.complaints,{status:'closed'},db.settings,now)",context);
+ assert.equal(model.closed,3);assert.equal(model.late,0);assert.equal(model.compliance,100);
+ const service=createReportsService({complaintsService:{readState:()=>({state:{complaints:records,settings:{slaApproved:true}}})}});
+ assert.equal(service.buildSummaryReport({status:'closed',category:'مياه'}).totals.byStatus.closed,3);
+ assert.equal(service.buildCsv({status:'closed'}).count,3);
 });

@@ -6,7 +6,7 @@ function createRemindersService({ db, complaintsService, audit }) {
   function syncAudit() { if (!db.inTransaction && typeof audit?.syncHead === 'function') audit.syncHead(); }
   function complaintExists(complaintId) {
     const { state } = complaintsService.readState();
-    return (state.complaints || []).some(c => c && c.id === complaintId && !c.archivedAt);
+    return (state.complaints || []).some(c => c && c.id === complaintId && !c.archivedAt && !['closed','cancelled'].includes(c.status));
   }
   function createReminder({ complaintId, reminderTime, note, priority, userId }) {
     const id = String(complaintId || '').trim();

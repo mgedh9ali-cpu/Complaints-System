@@ -17,7 +17,7 @@ function recordOverviewHtml(c){
  const open=!c.archivedAt&&!['closed','cancelled'].includes(c.status);
  const pending=open?(c.referrals||[]).filter(r=>!r.response&&!r.completedAt).map(r=>r.due):[];
  const due=[...(open?[c.due]:[]),...pending].filter(value=>value&&Number.isFinite(Date.parse(value))).sort((a,b)=>Date.parse(a)-Date.parse(b))[0];
- return '<dl class="record-overview">'+[['الحالة',statusLabel(c.status)],['آخر إجراء',last?.event||'لا توجد إجراءات'],['الموعد القادم',due?dateText(due):'غير محدد']].map(([k,v])=>'<div><dt>'+k+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>';
+ return '<dl class="record-overview">'+[['الحالة',statusLabel(c.status)],['آخر إجراء',last?.event||'لا توجد إجراءات'],['الموعد القادم',due?dateText(due):'غير محدد'],...(c.status==='closed'?[['تاريخ الإغلاق',timeText(c.closedAt||c.closed||(c.statusHistory||[]).filter(h=>h.to==='closed').at(-1)?.at)]]:[])].map(([k,v])=>'<div><dt>'+k+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>';
 }
 /* Record view: one heading, readable data, and a separate processing column. */
 function complaintDetailField(label, value, direction = '') {
@@ -48,8 +48,8 @@ function complaintDetailPage() {
   return '<article class="complaint-page' + (authenticatedUser?.role === 'reviewer' ? ' readonly' : '') + (authenticatedUser?.role === 'admin' ? ' can-approve' : '') + '" data-complaint-id="' + esc(id) + '">' +
     '<div class="complaint-page-header"><button class="btn" data-action="detail-back">العودة إلى السجل</button><div class="complaint-page-heading"><span class="eyebrow">ملف ' + label + '</span><h1>' + esc(c.summary) + '</h1><p class="record-reference">الرقم المرجعي <strong class="ticket-id" dir="ltr"><bdi>' + esc(id) + '</bdi></strong></p>' +
     '<div class="complaint-page-badges">' + (typeof pillRecordType === 'function' ? pillRecordType(c) : '') + pillStatus(c.status) + pillPriority(c.priority) + slaIndicator(c) + '<span class="age-badge' + (isLate(c) ? ' late' : '') + '">مدة البقاء: ' + ageDays(c) + ' يوم</span></div></div></div>' +
-    recordOverviewHtml(c) + (!c.archivedAt && !['closed','cancelled'].includes(c.status) ? '<p class="small-copy"><strong>مؤقّت المراجعة</strong> · <span id="recordReviewTimer">جارٍ تحميل الموعد…</span></p>' : '') + '<div class="complaint-record-actions" aria-label="إجراءات السجل">' + complaintRecordActions(c, false) + action('print-complaint-cover', 'طباعة', 'btn-print') + action('print-receipt', 'إيصال استلام PDF') +
-    (uiCan('complaints.update') ? action('set-reminder', 'موعد مراجعة وتذكير') + action('add-note', 'ملاحظة داخلية') : '') + '</div>' +
+    recordOverviewHtml(c) + (!c.archivedAt && !['closed','cancelled'].includes(c.status) ? '<p class="small-copy"><strong>مؤقّت المراجعة</strong> · <span id="recordReviewTimer">جارٍ تحميل الموعد…</span></p>' : '') + '<div class="complaint-record-actions" aria-label="إجراءات السجل">' + complaintRecordActions(c, false) + action('print-complaint-cover', 'طباعة', 'btn-print') +
+    (uiCan('complaints.update') ? (!c.archivedAt&&!['closed','cancelled'].includes(c.status)?action('set-reminder', 'موعد مراجعة وتذكير'):'') + action('add-note', 'ملاحظة داخلية') : '') + '</div>' +
     '<nav class="complaint-page-tabs" aria-label="أقسام ملف السجل">' +
     [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-notes','الملاحظات']].map(([target, title]) => '<button type="button" data-action="detail-section" data-target="' + target + '">' + title + '</button>').join('') +
     '</nav><div class="complaint-page-content"><div class="detail-grid"><div>' + summary + '<section class="detail-section" id="complaint-attachments"><h3>المرفقات الخاصة</h3></section>' +

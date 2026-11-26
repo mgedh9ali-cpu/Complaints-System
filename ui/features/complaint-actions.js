@@ -1,6 +1,7 @@
 async function changeStatus(id){
   const c=db.complaints.find(x=>x.id===id);
   const next=$('#detailStatus')?.value;
+  const completeProcessing=$('#detailStatus')?.dataset.completeProcessing==='true';
   const reason=$('#statusReason')?.value.trim()||'';
   if(!c||!next)return toast('اختر حالة جديدة أولًا.','warn');
   const allowed={
@@ -11,7 +12,7 @@ async function changeStatus(id){
     awaiting_approval:['in_progress','closed','cancelled'],
     closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]
   };
-  if(!(allowed[c.status]||[]).includes(next))return toast('انتقال الحالة غير مسموح.','error');
+  if(!(allowed[c.status]||[]).includes(next)&&!(completeProcessing&&next==='closed'&&c.status==='new'))return toast('انتقال الحالة غير مسموح.','error');
   if((['closed','cancelled'].includes(next)||['closed','cancelled'].includes(c.status))&&reason.length<3)
     return toast('يلزم توثيق سبب واضح للإغلاق أو الإلغاء.','error');
   if(!uiCan('complaints.status'))
@@ -56,14 +57,14 @@ async function changeStatus(id){
       stateRevision=saved.revision;
     }
     const transition=await api('/api/complaints/'+encodeURIComponent(id)+'/status',{
-      method:'PATCH',body:JSON.stringify({status:next,reason,closureException:Boolean($('#closureException')?.checked)})
+      method:'PATCH',body:JSON.stringify({status:next,reason,completeProcessing,closureException:Boolean($('#closureException')?.checked)})
     });
     const authoritative=await api('/api/state');
     db=authoritative.state||cleanState();
     stateRevision=Number(authoritative.revision)||0;
     stateConflict=false;stateLoaded=true;
     detailModal(id);
-    toast('تم تحديث الحالة في قاعدة البيانات.');
+    toast(next==='closed'?'تم إتمام المعالجة وإغلاق السجل.':'تم تحديث الحالة في قاعدة البيانات.');
     if(transition.undoToken)showStatusUndo(id,transition.undoToken,transition.undoExpiresAt);
   }catch(error){
     toast('تعذر تغيير الحالة: '+error.message,'error');

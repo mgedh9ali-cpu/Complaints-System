@@ -58,24 +58,24 @@ function intakeTextField(label, id, options = {}) {
   return '<div class="form-field '+(options.full?'full':'')+'"><label for="'+id+'">'+label+
     (options.required?' <span class="intake-required">مطلوب</span>':'')+'</label><input class="field" id="'+id+'" name="'+id+'" type="'+(options.type||'text')+'" '+
     (options.required?'required ':'')+'maxlength="'+(options.max||120)+'" autocomplete="off" '+
-    (options.list?'list="'+options.list+'" ':'')+(options.type==='tel'?'dir="ltr" inputmode="tel" ':'')+
+    (options.placeholder?'placeholder="'+esc(options.placeholder)+'" ':'')+(options.list?'list="'+options.list+'" ':'')+(options.type==='tel'?'dir="ltr" inputmode="tel" ':'')+
     'aria-describedby="'+id+'Error'+(options.hint?' '+id+'Hint':'')+'" value="'+esc(value)+'">'+(options.hint?'<p class="small-copy" id="'+id+'Hint">'+esc(options.hint)+'</p>':'')+'<p class="field-error" id="'+id+'Error" hidden></p></div>';
 }
 
 function intakeQuickFormHtml() {
   const d = intakeWizard.data, type = intakeWizard.recordType;
   const label = { complaint: 'الشكوى', inquiry: 'الاستفسار', contact: 'التواصل' }[type];
-  return '<div class="intake-record-type" role="group" aria-label="نوع السجل">'+
+  return '<p class="intake-section-label" id="intakeTypeLabel">نوع السجل</p><div class="intake-record-type" role="group" aria-labelledby="intakeTypeLabel">'+
     Object.entries(intakeTypes).map(([type,label])=>'<button type="button" class="btn btn-sm" data-action="intake-pick-type" data-type="'+type+'" aria-pressed="'+(type===intakeWizard.recordType)+'">'+label+'</button>').join('')+'</div>'+
     '<div class="form-grid">'+
-    intakeTextField('ملخص '+label,'cSummary',{required:true,max:180,full:true})+
-    intakeTextField((type === 'complaint' ? 'اسم مقدم الشكوى' : 'اسم المتصل') + ' (اختياري)','cName',{list:'intakeNames',hint:'اتركه فارغًا إذا كان البلاغ مجهولًا.'})+
-    intakeTextField('الهاتف (اختياري)','cPhone',{type:'tel',max:40})+
+    intakeTextField('ملخص '+label,'cSummary',{required:true,max:180,full:true,placeholder:'اكتب موضوع السجل باختصار'})+
+    intakeTextField((type === 'complaint' ? 'اسم مقدم الشكوى' : 'اسم المتصل') + ' (اختياري)','cName',{list:'intakeNames',placeholder:'الاسم الكامل',hint:'اترك الاسم فارغًا عند عدم معرفته.'})+
+    intakeTextField('الهاتف (اختياري)','cPhone',{type:'tel',max:40,placeholder:'09XXXXXXXX'})+
     '<div class="form-field full"><div id="duplicateMount" class="intake-phone-hint" role="status" aria-live="polite"></div></div></div>'+
     '<datalist id="intakeNames">'+intakeSuggestions('name')+'</datalist>'+
     '<datalist id="intakeEntities">'+intakeSuggestions('entity',recordOptions('entities'))+'</datalist>'+
     '<datalist id="intakeCategories">'+intakeSuggestions('category',recordOptions('categories'))+'</datalist>'+
-    '<details class="intake-additional" id="intakeAdditional"><summary>تفاصيل إضافية <span class="small-copy">اختياري</span></summary><div class="form-grid">'+
+    '<details class="intake-additional" id="intakeAdditional"><summary><span>تفاصيل إضافية</span> <span class="small-copy">اختياري</span></summary><div class="form-grid">'+
     intakeTextField('الجهة (إن عُرفت)','cEntity',{list:'intakeEntities'})+
     intakeTextField('التصنيف (إن عُرف)','cCategory',{list:'intakeCategories'})+
     '<div class="form-field full"><label for="cDetails">التفاصيل المطولة (اختياري)</label><textarea class="textarea-field" id="cDetails" maxlength="10000" aria-describedby="cDetailsError">'+esc(d.cDetails||'')+'</textarea><p class="field-error" id="cDetailsError" hidden></p></div>'+
@@ -97,11 +97,11 @@ function intakeFooterHtml() {
   return '<div class="intake-save-actions"><span class="small-copy">Ctrl + Enter للحفظ</span>'+
     (uiCan('settings.manage')?'<button type="button" class="btn" data-action="intake-settings">خيارات التسجيل</button>':'')+
     '<button type="button" class="btn" data-action="close-modal">إلغاء</button>'+
-    '<button type="button" class="btn btn-primary" data-action="save-complaint">حفظ</button></div>';
+    '<button type="button" class="btn btn-primary" data-action="save-complaint">حفظ السجل</button></div>';
 }
 function renderIntakeWizard() {
   intakeWizard.rendering=true;
-  try{modal(intakeTitle(),'الموضوع مطلوب فقط، ويُنشأ رقم السجل تلقائيًا. بقية البيانات اختيارية.',
+  try{modal(intakeTitle(),'اختر نوع السجل وأدخل الملخص. يُنشأ رقم السجل تلقائيًا عند الحفظ.',
     '<form id="newComplaintForm" novalidate>'+intakeQuickFormHtml()+'<p id="intakeDraftStatus" class="small-copy" role="status" aria-live="polite"></p></form>',intakeFooterHtml(),true);}finally{intakeWizard.rendering=false;}
   $('.modal')?.classList.add('intake-dialog','intake-quick');
   $('#cSummary')?.focus?.();

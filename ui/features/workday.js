@@ -1,6 +1,7 @@
 /* Workday tools use authenticated local APIs; background reads never replace edits. */
 let workdayReminders=[],workdayLoadedAt=0,workdayPending=false,workdayOwner=null;
-function workdayPanel(){return '<section class="panel workday-panel"><div class="panel-header"><h2>متابعة اليوم</h2><button type="button" class="btn btn-sm" data-action="refresh-workday">تحديث</button></div><div class="panel-body" id="workdayMount" aria-label="المتابعة وحالة النسخ">جارٍ تحميل المتابعة وحالة النسخ الاحتياطي…</div></section>';}
+function workdayPanel(){return '<section class="panel workday-panel dashboard-today-card"><div class="dashboard-compact-heading"><h2>متابعة اليوم</h2></div><div class="dashboard-compact-body" id="workdayMount" aria-live="polite">جارٍ تحميل المتابعة…</div></section>'+
+ '<section class="panel dashboard-backup-card"><div class="dashboard-compact-heading"><h2>النسخ الاحتياطي</h2></div><div class="dashboard-compact-body" id="workdayBackupMount" aria-live="polite">جارٍ التحقق من الحماية…</div></section>';}
 function workdayRecords(records,reminders=[],now=Date.now(),slaApproved=typeof db!=='undefined'&&Boolean(db.settings?.slaApproved)){
  const today=workDayKey(now),byId=new Map();
  const reminderIds=new Set(reminders.filter(r=>{const day=workDayKey(r.reminderTime);return day&&day<=today;}).map(r=>r.complaintId));
@@ -26,25 +27,20 @@ async function refreshWorkday(force=false){
   }
   const metrics=await loadProtectionStatus(force);
   if(user!==authenticatedUser||page!=='dashboard')return;
-  const mount=$('#workdayMount');if(!mount)return;
+  const mount=$('#workdayMount'),backupMount=$('#workdayBackupMount');if(!mount||!backupMount)return;
   const rows=workdayRecords(db.complaints,workdayReminders,Date.now());
   const backup=metrics?.automaticBackups,state=protectionStateLabel(backup);
-  const rowHtml=rows.slice(0,15).map(({complaint:c,reasons})=>
-    '<div class="workday-row" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--edge,rgba(0,0,0,.08))">'+
-    '<div style="flex:1 1 220px;min-width:0"><strong style="display:block">'+esc(c.summary||c.id)+'</strong><small class="small-copy">'+esc(reasons.join(' · '))+'</small></div>'+
-    '<div class="footer-actions" style="flex:0 0 auto;display:flex;flex-wrap:wrap;gap:8px">'+
-    '<button type="button" class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'">فتح السجل</button>'+
+  const rowHtml=rows.slice(0,5).map(({complaint:c,reasons})=>
+    '<div class="workday-row dashboard-today-row"><div class="dashboard-today-record"><strong>'+esc(c.summary||c.id)+'</strong><small class="small-copy">'+esc(reasons.join(' · '))+'</small></div>'+
+    '<div class="dashboard-today-actions"><button type="button" class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'">فتح السجل</button>'+
     '<button type="button" class="btn btn-sm" data-action="set-reminder" data-id="'+esc(c.id)+'">موعد متابعة</button></div></div>'
   ).join('');
-  mount.innerHTML=
-   '<div class="backup-home-status" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">'+
-   '<div><strong>النسخ الاحتياطي: '+esc(metrics?.error?'تعذر التحقق':state.label)+'</strong><span class="small-copy" style="display:block">آخر نسخة ناجحة: '+esc(formatProtectionTime(backup?.lastSuccessfulAt))+'</span></div>'+
-   '<button type="button" class="btn btn-sm" data-goto="settings">النسخ والاستعادة</button></div>'+
-   (backup?.lastError?'<p class="danger-text">فشلت آخر محاولة نسخ احتياطي. افتح النسخ والاستعادة لمعالجة السبب.</p>':'')+
-   (reminderError?'<p>تعذر تحميل المواعيد؛ اضغط تحديث لإعادة المحاولة.</p>':'')+
-   '<p class="small-copy">'+rows.length+' سجلًا يحتاج إجراءً · تظهر أول 15 نتيجة</p>'+
-   (rows.length?rowHtml:'<p class="calm-empty">لا توجد إجراءات مستحقة ضمن البيانات الحالية.</p>')+
-   (rows.length?'<div style="margin-top:12px"><button type="button" class="btn btn-sm" data-action="workday-all">عرض قائمة المتابعة كاملة</button></div>':'');
+  backupMount.innerHTML='<div class="backup-home-status"><strong class="'+esc(state.className||'')+'">'+esc(metrics?.error?'تعذر التحقق':state.label)+'</strong><span class="small-copy">آخر نسخة ناجحة: '+esc(formatProtectionTime(backup?.lastSuccessfulAt))+'</span></div>'+
+   (backup?.lastError?'<p class="danger-text">فشلت آخر محاولة نسخ احتياطي. افتح النسخ والاستعادة لمعالجة السبب.</p>':'');
+  mount.innerHTML=(reminderError?'<p class="danger-text">تعذر تحميل المواعيد؛ اضغط تحديث لإعادة المحاولة.</p>':'')+
+   '<p class="dashboard-today-count"><strong>'+rows.length+'</strong> سجل يحتاج إجراءً'+(rows.length>5?' · أول 5 سجلات':'')+'</p>'+
+   (rows.length?rowHtml:'<p class="small-copy dashboard-no-actions">لا توجد إجراءات مستحقة ضمن البيانات الحالية.</p>')+
+   (rows.length?'<button type="button" class="btn btn-sm dashboard-workday-all" data-action="workday-all">عرض قائمة المتابعة كاملة</button>':'');
  }finally{workdayPending=false;}
 }
 function reportInsightGroups(records,kind,now=Date.now()){

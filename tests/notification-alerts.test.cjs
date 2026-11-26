@@ -10,7 +10,7 @@ function browser(){
   for(const id of ['#topUnread','#navNotificationsCount'])nodes.set(id,{style:{}});
   let poll,resolveResponse;
   const context={
-    window:{},authenticatedUser:{id:'one'},stateLoaded:true,page:'dashboard',
+    window:{addEventListener:(type,fn)=>events.set('window:'+type,fn)},authenticatedUser:{id:'one'},stateLoaded:true,page:'dashboard',
     db:{notifications:[],complaints:[{id:'local-unsaved'}]},stateRevision:7,
     $:selector=>nodes.get(selector),esc:String,timeText:()=>'',
     api:async()=>new Promise(resolve=>{resolveResponse=resolve;}),
@@ -72,13 +72,24 @@ test('notification feed requires authentication and read permission, and only re
   assert.deepEqual(await response.json(),{notifications:[notice]});
 });
 
-test('floating alerts omit personal text and aggregate a burst into one alert',async()=>{
+// The generic, text-free alert was replaced by a truncated preview of the message; the privacy
+// contract of the toast is now that it never repeats the full title or body.
+test('floating alerts keep a bounded preview and aggregate a burst into one alert',async()=>{
   const b=browser(),c=b.context;await c.loadDb();
   const request=c.window.pollNotificationAlerts();
-  b.reply(Array.from({length:8},(_,i)=>({...notice,id:String(i),title:'PRIVATE-TITLE',body:'PRIVATE-PHONE'})));
+  const title='PRIVATE-TITLE-'.repeat(20),body='PRIVATE-PHONE-'.repeat(20);
+  b.reply(Array.from({length:8},(_,i)=>({...notice,id:String(i),title,body})));
   await request;
-  assert.equal(b.alerts.length,1);
-  assert.doesNotMatch(b.alerts[0].innerHTML,/PRIVATE-TITLE|PRIVATE-PHONE/);
+  assert.equal(b.alerts.length,1,'a burst of 8 new messages raises one alert');
+  const html=b.alerts[0].innerHTML;
+  const titlePreview=(html.match(/<strong>(.*?)<\/strong>/)||[])[1]||'';
+  const bodyPreview=(html.match(/<p>(.*?)<\/p>/)||[])[1]||'';
+  assert.ok(title.length>titlePreview.length,'the alert never repeats the full title');
+  assert.ok(titlePreview.length<=70,'the alert title is truncated to 70 characters');
+  assert.ok(titlePreview.endsWith('…'),'a truncated title is marked with an ellipsis');
+  assert.ok(body.length>bodyPreview.length,'the alert never repeats the full body');
+  assert.ok(bodyPreview.length<=120,'the alert body is truncated to 120 characters');
+  assert.ok(bodyPreview.endsWith('…'),'a truncated body is marked with an ellipsis');
   assert.equal(b.nodes.get('#navNotificationsCount').textContent,'8');
 });
 test('hidden pages update unread counts without showing personal alerts',async()=>{
