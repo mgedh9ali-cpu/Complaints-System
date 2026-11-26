@@ -2,10 +2,11 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../ui/features/recovered-workflows.js'),'utf8');
 function fixture(failAt=0){
- const calls=[],messages=[];let refreshed=0;
+ const calls=[],messages=[],listeners=[];let refreshed=0;
  const context={selectedIds:new Set(['A','B']),stateRevision:3,confirm:()=>true,uiCan:()=>true,flushUiBeforeAction:async()=>{},closeModal(){},reloadStoredState:async()=>{refreshed++;},toast:text=>messages.push(text),
+ document:{addEventListener(type,fn){listeners.push([type,fn]);},querySelector:()=>null,getElementById:()=>null},
  api:async(url,options)=>{calls.push({url,...options});if(calls.length===failAt)throw new Error('تعارض');return {revision:3+calls.length};}};
- vm.createContext(context);vm.runInContext(source,context);return {context,calls,messages,refreshed:()=>refreshed};
+ vm.createContext(context);vm.runInContext(source,context);return {context,calls,messages,listeners,refreshed:()=>refreshed};
 }
 test('recovered bulk priority uses the update API and advances the revision after each committed record',async()=>{
  const f=fixture();await f.context.applyRecoveredBulk('priority','high');
