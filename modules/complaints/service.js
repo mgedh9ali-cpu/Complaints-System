@@ -258,7 +258,15 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     const year = Number(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Damascus', year: 'numeric' }).format(new Date()));
     let maximum = 0;
     const prefix = 'SY-' + year + '-';
-    const pattern = new RegExp('^' + prefix + '([0-9]{4,7})
+    const pattern = new RegExp('^' + prefix + '([0-9]{4,7})$');
+    // Restrict the indexed scan to IDs for the current year.
+    for (const row of db.prepare('SELECT id FROM complaints WHERE id >= ? AND id < ?').iterate(prefix, prefix + ':')) {
+      const match = String(row.id).match(pattern);
+      if (match) maximum = Math.max(maximum, Number(match[1]));
+    }
+    // Legacy or imported records may also exist in the saved state.
+    for (const c of state.complaints || []) {
+      const match = String(c && c.id || '').match(pattern);
       if (match) maximum = Math.max(maximum, Number(match[1]));
     }
     const existing = db.prepare('SELECT value FROM complaint_counters WHERE year=?').get(year);
