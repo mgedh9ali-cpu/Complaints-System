@@ -161,12 +161,12 @@ function dashboard(){
   return '<div class="dashboard-workspace dashboard-compact">'+heading('مكتب الفرز والمتابعة','تابع سجلات اليوم والبيانات الناقصة من مكان واحد.',dashboardActions)+
     '<div class="dashboard-overview-grid">'+(typeof workdayPanel==='function'?workdayPanel():'')+briefBanner+'</div>'+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
-      [['جميع السجلات',totalActive],['مفتوحة',open.length],['غير مكتملة',missing.length],['عاجلة',urgentNoReply.length]].map(([label,n],i)=>
+      [['جميع السجلات',totalActive],['مفتوحة',open.length],['مغلقة',countStatus('closed')],['غير مكتملة',missing.length],['عاجلة',urgentNoReply.length]].map(([label,n],i)=>
         '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+
     '<div class="work-grid"><section class="panel dashboard-actions"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button type="button" class="btn btn-sm" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list" role="list" aria-label="المهام التي تحتاج إجراء">'+taskHtml+'</div>'+incompleteRecordsPanel()+'</div></section>'+
-    '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+totalActive+' سجلًا نشطًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
+    '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+totalActive+' سجلًا غير مؤرشف</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
       '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===2?'amber-fill':'')+'" style="width:'+(totalActive?Math.max(n?5:0,n/totalActive*100):0)+'%"></span></div></div>'
     ).join('')+'</div></div></section></div></div>';
 }

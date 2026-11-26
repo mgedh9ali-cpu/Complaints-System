@@ -22,7 +22,7 @@ function renderGlobalSearchResults(query){
   if(!q){ mount.innerHTML='<p class="small-copy">اكتب حرفين على الأقل للبحث فوراً في السجلات.</p>'; return; }
   const rows=db.complaints.filter(function(c){
     if(c.archivedAt) return false;
-    return norm([c.id,c.name,c.phone,c.summary,c.details,c.province,c.category,c.nature].join(' ')).includes(q);
+    return norm([c.id,c.name,c.phone,c.summary,c.details,c.province,c.category,c.nature,statusLabel(c.status)].join(' ')).includes(q);
   }).slice(0,25);
   if(!rows.length){ mount.innerHTML='<div class="risk-note">لا توجد نتائج مطابقة.</div>'; return; }
   mount.innerHTML='<p class="small-copy">عُثر على '+rows.length+(rows.length===25?'+':'')+' نتيجة</p><div class="command-list">'+

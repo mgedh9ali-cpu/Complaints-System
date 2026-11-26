@@ -64,11 +64,12 @@ function complaintWorkflowPanel(c){
  (c.archivedAt?'<p class="risk-note">مؤرشفة: '+esc(c.archiveReason||'')+'</p>':'')+
  (c.duplicateOf?'<p>مكررة عن <bdi dir="ltr">'+esc(c.duplicateOf)+'</bdi></p>':'')+'</div>';
 }
-function openRecordStatus(id){
+function openRecordStatus(id,complete=false){
  const c=db.complaints.find(x=>x.id===id);if(!c||c.archivedAt||!uiCan('complaints.status'))return toast('لا يمكن تغيير حالة هذا السجل.','warn');
  const transitions={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['closed','cancelled'],awaiting_reply:['in_progress','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]};
- const next=transitions[c.status]||[];if(!next.length)return toast('لا توجد انتقالات متاحة.','warn');
- modal('تغيير الحالة',esc(id),'<div class="form-field"><label for="detailStatus">الحالة الجديدة</label><select class="select-field" id="detailStatus"><option value="">اختر الحالة</option>'+next.map(s=>'<option value="'+esc(s)+'">'+esc(statusLabel(s))+'</option>').join('')+'</select></div><div class="form-field"><label for="statusReason">السبب</label><textarea class="textarea-field" id="statusReason"></textarea></div>', '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="change-status" data-id="'+esc(id)+'">حفظ الحالة</button>');
+ if(complete&&!canCompleteRecord(c))return toast('لا يمكن إتمام معالجة هذا السجل.','warn');
+ const next=complete?['closed']:(transitions[c.status]||[]);if(!next.length)return toast('لا توجد انتقالات متاحة.','warn');
+ modal(complete?'إتمام المعالجة وإغلاق السجل':'تغيير الحالة',esc(id),'<div class="form-field"><label for="detailStatus">الحالة الجديدة</label><select class="select-field" id="detailStatus" data-complete-processing="'+(complete?'true':'false')+'">'+(complete?'':'<option value="">اختر الحالة</option>')+next.map(s=>'<option value="'+esc(s)+'">'+esc(statusLabel(s))+'</option>').join('')+'</select></div><div class="form-field"><label for="statusReason">السبب</label><textarea class="textarea-field" id="statusReason"></textarea></div>', '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="change-status" data-id="'+esc(id)+'">حفظ الحالة</button>');
  updateReasonSheet();
 }
 function openRecordReferrals(id){

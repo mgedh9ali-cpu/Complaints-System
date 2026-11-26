@@ -187,6 +187,7 @@ test(
     assert.equal(close.status, 200);
     savedState = (await (await request("/api/state")).json()).state;
     assert.equal(savedState.complaints[0].status, "closed");
+    assert.equal(savedState.complaints[0].closedAt, savedState.complaints[0].statusHistory.at(-1).at);
     assert.equal(savedState.complaints[0].statusHistory.length, 2);
     assert.equal(
       savedState.complaints[0].statusHistory[1].reason,
@@ -224,6 +225,22 @@ test(
     const persisted = (await (await request("/api/state")).json()).state.complaints.find(c => c.id === tableComplaint.id);
     assert.equal(persisted.status, "closed");
     assert.equal(persisted.statusHistory.at(-1).from, "in_progress");
+
+    for (const recordType of ["complaint", "inquiry", "contact"]) {
+      const created = await request("/api/complaints", {
+        method: "POST", body: JSON.stringify({summary: "اختبار إتمام المعالجة " + recordType, province: "دمشق", category: "استفسار عام", recordType})
+      });
+      assert.equal(created.status, 201);
+      const item = (await created.json()).complaint;
+      const completed = await request("/api/complaints/" + item.id + "/status", {
+        method: "PATCH", body: JSON.stringify({status:"closed",reason:"اكتملت المعالجة",completeProcessing:true})
+      });
+      assert.equal(completed.status, 200);
+      const stored = (await (await request("/api/state")).json()).state.complaints.find(c => c.id === item.id);
+      assert.equal(stored.status, "closed");
+      assert.equal(stored.closedAt, stored.statusHistory.at(-1).at);
+      assert.equal(stored.recordType, recordType);
+    }
 
     const auditResponse = await request("/api/audit");
     assert.equal(auditResponse.status, 200);

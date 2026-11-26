@@ -54,7 +54,7 @@ try{
 switch(a){
 case 'complaint-more':complaintActionsModal(id);break;
 case 'open-record-status':openRecordStatus(id);break;
-case 'open-record-referrals':openRecordReferrals(id);break;
+case 'complete-record':openRecordStatus(id,true);break;
 case 'open-record-approvals':openRecordApprovals(id);break;
 case 'request-complaint-delete':requestComplaintDeletion(id);break;
  case 'confirm-owner-delete':await withButtonLock(el,()=>confirmOwnerDelete(id),'جارٍ الحذف…');break;
@@ -94,11 +94,9 @@ case 'toggle-completion-reminder':saveDetailChange(id,c=>{c.completionReminderSt
 case 'conflict-save':resolveStateConflict();break;
 case 'conflict-remote':resolveStateConflict(true);break;
 case 'print-approved-reply':printApprovedReply(id);break;
-case 'print-receipt':await withButtonLock(el,()=>printComplaintReceipt(id));break;
 case 'print-complaint-cover':printComplaintCover(id);break;
 case 'toggle-liquid-glass':if(typeof toggleLiquidGlass==='function')toggleLiquidGlass();break;
 case 'toggle-theme':if(typeof toggleUiTheme==='function')toggleUiTheme();break;
-case 'copy-complaint':await withButtonLock(el,()=>copyComplaint(id));break;
 case 'goto-notifications':await loadDb();go('notifications');break;
 case 'notification-open':await loadDb();detailModal(id);break;
 case 'verify-document-dialog':verifyDocumentDialog();break;

@@ -310,7 +310,8 @@ function createComplaintsRouter({
         reason: req.body?.reason,
         userId: req.user.id,
         username: req.user.username,
-        closureException: req.body?.closureException === true
+        closureException: req.body?.closureException === true,
+        completeProcessing: req.body?.completeProcessing === true
       });
       if (!result.ok) {
         return res.status(result.status || 400).json({ error: result.error || 'تعذر تغيير الحالة.' });
