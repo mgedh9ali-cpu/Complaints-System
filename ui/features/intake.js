@@ -2,6 +2,30 @@
 let intakeWizard = { step: 1, recordType: 'complaint', data: {}, files: [] };
 const intakeTypes = { complaint: 'شكوى', inquiry: 'استفسار', contact: 'تواصل' };
 let intakeDraftFiles = { owner: null, files: [] };
+let intakeDraftTimer = null, intakePhoneTimer = null;
+function cancelIntakeTimers(){
+  if(intakeDraftTimer!==null)clearTimeout(intakeDraftTimer);
+  if(intakePhoneTimer!==null)clearTimeout(intakePhoneTimer);
+  intakeDraftTimer=null;intakePhoneTimer=null;
+}
+function scheduleIntakeDraft(){
+  if(intakeDraftTimer!==null)clearTimeout(intakeDraftTimer);
+  const wizard=intakeWizard, owner=complaintDraftStorageKey();
+  intakeDraftTimer=setTimeout(()=>{
+    intakeDraftTimer=null;
+    if(wizard===intakeWizard&&owner===complaintDraftStorageKey()&&$('#newComplaintForm')&&!intakeSavePending)saveComplaintDraft();
+  },350);
+}
+function scheduleIntakePhoneHint(){
+  if(intakePhoneTimer!==null)clearTimeout(intakePhoneTimer);
+  // Exact draft matches remain immediate; the expensive record scan waits.
+  intakePhoneHint(false);
+  const wizard=intakeWizard, owner=complaintDraftStorageKey();
+  intakePhoneTimer=setTimeout(()=>{
+    intakePhoneTimer=null;
+    if(wizard===intakeWizard&&owner===complaintDraftStorageKey()&&$('#newComplaintForm')&&!intakeSavePending)intakePhoneHint();
+  },220);
+}
 
 function intakeCollectVisible() {
   const form = $('#newComplaintForm');
@@ -13,6 +37,9 @@ function intakeCollectVisible() {
 }
 
 function intakeSuggestions(key, configured) {
+  const cache=intakeWizard.suggestions||(intakeWizard.suggestions=new Map());
+  const cacheKey=JSON.stringify([key,configured||null]);
+  if(cache.has(cacheKey))return cache.get(cacheKey);
   const counts = new Map();
   const available = configured && new Set(configured);
   for (const c of db.complaints || []) {
@@ -20,8 +47,10 @@ function intakeSuggestions(key, configured) {
     if (value && !c.archivedAt && (!available || available.has(value))) counts.set(value, (counts.get(value) || 0) + 1);
   }
   for (const value of configured || []) if (typeof value === 'string' && value.trim() && !counts.has(value)) counts.set(value, 0);
-  return [...counts].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0], 'ar')).slice(0,60)
+  const html = [...counts].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0], 'ar')).slice(0,60)
     .map(([value]) => '<option value="'+esc(value)+'"></option>').join('');
+  cache.set(cacheKey,html);
+  return html;
 }
 
 function intakeTextField(label, id, options = {}) {
@@ -100,23 +129,25 @@ function intakeValidate() {
 function newComplaint() {
   if(!uiCan('complaints.create'))return toast('لا تملك صلاحية إنشاء شكوى.','error');
   preserveIntakeDraft();
+  cancelIntakeTimers();
   intakeWizard={step:1,recordType:'complaint',data:{...intakeDefaults,cFirstContactDate:workDayKey(new Date()),cSource:'phone',cPriority:'normal'},files:[],priorDraft:readComplaintDraft(),priorFiles:intakeDraftFiles.owner===complaintDraftStorageKey()?[...intakeDraftFiles.files]:[],startedAt:Date.now()};
   renderIntakeWizard();
 }
 function intakePickType(type) {
   if(!Object.hasOwn(intakeTypes, type)||intakeSavePending)return;
+  cancelIntakeTimers();
   intakeCollectVisible();
   intakeWizard.recordType=type;
   // Rerendering retains the full draft and selected files; nothing is submitted.
   renderIntakeWizard();saveComplaintDraft();
 }
 function preserveIntakeDraft() {
-  if($('#newComplaintForm')&&!intakeSavePending&&!intakeWizard.completed&&!intakeWizard.rendering)saveComplaintDraft();
+  if($('#newComplaintForm')&&!intakeSavePending&&!intakeWizard.completed&&!intakeWizard.rendering){cancelIntakeTimers();saveComplaintDraft();}
 }
-function intakePhoneHint() {
+function intakePhoneHint(scanRecords = true) {
   const mount=$('#duplicateMount');if(!mount||!authenticatedUser)return;
-  const phone=phoneNorm($('#cPhone')?.value||intakeWizard.data.cPhone||'');
-  const matches=phone.length>=7?(db.complaints||[]).filter(c=>!c.archivedAt&&phoneNorm(c.phone||'')===phone):[];
+  const phone=phoneNorm($('#cPhone')?.value??intakeWizard.data.cPhone??'');
+  const matches=scanRecords&&phone.length>=7?(db.complaints||[]).filter(c=>!c.archivedAt&&phoneNorm(c.phone||'')===phone):[];
   const saved = matchingIntakeDraft(phone);
   mount.innerHTML=(saved?'<div class="intake-draft" id="draftBanner"><span>توجد مسودة لهذا الرقم.</span><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div>':'')+(matches.length?'<details><summary>لهذا الرقم '+matches.length+' سجل سابق — افتحه للمراجعة أو تابع تسجيل سجل جديد</summary>'+matches.slice(0,5).map(c=>'<button type="button" class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'"><bdi>'+esc(c.id)+'</bdi> · '+esc(c.summary||'')+'</button>').join('')+'</details>':'');
 }
@@ -152,6 +183,8 @@ function dismissIntakeDraftOffer() {
 }
 
 function saveComplaintDraft() {
+  if(intakeDraftTimer!==null)clearTimeout(intakeDraftTimer);
+  intakeDraftTimer=null;
   const key=complaintDraftStorageKey();
   if(!key||intakeWizard.completed)return;
   intakeCollectVisible();
@@ -184,6 +217,7 @@ function saveComplaintDraft() {
 function restoreComplaintDraft() {
   const key=complaintDraftStorageKey();
   if(!key)return;
+  cancelIntakeTimers();
   try {
     localStorage.removeItem(DRAFT_KEY);
     sessionStorage.removeItem(DRAFT_KEY);
@@ -242,6 +276,8 @@ async function createComplaint(asDraft = false, addAnother = false) {
     asDraft
   };
   const files = Array.from(intakeWizard.files?.length ? intakeWizard.files : form.querySelector('#cAttachments')?.files || []);
+  cancelIntakeTimers();
+  saveComplaintDraft();
   intakeSavePending = true;
   try {
     const hadPendingSave = Boolean(persistTimer);
@@ -305,8 +341,9 @@ document.addEventListener('click',function(e){
 document.addEventListener('input',function(e){
   if(!e.target.closest?.('#newComplaintForm'))return;
   const error=$('#'+e.target.id+'Error');if(error){error.hidden=true;error.textContent='';}e.target.removeAttribute?.('aria-invalid');
-  saveComplaintDraft();
-  if(e.target.id==='cPhone')intakePhoneHint();
+  if(intakeSavePending)return;
+  scheduleIntakeDraft();
+  if(e.target.id==='cPhone')scheduleIntakePhoneHint();
 });
 document.addEventListener('change',function(e){if(e.target.closest?.('#newComplaintForm')&&e.target.type!=='file'){saveComplaintDraft();}});
 document.addEventListener('submit',function(e){
