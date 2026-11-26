@@ -123,6 +123,9 @@ test('configured completion reminders use the chosen interval and respect repeat
  state.state.settings.completionReminderHours=2;state.state.complaints[0].name='';
  state.state.complaints[0].created=new Date(at.getTime()-3*3600000).toISOString();
  f.db.prepare('UPDATE app_state SET state_json=? WHERE id=1').run(f.db.storageCodec.encodeJson(state.state,'app-state'));
+ assert.equal(f.service.runReminders(at),0,'missing optional name does not trigger reminders');
+ state.state.complaints[0].summary='مسودة بانتظار الاستكمال';
+ f.db.prepare('UPDATE app_state SET state_json=? WHERE id=1').run(f.db.storageCodec.encodeJson(state.state,'app-state'));
  assert.equal(f.service.runReminders(at),1);
  assert.equal(f.service.runReminders(new Date(at.getTime()+3600000)),0);
  assert.equal(f.service.runReminders(new Date(at.getTime()+2*3600000)),1);

@@ -17,11 +17,13 @@ test("complaint validation accepts a minimal valid complaint", () => {
   );
 });
 
-test("complaint validation rejects missing required fields", () => {
-  assert.equal(
-    validComplaint({ summary: "طلب متابعة", province: "دمشق" }),
-    false,
-  );
+test("complaint validation requires only a nonblank subject at creation", () => {
+  assert.equal(validComplaint({ summary: "طلب متابعة", province: "دمشق" }), true);
+  assert.equal(validComplaint({ summary: "طلب متابعة" }), true);
+  assert.equal(validComplaint({ summary: "طلب متابعة", province: "", category: "" }), true);
+  assert.equal(validComplaint({ province: "دمشق" }), false);
+  assert.equal(validComplaint({ summary: "  " }), false);
+  assert.equal(validComplaint({ summary: "طلب متابعة", category: 42 }), false);
   assert.equal(validComplaint(null), false);
   assert.equal(validComplaint([]), false);
 });

@@ -53,6 +53,16 @@ async function verifyWorkflow(webContents, credentials) {
     click('[data-action="detail"][data-id="'+id+'"]');
     await until(()=>find('.complaint-page')?.dataset.complaintId===id);
 
+    stage = 'save changes';
+    assert(!find('#complaint-actions')&&!find('#complaint-timeline')&&!find('.floating-actions'),'Removed sections must not reappear');
+    click('#content [data-action="edit-complaint"]');
+    await until(()=>find('#editComplaintForm'));
+    fill('#editSummary','اختبار حفظ التعديلات');
+    fill('#editProvince','');fill('#editCategory','');fill('#editEntity','');fill('#editDetails','');
+    click('#modalRoot [data-action="save-complaint-edit"]');
+    await until(async()=>(await records()).some(c=>c.id===id&&c.summary==='اختبار حفظ التعديلات'&&!c.province&&!c.category&&!c.entity&&!c.details),'Save changed subject with optional fields cleared');
+    await until(()=>!find('#modalRoot').dataset.open&&find('#content h1')?.textContent==='اختبار حفظ التعديلات');
+
     stage = 'referral';
     click('[data-action="referral-create"]');
     await until(()=>find('#rEntity'));
@@ -107,7 +117,7 @@ async function verifyWorkflow(webContents, credentials) {
     fill('#replyText','مسودة رد اصطناعية');click('[data-action="save-reply"]');
     await until(async()=>(await records()).find(c=>c.id===id)?.reply?.status==='draft');
     await until(()=>!find('#modalRoot').dataset.open&&find('#content').textContent.includes('مسودة رد اصطناعية'));
-    return {passed:true,checks:['login','intake','search','queue-reset','referral','referral-response','reply-draft']};
+    return {passed:true,checks:['login','intake','search','save-changes','queue-reset','referral','referral-response','reply-draft']};
   }
   return webContents.executeJavaScript('(' + exercise.toString() + ')(' + JSON.stringify(credentials) + ')');
 }

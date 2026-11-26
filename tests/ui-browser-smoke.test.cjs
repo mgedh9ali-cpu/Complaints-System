@@ -555,12 +555,13 @@ test('saved filters are visible and isolated between authenticated accounts',asy
  for(let i=0;i<30;i++)await Promise.resolve();owner.goto('complaints');other.goto('complaints');
  assert.match(owner.node('#content').innerHTML,/مرشح الحساب الأول/);assert.doesNotMatch(other.node('#content').innerHTML,/مرشح الحساب الأول/);
 });
-test('record overview uses the newest event and timeline filters preserve the stored events',async()=>{
+test('record overview uses the newest event and hides timeline filters without deleting history',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  const c=ui.state.complaints[0];c.timeline=[{event:'إجراء حديث',by:'admin',at:'2026-11-10T10:00:00Z'},{event:'إجراء قديم',by:'staff',at:'2026-11-09T10:00:00Z'}];
  ui.click('detail',c.id);assert.match(ui.node('#content').innerHTML,/<dt>آخر إجراء<\/dt><dd>إجراء حديث/);
- ui.events.get('change')({target:{dataset:{timelineFilter:'by'},value:'staff',classList:{contains:()=>false}}});
- assert.match(ui.node('#content').innerHTML,/1 من 2 إجراء/);assert.equal(c.timeline.length,2);
+ assert.doesNotMatch(ui.node('#content').innerHTML,/id="complaint-timeline"|data-timeline-filter/);
+ assert.equal(c.timeline.length,2);assert.equal(c.timeline[1].event,'إجراء قديم');
+ assert.equal(ui.calls.filter(call=>call.method==='PUT'||call.method==='DELETE').length,0);
 });
 
 test('single operator UI exposes no assignment, collaborators or employee management controls',async()=>{
