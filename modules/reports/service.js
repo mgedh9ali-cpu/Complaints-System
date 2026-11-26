@@ -13,11 +13,11 @@ const STATUS_LABELS = Object.freeze({
   draft: 'غير مكتملة',
   new: 'جديدة',
   in_progress: 'قيد المعالجة',
-  awaiting_reply: 'بانتظار رد الجهة',
-  awaiting_approval: 'بانتظار الاعتماد',
   closed: 'مغلقة',
   cancelled: 'ملغاة'
 });
+
+function reportDisplayStatus(status){return ['awaiting_reply','awaiting_approval'].includes(status)?'in_progress':status;}
 
 function escapeCsv(value) {
   let s = value == null ? '' : String(value);
@@ -44,10 +44,10 @@ function createReportsService({ complaintsService }) {
     if (filters.status) {
       const allowed = String(filters.status)
         .split(',')
-        .map((s) => s.trim())
+        .map((s) => reportDisplayStatus(s.trim()))
         .filter(Boolean);
       if (allowed.length) {
-        rows = rows.filter((c) => c && allowed.includes(c.status));
+        rows = rows.filter((c) => c && allowed.includes(reportDisplayStatus(c.status)));
       }
     }
     if (filters.province) {
@@ -78,7 +78,7 @@ function createReportsService({ complaintsService }) {
     const byProvince = {};
     const byCategory = {};
     for (const c of complaints) {
-      const st = c.status || 'unknown';
+      const st = reportDisplayStatus(c.status) || 'unknown';
       byStatus[st] = (byStatus[st] || 0) + 1;
       const pr = c.province || '—';
       byProvince[pr] = (byProvince[pr] || 0) + 1;
@@ -97,7 +97,7 @@ function createReportsService({ complaintsService }) {
       complaints: complaints.map((c) => ({
         id: c.id,
         name: c.name,
-        status: c.status,
+        status: reportDisplayStatus(c.status),
         province: c.province,
         category: c.category,
         created: c.created
@@ -109,7 +109,7 @@ function createReportsService({ complaintsService }) {
     const complaints = applyFilters(listComplaints(filters.includeArchived === true), filters);
     const lines = [CSV_HEADERS.join(',')];
     for (const c of complaints) {
-      lines.push(CSV_HEADERS.map((h) => escapeCsv(c[h])).join(','));
+      lines.push(CSV_HEADERS.map((h) => escapeCsv(h==='status'?reportDisplayStatus(c.status):c[h])).join(','));
     }
     return {
       buffer: Buffer.from('\uFEFF' + lines.join('\n'), 'utf8'),
@@ -146,7 +146,7 @@ function createReportsService({ complaintsService }) {
     for (const c of complaints) {
       lines.push(' ', 'رقم السجل: ' + c.id,
         'الموضوع: ' + (c.summary || '—'),
-        'الحالة: ' + (STATUS_LABELS[c.status] || c.status || '—'),
+        'الحالة: ' + (STATUS_LABELS[reportDisplayStatus(c.status)] || c.status || '—'),
         'الاسم: ' + (c.name || '—'), 'الهاتف: ' + (c.phone || '—'),
         'المحافظة: ' + (c.province || '—'), 'التصنيف: ' + (c.category || '—'),
         'تاريخ أول تواصل: ' + (c.firstContactDate || '—'));
@@ -192,7 +192,7 @@ function createReportsService({ complaintsService }) {
           'الموضوع: ' + (complaint.summary || ''),
           'تاريخ أول تواصل: ' + (complaint.firstContactDate || 'غير مسجل'),
           'تاريخ التسجيل: ' + (complaint.created || ''),
-          'الحالة: ' + (STATUS_LABELS[complaint.status] || complaint.status || ''),
+          'الحالة: ' + (STATUS_LABELS[reportDisplayStatus(complaint.status)] || complaint.status || ''),
           'مُصدر بواسطة: ' + (generatedBy || 'system')
         ]
       : complaintDocument(complaint, generatedBy).lines;
