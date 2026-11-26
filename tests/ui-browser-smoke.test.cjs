@@ -484,7 +484,7 @@ test('inquiry review keeps contact details and saves optional fields without an 
  ui.node('#cSummary').value='استفسار عن المعاملة';
  ui.node('#cName').value='متصل للاختبار';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-11-10';
  let review=ui.node('#modalRoot').innerHTML;
- assert.match(review,/>حفظ<\/button>/);
+ assert.match(review,/data-action="save-complaint">حفظ السجل<\/button>/);
  assert.equal(ui.node('#cName').value,'متصل للاختبار');
  assert.equal(ui.node('#cFirstContactDate').value,'2026-11-10');
  ui.click('intake-related');
@@ -591,7 +591,7 @@ test('quick intake exposes basic fields in order, one save, local suggestions an
  assert.ok(basics.at(-1)<html.indexOf('id="intakeAdditional"'));
  for(const id of ['cEntity','cCategory','cDetails','cProvince','cNature','cPriority','cSource','cFirstContactDate','intakeAttachmentsMount'])
   assert.ok(html.indexOf('id="'+id+'"')>html.indexOf('id="intakeAdditional"'),id+' belongs in additional details');
- assert.match(html,/اتركه فارغًا إذا كان البلاغ مجهولًا/);
+ assert.match(html,/اترك الاسم فارغًا عند عدم معرفته\./);
  assert.match(html,/<details class="intake-additional" id="intakeAdditional">/);
  assert.match(html,/list="intakeNames"/);assert.match(html,/&lt;img onerror=x&gt;/);assert.doesNotMatch(html,/<img/);
  assert.match(html,/id="cFirstContactDate"[^>]*value="\d{4}-\d{2}-\d{2}"/);
@@ -650,7 +650,7 @@ test('known metadata opens an anonymous record without requiring optional contac
  ui.node('#cSummary').value='سجل بلا معلومات شخصية';ui.node('#cEntity').value='جهة معروفة';
  ui.node('#cCategory').value='خدمات';ui.node('#cProvince').value='دمشق';
  ui.events.get('input')({target:ui.node('#cEntity')});
- assert.match(ui.node('#modalRoot').innerHTML,/data-action="save-complaint">حفظ<\/button>/);
+ assert.match(ui.node('#modalRoot').innerHTML,/data-action="save-complaint">حفظ السجل<\/button>/);
  await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
  const body=JSON.parse(ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST').body);
  assert.equal(body.asDraft,false);assert.equal(body.name,'');assert.equal(body.details,'');
