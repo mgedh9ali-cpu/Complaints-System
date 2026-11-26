@@ -98,9 +98,9 @@ test('undo-edit HTTP route requires authentication, update permission, CSRF and 
  assert.equal((await call(headers)).status,200);assert.equal((await call(headers)).status,409);
 });
 test('home backup failure is explicit, last-success time remains visible, and background reads leave edits intact',async()=>{
- const mount={innerHTML:''},user={id:'a'},record={id:'one',status:'awaiting_reply',summary:'مسودة محلية'},c=ui({authenticatedUser:user,page:'dashboard',stateRevision:7,db:{complaints:[record],settings:{}},$:()=>mount,
+ const mount={innerHTML:''},backupMount={innerHTML:''},user={id:'a'},record={id:'one',status:'awaiting_reply',summary:'مسودة محلية'},c=ui({authenticatedUser:user,page:'dashboard',stateRevision:7,db:{complaints:[record],settings:{}},$:selector=>selector==='#workdayBackupMount'?backupMount:mount,
  api:async()=>({reminders:[]}),loadProtectionStatus:async()=>({automaticBackups:{lastSuccessfulAt:'last-time',lastError:'disk failure'}}),protectionStateLabel:()=>({label:'فشلت آخر محاولة'}),formatProtectionTime:value=>value||'—'});
- await c.refreshWorkday();assert.match(mount.innerHTML,/فشلت آخر محاولة/);assert.match(mount.innerHTML,/last-time/);assert.match(mount.innerHTML,/معالجة السبب/);
+ await c.refreshWorkday();assert.match(backupMount.innerHTML,/فشلت آخر محاولة/);assert.match(backupMount.innerHTML,/last-time/);assert.match(backupMount.innerHTML,/معالجة السبب/);assert.doesNotMatch(mount.innerHTML,/last-time/);assert.match(mount.innerHTML,/فتح السجل/);
  assert.equal(c.stateRevision,7);assert.equal(c.db.complaints[0],record);
 });
 test('late home reads never paint task or backup data after logout',async()=>{

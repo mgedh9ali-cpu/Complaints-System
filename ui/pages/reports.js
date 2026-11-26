@@ -1,6 +1,7 @@
 /* Local reporting: all charts and downloads share the same applied filters. */
 let reportFilters={from:'',to:'',province:'',category:'',status:'',priority:''};
-const REPORT_STATUS_LABELS={draft:'غير مكتملة',new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'};
+const REPORT_STATUS_LABELS={draft:'غير مكتملة',new:'جديدة',in_progress:'قيد المعالجة',closed:'مغلقة',cancelled:'ملغاة'};
+function reportDisplayStatus(status){return ['awaiting_reply','awaiting_approval'].includes(status)?'in_progress':status;}
 const REPORT_PRIORITY_LABELS={normal:'عادية',high:'عالية',urgent:'عاجلة'};
 function reportDayValid(day){return /^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isFinite(Date.parse(day+'T00:00:00Z'))&&new Date(day+'T00:00:00Z').toISOString().slice(0,10)===day;}
 function reportCreatedDay(c){return c.created?workDayKey(c.created):'';}
@@ -9,14 +10,14 @@ function reportFilterParams(filters=reportFilters){const params=new URLSearchPar
 function filteredReportRecords(complaints,filters=reportFilters){
  return (Array.isArray(complaints)?complaints:[]).filter(c=>{
   if(!c||c.archivedAt)return false;
-  for(const key of ['province','category','status','priority'])if(filters[key]&&c[key]!==filters[key])return false;
+  for(const key of ['province','category','status','priority'])if(filters[key]&&(key==='status'?reportDisplayStatus(c.status)!==reportDisplayStatus(filters.status):c[key]!==filters[key]))return false;
   if(filters.from||filters.to){const day=reportCreatedDay(c);if(!day||(filters.from&&day<filters.from)||(filters.to&&day>filters.to))return false;}
   return true;
  });
 }
 function buildReportModel(complaints,filters={},settings={},now=Date.now()){
  const records=filteredReportRecords(complaints,filters);
- const group=key=>{const counts=new Map();for(const c of records){const label=String(c[key]||'غير محدد');counts.set(label,(counts.get(label)||0)+1);}return [...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ar'));};
+ const group=key=>{const counts=new Map();for(const c of records){const label=String((key==='status'?reportDisplayStatus(c.status):c[key])||'غير محدد');counts.set(label,(counts.get(label)||0)+1);}return [...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ar'));};
  const validDays=records.map(c=>reportCreatedDay(c)).filter(Boolean).sort();
  const today=workDayKey(now);
  const end=filters.to||[today,validDays.at(-1),filters.from].filter(Boolean).sort().at(-1);
@@ -67,7 +68,7 @@ function reportsPage(){
  const model=buildReportModel(all,filters,db.settings||{}),records=model.records,total=records.length;
  const safe=esc;
  const choice=(key,title,labels={})=>{
-  const options=[...new Set(all.map(c=>String(c[key]||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+  const options=[...new Set(all.map(c=>String((key==='status'?reportDisplayStatus(c.status):c[key])||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
   const id='report'+key[0].toUpperCase()+key.slice(1);
   return '<div class="form-field"><label for="'+id+'">'+title+'</label><select id="'+id+'"><option value="">الكل</option>'+options.map(value=>'<option value="'+safe(value)+'" '+(filters[key]===value?'selected':'')+'>'+safe(labels[value]||value)+'</option>').join('')+'</select></div>';
  };

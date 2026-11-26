@@ -171,11 +171,12 @@ test('workflow step shortcut persists allowed transitions through the status API
  assert.match(ui.node('#content').innerHTML,/قيد المعالجة/);
 });
 
-test('select all marks visible complaint rows and reveals bulk actions',async()=>{
- const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
- ui.goto('complaints');ui.click('select-all',undefined,{checked:true});
- assert.match(ui.node('#content').innerHTML,/تم تحديد 2 سجلًا/);
- assert.doesNotMatch(ui.node('#content').innerHTML,/bulk-assign/);
+test('registry has no selection column or bulk actions',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.goto('complaints');const html=ui.node('#content').innerHTML;
+ assert.doesNotMatch(html,/row-check|select-all|bulkMount|bulk-open|bulk-priority|export-selected|clear-selection/);
+ assert.match(html,/SY-2026-10001/);
+ assert.match(html,/data-action="print-complaint-cover"/);
 });
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
@@ -826,4 +827,25 @@ test('intake coalesces typing, delays record lookup and flushes on close',async(
  ui.node('#cSummary').value='قبل الإغلاق';ui.events.get('input')({target:ui.node('#cSummary')});
  await ui.click('close-modal');assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'قبل الإغلاق');
  ui.runIntakeTimers(350);assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'قبل الإغلاق');
+});
+
+
+test('registry keeps secondary filters and presets inside a collapsed panel',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('complaints');
+ const html=ui.node('#content').innerHTML;
+ const panel=html.indexOf('id="registryAdvanced"');const end=html.indexOf('</details>',panel);
+ assert.ok(panel>=0&&end>panel);assert.doesNotMatch(html.slice(panel,html.indexOf('>',panel)),/\bopen\b/);
+ for(const id of ['statusFilter','priorityFilter','categoryFilter','natureFilter','dateFrom','dateTo'])assert.ok(html.indexOf('id="'+id+'"')>panel&&html.indexOf('id="'+id+'"')<end,id);
+ assert.ok(html.indexOf('saved-filters-bar')>panel&&html.indexOf('saved-filters-bar')<end);
+ assert.doesNotMatch(html,/لا يوجد بعد|data-action="urgent-no-reply"/);assert.match(html,/data-action="global-search"/);
+});
+
+
+test('dashboard groups the daily overview and centralizes its main actions',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('dashboard');
+ const html=ui.node('#content').innerHTML;
+ assert.match(html,/dashboard-overview-grid/);assert.match(html,/id="workdayMount"/);assert.match(html,/id="workdayBackupMount"/);assert.match(html,/dashboard-brief-card/);
+ const header=html.slice(0,html.indexOf('dashboard-overview-grid'));
+ assert.match(header,/data-action="new-complaint"/);assert.match(header,/data-action="refresh-workday"/);assert.match(header,/النسخ والاستعادة/);
+ assert.equal((html.match(/data-action="refresh-workday"/g)||[]).length,1);
 });
