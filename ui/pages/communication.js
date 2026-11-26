@@ -50,13 +50,37 @@ function notificationsPage(){
   const list=db.notifications||[];
   const unread=list.filter(n=>!n.read).length;
   return heading('مركز الإشعارات','تنبيهات داخلية للاستكمال والاعتماد والإحالات والمتأخرات.',unread?btn('تحديد الكل كمقروء','read-all'):'')+
+  '<section class="panel"><div class="panel-header"><h2>مواعيد المراجعة المستحقة</h2></div><div class="panel-body" id="dueReminderNotices">جارٍ تحميل المواعيد…</div></section>'+
   '<section class="panel"><div class="panel-header"><h2>آخر التنبيهات</h2><span class="setting-value">'+unread+' غير مقروء</span></div><div class="panel-body">'+
   (list.length?
     '<div class="notice-list">'+list.map(n=>{
       const nid=esc(String(n.id));
       const cid=n.complaintId?esc(n.complaintId):'';
-      return '<div class="notice-item'+(n.read?' is-read':'')+'">'+'<div class="notice-mark '+(n.read?'read':'')+'">'+(n.read?'✓':'!')+'</div>'+'<div class="notice-body"><strong>'+esc(n.title)+'</strong><p>'+esc(n.body)+'</p><small>'+timeText(n.date||n.at)+'</small></div>'+'<div class="notice-actions">'+(cid?'<button class="btn btn-sm btn-primary" data-action="detail" data-id="'+cid+'">فتح الشكوى</button>':'')+(!n.read?'<button class="btn btn-sm" data-action="read-notice" data-id="'+nid+'">تمّت القراءة</button>':'')+'</div></div>';
+      return '<div class="notice-item'+(n.read?' is-read':'')+'">'+'<div class="notice-mark '+(n.read?'read':'')+'">'+(n.read?'✓':'!')+'</div>'+'<div class="notice-body"><strong>'+esc(n.title)+'</strong><p>'+esc(n.body)+'</p><small>'+timeText(n.date||n.at)+'</small></div>'+'<div class="notice-actions">'+(cid?'<button class="btn btn-sm btn-primary" data-action="detail" data-id="'+cid+'">فتح السجل</button>':'')+(!n.read?'<button class="btn btn-sm" data-action="read-notice" data-id="'+nid+'">تمّت القراءة</button>':'')+'</div></div>';
     }).join('')+'</div>'
   :'<div class="empty-state"><p>لا توجد إشعارات حالياً. تظهر هنا التنبيهات عند الاستكمال أو التأخير أو الاعتماد.</p></div>')+
   '</div></section>';
 }
+
+async function refreshNotificationReminders() {
+  const mount = $('#dueReminderNotices');
+  if (page !== 'notifications' || !mount || !authenticatedUser) return;
+  const user = authenticatedUser;
+  try {
+    const result = await api('/api/reminders/due?limit=50');
+    if (user !== authenticatedUser || page !== 'notifications' || $('#dueReminderNotices') !== mount) return;
+    const reminders = Array.isArray(result.reminders) ? result.reminders : [];
+    mount.innerHTML = reminders.length ? '<div class="notice-list">' + reminders.map(item => {
+      const info = reminderDisplay(item);
+      return '<div class="notice-item"><div class="notice-mark">!</div><div class="notice-body"><strong>مراجعة ' +
+        esc(info.label) + ' · <bdi>' + esc(String(item.complaintId)) + '</bdi></strong><small>' +
+        esc(timeText(item.reminderTime)) + '</small>' + (info.summary ? '<p>' + esc(info.summary) + '</p>' : '') +
+        reminderNoteHtml(info.note) + '</div><div class="notice-actions"><button type="button" class="btn btn-sm btn-primary" data-action="detail" data-id="' +
+        esc(item.complaintId) + '">فتح السجل</button><button type="button" class="btn btn-sm" data-action="alarm-dismiss" data-reminder="' +
+        esc(String(item.id)) + '">تم الإنجاز</button></div></div>';
+    }).join('') + '</div>' : '<p class="small-copy">لا توجد مواعيد مراجعة مستحقة حاليًا.</p>';
+  } catch (_) {
+    if (user === authenticatedUser && $('#dueReminderNotices') === mount) mount.textContent = 'تعذّر تحميل مواعيد المراجعة.';
+  }
+}
+document.addEventListener('complaints:render', () => { void refreshNotificationReminders(); });
