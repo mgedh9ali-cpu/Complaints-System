@@ -123,7 +123,7 @@ function showAlarmToast(item) {
     '<div class="alarm-toast-icon" aria-hidden="true">⏰</div><div class="alarm-toast-body"><strong>حان موعد مراجعة ' + esc(info.label) + '</strong>' +
     '<small><bdi>' + esc(String(item.complaintId)) + '</bdi> · ' + esc(timeText(item.reminderTime)) + '</small>' +
     (info.summary ? '<p>' + esc(info.summary) + '</p>' : '') + reminderNoteHtml(info.note) +
-    '</div><div class="alarm-toast-actions"><button type="button" class="btn btn-sm btn-primary" data-action="alarm-open" data-id="' +
+    '</div><div class="alarm-toast-actions"><button type="button" class="btn btn-sm btn-primary" data-action="detail" data-id="' +
     esc(item.complaintId) +
     '" data-reminder="' +
     esc(String(item.id)) +
@@ -147,15 +147,16 @@ async function dismissReminder(id) {
   document.getElementById('alarm-toast-' + id)?.remove();
   markReminderShown(id);
   void refreshRecordReview();
+  if (typeof refreshNotificationReminders === 'function') void refreshNotificationReminders();
   if(typeof refreshWorkday==='function'){workdayLoadedAt=0;void refreshWorkday(true);}
 }
 
 async function checkDueReminders() {
-  if (!authenticatedUser || document.visibilityState === 'hidden') return;
+  if (!authenticatedUser || document.visibilityState === 'hidden' || (typeof document.hasFocus === 'function' && !document.hasFocus())) return;
   const reminderUser = authenticatedUser;
   try {
     const data = await api('/api/reminders/due?limit=8');
-    if (reminderUser !== authenticatedUser) return;
+    if (reminderUser !== authenticatedUser || document.visibilityState === 'hidden' || (typeof document.hasFocus === 'function' && !document.hasFocus())) return;
     const list = data.reminders || [];
     const shown = shownReminderIds();
     for (const item of list) {
@@ -169,7 +170,10 @@ async function checkDueReminders() {
 function startReminderPolling() {
   if (reminderPollTimer) return;
   checkDueReminders();
-  reminderPollTimer = setInterval(checkDueReminders, 60000);
+  reminderPollTimer = setInterval(() => {
+    void checkDueReminders();
+    if (typeof refreshNotificationReminders === 'function') void refreshNotificationReminders();
+  }, 60000);
 }
 
 if (typeof window !== 'undefined') {
