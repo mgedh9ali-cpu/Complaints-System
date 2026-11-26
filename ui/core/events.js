@@ -162,6 +162,7 @@ case 'filter-late':openRegistryQueue('late');break;
 case 'filter-due-soon':openRegistryQueue('due-soon');break;
 case 'filter-missing':openRegistryQueue('missing');break;
 case 'clear-filters':resetRegistryFilters();render();break;
+case 'close-registry-filters':registryAdvancedOpen=false;render();break;
 case 'quick-filter':openRegistryQueue(el.dataset.value||'all');break;
 case 'registry-queue':openRegistryQueue(el.dataset.queue);break;
 case 'remove-registry-filter':removeRegistryFilter(el.dataset.filterKey);break;
