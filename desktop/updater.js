@@ -19,15 +19,36 @@ function saveReceipt(base, receipt) {
   fs.writeFileSync(file + '.tmp', JSON.stringify(receipt), { mode: 0o600 });
   fs.renameSync(file + '.tmp', file);
 }
+function installedCommit() {
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'build-info.json'), 'utf8')).commit; }
+  catch (_) { return null; }
+}
+function history(base) {
+  try {
+    const entries = JSON.parse(fs.readFileSync(path.join(base, 'update-history.json'), 'utf8'));
+    return Array.isArray(entries) ? entries.slice(0, 30) : [];
+  } catch (_) { return []; }
+}
+function recordHistory(base, state, version, commit, message) {
+  try {
+    const file = path.join(base, 'update-history.json');
+    const entries = [{ at: new Date().toISOString(), state, version, commit, message }, ...history(base)].slice(0, 30);
+    fs.writeFileSync(file + '.tmp', JSON.stringify(entries), { mode: 0o600 });
+    fs.renameSync(file + '.tmp', file);
+  } catch (_) { /* history failure must not interrupt a verified update */ }
+}
+function validStaging(base, staging) {
+  return typeof staging === 'string' && path.dirname(staging) === path.join(base, 'updates') && /^[a-f0-9-]{36}$/.test(path.basename(staging));
+}
 let activeStatus;
-function statusWindow(parent) {
+function statusWindow(parent, initial = {}) {
   activeStatus?.close();
   const { BrowserWindow } = require('electron');
-  const window = new BrowserWindow({ width: 650, height: 570, parent, modal: true, autoHideMenuBar: true, title: 'تحديث التطبيق',
+  const window = new BrowserWindow({ width: 760, height: 690, minWidth: 480, minHeight: 400, parent, modal: true, autoHideMenuBar: true, title: 'تحديث التطبيق',
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'update-preload.js') } });
-  let status = { message: 'جارٍ التحقق من آخر إصدار…' }, locked = true, receiveToken, receiveConfirmation;
+  let status = { message: 'جارٍ التحقق من آخر إصدار…', ...initial }, locked = true, receiveToken, receiveConfirmation, cancelDownload;
   const send = () => { if (!window.isDestroyed()) window.webContents.send('complaints:update-status', status); };
-  window.on('close', event => { if (locked) event.preventDefault(); });
+  window.on('close', event => { if (locked) { event.preventDefault(); if (status.cancelable) cancelDownload?.(); } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
   window.webContents.on('did-finish-load', send);
@@ -53,6 +74,7 @@ function statusWindow(parent) {
   });
   activeStatus = {
     show(next) { status = { ...status, ...next }; locked = !status.done && !status.needsToken && !status.canInstall; send(); },
+    setCancel(callback) { cancelDownload = callback; },
     close() { locked = false; if (!window.isDestroyed()) window.close(); },
     confirm(release) {
       return new Promise(resolve => {
@@ -61,13 +83,16 @@ function statusWindow(parent) {
           message: 'يتوفر إصدار جديد. ينشئ التطبيق نسخة احتياطية قبل التثبيت، ثم يُعاد تشغيله.',
           version: release.version,
           notes: release.notes,
+          availableCommit: release.commit,
+          publishedAt: release.publishedAt,
+          total: release.size,
           canInstall: true
         });
       });
     },
     token() {
       locked = false;
-      status = { message: 'يلزم إعداد صلاحية القراءة مرة واحدة. يمكنك إغلاق النافذة للإلغاء.', needsToken: true };
+      status = { ...status, message: 'يلزم إعداد صلاحية القراءة مرة واحدة. يمكنك إغلاق النافذة للإلغاء.', needsToken: true };
       send();
       return new Promise(resolve => { receiveToken = resolve; });
     }
@@ -76,8 +101,12 @@ function statusWindow(parent) {
 }
 async function runUpdate({ app, window, paths, runtime, admin }) {
   if (process.platform !== 'win32' || !app.isPackaged) throw new Error('التحديث التلقائي متاح في نسخة Windows المثبتة أو المحمولة.');
-  const view = statusWindow(window);
-  let staging, handedOff = false;
+  const base = paths.applicationBase;
+  const current = app.getVersion(), commit = installedCommit();
+  const view = statusWindow(window, { currentVersion: current, currentCommit: commit, history: history(base) });
+  let staging, handedOff = false, release;
+  const controller = new AbortController();
+  view.setCancel(() => controller.abort(new Error('أُلغي التنزيل بناءً على طلبك.')));
   const previous = readReceipt(paths.applicationBase);
   try {
     const { net, safeStorage } = require('electron');
@@ -100,14 +129,18 @@ async function runUpdate({ app, window, paths, runtime, admin }) {
     if (!response.ok) throw new Error('تعذر الاتصال بخادم التحديثات (' + response.status + '). أعد المحاولة لاحقًا.');
     // Release metadata contains GitHub's digest for the exact published installer.
     const releases = await response.json();
-    const release = selectRelease(releases, app.getVersion(), previous?.state === 'complete' ? previous.tag : null);
-    if (!release) { view.show({ message: 'أنت تستخدم أحدث إصدار متاح.', version: app.getVersion(), done: true }); return; }
-    if (!await view.confirm(release)) return;
+    release = selectRelease(releases, current, previous?.state === 'complete' && previous.commit === commit && previous.version === current ? previous.tag : null, commit);
+    if (!release) {
+      recordHistory(base, 'checked', current, commit, 'لم يُعثر على بناء أحدث مطابق لقناة التحديث.');
+      view.show({ message: 'لم يُعثر على إصدار أحدث متوافق في قناة التحديث الحالية.', version: current, done: true, history: history(base) }); return;
+    }
+    if (!await view.confirm(release)) { recordHistory(base, 'cancelled', release.version, release.commit, 'أُلغيت معاينة التحديث.'); return; }
     staging = path.join(paths.applicationBase, 'updates', crypto.randomUUID());
     fs.mkdirSync(staging, { recursive: true, mode: 0o700 });
     const installer = path.join(staging, 'setup.exe');
-    view.show({ message: 'جارٍ تنزيل التحديث…', phase: 'التنزيل', percent: 0 });
-    await downloadVerified({ fetch, release, destination: installer, onProgress: percent => view.show({ percent }) });
+    view.show({ message: 'جارٍ تنزيل التحديث…', phase: 'التنزيل', percent: 0, downloaded: 0, total: release.size, cancelable: true });
+    await downloadVerified({ fetch, release, destination: installer, signal: controller.signal, onProgress: (percent, details) => view.show({ percent, ...details }) });
+    view.show({ cancelable: false, phase: 'التحقق', message: 'تم التحقق من حجم الملف وبصمته.' });
     await admin();
     view.show({ message: 'تم التحقق من الملف. جارٍ حفظ نسخة احتياطية قبل التثبيت…', phase: 'النسخ الاحتياطي', percent: null });
     if (!await runtime.backupScheduler.runOnce()) throw new Error('لم تكتمل النسخة الاحتياطية. أعد المحاولة بعد اكتمال النسخ أو إصلاح مجلده. لم يبدأ التثبيت.');
@@ -115,7 +148,7 @@ async function runUpdate({ app, window, paths, runtime, admin }) {
     const portable = process.env.PORTABLE_EXECUTABLE_FILE;
     const oldPortable = portable && portableFilename.test(path.basename(portable))
       ? { file: path.resolve(portable), sha256: await fileHash(portable) } : null;
-    const receipt = { ...release, state: 'pending', staging, oldPortable };
+    const receipt = { ...release, state: 'pending', staging, oldPortable, preparedAt: new Date().toISOString() };
     const config = path.join(staging, 'install.json');
     fs.copyFileSync(path.join(__dirname, 'install-update.ps1'), path.join(staging, 'install.ps1'));
     fs.writeFileSync(config, JSON.stringify({ pid: process.pid, installer, sha256: release.sha256 }), { mode: 0o600 });
@@ -127,10 +160,14 @@ async function runUpdate({ app, window, paths, runtime, admin }) {
     await once(child, 'spawn');
     child.unref();
     handedOff = true;
+    recordHistory(base, 'pending', release.version, release.commit, 'بدأ التثبيت؛ لم يُؤكّد تشغيل البناء الجديد بعد.');
     view.close();
     app.quit();
   } catch (error) {
-    view.show({ message: error.message + '\nبقيت بياناتك ونسخة التطبيق الحالية محفوظة.', percent: null, done: true });
+    const cancelled = controller.signal.aborted;
+    const message = cancelled ? 'أُلغي التنزيل. لم يبدأ التثبيت.' : 'تعذّر إكمال التحديث قبل تسليم التثبيت. ' + String(error.message || '').slice(0, 300);
+    recordHistory(base, cancelled ? 'cancelled' : 'failed', release?.version || current, release?.commit || commit, cancelled ? 'أُلغي التنزيل.' : 'تعذّر إكمال التحديث قبل التثبيت.');
+    view.show({ message, cancelable: false, percent: null, done: true, history: history(base) });
     if (previous) saveReceipt(paths.applicationBase, previous);
     else fs.rmSync(path.join(paths.applicationBase, 'update-receipt.json'), { force: true });
   } finally {
@@ -141,8 +178,15 @@ async function runUpdate({ app, window, paths, runtime, admin }) {
 async function completeUpdate({ app, window, paths }) {
   const receipt = readReceipt(paths.applicationBase);
   if (!receipt || !['pending', 'complete'].includes(receipt.state) || !app.isPackaged) return false;
-  let commit;
-  try { commit = JSON.parse(fs.readFileSync(path.join(__dirname, 'build-info.json'), 'utf8')).commit; } catch (_) { return false; }
+  const commit = installedCommit();
+  if (receipt.state === 'pending' && validStaging(paths.applicationBase, receipt.staging) && fs.existsSync(path.join(receipt.staging, 'install.json.error'))) {
+    saveReceipt(paths.applicationBase, { ...receipt, state: 'failed' });
+    recordHistory(paths.applicationBase, 'failed', receipt.version, receipt.commit, 'أبلغ مثبّت Windows عن فشل العملية.');
+    const view = statusWindow(window, { currentVersion: app.getVersion(), currentCommit: commit, history: history(paths.applicationBase) });
+    view.show({ message: 'أبلغ مثبّت Windows عن فشل التحديث. لم يُعتمد الإصدار الجديد ولم تُحذف النسخة المحمولة السابقة. يمكنك إعادة المحاولة من الإعدادات.', version: receipt.version, done: true });
+    return false;
+  }
+  if (!commit) return false;
   // Called only after the server, database checks and main page loaded successfully.
   // A previous executable with the same version cannot acknowledge a newer build.
   if (receipt.version !== app.getVersion() || receipt.commit !== commit) return false;
@@ -174,7 +218,8 @@ async function completeUpdate({ app, window, paths }) {
   }
   saveReceipt(paths.applicationBase, { ...receipt, state: 'complete', cleanupPending });
   if (receipt.state === 'complete') return false;
-  const view = statusWindow(window);
+  recordHistory(paths.applicationBase, 'complete', receipt.version, receipt.commit, 'تم تشغيل البناء الجديد والتحقق من هويته.');
+  const view = statusWindow(window, { currentVersion: app.getVersion(), currentCommit: commit, history: history(paths.applicationBase), publishedAt: receipt.publishedAt });
   view.show({ message: 'اكتمل التحديث بنجاح. حُفظت قاعدة البيانات والمرفقات والإعدادات.' + (cleanupPending ? ' بعض ملفات النسخة القديمة قيد الاستخدام. ستُعاد محاولة تنظيفها عند التشغيل القادم.' : ''), version: receipt.version, notes: receipt.notes, done: true });
   return true;
 }
