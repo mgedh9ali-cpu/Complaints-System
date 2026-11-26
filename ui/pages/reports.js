@@ -96,7 +96,7 @@ function reportsPage(){
  const donut=total?'<div class="report-donut-layout"><div class="report-donut" style="background:conic-gradient('+slices.join(',')+')" role="img" aria-label="توزيع '+total+' سجلًا حسب الحالة"><div><strong>'+total+'</strong><span>سجل</span></div></div><ul class="report-chart-legend">'+statuses.map(([status,count],i)=>'<li><span class="report-swatch" style="background:var(--chart-'+(i%6+1)+')" aria-hidden="true"></span><span>'+safe(REPORT_STATUS_LABELS[status]||status)+'</span><strong>'+count+' · '+Math.round(count/total*100)+'٪</strong></li>').join('')+'</ul></div>':'<div class="empty-state calm-empty">لا توجد حالات لعرضها.</div>';
  const actions=btn('طباعة / حفظ PDF','print-report')+(typeof uiCan!=='function'||uiCan('export.csv')?btn('تصدير CSV','export-csv'):'')+(typeof uiCan!=='function'||uiCan('export.xlsx')?btn('تصدير Excel','export-xlsx'):'');
  const scope=[filters.from?'من '+reportDateLabel(filters.from):'',filters.to?'حتى '+reportDateLabel(filters.to):'',...['province','category','status','priority'].map(key=>filters[key]?(REPORT_STATUS_LABELS[filters[key]]||REPORT_PRIORITY_LABELS[filters[key]]||filters[key]):'')].filter(Boolean).join(' · ')||'كل التواريخ والمحافظات والتصنيفات والحالات';
- return '<div class="reports-workspace">'+heading('التقارير التشغيلية','رسوم وإحصاءات من السجلات المحفوظة محليًا؛ التصفية حسب تاريخ تسجيل الشكوى.',actions)+
+ return '<div class="reports-workspace">'+heading('التقارير التشغيلية','رسوم وإحصاءات من السجلات المحفوظة محليًا؛ التصفية حسب تاريخ تسجيل الشكوى.',actions)+customReportPanel()+
  '<section class="panel report-filters" aria-label="تصفية التقارير"><div class="panel-body"><form id="reportFiltersForm"><div class="report-filter-grid"><div class="form-field"><label for="reportFrom">من تاريخ</label><input id="reportFrom" type="date" value="'+safe(filters.from)+'"></div><div class="form-field"><label for="reportTo">إلى تاريخ</label><input id="reportTo" type="date" value="'+safe(filters.to)+'"></div>'+choice('province','المحافظة')+choice('category','التصنيف')+choice('status','الحالة',REPORT_STATUS_LABELS)+choice('priority','الأولوية',REPORT_PRIORITY_LABELS)+'</div><p id="reportFilterError" class="login-error" role="alert" tabindex="-1" hidden></p><div class="report-filter-actions"><button type="submit" class="btn btn-primary">تطبيق التصفية</button><button type="button" class="btn" data-action="report-period" data-days="0">إعادة الضبط / كل الفترات</button><span>فترات سريعة:</span>'+[14,30,90].map(n=>'<button type="button" class="filter-chip" data-action="report-period" data-days="'+n+'">آخر '+n+' يومًا</button>').join('')+'</div></form></div></section>'+
  '<p class="report-scope" role="status">التصفية المطبقة: '+safe(scope)+' · '+total+' من '+all.length+' سجل · تحديث '+safe(new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',dateStyle:'short',timeStyle:'short'}).format(new Date()))+'</p>'+
  (!total?'<div class="empty-state">لا توجد شكاوى تطابق التصفية؛ غيّر الفترة أو أعد ضبط المرشحات.</div>':'')+
@@ -133,3 +133,98 @@ if(typeof document!=='undefined')document.addEventListener?.('click',e=>{
  if(action==='report-list-prev'){reportListPage--;reportMatchingRecords(false);}
  if(action==='report-list-next'){reportListPage++;reportMatchingRecords(false);}
 });
+
+/* Custom reports: server-side preview and exports, local configuration templates only. */
+const CUSTOM_REPORT_FIELDS={id:'رقم السجل',recordType:'نوع السجل',created:'تاريخ التسجيل',firstContactDate:'أول تواصل',province:'المحافظة',entity:'الجهة',category:'التصنيف',status:'الحالة',priority:'الأولوية',summary:'الموضوع',name:'الاسم',phone:'الهاتف',due:'المهلة'};
+const CUSTOM_REPORT_DEFAULT=['id','recordType','created','province','category','status'];
+const CUSTOM_REPORT_FORMATS={docx:'Word',xlsx:'Excel',pdf:'PDF',html:'HTML',odt:'ODT',ods:'ODS',rtf:'RTF',csv:'CSV',tsv:'TSV',txt:'TXT',json:'JSON',xml:'XML',md:'Markdown',svg:'SVG — رسم ملخص',zip:'ZIP — حزمة'};
+const CUSTOM_REPORT_TYPES={complaint:'شكوى',inquiry:'استفسار',contact:'تواصل'};
+let customReportTimer,customReportSequence=0,customReportController;
+function customReportStorageKey(){return 'complaints.report.templates.v1.'+String(authenticatedUser?.id||authenticatedUser?.username||'local');}
+function customReportTemplates(){try{const data=JSON.parse(localStorage.getItem(customReportStorageKey())||'[]');return Array.isArray(data)?data.filter(x=>x&&typeof x.name==='string'&&typeof x.query==='string').slice(0,50):[];}catch(_){return [];}}
+function customReportPanel(){
+ if(typeof uiCan==='function'&&!uiCan('export.xlsx'))return '';
+ const records=(db.complaints||[]).filter(c=>c&&!c.archivedAt);
+ const labels={recordType:CUSTOM_REPORT_TYPES,status:REPORT_STATUS_LABELS,priority:REPORT_PRIORITY_LABELS};
+ const select=(key,title)=>{
+  const values=key==='recordType'?Object.keys(CUSTOM_REPORT_TYPES):[...new Set(records.map(c=>String((key==='status'?reportDisplayStatus(c.status):c[key])||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+  return '<div class="form-field"><label for="custom-'+key+'">'+title+'</label><select id="custom-'+key+'" name="'+key+'"><option value="">الكل</option>'+values.map(v=>'<option value="'+esc(v)+'">'+esc(labels[key]?.[v]||v)+'</option>').join('')+'</select></div>';
+ };
+ const fieldOptions=Object.entries(CUSTOM_REPORT_FIELDS).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join('');
+ const groupOptions=['recordType','status','province','entity','category','priority'].map(k=>'<option value="'+k+'">'+CUSTOM_REPORT_FIELDS[k]+'</option>').join('');
+ return '<details class="panel custom-report-panel" id="customReportPanel"><summary class="panel-header"><div><h2>منشئ التقارير المخصصة</h2><p>اختر المحتوى، راجع النتائج، واحفظ قالبًا أو صدّر التقرير محليًا.</p></div></summary><div class="panel-body">'+
+ '<form id="customReportForm"><div class="report-filter-grid"><div class="form-field"><label for="custom-title">عنوان التقرير</label><input id="custom-title" name="title" maxlength="160" value="تقرير السجلات"></div>'+
+ '<div class="form-field"><label for="custom-from">من تاريخ</label><input type="date" id="custom-from" name="from"></div><div class="form-field"><label for="custom-to">إلى تاريخ</label><input type="date" id="custom-to" name="to"></div>'+
+ select('recordType','نوع السجل')+select('province','المحافظة')+select('entity','الجهة')+select('category','التصنيف')+select('status','الحالة')+select('priority','الأولوية')+
+ '<div class="form-field"><label for="custom-group">التجميع الإحصائي</label><select id="custom-group" name="group">'+groupOptions+'</select></div><div class="form-field"><label for="custom-sort">الترتيب حسب</label><select id="custom-sort" name="sort">'+fieldOptions+'</select></div>'+
+ '<div class="form-field"><label for="custom-direction">اتجاه الترتيب</label><select id="custom-direction" name="direction"><option value="asc">تصاعدي</option><option value="desc">تنازلي</option></select></div></div>'+
+ '<div class="form-field"><label for="custom-description">الملاحظات / الملخص التنفيذي</label><textarea id="custom-description" name="description" maxlength="2000" rows="3"></textarea></div>'+
+ '<fieldset><legend>الأعمدة المطلوبة (الأسماء والهواتف مخفية افتراضيًا)</legend><div class="report-filter-grid">'+Object.entries(CUSTOM_REPORT_FIELDS).map(([k,v])=>'<label><input type="checkbox" name="columns" value="'+k+'" '+(CUSTOM_REPORT_DEFAULT.includes(k)?'checked':'')+'> '+v+'</label>').join('')+'</div></fieldset>'+
+ '<div class="report-filter-actions"><button type="submit" class="btn btn-primary">معاينة التقرير</button><button type="button" class="btn" data-custom-report="reset">إعادة ضبط</button></div></form>'+
+ '<section class="panel"><div class="panel-body"><h3>قوالب التقارير</h3><div class="report-filter-grid"><div class="form-field"><label for="customTemplateName">اسم القالب</label><input id="customTemplateName" maxlength="80"></div><div class="form-field"><label for="customTemplateSelect">القوالب المحفوظة</label><select id="customTemplateSelect"><option value="">اختر قالبًا</option>'+customReportTemplates().map((t,i)=>'<option value="'+i+'">'+esc(t.name)+'</option>').join('')+'</select></div></div>'+
+ '<div class="report-filter-actions"><button type="button" class="btn" data-custom-report="save">حفظ / تحديث القالب</button><button type="button" class="btn" data-custom-report="load">فتح القالب</button><button type="button" class="btn" data-custom-report="delete">حذف القالب</button></div></div></section>'+
+ '<p id="customReportStatus" role="status" aria-live="polite">افتح المنشئ لعرض المعاينة.</p><div id="customReportPreview" class="custom-report-preview"></div>'+
+ '<div class="form-field"><label for="customReportFormat">صيغة التصدير</label><select id="customReportFormat">'+Object.entries(CUSTOM_REPORT_FORMATS).map(([k,v])=>'<option value="'+k+'">'+v+' (.'+k+')</option>').join('')+'</select></div><div class="report-filter-actions"><button type="button" class="btn btn-primary" data-custom-report="export">تصدير التقرير</button><button type="button" class="btn" data-custom-report="print">طباعة المعاينة</button></div><p class="small-copy">المعاينة تعرض أول 100 سجل، والتصدير يشمل جميع النتائج حتى 5000 سجل. SVG يعرض الملخص المرئي فقط. ZIP يجمع سبع صيغ شائعة.</p></div></details>';
+}
+function customReportQuery(){
+ const form=$('#customReportForm');if(!form)throw Error('افتح منشئ التقارير');
+ const data=new FormData(form),q=new URLSearchParams();
+ for(const [k,v] of data)if(k!=='columns'&&v)q.set(k,v);
+ const cols=data.getAll('columns');if(!cols.length)throw Error('اختر عمودًا واحدًا على الأقل');
+ q.set('columns',cols.join(','));
+ if(q.get('from')&&q.get('to')&&q.get('from')>q.get('to'))throw Error('الفترة الزمنية غير صالحة');
+ return q;
+}
+function customReportStatus(message){const el=$('#customReportStatus');if(el)el.textContent=message;}
+async function customReportPreview(){
+ const target=$('#customReportPreview');if(!target)return;
+ const seq=++customReportSequence;customReportController?.abort();customReportController=new AbortController();
+ try{
+  const q=customReportQuery();customReportStatus('جارٍ إعداد المعاينة…');
+  const res=await fetch('/api/reports/custom/preview?'+q,{credentials:'same-origin',signal:customReportController.signal});
+  const m=await res.json();if(!res.ok)throw Error(m.error||'تعذر إعداد المعاينة');
+  if(seq!==customReportSequence||!target.isConnected)return;
+  const max=Math.max(1,...m.groups.map(x=>x[1]));
+  target.innerHTML='<section class="panel"><div class="panel-body"><h2>'+esc(m.title)+'</h2><p>'+esc(m.description)+'</p><div class="mini-card-grid report-summary"><div class="mini-card"><small>إجمالي السجلات</small><strong>'+m.count+'</strong></div><div class="mini-card"><small>مغلقة</small><strong>'+m.closed+'</strong></div></div>'+
+  '<h3>'+esc(m.groupLabel)+'</h3><div class="report-rank-list">'+m.groups.map(([v,n])=>'<div class="report-rank-item"><div class="status-line"><span>'+esc(v)+'</span><strong>'+n+'</strong></div><div class="progress"><span style="width:'+Math.round(n/max*100)+'%"></span></div></div>').join('')+'</div>'+
+  '<div style="overflow:auto"><table><thead><tr>'+m.columns.map(c=>'<th>'+esc(c.label)+'</th>').join('')+'</tr></thead><tbody>'+m.rows.map(row=>'<tr>'+row.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></div></section>';
+  customReportStatus('عدد النتائج: '+m.count+' · المعروض: '+m.rows.length);
+ }catch(error){if(seq===customReportSequence&&error.name!=='AbortError'){target.textContent='';customReportStatus(error.message);}}
+}
+function customReportSchedule(){clearTimeout(customReportTimer);customReportTimer=setTimeout(customReportPreview,250);}
+function customReportRefreshTemplates(){const select=$('#customTemplateSelect');if(!select)return;select.replaceChildren(new Option('اختر قالبًا',''),...customReportTemplates().map((t,i)=>new Option(t.name,String(i))));}
+function customReportLoad(query){const q=new URLSearchParams(query),form=$('#customReportForm');for(const el of form.elements){if(!el.name)continue;if(el.name==='columns')el.checked=(q.get('columns')||'').split(',').includes(el.value);else el.value=q.get(el.name)||({group:'recordType',sort:'id',direction:'asc'}[el.name]||'');}customReportPreview();}
+async function customReportDownload(button,print=false){
+ const q=customReportQuery(),format=print?'pdf':$('#customReportFormat').value;
+ if(!Object.hasOwn(CUSTOM_REPORT_FORMATS,format))throw Error('صيغة غير مدعومة');
+ button.disabled=true;customReportStatus('جارٍ تجهيز '+CUSTOM_REPORT_FORMATS[format]+'…');
+ try{
+  const res=await fetch('/api/reports/custom/export/'+format+'?'+q,{credentials:'same-origin'});
+  if(!res.ok){const data=await res.json().catch(()=>({}));throw Error(data.error||'تعذر التصدير');}
+  const url=URL.createObjectURL(await res.blob()),a=document.createElement('a');a.href=url;a.download='report-'+workDayKey(Date.now())+'.'+format;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  customReportStatus('تم تجهيز التقرير · '+(res.headers.get('X-Export-Count')||'')+' سجل'+(print?' · افتح ملف PDF للطباعة':''));
+ }finally{button.disabled=false;}
+}
+if(typeof document!=='undefined'){
+ document.addEventListener('toggle',e=>{if(e.target.id==='customReportPanel'&&e.target.open)customReportPreview();},true);
+ document.addEventListener('input',e=>{if(e.target.closest?.('#customReportForm'))customReportSchedule();});
+ document.addEventListener('change',e=>{if(e.target.closest?.('#customReportForm'))customReportSchedule();});
+ document.addEventListener('submit',e=>{if(e.target.id==='customReportForm'){e.preventDefault();customReportPreview();}});
+ document.addEventListener('click',async e=>{
+  const button=e.target.closest?.('[data-custom-report]');if(!button)return;
+  try{
+   const action=button.dataset.customReport,select=$('#customTemplateSelect'),templates=customReportTemplates(),index=select?.value===''?-1:Number(select?.value);
+   if(action==='reset'){$('#customReportForm').reset();customReportPreview();}
+   if(action==='export'||action==='print')await customReportDownload(button,action==='print');
+   if(action==='save'){
+    const name=$('#customTemplateName').value.trim();if(!name)throw Error('أدخل اسم القالب');
+    const q=customReportQuery();q.delete('description');q.delete('title');
+    const existing=templates.findIndex(t=>t.name===name);
+    if(existing>=0)templates[existing]={name,query:q.toString()};else{if(templates.length>=50)throw Error('الحد 50 قالبًا');templates.push({name,query:q.toString()});}
+    localStorage.setItem(customReportStorageKey(),JSON.stringify(templates));customReportRefreshTemplates();customReportStatus('حُفظ القالب دون بيانات السجلات أو النصوص الحرة.');
+   }
+   if(action==='load'){if(!templates[index])throw Error('اختر قالبًا');$('#customTemplateName').value=templates[index].name;customReportLoad(templates[index].query);}
+   if(action==='delete'){if(!templates[index])throw Error('اختر قالبًا');if(!window.confirm('حذف القالب؟'))return;templates.splice(index,1);localStorage.setItem(customReportStorageKey(),JSON.stringify(templates));customReportRefreshTemplates();customReportStatus('حُذف القالب.');}
+  }catch(error){customReportStatus(error.message);}
+ });
+}
