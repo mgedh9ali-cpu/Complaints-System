@@ -87,3 +87,17 @@ test('processing report measures closure duration, reopening, and recorded delay
  const html=vm.runInContext('reportProcessingMetrics(db.complaints)',context);
  assert.match(html,/3.0 يوم/);assert.match(html,/سجلات أُعيد فتحها: <strong>1/);assert.match(html,/انتظار رد الجهة: 1/);
 });
+
+
+test('retired waiting states aggregate as processing in reports and exports without mutating records',()=>{
+ const records=['in_progress','awaiting_reply','awaiting_approval','closed'].map((status,i)=>({id:'legacy-'+i,status,created:'2026-11-01T08:00:00Z',statusHistory:[{to:status}]}));
+ const original=JSON.stringify(records);
+ const context=setup(records);context.now=fixed;
+ const model=vm.runInContext('buildReportModel(db.complaints,{status:"in_progress"},db.settings,now)',context);
+ assert.equal(model.records.length,3);assert.equal(model.group('status').length,1);assert.equal(model.group('status')[0][0],'in_progress');assert.equal(model.group('status')[0][1],3);
+ const html=vm.runInContext('reportsPage()',context);assert.match(html,/قيد المعالجة/);assert.doesNotMatch(html,/بانتظار الاعتماد|بانتظار رد الجهة|value="awaiting_reply"|value="awaiting_approval"/);
+ const service=createReportsService({complaintsService:{readState:()=>({state:{complaints:records,settings:{}}})}});
+ assert.deepEqual(service.buildSummaryReport({status:'in_progress'}).totals.byStatus,{in_progress:3});
+ const csv=service.buildCsv({status:'in_progress'});assert.equal(csv.count,3);assert.doesNotMatch(csv.buffer.toString(),/awaiting_reply|awaiting_approval/);
+ assert.equal(JSON.stringify(records),original);
+});
