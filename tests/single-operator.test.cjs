@@ -1,12 +1,12 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),Database=require('better-sqlite3');
 const {installSingleOperator}=require('../lib/single-operator'),{applyReplyTransition}=require('../lib/reply-workflow');
-test('operator identity is pinned, secondary sessions are rejected and legacy accounts are retained',t=>{
+test('operator identity is pinned, secondary sessions are rejected and legacy accounts are retained',async t=>{
  const db=new Database(':memory:');t.after(()=>db.close());
  db.exec("CREATE TABLE users(id TEXT PRIMARY KEY,username TEXT,role TEXT,active INTEGER,created_at TEXT);INSERT INTO users VALUES('old','older','admin',1,'2020'),('owner','myaccount','admin',1,'2021'),('staff','employee','staff',1,'2019')");
  const authService={authenticate:username=>({ok:true,user:{username}})},middleware={requireAuth:(req,_res,next)=>next()};
  const guard=installSingleOperator({db,authService,middleware,username:'myaccount'});
- assert.equal(authService.authenticate('myaccount').ok,true);assert.equal(authService.authenticate('older').ok,false);assert.equal(authService.authenticate('employee').ok,false);
+ assert.equal((await authService.authenticate('myaccount')).ok,true);assert.equal((await authService.authenticate('older')).ok,false);assert.equal((await authService.authenticate('employee')).ok,false);
  const res={status(n){this.code=n;return this;},json(body){this.body=body;return this;}};let destroyed=false;
  middleware.requireAuth({user:{id:'old'},session:{destroy(fn){destroyed=true;fn();}}},res,()=>assert.fail('secondary session accepted'));assert.equal(destroyed,true);assert.equal(res.code,403);
  for(const path of ['/users','/users/owner/permissions','/roles','/assignees']){guard({path,method:'GET'},res,()=>assert.fail('team API accepted'));assert.equal(res.code,410);}
