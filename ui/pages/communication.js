@@ -45,7 +45,6 @@ function repliesPage(){
   :'<div class="empty-state"><p>لا توجد ردود بعد.</p><button class="btn btn-primary" data-action="new-reply">إنشاء رد</button></div>')+
   '</section>';
 }
-function replyStatusPill(s){const m={draft:['مسودة','new'],review:['مراجعة','waiting'],approval:['بانتظار الاعتماد','waiting'],approved:['معتمد','progressing'],sent:['تم توثيق الإرسال','closed']};const x=m[s]||[s,'closed'];return '<span class="pill '+x[1]+'">'+x[0]+'</span>';}
 function notificationsPage(){
   const list=db.notifications||[];
   const unread=list.filter(n=>!n.read).length;

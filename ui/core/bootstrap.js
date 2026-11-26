@@ -43,6 +43,7 @@ async function loadDb(){const stored=await api('/api/state');db=stored.state||cl
 async function persistUiNow(){if(!stateLoaded)return;const saved=await api('/api/state',{method:'PUT',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify(db)});stateRevision=saved.revision;}
 function persist(){showSaveState('dirty');if(persistTimer)clearTimeout(persistTimer);persistTimer=setTimeout(()=>{persistTimer=null;persistQueue=persistQueue.then(()=>persistUiNow()).catch(e=>toast(e.message,'error'));},400);}
 function updateSignedInUi(){
+  if(typeof syncAuditViewSession==='function')syncAuditViewSession();
   const name=authenticatedUser?.username||'';
   const el=$('#signedInUser');if(el)el.textContent=name;
   const top=$('#topUserName');if(top)top.textContent=name||'غير مسجل';
