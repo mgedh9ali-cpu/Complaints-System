@@ -769,3 +769,22 @@ test('review timer and reminder are accessible from the record and its action me
  const saved=ui.calls.find(call=>call.url==='/api/complaints/'+id+'/reminders'&&call.method==='POST');
  assert.equal(JSON.parse(saved.body).note,'مراجعة السجل');
 });
+
+
+test('owner attachment archive uses delegated action and authenticated DELETE only after confirmation',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ const id='SY-2026-10001', file=id+'_12345678-1234-1234-1234-123456789abc.pdf';
+ await ui.click('owner-attachment-delete',id,{file});
+ assert.match(ui.node('#modalRoot').innerHTML,/attachmentDeleteReason/);
+ assert.equal(ui.calls.filter(c=>c.method==='DELETE').length,0);
+ ui.node('#attachmentDeleteReason').value='أرشفة مرفق اختباري';
+ await ui.click('confirm-attachment-delete',id,{file});
+ const req=ui.calls.find(c=>c.url==='/api/attachments/'+encodeURIComponent(file)&&c.method==='DELETE');
+ assert.ok(req);assert.equal(req.headers['X-CSRF-Token'],'token-from-session');
+ assert.equal(JSON.parse(req.body).reason,'أرشفة مرفق اختباري');
+ const reviewer=createFakeBrowser('reviewer');for(let i=0;i<25;i++)await Promise.resolve();
+ await reviewer.click('owner-attachment-delete',id,{file});
+ assert.doesNotMatch(reviewer.node('#modalRoot').innerHTML,/attachmentDeleteReason/);
+ await reviewer.click('confirm-attachment-delete',id,{file});
+ assert.equal(reviewer.calls.filter(c=>c.method==='DELETE').length,0);
+});

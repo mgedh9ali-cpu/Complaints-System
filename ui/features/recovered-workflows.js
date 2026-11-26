@@ -163,13 +163,13 @@ async function applyRecoveredBulk(type,value){
 }
 
 
-window.addEventListener('complaints:owner-attachment-delete',event=>{
- const {complaintId,storedName}=event.detail||{};
+function openOwnerAttachmentDelete(complaintId,storedName){
+ if(typeof storedName!=='string'||!storedName||typeof complaintId!=='string'||!complaintId)return toast('تعذر تحديد المرفق.','error');
  if(!uiCan('attachments.delete'))return toast('لا تملك صلاحية حذف المرفق.','error');
  modal('حذف المرفق','سيُنقل الملف إلى الأرشيف ويُوثق السبب في سجل التدقيق.',
  '<div class="form-field"><label for="attachmentDeleteReason">سبب الحذف</label><textarea class="textarea-field" id="attachmentDeleteReason" required minlength="3" maxlength="500"></textarea></div>',
  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-danger" data-action="confirm-attachment-delete" data-file="'+esc(storedName)+'" data-id="'+esc(complaintId)+'">تأكيد الحذف</button>');
-});
+}
 async function confirmAttachmentDelete(file){
  if(!uiCan('attachments.delete'))return toast('لا تملك صلاحية حذف المرفق.','error');
  const reason=($('#attachmentDeleteReason')?.value||'').trim();

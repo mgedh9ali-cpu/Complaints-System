@@ -57,6 +57,7 @@ case 'request-complaint-delete':requestComplaintDeletion(id);break;
  case 'confirm-owner-delete':await withButtonLock(el,()=>confirmOwnerDelete(id),'جارٍ الحذف…');break;
 case 'export-complaint-pdf':await withButtonLock(el,()=>exportComplaintDocument(id,'pdf'),'جارٍ إنشاء PDF…');break;
 case 'export-complaint-word':await withButtonLock(el,()=>exportComplaintDocument(id,'docx'),'جارٍ إنشاء Word…');break;
+case 'owner-attachment-delete':openOwnerAttachmentDelete(id,el.dataset.file);break;
 case 'confirm-attachment-delete':await withButtonLock(el,()=>confirmAttachmentDelete(el.dataset.file),'جارٍ الحذف…');break;
 case 'confirm-sync-merge':await withButtonLock(el,confirmSyncMerge,'جارٍ الدمج…');break;
 case 'attachment-preview':await withButtonLock(el,()=>previewAttachment(el.dataset.file,el.dataset.name,el.dataset.mime),'جارٍ فتح المرفق…');break;

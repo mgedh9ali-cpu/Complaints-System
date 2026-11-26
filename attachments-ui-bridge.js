@@ -176,18 +176,9 @@
           const size = a.size ? Math.round(a.size / 1024) + ' ك.ب' : '';
           const preview=/^image\/(jpeg|png|webp|gif)$/.test(a.mime||'')||a.mime==='application/pdf';
           return (preview?`<button type="button" class="attach-chip" data-action="attachment-preview" data-file="${escapeHtml(a.storedName)}" data-name="${escapeHtml(name)}" data-mime="${escapeHtml(a.mime)}">معاينة ${escapeHtml(name)} <small>${size}</small></button>`:'')+
-            `<a class="attach-chip link" href="/api/attachments/${encodeURIComponent(a.storedName)}" target="_blank" rel="noopener">تنزيل ${escapeHtml(name)} <small>${size}</small></a> <button class="btn btn-sm" type="button" data-request-delete="${escapeHtml(a.storedName)}">حذف</button>`;
+            `<a class="attach-chip link" href="/api/attachments/${encodeURIComponent(a.storedName)}" target="_blank" rel="noopener">تنزيل ${escapeHtml(name)} <small>${size}</small></a> <button class="btn btn-sm" type="button" data-action="owner-attachment-delete" data-id="${escapeHtml(complaintId)}" data-file="${escapeHtml(a.storedName)}">حذف</button>`;
         })
         .join('');
-      list.querySelectorAll('[data-request-delete]').forEach((button) =>
-        button.addEventListener('click', () => {
-          window.dispatchEvent(
-            new CustomEvent('complaints:owner-attachment-delete', {
-              detail: { complaintId, storedName: button.dataset.requestDelete }
-            })
-          );
-        })
-      );
     } catch {
       list.innerHTML = '<span class="small-copy">تعذر تحميل قائمة المرفقات.</span>';
     }
