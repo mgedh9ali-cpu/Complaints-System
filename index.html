@@ -42,8 +42,8 @@
           <p class="nav-group-label" id="navWorkspace">مساحة العمل</p>
           <button type="button" class="nav-link active" data-page="dashboard"><span class="nav-icon" aria-hidden="true"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span><span class="nav-text">لوحة العمل</span></button>
           <button type="button" class="nav-link" data-page="complaints"><span class="nav-icon" aria-hidden="true"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span class="nav-text">سجل الشكاوى</span><span class="nav-count" id="navComplaintsCount">0</span></button>
-          <button type="button" class="nav-link" data-page="referrals"><span class="nav-icon" aria-hidden="true"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10M7 17 17 7"/></svg></span><span class="nav-text">الإحالات</span><span class="nav-count" id="navReferralsCount">0</span></button>
-          <button type="button" class="nav-link" data-page="replies"><span class="nav-icon" aria-hidden="true"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span><span class="nav-text">الردود</span></button>
+          <button type="button" class="nav-link" data-page="referrals" hidden><span class="nav-icon" aria-hidden="true"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10M7 17 17 7"/></svg></span><span class="nav-text">الإحالات</span><span class="nav-count" id="navReferralsCount">0</span></button>
+          <button type="button" class="nav-link" data-page="replies" hidden><span class="nav-icon" aria-hidden="true"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span><span class="nav-text">الردود</span></button>
           <p class="nav-group-label">معلومات</p>
           <button type="button" class="nav-link" data-page="notifications"><span class="nav-icon" aria-hidden="true"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span><span class="nav-text">الإشعارات</span><span class="nav-count" id="navNotificationsCount">0</span></button>
           <button type="button" class="nav-link" data-page="reports"><span class="nav-icon" aria-hidden="true"><svg class="ui-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M10 19V9M16 19v-6M22 19V7"/></svg></span><span class="nav-text">التقارير</span></button>
@@ -88,9 +88,8 @@
           <span class="shortcuts-caption">الوصول السريع</span>
           <button type="button" class="btn btn-quiet" data-goto="complaints">السجلات</button>
           <button type="button" class="btn btn-quiet" data-action="filter-missing">استكمال البيانات</button>
-          <button type="button" class="btn btn-quiet" data-action="filter-late">المتأخرات</button>
-          <button type="button" class="btn btn-quiet" data-goto="replies">الاعتمادات</button>
           <button type="button" class="btn btn-quiet" data-goto="reports">التقارير</button>
+          <button type="button" class="btn btn-quiet" data-goto="settings">الإعدادات</button>
         </div>
         <section class="content" id="content" tabindex="-1"></section>
         <footer class="page-footer">
