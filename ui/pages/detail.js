@@ -45,17 +45,15 @@ function complaintDetailPage() {
     fields.map(([title, value, dir]) => complaintDetailField(title, value, dir)).join('') + '</dl><div class="record-description"><h4>التفاصيل</h4><p class="detail-prose">' + esc(c.details || 'لم تُضف تفاصيل إضافية.') + '</p></div></section>';
   const notes = '<section class="detail-section" id="complaint-notes"><h3>الملاحظات الداخلية</h3>' +
     ((c.notes || []).map(n => '<div class="record-note"><strong>' + esc(n.by || '') + '</strong><p class="detail-prose">' + esc(n.text) + '</p><small>' + timeText(n.at) + '</small></div>').join('') || '<p class="detail-empty">لا توجد ملاحظات داخلية.</p>') + '</section>';
-  const referralActions = uiCan('complaints.update') ? action('referral-create', 'إضافة إحالة') + action('survey', 'تسجيل رأي المتصل') : '';
   return '<article class="complaint-page' + (authenticatedUser?.role === 'reviewer' ? ' readonly' : '') + (authenticatedUser?.role === 'admin' ? ' can-approve' : '') + '" data-complaint-id="' + esc(id) + '">' +
     '<div class="complaint-page-header"><button class="btn" data-action="detail-back">العودة إلى السجل</button><div class="complaint-page-heading"><span class="eyebrow">ملف ' + label + '</span><h1>' + esc(c.summary) + '</h1><p class="record-reference">الرقم المرجعي <strong class="ticket-id" dir="ltr"><bdi>' + esc(id) + '</bdi></strong></p>' +
     '<div class="complaint-page-badges">' + (typeof pillRecordType === 'function' ? pillRecordType(c) : '') + pillStatus(c.status) + pillPriority(c.priority) + slaIndicator(c) + '<span class="age-badge' + (isLate(c) ? ' late' : '') + '">مدة البقاء: ' + ageDays(c) + ' يوم</span></div></div></div>' +
     recordOverviewHtml(c) + (!c.archivedAt && !['closed','cancelled'].includes(c.status) ? '<p class="small-copy"><strong>مؤقّت المراجعة</strong> · <span id="recordReviewTimer">جارٍ تحميل الموعد…</span></p>' : '') + '<div class="complaint-record-actions" aria-label="إجراءات السجل">' + complaintRecordActions(c, false) + action('print-complaint-cover', 'طباعة', 'btn-print') + action('print-receipt', 'إيصال استلام PDF') +
     (uiCan('complaints.update') ? action('set-reminder', 'موعد مراجعة وتذكير') + action('add-note', 'ملاحظة داخلية') : '') + '</div>' +
     '<nav class="complaint-page-tabs" aria-label="أقسام ملف السجل">' +
-    [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-referrals','الإحالات'],['complaint-notes','الملاحظات']].map(([target, title]) => '<button type="button" data-action="detail-section" data-target="' + target + '">' + title + '</button>').join('') +
+    [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-notes','الملاحظات']].map(([target, title]) => '<button type="button" data-action="detail-section" data-target="' + target + '">' + title + '</button>').join('') +
     '</nav><div class="complaint-page-content"><div class="detail-grid"><div>' + summary + '<section class="detail-section" id="complaint-attachments"><h3>المرفقات الخاصة</h3></section>' +
-    '<section class="detail-section" id="complaint-referrals"><h3>الإحالات والمتابعة</h3><div class="footer-actions">' + referralActions + '</div></section>' +
-    complaintWorkflowPanel(c) + '</div><aside class="record-side" aria-label="الملاحظات">' + notes + '</aside></div></div></article>';
+    '</div><aside class="record-side" aria-label="الملاحظات">' + notes + '</aside></div></div></article>';
 }
 
 function detailModal(id){
