@@ -50,6 +50,8 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
    if(options.method==='PUT')revision+=1;
    response=options.method==='PUT'?{saved:true,revision}:{state,revision};
   }
+  else if(url==='/api/settings'&&options.method==='PUT'){state.settings=JSON.parse(options.body);revision+=1;response={saved:true,settings:state.settings,revision};}
+  else if(url==='/api/complaints/SY-2026-10001'&&options.method==='DELETE'){state.complaints[0].archivedAt=new Date().toISOString();revision+=1;response={ok:true,revision};}
   else if(url==='/api/sync/preview')response={revision,incomingCount:1,added:1,removed:0,conflicts:[]};
   else if(url==='/api/sync/import')response={imported:true};
   else if(url==='/api/users'&&options.method==='POST')response={user:{id:'created',username:JSON.parse(options.body).username}};
@@ -396,15 +398,18 @@ test('login password visibility toggle is reversible and exposes its state to as
 });
 
 
-test('first contact date can be edited and the delete button opens the approval workflow',async()=>{
+test('first contact date can be edited and the owner deletes with one confirmation',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.click('edit-complaint','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/editFirstContactDate/);
  const values={editName:'اسم اختباري',editPhone:'0912345678',editProvince:'دمشق',editCategory:'استفسار',editEntity:'جهة',editSummary:'موضوع',editDetails:'تفاصيل',editFirstContactDate:'2026-10-19'};
  for(const [key,value]of Object.entries(values))ui.node('#'+key).value=value;
  ui.click('save-complaint-edit','SY-2026-10001');for(let i=0;i<40;i++)await Promise.resolve();
  const request=ui.calls.find(c=>c.url==='/api/complaints/SY-2026-10001'&&c.method==='PATCH');assert.ok(request);assert.equal(JSON.parse(request.body).firstContactDate,'2026-10-19');
- ui.click('request-complaint-delete','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/complaint_archive/);assert.match(ui.node('#modalDescription').textContent,/تأكيدك مع توثيق السبب/);
+ ui.click('request-complaint-delete','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/ownerDeleteReason/);
  assert.equal(ui.calls.filter(c=>c.method==='DELETE').length,0);
+ ui.node('#ownerDeleteReason').value='أرشفة سجل اختباري';
+ await ui.click('confirm-owner-delete','SY-2026-10001');
+ const deletion=ui.calls.find(c=>c.method==='DELETE');assert.ok(deletion);assert.equal(JSON.parse(deletion.body).reason,'أرشفة سجل اختباري');assert.equal(deletion.headers['X-CSRF-Token'],'token-from-session');
 });
 
 
@@ -741,7 +746,7 @@ test('owner can add, edit and remove registration options through settings', asy
  await ui.click('confirm-dialog-ok');
  await deletion;
  assert.ok(!ui.state.settings.categories.includes('تصنيف معدل'));
- assert.equal(ui.calls.filter(call=>call.url==='/api/state' && call.method==='PUT').length,3);
+ assert.equal(ui.calls.filter(call=>call.url==='/api/settings' && call.method==='PUT').length,3);
 });
 
 test('review timer and reminder are accessible from the record and its action menu', async () => {

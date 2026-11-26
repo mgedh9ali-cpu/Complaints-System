@@ -301,7 +301,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
-    if (complaint.archivedAt || complaint.status === 'closed' || complaint.status === 'cancelled') {
+    if ((complaint.archivedAt || complaint.status === 'closed' || complaint.status === 'cancelled') && !(singleOperator && actorFor(userId)?.role === 'admin')) {
       return { ok: false, status: 409, error: 'لا يمكن تعديل شكوى مغلقة أو ملغاة.' };
     }
     const now = new Date().toISOString();
@@ -340,7 +340,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     const {state,revision}=readState(),idx=findIndex(state,complaintId);
     if(Date.now()>record.expiresAt||revision!==record.revision||idx<0){editUndos.delete(token);return {ok:false,status:409,error:'انتهت مهلة التراجع أو وُجد تعديل أحدث.'};}
     const complaint=state.complaints[idx];
-    if(complaint.archivedAt||['closed','cancelled'].includes(complaint.status))return {ok:false,status:409,error:'لا يمكن التراجع بعد إغلاق السجل.'};
+    if((complaint.archivedAt||['closed','cancelled'].includes(complaint.status)) && !(singleOperator && actorFor(userId)?.role==='admin'))return {ok:false,status:409,error:'لا يمكن التراجع بعد إغلاق السجل.'};
     const changes={};
     for(const [key,value] of Object.entries(record.changes)){
       changes[key]={before:complaint[key],after:value.before};
@@ -466,8 +466,12 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     return { ok: true, complaint, revision: nextRevision };
   }
 
-  function deleteComplaint({ complaintId, userId } = {}) {
-    return { ok: false, status: 409, error: 'الحذف يتطلب موافقة.' };
+  function deleteComplaint({ complaintId, userId, reason } = {}) {
+    if (!singleOperator || actorFor(userId)?.role !== 'admin') return { ok: false, status: 409, error: 'الحذف يتطلب موافقة.' };
+    const normalized = typeof reason === 'string' ? reason.trim() : '';
+    if (normalized.length < 3 || normalized.length > 500) return { ok: false, status: 409, error: 'أدخل سبب الحذف (3 إلى 500 حرف). لن تُحذف الأدلة من الأرشيف.' };
+    const result = archiveComplaint({ complaintId, userId, reason: normalized });
+    return result.ok ? { ...result, deletedId: complaintId } : result;
   }
   function archiveComplaint({ complaintId, userId, reason, approvalId } = {}) {
     const { state, revision } = readState();

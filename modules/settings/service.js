@@ -27,9 +27,10 @@ const LIST_KEYS = ['provinces', 'entities', 'categories', 'natures', 'priorities
 
 function normalizeSettings(raw) {
   const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const clearedOptionLists = Array.isArray(src.clearedOptionLists) ? [...new Set(src.clearedOptionLists.filter(key => LIST_KEYS.includes(key) && Array.isArray(src[key]) && src[key].length === 0))] : [];
   const pickList = (key) => {
     const fromSrc = Array.isArray(src[key]) ? src[key] : null;
-    if (fromSrc && fromSrc.length > 0) {
+    if (fromSrc && (fromSrc.length > 0 || clearedOptionLists.includes(key))) {
       return key === 'priorities'
         ? fromSrc.slice(0, 20).map((p) => (typeof p === 'object' && p ? { ...p } : p))
         : fromSrc.slice(0, key === 'entities' ? 500 : 200);
@@ -41,6 +42,7 @@ function normalizeSettings(raw) {
   };
 
   const out = {
+    clearedOptionLists,
     slaDays: Number.isFinite(Number(src.slaDays))
       ? Math.max(1, Math.min(365, Number(src.slaDays)))
       : DEFAULT_SETTINGS.slaDays,
@@ -77,8 +79,8 @@ function createSettingsService({ complaintsService }) {
   }
 
   function updateSettings({ settings, userId, expectedRevision }) {
-    const normalized = normalizeSettings(settings);
     const { state } = complaintsService.readState();
+    const normalized = { ...state.settings, ...normalizeSettings({ ...state.settings, ...settings }) };
     const nextState = {
       ...state,
       settings: normalized,

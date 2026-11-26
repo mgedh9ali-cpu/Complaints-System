@@ -244,6 +244,7 @@ function createComplaintsRouter({
       const result = complaintsService.deleteComplaint({
         complaintId: req.params.id,
         userId: req.user.id,
+        reason: req.body?.reason,
         username: req.user.username
       });
       if (!result.ok) {

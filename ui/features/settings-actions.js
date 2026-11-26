@@ -11,7 +11,9 @@ function setOptionListCleared(type, cleared) {
 }
 async function persistRecordOptions(previous) {
   try {
-    await persistUiNow();
+    const saved = await api('/api/settings', {method:'PUT', headers:{'X-State-Revision':String(stateRevision)}, body:JSON.stringify(db.settings)});
+    db.settings = saved.settings || db.settings;
+    stateRevision = saved.revision;
   } catch (error) {
     db.settings = previous;
     throw error;
@@ -71,19 +73,21 @@ async function deleteSetting(type,value){
 async function clearSettingType(type){
   if(!uiCan('settings.manage')||!validSettingType(type))return;ensureManagedSettings();const label=({categories:'التصنيفات',natures:'طبيعة الشكاوي',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'})[type];
   if(!settingEntries(type).length)return toast('القائمة فارغة بالفعل.','warn');
-  if(!confirm('تأكيد حذف جميع '+label+' من خيارات الإدخال؟ لن تُحذف القيم المحفوظة في الشكاوى السابقة.'))return;
+  if(!await confirmDialog({title:'إفراغ القائمة',message:'حذف جميع '+label+' من خيارات الإدخال؟',detail:'تبقى القيم محفوظة في السجلات السابقة.',confirmLabel:'حذف',danger:true}))return;
+  await flushUiBeforeAction();
   const previous = structuredClone(db.settings);
   db.settings[type]=[];setOptionListCleared(type,true);const key=settingDescriptionKey(type);if(key)db.settings[key]={};await persistRecordOptions(previous);render();toast('تم إفراغ القائمة.');
 }
 async function restoreDefaultSettings(type='all'){
   if(!uiCan('settings.manage')||!['all',...managedTypes].includes(type))return;const labels={all:'كل القوائم',categories:'التصنيفات',natures:'طبيعة الشكاوي',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'};
-  if(!confirm('استعادة '+labels[type]+' الافتراضية؟ لن تتغير الشكاوى السابقة.'))return;
+  if(!await confirmDialog({title:'استعادة الخيارات',message:'استعادة '+labels[type]+' الافتراضية؟',detail:'لن تتغير السجلات السابقة.',confirmLabel:'استعادة'}))return;
+  await flushUiBeforeAction();
   const previous = structuredClone(db.settings);
   for(const key of managedTypes){if(type!=='all'&&type!==key)continue;setOptionListCleared(key,false);db.settings[key]=key==='priorities'?seed.settings.priorities.map(x=>({...x})): [...(seed.settings[key]||[])];const descKey=settingDescriptionKey(key);if(descKey)db.settings[descKey]={};}
   await persistRecordOptions(previous);render();toast('تمت استعادة '+labels[type]+' الافتراضية.');
 }
 function editComplaintModal(id){
-  const c=db.complaints.find(c=>c.id===id);if(!c||!uiCan('complaints.update'))return;
+  const c=db.complaints.find(c=>c.id===id);if(!c||!canEditRecord(c))return toast('لا تملك صلاحية تعديل هذا السجل.','error');
   ensureManagedSettings();
   const options=(items,current)=>items.includes(current)?items:[current,...items].filter(Boolean);
   modal(c.status==='draft'?'استكمال المسودة':'استكمال وتعديل بيانات الشكوى',c.status==='draft'?'أكمل البيانات ثم افتح السجل من إجراءات الحالة. يبقى الرقم وتاريخ التسجيل ثابتين.':'الرقم وتاريخ التسجيل وسجل الإجراءات ثابتة.',

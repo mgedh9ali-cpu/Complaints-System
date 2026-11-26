@@ -137,29 +137,40 @@ function printComplaintCover(id){
   toast('تم فتح غلاف الشكوى للطباعة.');
 }
 
+function canEditRecord(c){return Boolean(c&&uiCan('complaints.update')&&(authenticatedUser?.role==='admin'||(!c.archivedAt&&!['closed','cancelled'].includes(c.status))));}
 function complaintRecordActions(c,withView=true){
  const action=(label,name,extra='')=>'<button type="button" class="btn btn-sm '+extra+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
  let html=withView?action('عرض','detail'):'';
- if(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status))html+=action('تعديل','edit-complaint');
+ if(canEditRecord(c))html+=action('تعديل','edit-complaint');
+ if(!withView&&uiCan('complaints.delete')&&!c.archivedAt)html+=action('حذف','request-complaint-delete','btn-danger');
  if(withView)html+=action('طباعة','print-complaint-cover','btn-print');
  return html+action('المزيد','complaint-more');
 }
 function complaintActionsModal(id){
  const c=db.complaints.find(item=>item.id===id);if(!c)return;
  const action=(label,name,kind='')=>'<button type="button" class="btn '+kind+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
- let body='<section class="record-action-group"><h3>إدارة السجل</h3><div class="record-action-buttons">'+(uiCan('complaints.create')?action('تسجيل سجل جديد','new-complaint'):'')+(uiCan('complaints.update')&&!c.archivedAt?action('تعديل السجل','edit-complaint')+action('موعد مراجعة وتذكير','set-reminder'):'')+(uiCan('settings.manage')?action('تعديل خيارات التسجيل','intake-settings'):'')+'</div></section>';
+ let body='<section class="record-action-group"><h3>إدارة السجل</h3><div class="record-action-buttons">'+(uiCan('complaints.create')?action('تسجيل سجل جديد','new-complaint'):'')+(canEditRecord(c)?action('تعديل السجل','edit-complaint'):'')+(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status)?action('موعد مراجعة وتذكير','set-reminder'):'')+(uiCan('settings.manage')?action('تعديل خيارات التسجيل','intake-settings'):'')+'</div></section>';
  body+='<section class="record-action-group"><h3>الطباعة والتصدير</h3><div class="record-action-buttons">'+action('طباعة الشكوى','print-complaint-cover','btn-print');
  if(uiCan('export.xlsx')&&!c.archivedAt)body+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
  body+='</div></section>';
  if(uiCan('complaints.create')||uiCan('complaints.update'))body+='<section class="record-action-group"><h3>إنشاء نسخة</h3><div class="record-action-buttons">'+action('نسخ إلى شكوى جديدة','copy-complaint','btn-copy')+'</div></section>';
- if(uiCan('approvals.request')&&!c.archivedAt)body+='<section class="record-action-group"><h3>الأرشفة</h3><p class="small-copy">يحتاج الحذف من السجل النشط إلى تأكيدك مع توثيق السبب.</p><div class="record-action-buttons">'+action('حذف من السجل النشط','request-complaint-delete','btn-danger')+'</div></section>';
+ if(uiCan('complaints.delete')&&!c.archivedAt)body+='<section class="record-action-group"><h3>الأرشفة</h3><p class="small-copy">يحتاج الحذف من السجل النشط إلى تأكيدك مع توثيق السبب.</p><div class="record-action-buttons">'+action('حذف من السجل النشط','request-complaint-delete','btn-danger')+'</div></section>';
  modal('إجراءات السجل',esc(c.id)+' · '+esc(c.summary||''),body,'<button type="button" class="btn" data-action="close-modal">إغلاق</button>');
 }
 function requestComplaintDeletion(id){
  const c=db.complaints.find(item=>item.id===id);
- if(!c||c.archivedAt||!uiCan('approvals.request'))return toast('لا تملك صلاحية طلب حذف هذه الشكوى.','error');
- approvalRequestModal('complaint_archive',id);
- const description=$('#modalDescription');if(description)description.textContent='حذف الشكوى من السجل النشط يتطلب تأكيدك مع توثيق السبب، مع الاحتفاظ بالأدلة في الأرشيف.';
+ if(!c||c.archivedAt||!uiCan('complaints.delete'))return toast('لا تملك صلاحية حذف هذا السجل.','error');
+ modal('حذف السجل من القائمة النشطة','سيُنقل السجل إلى الأرشيف مع الاحتفاظ ببياناته وسجل التدقيق.',
+ '<form id="ownerDeleteForm"><div class="form-field"><label for="ownerDeleteReason">سبب الحذف</label><textarea class="textarea-field" id="ownerDeleteReason" required minlength="3" maxlength="500"></textarea></div></form>',
+ '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-danger" data-action="confirm-owner-delete" data-id="'+esc(id)+'">تأكيد الحذف</button>');
+}
+async function confirmOwnerDelete(id){
+ if(!uiCan('complaints.delete'))return toast('لا تملك صلاحية الحذف.','error');
+ const reason=($('#ownerDeleteReason')?.value||'').trim();
+ if(reason.length<3||reason.length>500)return toast('أدخل سبب الحذف.','warn');
+ await flushUiBeforeAction();
+ await api('/api/complaints/'+encodeURIComponent(id),{method:'DELETE',body:JSON.stringify({reason})});
+ closeModal();await reloadStoredState();go('complaints');toast('تم حذف السجل من القائمة النشطة وحفظه في الأرشيف.');
 }
 async function exportComplaintDocument(id,format){
  if(!uiCan('export.xlsx'))return toast('لا تملك صلاحية تصدير هذه الشكوى.','error');

@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const { validStatePayload } = require('../../lib/validation');
 
 function createSettingsRouter({ settingsService, middleware, audit, logger, rolesService }) {
   const router = express.Router();
@@ -26,7 +27,7 @@ function createSettingsRouter({ settingsService, middleware, audit, logger, role
     }
 
     const body = req.body;
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    if (!body || typeof body !== 'object' || Array.isArray(body) || !validStatePayload({ settings: body, complaints: [], notifications: [], templates: [] })) {
       return res.status(400).json({ error: 'بنية الإعدادات غير صالحة.' });
     }
 
