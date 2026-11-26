@@ -33,7 +33,7 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
   router.post('/sync/preview', requireAuth, requirePermission('sync.import'), requireCsrf, async (req, res) => {
     try {
     const result = syncService.previewPackage(await openPackage(req.body?.package,req.body?.password));
-    res.status(result.ok ? 200 : 400).json(result);
+    res.status(result.ok ? 200 : result.status || 400).json(result);
     }catch(error){res.status(400).json({error:error.message});}
   });
 
@@ -45,13 +45,14 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
           req.body.forceReplace === 1 ||
           req.body.forceReplace === '1' ||
           req.body.forceReplace === 'true');
+      const merge=req.body?.merge===true;
       const payload = await openPackage(req.body?.package,req.body?.password);
       const preview = syncService.previewPackage(payload);
       if (!preview.ok) return res.status(preview.status || 400).json({ error: preview.error });
       if (!Number.isSafeInteger(req.body.expectedRevision) || req.body.expectedRevision !== preview.revision) {
         return res.status(409).json({ error: 'تغيرت البيانات منذ المعاينة. أعد المعاينة قبل تأكيد الاستيراد.' });
       }
-      if (preview.conflicts.length && !forceReplace) return res.status(409).json({
+      if (preview.conflicts.length && !forceReplace && !merge) return res.status(409).json({
         error: 'توجد تعارضات؛ راجع المعاينة قبل تأكيد الاستبدال.', conflicts: preview.conflicts, conflictCount: preview.conflicts.length
       });
       if (!backupService) throw new Error('Verified pre-import backup service is unavailable.');
@@ -62,7 +63,7 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
       const result = syncService.importPackage({
         payload,
         userId: req.user.id,
-        forceReplace
+        forceReplace, merge
       });
       if (!result.ok) {
         return res.status(result.status || 400).json({
@@ -76,6 +77,7 @@ function createSyncRouter({ syncService, middleware, auditService, rolesService,
         updateStaged: result.updateStaged,
         ...(result.updatePath ? { updatePath: result.updatePath } : {}),
         conflictsResolvedByForce: result.conflictsResolvedByForce || 0,
+        preservedConflicts: result.preservedConflicts || 0,
         warning: result.warning
         , safetyBackup: safetyBackup.verified
       });

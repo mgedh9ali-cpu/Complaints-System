@@ -325,11 +325,13 @@ test('settings import survives absent startup input and rerender; password is ma
   const pending=ui.events.get('change')({target});
   for(let i=0;i<10;i++)await Promise.resolve();
   assert.match(ui.node('#modalRoot').innerHTML,/type="password"/);assert.doesNotMatch(ui.node('#modalRoot').innerHTML,/id="syncPasswordConfirm"/);
-  ui.node('#syncPassword').value='test-transfer-password';ui.click('confirm-sync-password');await pending;
+  ui.node('#syncPassword').value='test-transfer-password';ui.node('action-confirm-sync-password').disabled=false;await ui.click('confirm-sync-password');
+  assert.match(ui.node('#modalRoot').innerHTML,/تأكيد الدمج/);
+  ui.node('action-confirm-sync-merge').disabled=false;await ui.click('confirm-sync-merge');await pending;
   assert.equal(target.value,'');ui.navigate('dashboard');
  }
  const imports=ui.calls.filter(c=>c.url==='/api/sync/import');assert.equal(imports.length,2);
- assert.equal(JSON.parse(imports[0].body).expectedRevision,1);
+ assert.equal(JSON.parse(imports[0].body).expectedRevision,1);assert.equal(JSON.parse(imports[0].body).merge,true);assert.equal(ui.calls.filter(c=>c.url==='/api/sync/preview').length,2);
  const target={id:'syncImportFile',files:[{size:1,async text(){return '{}';}}],classList:{contains(){return false;}}};
  const pending=ui.events.get('change')({target});for(let i=0;i<10;i++)await Promise.resolve();
  ui.events.get('keydown')({key:'Escape',target:{},preventDefault(){}});await pending;

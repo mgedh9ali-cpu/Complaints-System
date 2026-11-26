@@ -222,10 +222,13 @@ test(
     const uploaded=await fetch(source.baseUrl+'/api/attachments/'+encodeURIComponent(created.body.complaint.id),{method:'POST',headers:{cookie:source.cookie,'X-CSRF-Token':source.csrfToken},body:form});
     assert.equal(uploaded.status,201);const uploadedMeta=(await uploaded.json()).attachments[0];
     const {sealPackage,openPackage}=require('../lib/sync-envelope');const password='synthetic-transfer-password';
+    const reminder=await request(source,'/api/complaints/'+encodeURIComponent(created.body.complaint.id)+'/reminders',{method:'POST',body:JSON.stringify({reminder_time:new Date(Date.now()+86400000).toISOString(),note:'مراجعة النقل',priority:'normal'})});
+    assert.ok([200,201].includes(reminder.status));
     const exportedResponse=await request(source,'/api/sync/export',{method:'POST',body:JSON.stringify({password})});
     assert.equal(exportedResponse.status,200);
     const bundle=await openPackage(exportedResponse.body,password);
     assert.equal(bundle.sourceInstanceId.length > 0, true);
+    assert.ok(bundle.reminders.some(r=>r.note==='مراجعة النقل'));
 
     bundle.programUpdate.signature = {
       algorithm: "Ed25519",
@@ -246,6 +249,8 @@ test(
     assert.equal(imported.body.imported, true);
     assert.equal(imported.body.updateStaged, true);
 
+    const restoredReminders=await request(destination,'/api/complaints/'+encodeURIComponent(created.body.complaint.id)+'/reminders');
+    assert.equal(restoredReminders.status,200);assert.ok(restoredReminders.body.reminders.some(r=>r.note==='مراجعة النقل'));
     const downloaded=await fetch(destination.baseUrl+'/api/attachments/'+encodeURIComponent(uploadedMeta.storedName),{headers:{cookie:destination.cookie}});
     assert.equal(downloaded.status,200);assert.equal(await downloaded.text(),transferText);
     const restored = await request(destination, "/api/state");

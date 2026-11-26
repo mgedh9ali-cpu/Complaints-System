@@ -58,6 +58,7 @@ case 'request-complaint-delete':requestComplaintDeletion(id);break;
 case 'export-complaint-pdf':await withButtonLock(el,()=>exportComplaintDocument(id,'pdf'),'جارٍ إنشاء PDF…');break;
 case 'export-complaint-word':await withButtonLock(el,()=>exportComplaintDocument(id,'docx'),'جارٍ إنشاء Word…');break;
 case 'confirm-attachment-delete':await withButtonLock(el,()=>confirmAttachmentDelete(el.dataset.file),'جارٍ الحذف…');break;
+case 'confirm-sync-merge':await withButtonLock(el,confirmSyncMerge,'جارٍ الدمج…');break;
 case 'attachment-preview':await withButtonLock(el,()=>previewAttachment(el.dataset.file,el.dataset.name,el.dataset.mime),'جارٍ فتح المرفق…');break;
 case 'referral-next':{const v=$('#refComplaint')?.value;closeModal();if(v)newReferral(v);break;}
 case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEditor(v);break;}
@@ -176,7 +177,7 @@ case 'export-xlsx':await withButtonLock(el,()=>exportXlsx(),'جارٍ إنشاء
 case 'print-report':window.print();break;
 case 'sync-import':$('#syncImportFile')?.click();break;
 case 'sync-export':await withButtonLock(el,()=>exportEncryptedSync(),'جارٍ تجهيز ملف المزامنة…');break;
-case 'confirm-sync-password':await confirmSyncPassword();break;
+case 'confirm-sync-password':await withButtonLock(el,confirmSyncPassword,'جارٍ التحقق…');break;
 case 'restore-draft':restoreComplaintDraft();break;
 case 'discard-draft':dismissIntakeDraftOffer();break;
 case 'add-setting':addSetting(el.dataset.type);break;

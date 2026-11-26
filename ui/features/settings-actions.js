@@ -120,16 +120,17 @@ async function savePasswordChange(){try{await api('/api/auth/change-password',{m
 
 
 /* Encrypted offline sync import (password-gated) */
-let pendingSyncPackage=null,syncImportTarget=null,syncImportResolve=null;
+let pendingSyncPackage=null,syncImportTarget=null,syncImportResolve=null,pendingSyncPreview=null;
 function finishSyncImportWait(){if(typeof syncImportResolve==='function'){const done=syncImportResolve;syncImportResolve=null;done();}}
 function handleSyncImportChange(target){
   const file=target?.files?.[0];if(!file)return Promise.resolve();
   return (async()=>{
     try{
+      if(file.size>48*1024*1024)throw new Error('ملف المزامنة كبير جدًا؛ استخدم النسخة الكاملة لنقل الأرشيف.');
       const text=await file.text();
       pendingSyncPackage=JSON.parse(text);
       syncImportTarget=target;
-      return await new Promise(resolve=>{syncImportResolve=resolve;modal('عبارة مرور النقل','أدخل عبارة المرور المستخدمة عند تصدير الملف. الاستيراد يستبدل بيانات النسخة الحالية.','<div class="form-field"><label for="syncPassword">عبارة المرور</label><input class="field" id="syncPassword" type="password" autocomplete="off"></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="confirm-sync-password">تأكيد الاستيراد</button>');});
+      return await new Promise(resolve=>{syncImportResolve=resolve;modal('عبارة مرور النقل','أدخل عبارة المرور المستخدمة عند التصدير. ستظهر المعاينة قبل الدمج.','<div class="form-field"><label for="syncPassword">عبارة المرور</label><input class="field" id="syncPassword" type="password" autocomplete="off"></div>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="confirm-sync-password">تأكيد الاستيراد</button>');});
     }catch(error){toast(error.message||'تعذر قراءة ملف المزامنة.','error');if(target)target.value='';finishSyncImportWait();}
   })();
 }
@@ -145,12 +146,29 @@ async function confirmSyncPassword(){
   try{
     if(!pendingSyncPackage)return toast('لا توجد حزمة مزامنة معلّقة.','warn');
     const password=$('#syncPassword')?.value||'';
-    await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:pendingSyncPackage,password,expectedRevision:stateRevision})});
+    await flushUiBeforeAction();
+    const preview=await api('/api/sync/preview',{method:'POST',body:JSON.stringify({package:pendingSyncPackage,password})});
+    pendingSyncPreview={preview,password,owner:authenticatedUser};
+    const conflicts=(preview.conflicts||[]).filter(c=>c.kind!=='missing_from_incoming');
+    modal('معاينة المزامنة الآمنة','لن يُحذف أي سجل محلي. عند تعارض نفس الرقم تبقى النسخة المحلية.',
+      '<ul class="update-steps"><li>سجلات جديدة: '+esc(preview.added||0)+'</li><li>سجلات محلية غير موجودة بالملف وتبقى محفوظة: '+esc(preview.removed||0)+'</li><li>تعارضات تبقى فيها البيانات المحلية: '+conflicts.length+'</li></ul>'+
+      (conflicts.length?'<p class="small-copy">الأرقام المتعارضة: '+conflicts.slice(0,30).map(c=>esc(c.id)).join('، ')+'</p>':'')+
+      '<p>تُحفظ نسخة أمان كاملة قبل الدمج.</p>',
+      '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="confirm-sync-merge">تأكيد الدمج</button>');
+    return;
+  }catch(error){toast(error.message,'error');cancelPendingSyncImport();closeModal();}
+}
+async function confirmSyncMerge(){
+  const pending=pendingSyncPreview;
+  if(!pending||!pendingSyncPackage||pending.owner!==authenticatedUser)return toast('أعد معاينة ملف المزامنة.','warn');
+  try{
+    await flushUiBeforeAction();
+    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:pendingSyncPackage,password:pending.password,expectedRevision:pending.preview.revision,merge:true})});
     if(syncImportTarget)syncImportTarget.value='';
     const input=$('#syncImportFile');if(input)input.value='';
-    pendingSyncPackage=null;syncImportTarget=null;closeModal();
-    await reloadStoredState();toast('تم استيراد ملف المزامنة.');
-  }catch(error){return toast(error.message,'error');}
+    pendingSyncPackage=null;pendingSyncPreview=null;syncImportTarget=null;closeModal();
+    await reloadStoredState();toast('تم دمج ملف المزامنة. التعارضات المحفوظة محليًا: '+(result.preservedConflicts||0));
+  }catch(error){toast(error.message,'error');cancelPendingSyncImport();closeModal();}
   finally{finishSyncImportWait();}
 }
 async function exportEncryptedSync(){
@@ -168,5 +186,5 @@ async function exportEncryptedSync(){
   toast('تم تنزيل ملف المزامنة المشفر. انقله يدويًا واحفظ عبارة المرور منفصلة.');
   return true;
 }
-function cancelPendingSyncImport(){pendingSyncPackage=null;if(syncImportTarget){try{syncImportTarget.value='';}catch(_){}}syncImportTarget=null;finishSyncImportWait();}
+function cancelPendingSyncImport(){pendingSyncPackage=null;pendingSyncPreview=null;if(syncImportTarget){try{syncImportTarget.value='';}catch(_){}}syncImportTarget=null;finishSyncImportWait();}
 
