@@ -18,6 +18,7 @@ concurrency:
 
 jobs:
   build-windows:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
     runs-on: windows-2022
     timeout-minutes: 30
     permissions:
@@ -25,9 +26,11 @@ jobs:
       id-token: write
       attestations: write
 
-    steps:
+    steps: &windows_steps
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -120,6 +123,7 @@ jobs:
             dist-desktop/*-portable.exe
 
       - name: Upload release verification files (internal)
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: complaints-system-release-verification
@@ -133,6 +137,7 @@ jobs:
           retention-days: 14
 
       - name: Upload single installer download
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: complaints-system-windows-installer
@@ -140,29 +145,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  publish-release:
-    concurrency:
-      group: complaints-release-publication
-      cancel-in-progress: false
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build-windows
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - uses: actions/download-artifact@v4
-        with:
-          name: complaints-system-release-verification
-          path: dist-desktop
       - name: Publish verified Windows release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/publish-release.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps: *windows_steps
