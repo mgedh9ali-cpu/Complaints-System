@@ -117,6 +117,7 @@ case 'read-notice':{
   break;
 }
 case 'set-reminder':openReminderModal(id);break;
+case 'intake-settings':closeModal();go('settings');$('#recordOptions')?.scrollIntoView?.();break;
 case 'save-reminder':await withButtonLock(el,()=>submitReminder(id),'جارٍ حفظ التذكير…');break;
 case 'alarm-dismiss':await dismissReminder(el.dataset.reminder);break;
 case 'alarm-open':await dismissReminder(el.dataset.reminder);detailModal(id);break;
@@ -174,8 +175,8 @@ case 'print-report':window.print();break;
 case 'sync-import':$('#syncImportFile')?.click();break;
 case 'sync-export':await withButtonLock(el,()=>exportEncryptedSync(),'جارٍ تجهيز ملف المزامنة…');break;
 case 'confirm-sync-password':await confirmSyncPassword();break;
-case 'restore-draft':restoreComplaintDraft(true);break;
-case 'discard-draft':intakeDraftFiles={owner:null,files:[]};try{const draftKey=complaintDraftStorageKey();if(draftKey){localStorage.removeItem(draftKey);sessionStorage.removeItem(draftKey);}localStorage.removeItem(DRAFT_KEY);sessionStorage.removeItem(DRAFT_KEY);}catch(_){} $('#draftBanner')?.remove();toast('تم تجاهل المسودة.');break;
+case 'restore-draft':restoreComplaintDraft();break;
+case 'discard-draft':dismissIntakeDraftOffer();break;
 case 'add-setting':addSetting(el.dataset.type);break;
 case 'edit-setting':addSetting(el.dataset.type,el.dataset.value);break;
 case 'delete-setting':await deleteSetting(el.dataset.type,el.dataset.value);break;

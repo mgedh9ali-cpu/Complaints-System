@@ -168,7 +168,7 @@ function dashboard(){
     : '<div class="brief-banner brief-banner-ok" role="status"><strong>موجز اليوم</strong><span>لا يوجد ما يستدعي إجراءً عاجلاً</span></div>';
   const slaNotice=db.settings?.slaApproved?'':'<div class="brief-banner brief-banner-sla" role="status"><strong>عدّاد المهلة متوقف</strong><span>طوابير المتأخر وخلال 48 ساعة تبقى فارغة حتى تُعتمد أيام العمل من الإعدادات، ولن يُفعَّل العدّاد وحده.</span><button type="button" class="btn btn-sm" data-goto="settings">فتح إعداد المهلة</button></div>';
 
-  return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل شكوى','new-complaint','btn-primary'):'')+
+  return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل وفق المهلة والأولوية، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل سجل جديد','new-complaint','btn-primary'):'')+
     (typeof workdayPanel==='function'?workdayPanel():'')+
     briefBanner+slaNotice+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+

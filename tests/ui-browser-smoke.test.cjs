@@ -85,6 +85,8 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
   const actionEl=node('action-'+action);actionEl.dataset={action,id,...dataset};actionEl.checked=dataset.checked;
   const target={closest(selector){
    if(selector==='[data-action]')return actionEl;
+   if(selector==='[data-action="confirm-dialog-ok"],[data-action="confirm-dialog-cancel"]' && action.startsWith('confirm-dialog-'))
+     return {getAttribute:()=>action};
    return null;
   }};
   return events.get('click')({target,preventDefault(){},stopPropagation(){}});
@@ -136,15 +138,17 @@ test('dashboard surfaces approved deadlines within 48 hours and opens only match
 test('complaint drafts are scoped to the authenticated user and legacy unscoped drafts are ignored',async()=>{
  const shared=new Map([
   ['complaints-draft-v1',JSON.stringify({cSummary:'مسودة قديمة غير مرتبطة بحساب'})],
-  ['complaints-draft-v1:u1',JSON.stringify({_ownerUserId:'u1',_savedAt:Date.now(),cSummary:'مسودة الحساب الأول'})]
+  ['complaints-draft-v1:u1',JSON.stringify({_ownerUserId:'u1',_savedAt:Date.now(),cPhone:'0912345678',cSummary:'مسودة الحساب الأول'})]
  ]);
  const other=createFakeBrowser('admin',null,'u2',shared);for(let i=0;i<20;i++)await Promise.resolve();
  await other.click('new-complaint');
- assert.doesNotMatch(other.node('#modalRoot').innerHTML,/استعادة المسودة/);
+ other.node('#cPhone').value='0912345678';other.events.get('input')({target:other.node('#cPhone')});
+ assert.doesNotMatch(other.node('#duplicateMount').innerHTML,/استعادة المسودة/);
  assert.equal(shared.has('complaints-draft-v1'),false,'legacy drafts must not remain globally visible');
  const owner=createFakeBrowser('admin',null,'u1',shared);for(let i=0;i<20;i++)await Promise.resolve();
  await owner.click('new-complaint');
- assert.match(owner.node('#modalRoot').innerHTML,/استعادة المسودة/);
+ owner.node('#cPhone').value='0912345678';owner.events.get('input')({target:owner.node('#cPhone')});
+ assert.match(owner.node('#duplicateMount').innerHTML,/استعادة المسودة/);
 });
 
 test('complaint section tabs scroll to the matching section',async()=>{
@@ -584,11 +588,15 @@ test('quick intake exposes basic fields in order, one save, local suggestions an
 
 test('quick intake keeps a draft across close and navigation and restores it without overwriting it',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
- await ui.click('new-complaint');ui.node('#cName').value='اسم محفوظ';ui.node('#cSummary').value='مسودة لا تضيع';
+ await ui.click('new-complaint');ui.node('#cName').value='اسم محفوظ';ui.node('#cPhone').value='0912345678';ui.node('#cSummary').value='مسودة لا تضيع';
  ui.events.get('input')({target:ui.node('#cSummary')});await ui.click('close-modal');
  const key='complaints-draft-v1:u1';assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'مسودة لا تضيع');
- ui.node('#cName').value='';ui.node('#cSummary').value='';await ui.click('new-complaint');
- assert.match(ui.node('#modalRoot').innerHTML,/استعادة المسودة/);
+ ui.node('#cName').value='';ui.node('#cSummary').value='';ui.node('#cPhone').value='';await ui.click('new-complaint');
+ assert.doesNotMatch(ui.node('#duplicateMount').innerHTML,/استعادة المسودة/);
+ ui.node('#cPhone').value='0912345679';ui.events.get('input')({target:ui.node('#cPhone')});
+ assert.doesNotMatch(ui.node('#duplicateMount').innerHTML,/استعادة المسودة/);
+ ui.node('#cPhone').value='0912345678';ui.events.get('input')({target:ui.node('#cPhone')});
+ assert.match(ui.node('#duplicateMount').innerHTML,/استعادة المسودة/);
  await ui.click('restore-draft');assert.equal(ui.node('#cSummary').value,'مسودة لا تضيع');
  assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'مسودة لا تضيع');
  ui.node('#cDetails').value='تعديل قبل الانتقال';ui.goto('reports');
@@ -712,4 +720,45 @@ test('returning from a complaint preserves registry pagination and visible resul
  assert.match(ui.node('#content').innerHTML,/صفحة 2 \/ 2/);
  ui.click('detail','PAGE-060');ui.click('detail-back');
  assert.match(ui.node('#content').innerHTML,/صفحة 2 \/ 2/);assert.match(ui.node('#content').innerHTML,/65/);
+});
+
+test('owner can add, edit and remove registration options through settings', async () => {
+ const ui=createFakeBrowser();
+ for(let i=0;i<24;i++)await Promise.resolve();
+ await ui.navigate('settings');
+ assert.match(ui.node('#content').innerHTML,/خيارات تسجيل السجل/);
+ await ui.click('add-setting',undefined,{type:'categories'});
+ ui.node('#settingValue').value='تصنيف للاختبار';
+ await ui.click('save-setting',undefined,{type:'categories',mode:'create'});
+ assert.ok(ui.state.settings.categories.includes('تصنيف للاختبار'));
+ await ui.click('edit-setting',undefined,{type:'categories',value:'تصنيف للاختبار'});
+ ui.node('action-save-setting').disabled=false;
+ ui.node('#settingValue').value='تصنيف معدل';
+ await ui.click('save-setting',undefined,{type:'categories',mode:'edit',original:'تصنيف للاختبار'});
+ assert.ok(ui.state.settings.categories.includes('تصنيف معدل'));
+ const deletion=ui.click('delete-setting',undefined,{type:'categories',value:'تصنيف معدل'});
+ for(let i=0;i<6;i++)await Promise.resolve();
+ await ui.click('confirm-dialog-ok');
+ await deletion;
+ assert.ok(!ui.state.settings.categories.includes('تصنيف معدل'));
+ assert.equal(ui.calls.filter(call=>call.url==='/api/state' && call.method==='PUT').length,3);
+});
+
+test('review timer and reminder are accessible from the record and its action menu', async () => {
+ const ui=createFakeBrowser();
+ for(let i=0;i<24;i++)await Promise.resolve();
+ const id='SY-2026-10001';
+ await ui.click('detail',id);
+ assert.match(ui.node('#content').innerHTML,/id="recordReviewTimer"/);
+ await ui.click('complaint-more',id);
+ const actions=ui.node('#modalRoot').innerHTML;
+ for(const action of ['new-complaint','edit-complaint','set-reminder','intake-settings','request-complaint-delete'])
+   assert.match(actions,new RegExp('data-action="'+action+'"'));
+ await ui.click('set-reminder',id);
+ assert.match(ui.node('#modalRoot').innerHTML,/موعد مراجعة وتذكير/);
+ ui.node('#alarmTime').value=new Date(Date.now()+60*60000).toISOString();
+ ui.node('#alarmNote').value='مراجعة السجل';
+ await ui.click('save-reminder',id);
+ const saved=ui.calls.find(call=>call.url==='/api/complaints/'+id+'/reminders'&&call.method==='POST');
+ assert.equal(JSON.parse(saved.body).note,'مراجعة السجل');
 });

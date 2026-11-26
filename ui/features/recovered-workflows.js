@@ -32,7 +32,16 @@ function approvalRequestModal(kind,id,targetId=id){
 }
 
 async function submitApproval(kind,id,targetId,reason){
- try{await flushUiBeforeAction();await api('/api/approvals',{method:'POST',body:JSON.stringify({kind,complaintId:id,targetId,reason})});closeModal();await refreshApprovals();toast('حُفظ الطلب بانتظار تأكيدك للتنفيذ.');}
+ try{
+   await flushUiBeforeAction();
+   const request=await api('/api/approvals',{method:'POST',body:JSON.stringify({kind,complaintId:id,targetId,reason})});
+   if(kind==='complaint_archive' && uiCan('approvals.decide') && request.id){
+     await refreshApprovals();
+     approvalDecisionModal(request.id,'approved');
+     return;
+   }
+   closeModal();await refreshApprovals();toast('حُفظ الطلب بانتظار تأكيدك للتنفيذ.');
+ }
  catch(error){toast(error.message,'error');}
 }
 

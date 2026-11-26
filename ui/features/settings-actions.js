@@ -1,9 +1,24 @@
+let settingsOptionGroup = '';
 const managedTypes=['categories','natures','provinces','entities','priorities'];
 function validSettingType(type){return managedTypes.includes(type);}
 function settingDescriptionKey(type){return type==='categories'?'categoryDescriptions':type==='natures'?'natureDescriptions':type==='entities'?'entityDescriptions':null;}
 function settingEntries(type){ensureManagedSettings();return type==='priorities'?db.settings.priorities.map(x=>({value:x.value,label:x.label})):(db.settings[type]||[]).map(x=>({value:x,label:x}));}
+function setOptionListCleared(type, cleared) {
+  const keys = new Set(db.settings.clearedOptionLists || []);
+  if (cleared) keys.add(type);
+  else keys.delete(type);
+  db.settings.clearedOptionLists = [...keys];
+}
+async function persistRecordOptions(previous) {
+  try {
+    await persistUiNow();
+  } catch (error) {
+    db.settings = previous;
+    throw error;
+  }
+}
 function addSetting(type,value){
-  if(!validSettingType(type))return;ensureManagedSettings();const editing=typeof value==='string';value=value||'';
+  if(!uiCan('settings.manage')||!validSettingType(type))return;ensureManagedSettings();settingsOptionGroup=type;const editing=typeof value==='string';value=value||'';
   const entry=editing?settingEntries(type).find(x=>x.value===value):null;if(editing&&!entry)return toast('تعذر العثور على الخيار المطلوب.','error');
   const key=settingDescriptionKey(type);if(key)db.settings[key] ||= {};
   const title=(editing?'تعديل ':'إضافة ')+({categories:'تصنيف',natures:'طبيعة الشكاوي',provinces:'محافظة',entities:'جهة مختصة',priorities:'أولوية'})[type];
@@ -11,26 +26,28 @@ function addSetting(type,value){
   modal(title,'تُحفظ القيم في قاعدة البيانات المحلية. حذف خيار لا يغيّر الشكاوى السابقة.','<form id="settingForm"><div class="form-field"><label for="settingValue">الاسم</label><input class="field" id="settingValue" required maxlength="100" value="'+esc(label)+'"></div>'+(key?'<div class="form-field" style="margin-top:12px"><label for="settingDescription">الوصف</label><textarea class="textarea-field" id="settingDescription" maxlength="500" placeholder="وصف اختياري">'+esc(desc)+'</textarea></div>':'')+'</form>','<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-setting" data-type="'+type+'" data-mode="'+(editing?'edit':'create')+'" data-original="'+esc(value)+'">حفظ</button>');
 }
 async function saveSetting(type,mode,original){
-  if(!validSettingType(type))return;
+  if(!uiCan('settings.manage')||!validSettingType(type))return;
   ensureManagedSettings();
   const name=($('#settingValue')?.value||'').trim();
   if(!name)return toast('أدخل الاسم.','warn');
+  await flushUiBeforeAction();
+  const previous = structuredClone(db.settings);
   const key=settingDescriptionKey(type);
   const desc=($('#settingDescription')?.value||'').trim();
   if(type==='priorities'){
-    const value=name.toLowerCase().replace(/\s+/g,'_').slice(0,40)||'custom';
     if(mode==='edit'){
       const i=db.settings.priorities.findIndex(p=>p.value===original);
       if(i>=0)db.settings.priorities[i]={value:original,label:name};
     }else{
-      if(db.settings.priorities.some(p=>p.label===name||p.value===value))return toast('القيمة موجودة مسبقاً.','warn');
-      db.settings.priorities.push({value,label:name});
+      if(db.settings.priorities.some(p=>p.label===name))return toast('القيمة موجودة مسبقاً.','warn');
+      db.settings.priorities.push({value:'custom_'+crypto.randomUUID().replaceAll('-',''),label:name});
     }
   }else{
+    if(name!==original&&(db.settings[type]||[]).includes(name))return toast('القيمة موجودة مسبقاً.','warn');
     if(mode==='edit'){
       const i=(db.settings[type]||[]).indexOf(original);
       if(i>=0)db.settings[type][i]=name;
-      if(key&&original!==name){db.settings[key][name]=db.settings[key][original]||desc;delete db.settings[key][original];}
+      if(key&&original!==name){db.settings[key][name]=desc;delete db.settings[key][original];}
       else if(key)db.settings[key][name]=desc;
     }else{
       if((db.settings[type]||[]).includes(name))return toast('القيمة موجودة مسبقاً.','warn');
@@ -38,26 +55,32 @@ async function saveSetting(type,mode,original){
       if(key){db.settings[key]||={};db.settings[key][name]=desc;}
     }
   }
-  await persistUiNow();closeModal();render();toast('تم حفظ الخيار.');
+  setOptionListCleared(type,false);
+  await persistRecordOptions(previous);closeModal();render();toast('تم حفظ الخيار.');
 }
 async function deleteSetting(type,value){
-  if(!validSettingType(type))return;ensureManagedSettings();const entries=settingEntries(type);if(!entries.some(x=>x.value===value))return;
+  if(!uiCan('settings.manage')||!validSettingType(type))return;ensureManagedSettings();const entries=settingEntries(type);if(!entries.some(x=>x.value===value))return;
   const label=({categories:'التصنيف',natures:'طبيعة الشكاوي',provinces:'المحافظة',entities:'الجهة المختصة',priorities:'الأولوية'})[type];
-  if(!confirm('حذف «'+(entries.find(x=>x.value===value)?.label||value)+'» من قائمة '+label+'؟ ستبقى القيمة كما هي في الشكاوى السابقة.'))return;
+  if(!await confirmDialog({title:'حذف خيار',message:'حذف «'+(entries.find(x=>x.value===value)?.label||value)+'» من قائمة '+label+'؟',detail:'تبقى القيمة محفوظة في السجلات السابقة.',confirmLabel:'حذف',danger:true}))return;
+  await flushUiBeforeAction();
+  settingsOptionGroup=type;
+  const previous = structuredClone(db.settings);
   if(type==='priorities')db.settings.priorities=db.settings.priorities.filter(x=>x.value!==value);else db.settings[type]=db.settings[type].filter(item=>item!==value);
-  const key=settingDescriptionKey(type);if(key)delete (db.settings[key] ||= {})[value];await persistUiNow();render();toast('تم حذف الخيار من القائمة.');
+  const key=settingDescriptionKey(type);if(key)delete (db.settings[key] ||= {})[value];setOptionListCleared(type,!db.settings[type].length);await persistRecordOptions(previous);render();toast('تم حذف الخيار من القائمة.');
 }
 async function clearSettingType(type){
-  if(!validSettingType(type))return;ensureManagedSettings();const label=({categories:'التصنيفات',natures:'طبيعة الشكاوي',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'})[type];
+  if(!uiCan('settings.manage')||!validSettingType(type))return;ensureManagedSettings();const label=({categories:'التصنيفات',natures:'طبيعة الشكاوي',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'})[type];
   if(!settingEntries(type).length)return toast('القائمة فارغة بالفعل.','warn');
   if(!confirm('تأكيد حذف جميع '+label+' من خيارات الإدخال؟ لن تُحذف القيم المحفوظة في الشكاوى السابقة.'))return;
-  db.settings[type]=[];const key=settingDescriptionKey(type);if(key)db.settings[key]={};await persistUiNow();render();toast('تم إفراغ القائمة.');
+  const previous = structuredClone(db.settings);
+  db.settings[type]=[];setOptionListCleared(type,true);const key=settingDescriptionKey(type);if(key)db.settings[key]={};await persistRecordOptions(previous);render();toast('تم إفراغ القائمة.');
 }
 async function restoreDefaultSettings(type='all'){
-  if(!['all',...managedTypes].includes(type))return;const labels={all:'كل القوائم',categories:'التصنيفات',natures:'طبيعة الشكاوي',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'};
+  if(!uiCan('settings.manage')||!['all',...managedTypes].includes(type))return;const labels={all:'كل القوائم',categories:'التصنيفات',natures:'طبيعة الشكاوي',provinces:'المحافظات',entities:'الجهات المختصة',priorities:'الأولويات'};
   if(!confirm('استعادة '+labels[type]+' الافتراضية؟ لن تتغير الشكاوى السابقة.'))return;
-  for(const key of managedTypes){if(type!=='all'&&type!==key)continue;db.settings[key]=key==='priorities'?seed.settings.priorities.map(x=>({...x})): [...(seed.settings[key]||[])];const descKey=settingDescriptionKey(key);if(descKey)db.settings[descKey]={};}
-  await persistUiNow();render();toast('تمت استعادة '+labels[type]+' الافتراضية.');
+  const previous = structuredClone(db.settings);
+  for(const key of managedTypes){if(type!=='all'&&type!==key)continue;setOptionListCleared(key,false);db.settings[key]=key==='priorities'?seed.settings.priorities.map(x=>({...x})): [...(seed.settings[key]||[])];const descKey=settingDescriptionKey(key);if(descKey)db.settings[descKey]={};}
+  await persistRecordOptions(previous);render();toast('تمت استعادة '+labels[type]+' الافتراضية.');
 }
 function editComplaintModal(id){
   const c=db.complaints.find(c=>c.id===id);if(!c||!uiCan('complaints.update'))return;

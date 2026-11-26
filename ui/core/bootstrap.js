@@ -46,7 +46,7 @@ function updateSignedInUi(){
   const name=authenticatedUser?.username||'';
   const el=$('#signedInUser');if(el)el.textContent=name;
   const top=$('#topUserName');if(top)top.textContent=name||'غير مسجل';
-  const roleEl=$('#sideUserRole');if(roleEl)roleEl.textContent=authenticatedUser?'حسابي':'يلزم تسجيل الدخول';
+  const roleEl=$('#sideUserRole');if(roleEl)roleEl.textContent=authenticatedUser?.role==='admin'?'المالك (مدير)':authenticatedUser?'حسابي':'يلزم تسجيل الدخول';
   const headerCreate=$('#headerCreateButton');if(headerCreate)headerCreate.hidden=!uiCan('complaints.create');
   const canBackup=uiCan('backup.database')||authenticatedUser?.role==='admin';
   ['#topBackupButton','#databaseBackupButton','#databaseOnlyBackupButton'].forEach(sel=>{const b=$(sel);if(b)b.hidden=!canBackup;});

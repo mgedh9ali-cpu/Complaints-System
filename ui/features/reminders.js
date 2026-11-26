@@ -36,14 +36,14 @@ function openReminderModal(complaintId) {
     ':' +
     String(def.getMinutes()).padStart(2, '0');
   modal(
-    'ضبط موعد تذكير',
-    'سينبّهك النظام عند الموعد مع ملاحظة المتابعة المرتبطة بالشكوى ' + esc(complaintId) + '.',
+    'موعد مراجعة وتذكير',
+    'سينبّهك النظام عند الموعد مع ملاحظة المراجعة المرتبطة بالسجل ' + esc(complaintId) + '.',
     '<div class="footer-actions"><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="1">غدًا</button><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="3">بعد ثلاثة أيام</button><button type="button" class="btn btn-sm" data-action="reminder-preset" data-days="7">بعد أسبوع</button></div><form id="reminderForm"><div class="form-field"><label for="alarmTime">تاريخ ووقت المنبه</label><input class="field" id="alarmTime" type="datetime-local" required value="' +
       local +
-      '"></div><div class="form-field" style="margin-top:12px"><label for="alarmNote">ملاحظة التذكير</label><textarea class="textarea-field" id="alarmNote" required maxlength="500" placeholder="مثال: الاتصال بالمشتكي بخصوص المرفقات"></textarea></div><div class="form-field" style="margin-top:12px"><label for="alarmPriority">الأولوية</label><select class="select-field" id="alarmPriority"><option value="normal">عادية</option><option value="high">مرتفعة</option><option value="urgent">عاجلة</option><option value="low">منخفضة</option></select></div></form>',
+      '"></div><div class="form-field" style="margin-top:12px"><label for="alarmNote">ملاحظة التذكير</label><textarea class="textarea-field" id="alarmNote" required maxlength="500">مراجعة السجل</textarea></div><div class="form-field" style="margin-top:12px"><label for="alarmPriority">الأولوية</label><select class="select-field" id="alarmPriority"><option value="normal">عادية</option><option value="high">مرتفعة</option><option value="urgent">عاجلة</option><option value="low">منخفضة</option></select></div></form>',
     '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-reminder" data-id="' +
       esc(complaintId) +
-      '">تثبيت المنبه</button>'
+      '">حفظ موعد المراجعة</button>'
   );
 }
 
@@ -54,6 +54,7 @@ async function submitReminder(complaintId) {
   if (!timeLocal || !note) return toast('حدّد الوقت واكتب ملاحظة التذكير.', 'warn');
   const parsed = Date.parse(timeLocal);
   if (!Number.isFinite(parsed)) return toast('وقت التذكير غير صالح.', 'error');
+  if (parsed <= Date.now()) return toast('اختر موعد مراجعة في المستقبل.', 'warn');
   const iso=new Date(parsed).toISOString();
   try {
     await api('/api/complaints/' + encodeURIComponent(complaintId) + '/reminders', {
@@ -61,7 +62,8 @@ async function submitReminder(complaintId) {
       body: JSON.stringify({ reminder_time: iso, note, priority })
     });
     closeModal();
-    toast('تم ضبط المنبه بنجاح.');
+    toast('تم حفظ موعد المراجعة.');
+    void refreshRecordReview();
     if(typeof refreshWorkday==='function'){workdayLoadedAt=0;void refreshWorkday(true);}
   } catch (error) {
     toast(error.message || 'تعذر حفظ التذكير', 'error');
@@ -116,6 +118,7 @@ async function dismissReminder(id) {
   } catch (_) {}
   document.getElementById('alarm-toast-' + id)?.remove();
   markReminderShown(id);
+  void refreshRecordReview();
   if(typeof refreshWorkday==='function'){workdayLoadedAt=0;void refreshWorkday(true);}
 }
 
@@ -146,3 +149,32 @@ if (typeof window !== 'undefined') {
     if (document.visibilityState === 'visible') checkDueReminders();
   });
 }
+
+async function refreshRecordReview() {
+  const mount = $('#recordReviewTimer');
+  if (page !== 'complaint-detail' || !mount || !authenticatedUser) return;
+  const owner = authenticatedUser, id = currentId;
+  try {
+    const result = await api('/api/complaints/' + encodeURIComponent(id) + '/reminders');
+    if (owner !== authenticatedUser || id !== currentId || $('#recordReviewTimer') !== mount) return;
+    const next = (result.reminders || []).find(item => Number.isFinite(Date.parse(item.reminderTime)));
+    mount.textContent = next ? timeText(next.reminderTime) : 'لا يوجد موعد مراجعة محفوظ.';
+    mount.dataset.reviewTime = next?.reminderTime || '';
+    paintRecordReview();
+  } catch (_) {
+    if ($('#recordReviewTimer') === mount) mount.textContent = 'تعذّر تحميل موعد المراجعة.';
+  }
+}
+
+function paintRecordReview() {
+  const mount = $('#recordReviewTimer');
+  if (!mount?.dataset.reviewTime) return;
+  const time = mount.dataset.reviewTime;
+  const minutes = Math.ceil((Date.parse(time) - Date.now()) / 60000);
+  const countdown = minutes <= 0 ? 'حان موعد المراجعة' :
+    'متبقٍ ' + (minutes >= 60 ? Math.floor(minutes / 60) + ' س و' : '') + minutes % 60 + ' د';
+  mount.textContent = timeText(time) + ' · ' + countdown;
+}
+
+document.addEventListener('complaints:render', () => { void refreshRecordReview(); });
+setInterval(paintRecordReview, 30000);

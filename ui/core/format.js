@@ -28,7 +28,22 @@ function isLate(c){return !c.archivedAt && db.settings.slaApproved && !['closed'
 function isDueSoon(c,now=Date.now()){const due=Date.parse(c?.due);return Boolean(c&&!c.archivedAt&&db.settings.slaApproved&&!['closed','cancelled','draft'].includes(c.status)&&Number.isFinite(due)&&due>now&&due<=now+48*60*60*1000);}
 function statusLabel(s){return ({draft:'غير مكتملة',new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
 function statusClass(s){return ({draft:'new',new:'new',in_progress:'progressing',awaiting_reply:'waiting',awaiting_approval:'waiting',closed:'closed',cancelled:'closed'})[s]||'closed';}
-function ensureManagedSettings(){if(!db.settings||typeof db.settings!=='object')db.settings={};for(const key of ['categories','entities','provinces','natures']){if(!Array.isArray(db.settings[key])||db.settings[key].length===0)db.settings[key]=[...(seed.settings[key]||[])];}if(!Array.isArray(db.settings.priorities)||!db.settings.priorities.length)db.settings.priorities=seed.settings.priorities.map(x=>({...x}));db.settings.categoryDescriptions ||= {};db.settings.entityDescriptions ||= {};db.settings.natureDescriptions ||= {};}
+function recordOptions(key, items = db.settings?.[key]) {
+  const cleared = db.settings?.clearedOptionLists;
+  return Array.isArray(items) && (items.length || (Array.isArray(cleared) && cleared.includes(key)))
+    ? items : seed.settings[key] || [];
+}
+function ensureManagedSettings() {
+  db.settings ||= {};
+  for (const key of ['categories','entities','provinces','natures','priorities']) {
+    const items = recordOptions(key);
+    if (items !== db.settings[key]) db.settings[key] = [...items];
+  }
+  db.settings.categoryDescriptions ||= {};
+  db.settings.entityDescriptions ||= {};
+  db.settings.natureDescriptions ||= {};
+}
+
 function priorityLabel(p){ensureManagedSettings();return ({urgent:'عاجلة',high:'عالية',normal:'عادية'})[p]||db.settings.priorities.find(x=>x.value===p)?.label||p;}
 function priorityClass(p){return ({urgent:'urgent',high:'high',normal:'normal'})[p]||'normal';}
 function pillStatus(s){return '<span class="pill '+statusClass(s)+'">'+esc(statusLabel(s))+'</span>';}

@@ -147,12 +147,13 @@ function complaintRecordActions(c,withView=true){
 function complaintActionsModal(id){
  const c=db.complaints.find(item=>item.id===id);if(!c)return;
  const action=(label,name,kind='')=>'<button type="button" class="btn '+kind+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
- let body='<section class="record-action-group"><h3>الطباعة والتصدير</h3><div class="record-action-buttons">'+action('طباعة الشكوى','print-complaint-cover','btn-print');
+ let body='<section class="record-action-group"><h3>إدارة السجل</h3><div class="record-action-buttons">'+(uiCan('complaints.create')?action('تسجيل سجل جديد','new-complaint'):'')+(uiCan('complaints.update')&&!c.archivedAt?action('تعديل السجل','edit-complaint')+action('موعد مراجعة وتذكير','set-reminder'):'')+(uiCan('settings.manage')?action('تعديل خيارات التسجيل','intake-settings'):'')+'</div></section>';
+ body+='<section class="record-action-group"><h3>الطباعة والتصدير</h3><div class="record-action-buttons">'+action('طباعة الشكوى','print-complaint-cover','btn-print');
  if(uiCan('export.xlsx')&&!c.archivedAt)body+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
  body+='</div></section>';
  if(uiCan('complaints.create')||uiCan('complaints.update'))body+='<section class="record-action-group"><h3>إنشاء نسخة</h3><div class="record-action-buttons">'+action('نسخ إلى شكوى جديدة','copy-complaint','btn-copy')+'</div></section>';
- if(uiCan('approvals.request')&&!c.archivedAt)body+='<section class="record-action-group"><h3>الأرشفة</h3><p class="small-copy">يحتاج الحذف من السجل النشط إلى تأكيدك مع توثيق السبب.</p><div class="record-action-buttons">'+action('طلب حذف الشكوى','request-complaint-delete','btn-danger')+'</div></section>';
- modal('إجراءات الشكوى',esc(c.id)+' · '+esc(c.summary||''),body,'<button type="button" class="btn" data-action="close-modal">إغلاق</button>');
+ if(uiCan('approvals.request')&&!c.archivedAt)body+='<section class="record-action-group"><h3>الأرشفة</h3><p class="small-copy">يحتاج الحذف من السجل النشط إلى تأكيدك مع توثيق السبب.</p><div class="record-action-buttons">'+action('حذف من السجل النشط','request-complaint-delete','btn-danger')+'</div></section>';
+ modal('إجراءات السجل',esc(c.id)+' · '+esc(c.summary||''),body,'<button type="button" class="btn" data-action="close-modal">إغلاق</button>');
 }
 function requestComplaintDeletion(id){
  const c=db.complaints.find(item=>item.id===id);

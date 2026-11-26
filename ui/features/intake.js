@@ -1,7 +1,6 @@
 /* Single-screen intake; keep the shared draft/file state used by attachments. */
 let intakeWizard = { step: 1, recordType: 'complaint', data: {}, files: [] };
 const intakeTypes = { complaint: 'شكوى', inquiry: 'استفسار', contact: 'تواصل' };
-let intakePhoneHintTimer = null;
 let intakeDraftFiles = { owner: null, files: [] };
 
 function intakeCollectVisible() {
@@ -13,13 +12,14 @@ function intakeCollectVisible() {
   });
 }
 
-function intakeSuggestions(key, configured = []) {
+function intakeSuggestions(key, configured) {
   const counts = new Map();
+  const available = configured && new Set(configured);
   for (const c of db.complaints || []) {
     const value = String(c[key] || '').trim();
-    if (value && !c.archivedAt) counts.set(value, (counts.get(value) || 0) + 1);
+    if (value && !c.archivedAt && (!available || available.has(value))) counts.set(value, (counts.get(value) || 0) + 1);
   }
-  for (const value of configured) if (typeof value === 'string' && value.trim() && !counts.has(value)) counts.set(value, 0);
+  for (const value of configured || []) if (typeof value === 'string' && value.trim() && !counts.has(value)) counts.set(value, 0);
   return [...counts].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0], 'ar')).slice(0,60)
     .map(([value]) => '<option value="'+esc(value)+'"></option>').join('');
 }
@@ -44,8 +44,8 @@ function intakeQuickFormHtml() {
     intakeTextField('الهاتف (اختياري)','cPhone',{type:'tel',max:40})+
     '<div class="form-field full"><div id="duplicateMount" class="intake-phone-hint" role="status" aria-live="polite"></div></div></div>'+
     '<datalist id="intakeNames">'+intakeSuggestions('name')+'</datalist>'+
-    '<datalist id="intakeEntities">'+intakeSuggestions('entity',db.settings.entities?.length?db.settings.entities:seed.settings.entities||[])+'</datalist>'+
-    '<datalist id="intakeCategories">'+intakeSuggestions('category',db.settings.categories?.length?db.settings.categories:seed.settings.categories||[])+'</datalist>'+
+    '<datalist id="intakeEntities">'+intakeSuggestions('entity',recordOptions('entities'))+'</datalist>'+
+    '<datalist id="intakeCategories">'+intakeSuggestions('category',recordOptions('categories'))+'</datalist>'+
     '<details class="intake-additional" id="intakeAdditional"><summary>تفاصيل إضافية <span class="small-copy">اختياري</span></summary><div class="form-grid">'+
     intakeTextField('الجهة (إن عُرفت)','cEntity',{list:'intakeEntities'})+
     intakeTextField('التصنيف (إن عُرف)','cCategory',{list:'intakeCategories'})+
@@ -67,14 +67,13 @@ function intakeNeedsCompletion() {
 }
 function intakeFooterHtml() {
   return '<div class="intake-save-actions"><span class="small-copy">Ctrl + Enter للحفظ</span>'+
+    (uiCan('settings.manage')?'<button type="button" class="btn" data-action="intake-settings">خيارات التسجيل</button>':'')+
     '<button type="button" class="btn" data-action="close-modal">إلغاء</button>'+
     '<button type="button" class="btn btn-primary" data-action="save-complaint">حفظ</button></div>';
 }
 function renderIntakeWizard() {
-  const banner = intakeWizard.offerDraft && hasComplaintDraft()
-    ? '<div class="intake-draft" id="draftBanner"><span>لديك مسودة محفوظة — يمكنك استعادتها أو بدء سجل جديد</span><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div>' : '';
   intakeWizard.rendering=true;
-  try{modal(intakeTitle(),'الملخص مطلوب فقط. يُحفظ السجل كمسودة برقم رسمي حتى تُستكمل الجهة والتصنيف والمحافظة.',banner+
+  try{modal(intakeTitle(),'الملخص مطلوب فقط. يُحفظ السجل كمسودة برقم رسمي حتى تُستكمل الجهة والتصنيف والمحافظة.',
     '<form id="newComplaintForm" novalidate>'+intakeQuickFormHtml()+'<p id="intakeDraftStatus" class="small-copy" role="status" aria-live="polite"></p></form>',intakeFooterHtml(),true);}finally{intakeWizard.rendering=false;}
   $('.modal')?.classList.add('intake-dialog','intake-quick');
   $('#cSummary')?.focus?.();
@@ -102,7 +101,7 @@ function intakeValidate() {
 function newComplaint() {
   if(!uiCan('complaints.create'))return toast('لا تملك صلاحية إنشاء شكوى.','error');
   preserveIntakeDraft();
-  intakeWizard={step:1,recordType:'complaint',data:{...intakeDefaults,cFirstContactDate:workDayKey(new Date()),cSource:'phone',cPriority:'normal'},files:[],offerDraft:true,startedAt:Date.now()};
+  intakeWizard={step:1,recordType:'complaint',data:{...intakeDefaults,cFirstContactDate:workDayKey(new Date()),cSource:'phone',cPriority:'normal'},files:[],priorDraft:readComplaintDraft(),priorFiles:intakeDraftFiles.owner===complaintDraftStorageKey()?[...intakeDraftFiles.files]:[],startedAt:Date.now()};
   renderIntakeWizard();
 }
 function intakePickType(type) {
@@ -119,15 +118,16 @@ function intakePhoneHint() {
   const mount=$('#duplicateMount');if(!mount||!authenticatedUser)return;
   const phone=phoneNorm($('#cPhone')?.value||intakeWizard.data.cPhone||'');
   const matches=phone.length>=7?(db.complaints||[]).filter(c=>!c.archivedAt&&phoneNorm(c.phone||'')===phone):[];
-  mount.innerHTML=matches.length?'<details><summary>لهذا الرقم '+matches.length+' سجل سابق — افتحه للمراجعة أو تابع تسجيل سجل جديد</summary>'+matches.slice(0,5).map(c=>'<button type="button" class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'"><bdi>'+esc(c.id)+'</bdi> · '+esc(c.summary||'')+'</button>').join('')+'</details>':'';
+  const saved = matchingIntakeDraft(phone);
+  mount.innerHTML=(saved?'<div class="intake-draft" id="draftBanner"><span>توجد مسودة لهذا الرقم.</span><button type="button" class="btn btn-sm" data-action="restore-draft">استعادة المسودة</button><button type="button" class="btn btn-sm" data-action="discard-draft">تجاهل</button></div>':'')+(matches.length?'<details><summary>لهذا الرقم '+matches.length+' سجل سابق — افتحه للمراجعة أو تابع تسجيل سجل جديد</summary>'+matches.slice(0,5).map(c=>'<button type="button" class="btn btn-sm" data-action="detail" data-id="'+esc(c.id)+'"><bdi>'+esc(c.id)+'</bdi> · '+esc(c.summary||'')+'</button>').join('')+'</details>':'');
 }
 function duplicateCheck() { intakeCollectVisible();intakePhoneHint(); }
 function intakeSavedModal(id, elapsed, asDraft = false) {
   modal(asDraft?'تم حفظ المسودة':'تم فتح السجل','رقم السجل: '+esc(id),'<p class="intake-saved-id"><bdi>'+esc(id)+'</bdi></p><p class="small-copy">'+(asDraft?'مسودة تحتاج استكمال الجهة أو التصنيف أو المحافظة من صفحة السجل.':'يمكن متابعة السجل من صفحته.')+'</p><p class="small-copy">من فتح النموذج إلى الحفظ: '+elapsed+' ثانية.</p>',
-    '<button type="button" class="btn" data-action="intake-view" data-id="'+esc(id)+'">فتح السجل</button><button type="button" class="btn btn-primary" data-action="intake-new">تسجيل شكوى أخرى</button>');
+    '<button type="button" class="btn" data-action="intake-view" data-id="'+esc(id)+'">فتح السجل</button><button type="button" class="btn btn-primary" data-action="intake-new">تسجيل سجل آخر</button>');
 }
 
-function hasComplaintDraft() {
+function readComplaintDraft() {
   const key=complaintDraftStorageKey();
   if(!key)return false;
   try {
@@ -136,16 +136,28 @@ function hasComplaintDraft() {
     const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
     if (!raw) return false;
     const d = JSON.parse(raw);
-    return d && typeof d === 'object' && d._ownerUserId === String(authenticatedUser?.id || '') && ['cName','cPhone','cSummary','cDetails','cEntity','cCategory'].some(k=>String(d[k]||'').trim());
+    return d && d._ownerUserId === String(authenticatedUser?.id || '') ? d : null;
   } catch (_) {
     return false;
   }
+}
+
+function matchingIntakeDraft(phone = phoneNorm(intakeWizard.data.cPhone || '')) {
+  const draft = intakeWizard.priorDraft;
+  return phone && draft && phoneNorm(draft.cPhone || '') === phone ? draft : null;
+}
+
+function dismissIntakeDraftOffer() {
+  intakeWizard.priorDraft = null;
+  intakePhoneHint();
 }
 
 function saveComplaintDraft() {
   const key=complaintDraftStorageKey();
   if(!key||intakeWizard.completed)return;
   intakeCollectVisible();
+  const hasContent = ['cName','cSummary','cDetails'].some(field => String(intakeWizard.data[field] || '').trim());
+  if (matchingIntakeDraft() || (!hasContent && !intakeWizard.files.length)) return;
   intakeDraftFiles={owner:key,files:Array.from(intakeWizard.files||[])};
   const draft = Object.assign({}, intakeWizard.data, {
     _recordType: intakeWizard.recordType || '',
@@ -170,23 +182,22 @@ function saveComplaintDraft() {
   return saved;
 }
 
-function restoreComplaintDraft(force) {
+function restoreComplaintDraft() {
   const key=complaintDraftStorageKey();
   if(!key)return;
   try {
     localStorage.removeItem(DRAFT_KEY);
     sessionStorage.removeItem(DRAFT_KEY);
-    const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
-    const draft = JSON.parse(raw || 'null');
+    intakeCollectVisible();
+    const draft = matchingIntakeDraft();
     if (!draft || draft._ownerUserId !== String(authenticatedUser?.id || '')) return;
-    if (!force && !hasComplaintDraft()) return;
     intakeWizard.data = Object.assign({}, draft);
     if (Object.hasOwn(intakeTypes, draft._recordType)) {
       intakeWizard.recordType = draft._recordType;
       intakeWizard.step = 1;
     }
-    intakeWizard.offerDraft=false;
-    intakeWizard.files=intakeDraftFiles.owner===key?Array.from(intakeDraftFiles.files):[];
+    intakeWizard.priorDraft=null;
+    intakeWizard.files=intakeWizard.priorFiles || [];
     renderIntakeWizard();
     Object.entries(draft).forEach(([id, value]) => {
       if (id.startsWith('_')) return;
@@ -198,7 +209,8 @@ function restoreComplaintDraft(force) {
       }
       if (typeof value === 'string' || typeof value === 'boolean') el.value = value;
     });
-    $('#draftBanner')?.remove();
+    intakePhoneHint();
+    saveComplaintDraft();
     toast('تم استعادة المسودة.');
   } catch (e) {}
 }
@@ -259,12 +271,15 @@ async function createComplaint(asDraft = false, addAnother = false) {
     intakeDefaults = { cProvince: body.province, cCategory: body.category, cEntity: body.entity };
     try {
       const draftKey=complaintDraftStorageKey();
-      if(draftKey){localStorage.removeItem(draftKey);sessionStorage.removeItem(draftKey);}
+      const storedDraft = readComplaintDraft();
+      if(draftKey && (!intakeWizard.priorDraft || storedDraft?._savedAt !== intakeWizard.priorDraft._savedAt || matchingIntakeDraft())){
+        localStorage.removeItem(draftKey);sessionStorage.removeItem(draftKey);
+      }
       localStorage.removeItem(DRAFT_KEY);
       sessionStorage.removeItem(DRAFT_KEY);
     } catch (e) {}
     intakeWizard.completed=true;
-    intakeDraftFiles={owner:null,files:[]};
+    if(!readComplaintDraft())intakeDraftFiles={owner:null,files:[]};
     closeModal();
     page = 'complaints';
     history.replaceState({ view: 'complaints' }, '', '#complaints');
@@ -292,7 +307,7 @@ document.addEventListener('input',function(e){
   if(!e.target.closest?.('#newComplaintForm'))return;
   const error=$('#'+e.target.id+'Error');if(error){error.hidden=true;error.textContent='';}e.target.removeAttribute?.('aria-invalid');
   saveComplaintDraft();
-  if(e.target.id==='cPhone'){clearTimeout(intakePhoneHintTimer);intakePhoneHintTimer=setTimeout(()=>{if($('#newComplaintForm'))intakePhoneHint();},250);}
+  if(e.target.id==='cPhone')intakePhoneHint();
 });
 document.addEventListener('change',function(e){if(e.target.closest?.('#newComplaintForm')&&e.target.type!=='file'){saveComplaintDraft();}});
 document.addEventListener('submit',function(e){
