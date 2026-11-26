@@ -4,7 +4,7 @@ let recordTypeFilter='all';
 let dateFrom='';
 let dateTo='';
 let registryAdvancedOpen=false;
-const registryQueueLabels={all:'كل السجلات',late:'متجاوزة المهلة','due-soon':'تستحق خلال 48 ساعة',missing:'بيانات غير مكتملة','urgent-no-reply':'عاجلة بلا رد','new-today':'جديدة اليوم',archived:'الأرشيف'};
+const registryQueueLabels={all:'كل السجلات',late:'متجاوزة المهلة','due-soon':'تستحق خلال 48 ساعة',missing:'بيانات غير مكتملة','urgent-no-reply':'عاجلة بلا رد','new-today':'جديدة اليوم',closed:'مغلقة',archived:'الأرشيف'};
 function normalizeRegistryQueue(value){return Object.hasOwn(registryQueueLabels,value)?value:'all';}
 function waitingForReferral(c){return !c.archivedAt&&!['closed','cancelled'].includes(c.status)&&(c.status==='awaiting_reply'||(c.referrals||[]).some(r=>!r.response&&!r.completedAt));}
 function resetRegistryFilters(){
@@ -72,7 +72,7 @@ function complaintDateValue(c, type){
   if(type==='first_contact') return c.firstContactDate || '';
   if(type==='updated') return c.updated || c.created || '';
   if(type==='due') return c.due || '';
-  if(type==='closed') return c.closedAt || c.closed || '';
+  if(type==='closed') return c.status==='closed'?(c.closedAt || c.closed || (c.statusHistory||[]).filter(h=>h.to==='closed').at(-1)?.at || ''):'';
   if(type==='referral_sent'){
     const refs=c.referrals||[];
     if(!refs.length) return '';
@@ -130,7 +130,7 @@ function filteredComplaints(){
   const q=norm(searchText);
   return db.complaints.filter(c=>
     (quickView==='archived'?Boolean(c.archivedAt):!c.archivedAt)&&
-    (!q||norm([c.id,c.name,c.phone,c.province,c.entity,c.category,c.nature,c.summary,c.details].join(' ')).includes(q))&&
+    (!q||norm([c.id,c.name,c.phone,c.province,c.entity,c.category,c.nature,c.summary,c.details,statusLabel(c.status),recordTypeOf(c)].join(' ')).includes(q))&&
     (statusFilter==='all'||c.status===statusFilter||(statusFilter==='in_progress'&&['awaiting_reply','awaiting_approval'].includes(c.status)))&&
     (priorityFilter==='all'||c.priority===priorityFilter)&&
     (categoryFilter==='all'||c.category===categoryFilter)&&
@@ -138,11 +138,12 @@ function filteredComplaints(){
     (recordTypeFilter==='all'||recordTypeOf(c)===recordTypeFilter)&&
     inDateRange(c)&&
     (quickView==='all'||quickView==='archived'||
-      (quickView==='late'&&isLate(c))||
+      (quickView==='closed'&&c.status==='closed')||
+       (quickView==='late'&&isLate(c))||
       (quickView==='due-soon'&&isDueSoon(c))||
       (quickView==='missing'&&isIncomplete(c))||
       (quickView==='new-today'&&!['closed','cancelled'].includes(c.status)&&isCreatedToday(c))||
-      (quickView==='urgent-no-reply'&&c.priority==='urgent'&&!c.reply))
+      (quickView==='urgent-no-reply'&&!['closed','cancelled'].includes(c.status)&&c.priority==='urgent'&&!c.reply))
   );
 }
 
@@ -155,7 +156,7 @@ function complaintsPage(){
   const openN=rows.filter(c=>!['closed','cancelled'].includes(c.status)).length;
   const layout=typeof registryLayoutMode==='function'?registryLayoutMode():'table';
   return '<div class="registry-workspace">'+heading('سجل الشكاوى والاستفسارات','إدارة الشكاوى والاستفسارات والتواصل.',(!uiCan('complaints.create')?'':btn('＋ تسجيل سجل جديد','new-complaint','btn-primary'))+btn('بحث عام','global-search')+(uiCan('export.xlsx')?btn('تصدير PDF','export-registry-pdf'):'')+btn('أعمدة السجل','registry-columns'))+
-  '<div class="registry-summary" aria-label="ملخص النتائج"><span class="reg-sum-item"><strong>'+rows.length+'</strong> نتيجة</span><span class="reg-sum-item">مفتوحة: <strong>'+openN+'</strong></span><span class="reg-sum-item'+(lateN?' is-late':'')+'">متأخرة: <strong>'+lateN+'</strong></span><span class="reg-sum-item muted">صفحة '+registryPage+' / '+totalPages+'</span></div>'+
-  '<div class="filters-row registry-chips"><button class="filter-chip '+(quickView==='all'&&recordTypeFilter==='all'?'active':'')+'" data-action="quick-filter" data-value="all">الكل</button><button class="filter-chip '+(recordTypeFilter==='complaint'?'active':'')+'" data-action="filter-record-type" data-value="complaint">شكاوى</button><button class="filter-chip '+(recordTypeFilter==='inquiry'?'active':'')+'" data-action="filter-record-type" data-value="inquiry">استفسارات</button><button class="filter-chip '+(recordTypeFilter==='contact'?'active':'')+'" data-action="filter-record-type" data-value="contact">تواصل</button><button class="filter-chip '+(quickView==='late'?'active':'')+'" data-action="filter-late">متأخرة</button><button class="filter-chip '+(quickView==='missing'?'active':'')+'" data-action="quick-filter" data-value="missing">غير مكتملة</button><button class="filter-chip '+(quickView==='archived'?'active':'')+'" data-action="quick-filter" data-value="archived">الأرشيف</button></div>'+
+  '<div class="registry-summary" aria-label="ملخص النتائج"><span class="reg-sum-item"><strong>'+rows.length+'</strong> نتيجة</span><span class="reg-sum-item">مفتوحة: <strong>'+openN+'</strong></span><span class="reg-sum-item">مغلقة: <strong>'+rows.filter(c=>c.status==='closed').length+'</strong></span><span class="reg-sum-item'+(lateN?' is-late':'')+'">متأخرة: <strong>'+lateN+'</strong></span><span class="reg-sum-item muted">صفحة '+registryPage+' / '+totalPages+'</span></div>'+
+  '<div class="filters-row registry-chips"><button class="filter-chip '+(quickView==='all'&&recordTypeFilter==='all'?'active':'')+'" data-action="quick-filter" data-value="all">الكل</button><button class="filter-chip '+(recordTypeFilter==='complaint'?'active':'')+'" data-action="filter-record-type" data-value="complaint">شكاوى</button><button class="filter-chip '+(recordTypeFilter==='inquiry'?'active':'')+'" data-action="filter-record-type" data-value="inquiry">استفسارات</button><button class="filter-chip '+(recordTypeFilter==='contact'?'active':'')+'" data-action="filter-record-type" data-value="contact">تواصل</button><button class="filter-chip '+(quickView==='late'?'active':'')+'" data-action="filter-late">متأخرة</button><button class="filter-chip '+(quickView==='missing'?'active':'')+'" data-action="quick-filter" data-value="missing">غير مكتملة</button><button class="filter-chip '+(quickView==='closed'?'active':'')+'" data-action="quick-filter" data-value="closed">مغلقة</button><button class="filter-chip '+(quickView==='archived'?'active':'')+'" data-action="quick-filter" data-value="archived">الأرشيف</button></div>'+
   '<section class="panel table-panel registry-panel">'+filters()+activeRegistryFiltersHtml()+complaintTable(visibleRows,{select:false,layout:layout,emptyMessage:db.complaints.length?'لا توجد شكاوى تطابق المرشحات الحالية. امسح المرشحات لعرض السجل.':'لا توجد شكاوى مسجلة بعد. يمكنك تسجيل سجل جديد.'})+'<div class="table-footer registry-footer"><span>عرض '+(visibleRows.length?((registryPage-1)*50+1):0)+'–'+((registryPage-1)*50+visibleRows.length)+' من '+rows.length+'</span><div class="pager"><button class="btn btn-sm" data-action="registry-prev" '+(registryPage<=1?'disabled':'')+'>السابق</button> <span class="pager-label">'+registryPage+' / '+totalPages+'</span> <button class="btn btn-sm" data-action="registry-next" '+(registryPage>=totalPages?'disabled':'')+'>التالي</button></div></div></section></div>';
 }

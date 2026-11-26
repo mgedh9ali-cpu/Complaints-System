@@ -839,3 +839,13 @@ test('registry keeps secondary filters and presets inside a collapsed panel',asy
  assert.ok(html.indexOf('saved-filters-bar')>panel&&html.indexOf('saved-filters-bar')<end);
  assert.doesNotMatch(html,/لا يوجد بعد|data-action="urgent-no-reply"/);assert.match(html,/data-action="global-search"/);
 });
+
+
+test('dashboard groups the daily overview and centralizes its main actions',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('dashboard');
+ const html=ui.node('#content').innerHTML;
+ assert.match(html,/dashboard-overview-grid/);assert.match(html,/id="workdayMount"/);assert.match(html,/id="workdayBackupMount"/);assert.match(html,/dashboard-brief-card/);
+ const header=html.slice(0,html.indexOf('dashboard-overview-grid'));
+ assert.match(header,/data-action="new-complaint"/);assert.match(header,/data-action="refresh-workday"/);assert.match(header,/النسخ والاستعادة/);
+ assert.equal((html.match(/data-action="refresh-workday"/g)||[]).length,1);
+});

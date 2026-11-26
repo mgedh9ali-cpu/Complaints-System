@@ -136,7 +136,7 @@ function dashboard(){
   ].filter(t=>t.n>0);
 
   const tasks=dashboardBriefRank(rawTasks);
-  const attentionCount=tasks.reduce((s,t)=>s+t.n,0);
+  const attentionCount=new Set([...late,...dueSoon,...urgentNoReply,...missing,...newToday].map(c=>c.id)).size;
 
   const taskHtml=tasks.length?tasks.map(t=>
     '<div class="task-row task-row-'+t.color+'" role="listitem" data-brief-key="'+t.key+'">'+ 
@@ -151,24 +151,22 @@ function dashboard(){
     '</div>'
   ).join(''):'<div class="brief-empty calm-empty"><p class="small-copy">لا توجد مهام عاجلة الآن. يمكنك متابعة السجل أو تسجيل سجل جديد.</p></div>';
 
-  const statusGroups=[['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['مغلقة',countStatus('closed')],['ملغاة',countStatus('cancelled')]];
+  const statusGroups=[['غير مكتملة',countStatus('draft')],['جديدة',countStatus('new')],['قيد المعالجة',countStatus('in_progress')],['مغلقة',countStatus('closed')],['ملغاة',countStatus('cancelled')]];
   const totalActive=db.complaints.filter(c=>!c.archivedAt).length;
 
-  const briefBanner=attentionCount
-    ? '<div class="brief-banner" role="status"><strong>موجز اليوم</strong><span>'+attentionCount+' بند يحتاج انتباهًا</span></div>'
-    : '<div class="brief-banner brief-banner-ok" role="status"><strong>موجز اليوم</strong><span>لا يوجد ما يستدعي إجراءً عاجلاً</span></div>';
-
-  return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل حسب الأولوية والبيانات الناقصة، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل سجل جديد','new-complaint','btn-primary'):'')+
-    (typeof workdayPanel==='function'?workdayPanel():'')+
-    briefBanner+
-    (!db.settings.slaApproved?'<p class="small-copy" role="status">عدّاد المهلة متوقف — لا توجد مهلة عامة معتمدة. تذكيرات المراجعة الفردية تعمل مستقلّة.</p>':'')+
+  const briefBanner='<section class="panel dashboard-brief-card" aria-label="موجز اليوم"><div class="dashboard-compact-heading"><h2>موجز اليوم</h2></div><div class="dashboard-compact-body" role="status"><strong class="dashboard-brief-count">'+attentionCount+'</strong><span>'+(attentionCount?'سجل ضمن أولويات اليوم':'لا توجد سجلات تحتاج انتباهًا')+'</span>'+(!db.settings.slaApproved?'<small class="small-copy">لا توجد مهلة عامة معتمدة؛ تذكيرات المراجعة الفردية تعمل.</small>':'')+'</div></section>';
+  const dashboardActions=(uiCan('complaints.create')?btn('＋ تسجيل سجل جديد','new-complaint','btn-primary'):'')+
+    '<button type="button" class="btn" data-action="refresh-workday">تحديث</button>'+
+    (uiCan('settings.read')||uiCan('backup.database')?'<button type="button" class="btn" data-goto="settings">النسخ والاستعادة</button>':'');
+  return '<div class="dashboard-workspace dashboard-compact">'+heading('مكتب الفرز والمتابعة','تابع سجلات اليوم والبيانات الناقصة من مكان واحد.',dashboardActions)+
+    '<div class="dashboard-overview-grid">'+(typeof workdayPanel==='function'?workdayPanel():'')+briefBanner+'</div>'+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
-      [['جميع السجلات',totalActive],['مفتوحة',open.length],['غير مكتملة',missing.length],['عاجلة',urgentNoReply.length]].map(([label,n],i)=>
-        '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
+      [['جميع السجلات',totalActive],['مفتوحة',open.length],['مغلقة',countStatus('closed')],['غير مكتملة',missing.length],['عاجلة',urgentNoReply.length]].map(([label,n],i)=>
+        '<div class="stat-item '+(i===0?'stat-primary':i===3&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'
       ).join('')+
     '</div>'+
     '<div class="work-grid"><section class="panel dashboard-actions"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button type="button" class="btn btn-sm" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list" role="list" aria-label="المهام التي تحتاج إجراء">'+taskHtml+'</div>'+incompleteRecordsPanel()+'</div></section>'+
-    '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+totalActive+' سجلًا نشطًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
+    '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+totalActive+' سجلًا غير مؤرشف</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
       '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===2?'amber-fill':'')+'" style="width:'+(totalActive?Math.max(n?5:0,n/totalActive*100):0)+'%"></span></div></div>'
     ).join('')+'</div></div></section></div></div>';
 }

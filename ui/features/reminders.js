@@ -23,6 +23,7 @@ function markReminderShown(id) {
 function openReminderModal(complaintId) {
   const c = db.complaints.find((x) => x?.id === complaintId);
   if (!c) return toast('الشكوى غير موجودة.', 'error');
+  if (c.archivedAt || ['closed','cancelled'].includes(c.status)) return toast('السجل مغلق أو مؤرشف.','warn');
   if (!uiCan('complaints.update')) return toast('لا تملك صلاحية ضبط تذكير.', 'error');
   const def = new Date(Date.now() + 60 * 60 * 1000);
   const local =
