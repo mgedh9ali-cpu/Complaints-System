@@ -276,6 +276,9 @@ test('server reminders repeat after the configured period and respect stop and c
   const stored=f.complaints.readState();stored.state.complaints[0].created=new Date(Date.now()-30*3600000).toISOString();
   // Set up an old imported fixture without rewriting a creation date through the live API.
   f.db.prepare('UPDATE app_state SET state_json=? WHERE id=1').run(JSON.stringify(stored.state));
+  assert.equal(f.complaints.runReminders(),0,'optional fields never trigger completion reminders');
+  stored.state.complaints[0].summary='مسودة بانتظار الاستكمال';
+  f.db.prepare('UPDATE app_state SET state_json=? WHERE id=1').run(JSON.stringify(stored.state));
   assert.equal(f.complaints.runReminders(),1);assert.equal(f.complaints.runReminders(),0);
   const state=f.complaints.readState();state.state.complaints[0].completionReminderStopped=true;
   assert.equal(f.complaints.saveState({state:state.state,userId:'s1',expectedRevision:state.revision}).conflict,false);

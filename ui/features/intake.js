@@ -62,8 +62,7 @@ function intakeQuickFormHtml() {
 function intakeTitle() { return 'تسجيل ' + intakeTypes[intakeWizard.recordType]; }
 function intakeNeedsCompletion() {
   const d = intakeWizard.data;
-  return missingFields({entity:d.cEntity,category:d.cCategory,province:d.cProvince,details:d.cDetails})
-    .some(field=>field.level==='action');
+  return !String(d.cSummary||'').trim();
 }
 function intakeFooterHtml() {
   return '<div class="intake-save-actions"><span class="small-copy">Ctrl + Enter للحفظ</span>'+
@@ -73,7 +72,7 @@ function intakeFooterHtml() {
 }
 function renderIntakeWizard() {
   intakeWizard.rendering=true;
-  try{modal(intakeTitle(),'الملخص مطلوب فقط. يُحفظ السجل كمسودة برقم رسمي حتى تُستكمل الجهة والتصنيف والمحافظة.',
+  try{modal(intakeTitle(),'الموضوع مطلوب فقط، ويُنشأ رقم السجل تلقائيًا. بقية البيانات اختيارية.',
     '<form id="newComplaintForm" novalidate>'+intakeQuickFormHtml()+'<p id="intakeDraftStatus" class="small-copy" role="status" aria-live="polite"></p></form>',intakeFooterHtml(),true);}finally{intakeWizard.rendering=false;}
   $('.modal')?.classList.add('intake-dialog','intake-quick');
   $('#cSummary')?.focus?.();
@@ -123,7 +122,7 @@ function intakePhoneHint() {
 }
 function duplicateCheck() { intakeCollectVisible();intakePhoneHint(); }
 function intakeSavedModal(id, elapsed, asDraft = false) {
-  modal(asDraft?'تم حفظ المسودة':'تم فتح السجل','رقم السجل: '+esc(id),'<p class="intake-saved-id"><bdi>'+esc(id)+'</bdi></p><p class="small-copy">'+(asDraft?'مسودة تحتاج استكمال الجهة أو التصنيف أو المحافظة من صفحة السجل.':'يمكن متابعة السجل من صفحته.')+'</p><p class="small-copy">من فتح النموذج إلى الحفظ: '+elapsed+' ثانية.</p>',
+  modal(asDraft?'تم حفظ المسودة':'تم فتح السجل','رقم السجل: '+esc(id),'<p class="intake-saved-id"><bdi>'+esc(id)+'</bdi></p><p class="small-copy">'+(asDraft?'يمكن استكمال الموضوع من صفحة السجل.':'يمكن متابعة السجل من صفحته.')+'</p><p class="small-copy">من فتح النموذج إلى الحفظ: '+elapsed+' ثانية.</p>',
     '<button type="button" class="btn" data-action="intake-view" data-id="'+esc(id)+'">فتح السجل</button><button type="button" class="btn btn-primary" data-action="intake-new">تسجيل سجل آخر</button>');
 }
 

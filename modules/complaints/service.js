@@ -270,7 +270,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     const status = asDraft ? 'draft' : 'new';
     const complaint = {
       id, name: body.name || '', phone: body.phone || '', source: body.source || 'phone',
-      province: body.province, entity: body.entity || '', category: body.category,
+      province: body.province || 'غير محددة', entity: body.entity || '', category: body.category || 'غير مصنفة',
       nature: body.nature || '', priority: body.priority || 'normal', status,
       ...(singleOperator?{}:{owner:username||null}), summary: body.summary || '', details: body.details || '',
       firstContactDate: body.firstContactDate || null,
@@ -598,7 +598,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     const nextComplaints = (state.complaints || []).map((c) => {
       if (!c || c.archivedAt || ['closed', 'cancelled'].includes(c.status)) return c;
       if (c.completionReminderStopped) return c;
-      const incomplete = !c.name || !c.phone || !c.details;
+      const incomplete = !String(c.id||'').trim() || !String(c.summary||'').trim() || String(c.summary).trim()==='مسودة بانتظار الاستكمال';
       if (!incomplete) return c;
       const created = Date.parse(c.created);
       if (!Number.isFinite(created)) return c;

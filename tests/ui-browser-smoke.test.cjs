@@ -155,8 +155,8 @@ test('complaint drafts are scoped to the authenticated user and legacy unscoped 
 
 test('complaint section tabs scroll to the matching section',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
- ui.click('detail','SY-2026-10001');ui.click('detail-section',undefined,{target:'complaint-actions'});
- assert.equal(ui.node('#complaint-actions').scrolled,true);
+ ui.click('detail','SY-2026-10001');ui.click('detail-section',undefined,{target:'complaint-summary'});
+ assert.equal(ui.node('#complaint-summary').scrolled,true);
 });
 
 test('workflow step shortcut persists allowed transitions through the status API',async()=>{
@@ -185,9 +185,9 @@ test('UI loads server state then opens complaint as an independent accessible wo
  assert.doesNotMatch(page,/triage-split|id="complaintSearch"/);
  assert.match(page,/data-complaint-id="SY-2026-10001"/);
  assert.match(page,/id="complaint-summary"/);
- assert.match(page,/id="complaint-actions"/);
+ assert.doesNotMatch(page,/id="complaint-actions"/);
  assert.doesNotMatch(page,/id="complaint-reply"/);
- assert.match(page,/id="complaint-timeline"/);
+ assert.doesNotMatch(page,/id="complaint-timeline"/);
  assert.match(page,/id="complaint-notes"/);
  assert.match(page,/data-action="detail-back"/);
  assert.equal(ui.location.hash,'#complaint/SY-2026-10001');
@@ -501,7 +501,7 @@ test('record view uses inquiry labels, escapes long text, and renders the subjec
  assert.match(html,/السطر الأول\nالسطر الثاني &lt;img src=x&gt;/);
  assert.doesNotMatch(html,/<script>test|<img src=x>/);
  assert.match(html,/class="ticket-id" dir="ltr"/);
- for(const id of ['complaint-summary','complaint-actions','complaint-attachments','complaint-timeline','complaint-notes'])
+ for(const id of ['complaint-summary','complaint-attachments','complaint-notes'])
   assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1);
 });
 
@@ -624,16 +624,16 @@ test('invalid phone is explained inline; an existing Arabic-digit phone remains 
 });
 
 
-test('anonymous quick intake saves a numbered draft with safe defaults and offers completion',async()=>{
+test('anonymous quick intake saves a complete numbered record with optional metadata',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  await ui.click('new-complaint');ui.node('#cSummary').value='بلاغ مجهول مفهوم';
  await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
  const body=JSON.parse(ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST').body);
  assert.equal(body.name,'');assert.equal(body.phone,'');assert.equal(body.entity,'');
  assert.equal(body.category,'غير مصنفة');assert.equal(body.province,'غير محددة');
- assert.equal(body.priority,'normal');assert.equal(body.source,'phone');assert.equal(body.asDraft,true);
- const saved=ui.state.complaints.at(-1);assert.equal(saved.status,'draft');
- assert.match(ui.node('#modalRoot').innerHTML,/تم حفظ المسودة/);
+ assert.equal(body.priority,'normal');assert.equal(body.source,'phone');assert.equal(body.asDraft,false);
+ const saved=ui.state.complaints.at(-1);assert.equal(saved.status,'new');
+ assert.match(ui.node('#modalRoot').innerHTML,/تم فتح السجل/);
  assert.match(ui.node('#modalRoot').innerHTML,/فتح السجل/);
  assert.match(ui.node('#modalRoot').innerHTML,/SY-2026-10002/);
 });
@@ -655,7 +655,7 @@ test('known metadata opens an anonymous record without requiring optional contac
 test('completion preview edits the existing draft and keeps missing filters in sync with the count',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  const base=ui.state.complaints[0];
- Object.assign(base,{name:'',phone:'',status:'draft',category:'غير مصنفة'});
+ Object.assign(base,{name:'',phone:'',status:'draft',summary:'مسودة بانتظار الاستكمال',category:'غير مصنفة'});
  await ui.goto('reports');await ui.goto('dashboard');
  assert.match(ui.node('#content').innerHTML,/استكمال المسودة/);
  await ui.click('complete-draft',base.id);
@@ -666,17 +666,17 @@ test('completion preview edits the existing draft and keeps missing filters in s
  ui.node('#dateFrom').value='2099-01-01';await ui.events.get('change')({target:ui.node('#dateFrom')});
  await ui.goto('dashboard');await ui.click('filter-missing');
  assert.match(ui.node('#content').innerHTML,/1 نتيجة|<strong>1<\/strong> نتيجة/);
- assert.match(ui.node('#content').innerHTML,/لاستكمال المتابعة: المسودة/);
+ assert.match(ui.node('#content').innerHTML,/لاستكمال المتابعة: الموضوع/);
  assert.match(ui.node('#content').innerHTML,/SY-2026-10001/);
  assert.equal(ui.calls.filter(c=>c.url==='/api/complaints'&&c.method==='POST').length,0);
 });
 
 test('reviewer completion preview exposes missing fields and view without edit controls',async()=>{
  const ui=createFakeBrowser('reviewer');for(let i=0;i<25;i++)await Promise.resolve();
- ui.state.complaints[0].category='غير مصنفة';
+ ui.state.complaints[0].summary='';
  await ui.goto('reports');await ui.goto('dashboard');
  const preview=ui.node('#content').innerHTML.split('<section class="completion-card"')[1].split('</section>')[0];
- assert.match(preview,/لاستكمال المتابعة: التصنيف/);
+ assert.match(preview,/لاستكمال المتابعة: الموضوع/);
  assert.match(preview,/فتح السجل/);
  assert.doesNotMatch(preview,/data-action="edit-complaint"|data-action="complete-draft"/);
  await ui.click('complete-draft',ui.state.complaints[0].id);
@@ -712,7 +712,7 @@ test('active filter chips escape text and removing one preserves the other filte
 
 test('next-step guidance offers incomplete editing and separates closed records and internal notes',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<30;i++)await Promise.resolve();const c=ui.state.complaints[0];
- c.name='';c.category='غير مصنفة';ui.click('detail',c.id);
+ c.name='';c.summary='';ui.click('detail',c.id);
  assert.match(ui.node('#content').innerHTML,/استكمال الآن/);
  ui.click('edit-complaint',c.id);assert.match(ui.node('#modalRoot').innerHTML,/id="editComplaintForm"/);
  ui.click('close-modal');c.status='closed';ui.click('detail',c.id);
@@ -799,3 +799,5 @@ test('packaged smoke routes use visible registry controls without requiring hidd
  ui.goto('replies');
  assert.match(ui.node('#content').innerHTML,/data-action="new-reply"/);
 });
+
+ test('simplified owner workspace removes redundant panels but retains editing',async()=>{const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('dashboard');assert.doesNotMatch(ui.node('#content').innerHTML,/أولوية المتابعة/);ui.click('detail','SY-2026-10001');const html=ui.node('#content').innerHTML;assert.doesNotMatch(html,/إجراءات الحالة|<h3>سجل الإجراءات|تأكيد الإجراءات|ردود الإحالات|class="floating-actions"/);assert.match(html,/data-action="edit-complaint"/);ui.click('edit-complaint','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/حفظ التعديلات/);});

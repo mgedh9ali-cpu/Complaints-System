@@ -94,7 +94,7 @@ function installTableSkeletonEnhancer(){
 }
 
 function installUiPolishEnhancers(){
-  installFloatingActionsEnhancer();
+  // Use the main action row, not a duplicate floating toolbar.
   installTableSkeletonEnhancer();
 }
 if(!installUiPolishEnhancers()){

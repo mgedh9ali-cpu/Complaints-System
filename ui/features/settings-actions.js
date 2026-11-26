@@ -90,18 +90,20 @@ function editComplaintModal(id){
   const c=db.complaints.find(c=>c.id===id);if(!c||!canEditRecord(c))return toast('لا تملك صلاحية تعديل هذا السجل.','error');
   ensureManagedSettings();
   const options=(items,current)=>items.includes(current)?items:[current,...items].filter(Boolean);
-  modal(c.status==='draft'?'استكمال المسودة':'استكمال وتعديل بيانات الشكوى',c.status==='draft'?'أكمل البيانات ثم افتح السجل من إجراءات الحالة. يبقى الرقم وتاريخ التسجيل ثابتين.':'الرقم وتاريخ التسجيل وسجل الإجراءات ثابتة.',
+  modal(c.status==='draft'?'استكمال المسودة':'استكمال وتعديل بيانات الشكوى',c.status==='draft'?'أدخل الموضوع فقط لاستكمال البيانات. الرقم وتاريخ التسجيل ثابتان.':'الرقم وتاريخ التسجيل وسجل الإجراءات ثابتة.',
   '<form id="editComplaintForm"><div class="form-grid">'+field('اسم المشتكي','editName',c.name||'')+field('تاريخ أول تواصل','editFirstContactDate',c.firstContactDate||'','date')+field('رقم الهاتف','editPhone',c.phone||'','tel')+
-  selectField('المحافظة','editProvince',options(db.settings.provinces,c.province),c.province,true)+selectField('التصنيف','editCategory',options(db.settings.categories,c.category),c.category,true)+
+  selectField('المحافظة (اختياري)','editProvince',options(db.settings.provinces,c.province),c.province,false)+selectField('التصنيف (اختياري)','editCategory',options(db.settings.categories,c.category),c.category,false)+
   selectField('طبيعة الشكاوي','editNature',options(db.settings.natures||[],c.nature||''),c.nature||'',false)+
   selectField('الجهة','editEntity',options(db.settings.entities,c.entity),c.entity||'')+field('الموضوع','editSummary',c.summary||'','text',true,'maxlength="180"')+
   '<div class="form-field full"><label for="editDetails">التفاصيل</label><textarea class="textarea-field" id="editDetails" maxlength="10000">'+esc(c.details||'')+'</textarea></div></div></form>',
-  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="save-complaint-edit" data-id="'+esc(id)+'">حفظ البيانات</button>');
+  '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" type="button" data-action="save-complaint-edit" data-id="'+esc(id)+'">حفظ التعديلات</button>');
 }
 async function saveComplaintEdit(id){
   if(!$('#editComplaintForm')?.reportValidity())return false;
+  if(!canEditRecord(db.complaints.find(c=>c.id===id)))return toast('لا تملك صلاحية التعديل.','error');
+  if(!$('#editSummary')?.value.trim())return toast('الموضوع مطلوب.','warn');
   const body={firstContactDate:$('#editFirstContactDate')?.value||null,name:$('#editName').value.trim(),phone:phoneNorm($('#editPhone').value),province:$('#editProvince').value,category:$('#editCategory').value,nature:$('#editNature')?.value||'',entity:$('#editEntity').value,summary:$('#editSummary').value.trim(),details:$('#editDetails').value.trim()};
-  try{await flushUiBeforeAction();const result=await api('/api/complaints/'+encodeURIComponent(id),{method:'PATCH',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify(body)});closeModal();await reloadStoredState();toast('حُفظت بيانات الشكوى.');if(result.undoToken)showStatusUndo(id,result.undoToken,result.undoExpiresAt,'edit');}catch(error){return toast(error.message,'error');}
+  try{await flushUiBeforeAction();const result=await api('/api/complaints/'+encodeURIComponent(id),{method:'PATCH',headers:{'X-State-Revision':String(stateRevision)},body:JSON.stringify(body)});closeModal();await reloadStoredState();toast('تم حفظ التعديلات.');if(result.undoToken)showStatusUndo(id,result.undoToken,result.undoExpiresAt,'edit');}catch(error){return toast(error.message,'error');}
 }
 async function flushUiBeforeAction(){if(stateConflict)throw new Error('حل تعارض البيانات قبل تنفيذ إجراء جديد.');await persistQueue;if(persistTimer){clearTimeout(persistTimer);persistTimer=null;await persistUiNow();}}
 async function reloadStoredState(){const stored=await api('/api/state');db=stored.state||cleanState();stateRevision=Number(stored.revision)||0;stateConflict=false;stateLoaded=true;render();}

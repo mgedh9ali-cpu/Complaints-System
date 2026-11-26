@@ -57,15 +57,25 @@ async function saveApprovalDecision(id,decision){
 }
 
 function complaintWorkflowPanel(c){
- return '<div class="detail-section"><h3>المتابعة والاستكمال</h3><button class="btn btn-sm" data-action="edit-complaint" data-id="'+esc(c.id)+'">استكمال وتعديل البيانات</button>'+
- (isIncomplete(c)?missingFieldsHtml(c):'<p class="small-copy">الحقول الأساسية مكتملة.</p>')+
- '<button class="btn btn-sm" data-action="toggle-completion-reminder" data-id="'+esc(c.id)+'">'+(c.completionReminderStopped?'استئناف تذكير الاستكمال':'إيقاف تذكير الاستكمال')+'</button> '+
- (uiCan('approvals.request')&&!c.archivedAt?'<button class="btn btn-sm btn-danger" data-action="request-archive" data-id="'+esc(c.id)+'">طلب أرشفة الشكوى</button> <button class="btn btn-sm" data-action="propose-duplicate" data-id="'+esc(c.id)+'">اقتراح ربط كمكررة</button>':'')+
+ const incomplete=isIncomplete(c);
+ if(!incomplete&&!c.archivedAt&&!c.duplicateOf)return '';
+ return '<div class="detail-section"><h3>استكمال السجل</h3>'+
+ (incomplete?missingFieldsHtml(c)+(canEditRecord(c)?'<button class="btn btn-sm" data-action="edit-complaint" data-id="'+esc(c.id)+'">استكمال البيانات</button>':''):'')+
  (c.archivedAt?'<p class="risk-note">مؤرشفة: '+esc(c.archiveReason||'')+'</p>':'')+
- (c.duplicateOf?'<p>مكررة عن <bdi dir="ltr">'+esc(c.duplicateOf)+'</bdi></p>':'')+
- '</div>'+
- '<div class="detail-section"><h3>ردود الإحالات</h3>'+(c.referrals||[]).map((r,i)=>'<div class="setting-row"><div><strong>'+esc(r.entity)+'</strong><p>'+esc(r.response||'بانتظار رد الجهة')+'</p><small>'+dateText(r.sent)+' · '+dateText(r.due)+'</small></div><button class="btn btn-sm" data-action="referral-response" data-id="'+esc(c.id)+'" data-index="'+i+'">تسجيل الرد</button></div>').join('')+'</div>'+approvalsPanel(c.id);
+ (c.duplicateOf?'<p>مكررة عن <bdi dir="ltr">'+esc(c.duplicateOf)+'</bdi></p>':'')+'</div>';
 }
+function openRecordStatus(id){
+ const c=db.complaints.find(x=>x.id===id);if(!c||c.archivedAt||!uiCan('complaints.status'))return toast('لا يمكن تغيير حالة هذا السجل.','warn');
+ const transitions={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]};
+ const next=transitions[c.status]||[];if(!next.length)return toast('لا توجد انتقالات متاحة.','warn');
+ modal('تغيير الحالة',esc(id),'<div class="form-field"><label for="detailStatus">الحالة الجديدة</label><select class="select-field" id="detailStatus"><option value="">اختر الحالة</option>'+next.map(s=>'<option value="'+esc(s)+'">'+esc(statusLabel(s))+'</option>').join('')+'</select></div><div class="form-field"><label for="statusReason">السبب</label><textarea class="textarea-field" id="statusReason"></textarea></div>', '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="change-status" data-id="'+esc(id)+'">حفظ الحالة</button>');
+ updateReasonSheet();
+}
+function openRecordReferrals(id){
+ const c=db.complaints.find(x=>x.id===id);if(!c||!uiCan('complaints.read'))return;
+ modal('متابعة الإحالات',esc(id),(c.referrals||[]).map((r,i)=>'<div class="setting-row"><div><strong>'+esc(r.entity)+'</strong><p>'+esc(r.response||'بانتظار الرد')+'</p></div>'+(uiCan('complaints.update')&&!c.archivedAt?'<button class="btn btn-sm" data-action="referral-response" data-id="'+esc(id)+'" data-index="'+i+'">تسجيل الرد</button>':'')+'</div>').join('')||'<p>لا توجد إحالات.</p>','<button class="btn" data-action="close-modal">إغلاق</button>');
+}
+function openRecordApprovals(id){if(!uiCan('approvals.decide'))return;modal('الطلبات السابقة',esc(id),approvalsPanel(id),'<button class="btn" data-action="close-modal">إغلاق</button>');}
 
 function referralResponseModal(id,index){
  const c=db.complaints.find(c=>c.id===id),r=c?.referrals?.[index];if(!r)return;

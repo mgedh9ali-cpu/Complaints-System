@@ -5,15 +5,12 @@ function phoneNorm(s=''){let n=String(s).replace(/[٠-٩]/g,c=>String(c.charCode
 function dateText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',day:'2-digit',month:'short',year:'numeric'}).format(d);}
 function timeText(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(+d))return '—';return new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(d);}
 function ageDays(c){return Math.max(0,Math.floor((Date.now()-new Date(c.created).getTime())/86400000));}
-// Match quick intake's existing completion policy. Identity/contact stay optional.
+// The generated reference and real subject are the only completion requirements.
 function missingFields(c){
   if(!c||c.archivedAt||['closed','cancelled'].includes(c.status))return [];
   const missing=[],blank=value=>!String(value||'').trim();
-  if(c.status==='draft')missing.push({key:'draft',label:'المسودة تحتاج استكمالًا وفتح السجل',level:'action'});
-  if(blank(c.entity))missing.push({key:'entity',label:'الجهة',level:'action'});
-  if(blank(c.province)||String(c.province).trim()==='غير محددة')missing.push({key:'province',label:'المحافظة',level:'action'});
-  if(blank(c.category)||String(c.category).trim()==='غير مصنفة')missing.push({key:'category',label:'التصنيف',level:'action'});
-  if(blank(c.details))missing.push({key:'details',label:'التفاصيل المطولة',level:'recommended'});
+  if(blank(c.id))missing.push({key:'id',label:'رقم السجل',level:'action'});
+  if(blank(c.summary)||String(c.summary).trim()==='مسودة بانتظار الاستكمال')missing.push({key:'summary',label:'الموضوع',level:'action'});
   return missing;
 }
 function isIncomplete(c){return missingFields(c).length>0;}
@@ -85,13 +82,14 @@ function scrollComplaintSection(target,source){
  section.setAttribute('tabindex','-1');section.focus?.({preventScroll:true});
 }
 async function chooseWorkflowStep(status){
- const complaint=db.complaints.find(item=>item.id===currentId),select=$('#detailStatus');
+ const complaint=db.complaints.find(item=>item.id===currentId);let select=$('#detailStatus');
+ if(complaint&&!select&&typeof openRecordStatus==='function'){openRecordStatus(currentId);select=$('#detailStatus');}
  if(!complaint||!select||!uiCan('complaints.status'))return toast('لا تملك صلاحية تغيير حالة الشكوى.','error');
  const allowed={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]};
  if(!(allowed[complaint.status]||[]).includes(status))return toast('انتقال الحالة غير مسموح.','error');
  select.value=status;updateReasonSheet();
  if(['closed','cancelled'].includes(status)){
-  scrollComplaintSection('complaint-actions');
+  // The status editor is now a dialog.
   const reason=$('#statusReason');
   if(!reason?.value.trim()){reason?.focus();return toast('اكتب سبب الإغلاق أو الإلغاء، ثم أكد الانتقال.','warn');}
   if(!confirm('تأكيد '+statusLabel(status)+' الشكوى؟ سيتم توثيق السبب في سجل التدقيق.'))return;

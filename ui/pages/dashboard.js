@@ -127,17 +127,11 @@ function dashboard(){
   const newToday=open.filter(isCreatedToday);
   const late=open.filter(isLate), dueSoon=open.filter(c=>isDueSoon(c));
   const missing=incompleteRecords();
-  const priority=[...open].sort((a,b)=>{
-    const score=c=>(c.priority==='urgent'?-1e12:c.priority==='high'?-1e11:0)+(isIncomplete(c)?-1e9:0);
-    const created=c=>{const n=new Date(c.created).getTime();return Number.isFinite(n)?n:Number.MAX_SAFE_INTEGER;};
-    return score(a)-score(b)||created(a)-created(b);
-  }).slice(0,5);
-
   const rawTasks=[
     {key:'late',n:late.length,color:'red',icon:'!',label:'سجلات تجاوزت المهلة',description:'مهل معتمدة انتهت',action:'filter-late'},
     {key:'due-soon',n:dueSoon.length,color:'amber',icon:'◷',label:'مهل تستحق خلال 48 ساعة',description:'سجلات مفتوحة تقترب مهلتها المعتمدة',action:'filter-due-soon'},
     {key:'urgent-no-reply',n:urgentNoReply.length,color:'red',icon:'⚡',label:'عاجلة تحتاج متابعة',description:'أولوية عاجلة ولم تُغلق بعد',action:'urgent-no-reply'},
-    {key:'missing',n:missing.length,color:'amber',icon:'✎',label:'بيانات غير مكتملة',description:'يلزم استكمال الجهة أو التصنيف أو المحافظة',action:'filter-missing'},
+    {key:'missing',n:missing.length,color:'amber',icon:'✎',label:'بيانات غير مكتملة',description:'يلزم استكمال رقم السجل أو الموضوع',action:'filter-missing'},
     {key:'new-today',n:newToday.length,color:'blue',icon:'＋',label:'جديدة اليوم',description:'السجلات المفتوحة المسجلة اليوم بتوقيت دمشق',queue:'new-today'}
   ].filter(t=>t.n>0);
 
@@ -176,8 +170,5 @@ function dashboard(){
     '<div class="work-grid"><section class="panel dashboard-actions"><div class="panel-header"><div><h2>ما الذي يحتاج إجراءً الآن؟</h2><p>المهام المفتوحة فقط — الأهم أولًا</p></div><button type="button" class="btn btn-sm" data-goto="complaints">فتح السجل</button></div><div class="panel-body"><div class="task-list" role="list" aria-label="المهام التي تحتاج إجراء">'+taskHtml+'</div>'+incompleteRecordsPanel()+'</div></section>'+
     '<section class="panel"><div class="panel-header"><div><h2>توزيع الحالات</h2><p>من أصل '+totalActive+' سجلًا نشطًا</p></div></div><div class="panel-body"><div class="status-list">'+statusGroups.map(([label,n],i)=>
       '<div><div class="status-line"><span>'+label+'</span><span>'+n+'</span></div><div class="progress"><span class="'+(i===0?'blue-fill':i===2?'amber-fill':'')+'" style="width:'+(totalActive?Math.max(n?5:0,n/totalActive*100):0)+'%"></span></div></div>'
-    ).join('')+'</div></div></section></div>'+
-    '<section class="panel table-panel"><div class="panel-header"><div><h2>أولوية المتابعة</h2><p>العاجلة أولًا، ثم السجلات ذات البيانات الناقصة</p></div><button class="text-link" data-goto="complaints">عرض جميع السجلات</button></div>'+
-      complaintTable(priority,{emptyMessage:'لا توجد سجلات مفتوحة تحتاج إلى متابعة.'})+
-    '</section></div>';
+    ).join('')+'</div></div></section></div></div>';
 }

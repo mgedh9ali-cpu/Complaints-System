@@ -5,10 +5,10 @@ function suggestedNextStep(c){
   if(c.status==='closed') return !c.survey&&can('complaints.update')
     ? {title:'تسجيل رأي المشتكي',desc:'السجل مغلق. وثّق نتيجة المعالجة ورأي المشتكي.',action:'survey',label:'تسجيل الرأي'} : null;
   const incomplete = isIncomplete(c);
-  if((c.status==='draft'||incomplete)&&can('complaints.update'))
+  if(incomplete&&can('complaints.update'))
     return {title:'استكمال البيانات',desc:missingFields(c).map(field=>field.label).join('، '),action:'edit-complaint',label:'استكمال الآن'};
   if(c.status==='new'&&can('complaints.status'))
-    return {title:'بدء المعالجة',desc:'حدّد الحالة الجديدة وسجّل إجراء المتابعة.',action:'focus-status',label:'إجراءات الحالة'};
+    return {title:'بدء المعالجة',desc:'حدّد الحالة الجديدة وسجّل إجراء المتابعة.',action:'focus-status',label:'تغيير الحالة'};
   if(c.status==='awaiting_reply'&&can('complaints.read'))
     return {title:'متابعة رد الجهة',desc:'راجع الإحالة وسجّل رد الجهة عند وروده.',action:'focus-referrals',label:'عرض الإحالات'};
   if(c.status==='in_progress'&&!(c.referrals||[]).length&&!c.reply&&can('complaints.update'))
@@ -29,7 +29,7 @@ function nextStepPanelHtml(c){
   else if(step.action === 'survey')
     btn = '<button class="btn btn-sm btn-primary" data-action="survey" data-id="' + esc(c.id) + '">' + esc(step.label) + '</button>';
   else if(step.action === 'focus-status')
-    btn = '<button class="btn btn-sm btn-primary" data-action="detail-section" data-target="complaint-actions">' + esc(step.label) + '</button>';
+    btn = '<button class="btn btn-sm btn-primary" data-action="open-record-status" data-id="' + esc(c.id) + '">' + esc(step.label) + '</button>';
   else if(step.action === 'focus-referrals')
     btn = '<button class="btn btn-sm btn-primary" data-action="detail-section" data-target="complaint-referrals">' + esc(step.label) + '</button>';
   else if(step.action === 'focus-summary')

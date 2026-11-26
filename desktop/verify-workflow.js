@@ -60,7 +60,7 @@ async function verifyWorkflow(webContents, credentials) {
     fill('#rNote','إحالة اصطناعية');
     click('[data-action="save-referral"]');
     await until(async()=>((await records()).find(c=>c.id===id)?.referrals||[]).length===1);
-    await until(()=>!find('#modalRoot').dataset.open&&find('[data-action="referral-response"]'));
+    await until(()=>!find('#modalRoot').dataset.open&&find('#content [data-action="complaint-more"]'));
 
     stage = 'queue';
     click('.nav-link[data-page="complaints"]');
@@ -78,12 +78,19 @@ async function verifyWorkflow(webContents, credentials) {
 
     stage = 'referral response';
     click('[data-action="detail"][data-id="'+id+'"]');
+    click('#content [data-action="complaint-more"]');
+    await until(()=>find('[data-action="open-record-referrals"]'));
+    click('[data-action="open-record-referrals"]');
     await until(()=>find('[data-action="referral-response"][data-index="0"]'));
     click('[data-action="referral-response"][data-index="0"]');
     await until(()=>find('#referralResponse'));
     fill('#referralResponse','رد جهة اصطناعي');click('[data-action="save-referral-response"]');
     await until(async()=>(await records()).find(c=>c.id===id)?.referrals[0]?.response==='رد جهة اصطناعي');
-    await until(()=>!find('#modalRoot').dataset.open&&find('#content').textContent.includes('رد جهة اصطناعي'));
+    await until(()=>!find('#modalRoot').dataset.open);
+    click('#content [data-action="complaint-more"]');
+    click('[data-action="open-record-referrals"]');
+    await until(()=>find('#modalRoot').textContent.includes('رد جهة اصطناعي'));
+    click('#modalRoot .modal-close');
 
     stage = 'reply';
     assert(!find('#complaint-reply'));

@@ -32,8 +32,6 @@ function complaintDetailPage() {
   if (!c) return heading('السجل غير موجود', 'لا يمكن عرض هذا الرقم المرجعي.', '<button class="btn" data-action="detail-back">عودة للسجل</button>');
   const type = recordTypeOf(c);
   const label = { complaint:'الشكوى', inquiry:'الاستفسار', contact:'التواصل' }[type];
-  const transitions = {draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:[],cancelled:[]};
-  const next = c.archivedAt ? [] : (['closed','cancelled'].includes(c.status) && uiCan('complaints.reopen') ? ['in_progress'] : transitions[c.status] || []);
   const action = (name, text, kind = '') => '<button type="button" class="btn btn-sm ' + kind + '" data-action="' + name + '" data-id="' + esc(id) + '">' + text + '</button>';
   const fields = [['نوع السجل', intakeTypes[type]], [type === 'complaint' ? 'اسم المشتكي' : 'اسم المتصل', c.name], ['رقم الهاتف', c.phone, 'ltr'],
     ['قناة الورود', ({phone:'الهاتف',whatsapp:'واتساب',telegram:'تلغرام',other:'أخرى'})[c.source] || c.source],
@@ -45,17 +43,6 @@ function complaintDetailPage() {
   }
   const summary = '<section class="detail-section" id="complaint-summary"><h3>بيانات ' + label + '</h3><dl class="record-data-grid">' +
     fields.map(([title, value, dir]) => complaintDetailField(title, value, dir)).join('') + '</dl><div class="record-description"><h4>التفاصيل</h4><p class="detail-prose">' + esc(c.details || 'لم تُضف تفاصيل إضافية.') + '</p></div></section>';
-  const canChangeStatus = uiCan('complaints.status') && next.length > 0;
-  const processing = '<section class="detail-section" id="complaint-actions"><h3>إجراءات الحالة</h3>' + (canChangeStatus ?
-    '<div class="form-field"><label for="detailStatus">الحالة الجديدة</label><select class="select-field" id="detailStatus"><option value="">اختر الحالة</option>' +
-      next.map(s => '<option value="' + s + '">' + statusLabel(s) + '</option>').join('') + '</select></div>' +
-    '<div class="form-field"><label for="statusReason">سبب تغيير الحالة</label><textarea class="textarea-field" id="statusReason" placeholder="اكتب سبب الإغلاق أو الإلغاء أو إعادة الفتح"></textarea></div>' +
-    (uiCan('complaints.closeException') ? '<label class="detail-checkbox"><input type="checkbox" id="closureException"> استثناء إغلاق موثق</label>' : '') +
-    action('change-status', 'تحديث الحالة', 'btn-primary') : '<p class="detail-empty">لا توجد انتقالات متاحة لهذا السجل.</p>') +
-    (uiCan('complaints.update') && !c.archivedAt && !['closed','cancelled'].includes(c.status) ? '<details class="glass-inline-menu"><summary>تغيير الأولوية</summary><div class="form-field"><label for="detailPriority">الأولوية</label><select class="select-field" id="detailPriority">' +
-      db.settings.priorities.map(p => '<option value="' + esc(p.value) + '" ' + (c.priority === p.value ? 'selected' : '') + '>' + esc(p.label) + '</option>').join('') +
-      (!db.settings.priorities.some(p => p.value === c.priority) && c.priority ? '<option value="' + esc(c.priority) + '" selected>' + esc(priorityLabel(c.priority)) + '</option>' : '') + '</select></div></details>' : '') + '</section>';
-  const timeline = recordTimelineHtml(c);
   const notes = '<section class="detail-section" id="complaint-notes"><h3>الملاحظات الداخلية</h3>' +
     ((c.notes || []).map(n => '<div class="record-note"><strong>' + esc(n.by || '') + '</strong><p class="detail-prose">' + esc(n.text) + '</p><small>' + timeText(n.at) + '</small></div>').join('') || '<p class="detail-empty">لا توجد ملاحظات داخلية.</p>') + '</section>';
   const referralActions = uiCan('complaints.update') ? action('referral-create', 'إضافة إحالة') + action('survey', 'تسجيل رأي المتصل') : '';
@@ -65,10 +52,10 @@ function complaintDetailPage() {
     recordOverviewHtml(c) + (!c.archivedAt && !['closed','cancelled'].includes(c.status) ? '<p class="small-copy"><strong>مؤقّت المراجعة</strong> · <span id="recordReviewTimer">جارٍ تحميل الموعد…</span></p>' : '') + '<div class="complaint-record-actions" aria-label="إجراءات السجل">' + complaintRecordActions(c, false) + action('print-complaint-cover', 'طباعة', 'btn-print') + action('print-receipt', 'إيصال استلام PDF') +
     (uiCan('complaints.update') ? action('set-reminder', 'موعد مراجعة وتذكير') + action('add-note', 'ملاحظة داخلية') : '') + '</div>' +
     '<nav class="complaint-page-tabs" aria-label="أقسام ملف السجل">' +
-    [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-actions','المعالجة'],['complaint-referrals','الإحالات'],['complaint-timeline','سجل الأحداث'],['complaint-notes','الملاحظات']].map(([target, title]) => '<button type="button" data-action="detail-section" data-target="' + target + '">' + title + '</button>').join('') +
+    [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-referrals','الإحالات'],['complaint-notes','الملاحظات']].map(([target, title]) => '<button type="button" data-action="detail-section" data-target="' + target + '">' + title + '</button>').join('') +
     '</nav><div class="complaint-page-content"><div class="detail-grid"><div>' + summary + '<section class="detail-section" id="complaint-attachments"><h3>المرفقات الخاصة</h3></section>' +
     '<section class="detail-section" id="complaint-referrals"><h3>الإحالات والمتابعة</h3><div class="footer-actions">' + referralActions + '</div></section>' +
-    complaintWorkflowPanel(c) + '</div><aside class="record-side" aria-label="المعالجة وسجل الإجراءات">' + processing + timeline + notes + '</aside></div></div></article>';
+    complaintWorkflowPanel(c) + '</div><aside class="record-side" aria-label="الملاحظات">' + notes + '</aside></div></div></article>';
 }
 
 function detailModal(id){

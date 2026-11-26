@@ -53,6 +53,9 @@ const a=el.dataset.action,id=el.dataset.id;
 try{
 switch(a){
 case 'complaint-more':complaintActionsModal(id);break;
+case 'open-record-status':openRecordStatus(id);break;
+case 'open-record-referrals':openRecordReferrals(id);break;
+case 'open-record-approvals':openRecordApprovals(id);break;
 case 'request-complaint-delete':requestComplaintDeletion(id);break;
  case 'confirm-owner-delete':await withButtonLock(el,()=>confirmOwnerDelete(id),'جارٍ الحذف…');break;
 case 'export-complaint-pdf':await withButtonLock(el,()=>exportComplaintDocument(id,'pdf'),'جارٍ إنشاء PDF…');break;

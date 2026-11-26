@@ -18,7 +18,8 @@ test("validComplaint accepts a minimal well-formed complaint", () => {
 test("validComplaint rejects non-objects and missing required fields", () => {
   assert.equal(validComplaint(null), false);
   assert.equal(validComplaint([]), false);
-  assert.equal(validComplaint({ summary: "x", province: "y" }), false);
+  assert.equal(validComplaint({ summary: "x", province: "y" }), true);
+  assert.equal(validComplaint({ summary: "x" }), true);
   assert.equal(
     validComplaint({ summary: "  ", province: "دمشق", category: "عام" }),
     false,
