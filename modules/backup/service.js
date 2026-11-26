@@ -58,7 +58,7 @@ function createBackupService({ databasePath, sessionSecret }) {
     const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-full-backup-'));
     try {
       const result = await createEncryptedBundle({
-        databasePath, secret: sessionSecret, backupDir
+        databasePath, secret: sessionSecret, backupDir, includeStorageKey: true
       });
       const verified = await verifyEncryptedBundle({
         bundlePath: result.destination, secret: sessionSecret

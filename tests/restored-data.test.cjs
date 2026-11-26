@@ -40,7 +40,7 @@ async function fixture(t){
   fs.mkdirSync(path.join(data,folder),{recursive:true});
   fs.writeFileSync(path.join(data,folder,'synthetic.txt'),codec.seal(Buffer.from(folder),'attachment:synthetic.txt'));
  }
- const original=await createEncryptedBundle({databasePath:file,secret:SECRET,backupDir:path.join(root,'original')});
+ const original=await createEncryptedBundle({databasePath:file,secret:SECRET,backupDir:path.join(root,'original'),includeStorageKey:true});
  const extracted=path.join(root,'extracted');await extractEncryptedBundle({bundlePath:original.destination,secret:SECRET,outputDir:extracted});
  const activeProfile='recovered-'+crypto.randomUUID();fs.mkdirSync(path.join(root,activeProfile));fs.writeFileSync(path.join(root,activeProfile,'sentinel'),'original profile');
  recovery.saveOptions(root,{activeProfile,backupDirectory:path.join(root,'original')});

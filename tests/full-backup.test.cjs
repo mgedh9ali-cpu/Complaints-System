@@ -36,7 +36,7 @@ test('full backup archives SQLite, attachments and audit integrity head with aut
 
   const backupDir = path.join(dir, 'backup');
   const saved = await createEncryptedBundle({
-    databasePath: dbPath, secret: SECRET, backupDir
+    databasePath: dbPath, secret: SECRET, backupDir, includeStorageKey: true
   });
   assert.equal(saved.encrypted, true);
   assert.equal(saved.attachmentCount, 1);

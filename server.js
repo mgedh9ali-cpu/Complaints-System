@@ -77,7 +77,10 @@ const auditIntegrity = measureStartupPhase('auditVerification', () => {
   }
 });
 if (!auditIntegrity.ok) {
-  logger.error('Audit integrity verification failed at boot; continuing in degraded mode. Restore a verified backup.', auditIntegrity);
+  const message = 'Audit integrity verification failed at boot. Restore a verified backup.';
+  logger.error(message, auditIntegrity);
+  db.close();
+  throw new Error(message);
 }
 const audit = (actorUserId, action, targetType, targetId = null, details = {}) =>
   auditService.record(actorUserId, action, targetType, targetId, details);

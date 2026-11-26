@@ -71,7 +71,7 @@ test('intake attachments mount only on review and selections survive a wizard re
  }
  step(false);assert.equal(appends,0);assert.equal(form.dataset.attachInjected,undefined);
  step(true);input.files=[{name:'<private>.txt',size:40}];input.handlers.change();
- assert.equal(wizard.files[0].name,'<private>.txt');assert.match(preview.innerHTML,/<private>/);
+ assert.equal(wizard.files[0].name,'<private>.txt');assert.match(preview.innerHTML,/&lt;private&gt;/);assert.doesNotMatch(preview.innerHTML,/<private>/);
  step(false);step(true);
- assert.equal(preview.hidden,false);assert.match(preview.innerHTML,/<private>/);assert.equal(appends,2);
+ assert.equal(preview.hidden,false);assert.match(preview.innerHTML,/&lt;private&gt;/);assert.doesNotMatch(preview.innerHTML,/<private>/);assert.equal(appends,2);
 });

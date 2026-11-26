@@ -203,7 +203,7 @@ test('encrypted full backup restores the storage key, data, audit chain and arch
   const attachment=f.attachments.save(id,{originalname:'restore.txt',mimetype:'text/plain',size:bytes.length,buffer:bytes});
   f.attachments.archive(attachment.storedName);
   const out=path.join(f.dir,'bundle');fs.mkdirSync(out);
-  const bundle=await createEncryptedBundle({databasePath:f.file,secret:BACKUP_KEY,backupDir:out});
+  const bundle=await createEncryptedBundle({databasePath:f.file,secret:BACKUP_KEY,backupDir:out,includeStorageKey:true});
   const destination=path.join(f.dir,'restored');
   const result=await extractEncryptedBundle({bundlePath:bundle.destination,secret:BACKUP_KEY,outputDir:destination});
   assert.equal(result.verified,true);

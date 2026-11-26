@@ -28,7 +28,7 @@ test('restore prepares verified encrypted data separately and rejects wrong keys
  const result=service.createComplaint({body:{summary:'اختبار استعادة',province:'دمشق',category:'خدمات'},userId:'admin-id',username:'director'});
  assert.ok(result.complaint?.id);db.close();
  const before=fs.readFileSync(file);
- const bundle=await createEncryptedBundle({databasePath:file,secret,backupDir:path.join(root,'bundle')});
+ const bundle=await createEncryptedBundle({databasePath:file,secret,backupDir:path.join(root,'bundle'),includeStorageKey:true});
  recovery.saveOptions(root,{backupDirectory:path.join(root,'bundle')});const originalOptions=fs.readFileSync(path.join(root,'desktop-options.json'));
  await assert.rejects(recovery.prepareRestoredProfile({base:root,bundlePath:bundle.destination,secret:'incorrect-secret-with-at-least-32-characters'}));
  assert.deepEqual(fs.readFileSync(path.join(root,'desktop-options.json')),originalOptions);

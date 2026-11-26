@@ -14,8 +14,8 @@ function openDatabase(databasePath, { storageKey } = {}) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
-  // NORMAL is safe with WAL and substantially faster under concurrent writes.
-  db.pragma('synchronous = NORMAL');
+  // Sync committed writes to disk so a power loss does not discard them.
+  db.pragma('synchronous = FULL');
   try { db.pragma('temp_store = MEMORY'); } catch { /* ignore */ }
   try { db.pragma('cache_size = -64000'); } catch { /* 64MB page cache */ }
   try { db.pragma('mmap_size = 268435456'); } catch { /* 256MB mmap */ }
