@@ -214,9 +214,21 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
         if (nextNotes.length < prevNotes.length) {
           return { invalidTransition: true, error: 'حذف الملاحظات غير مسموح عبر حفظ الحالة.' };
         }
+        // The UI prepends new notes (c.notes.unshift), so stored notes are matched by content
+        // and only the notes that are actually new must carry the acting account name.
+        const persistedNotes = new Map();
+        for (const note of prevNotes) {
+          const key = JSON.stringify(note);
+          persistedNotes.set(key, (persistedNotes.get(key) || 0) + 1);
+        }
         const actorName = actor?.username || '';
-        for (let i = prevNotes.length; i < nextNotes.length; i++) {
-          const note = nextNotes[i];
+        for (const note of nextNotes) {
+          const key = JSON.stringify(note);
+          const remaining = persistedNotes.get(key) || 0;
+          if (remaining > 0) {
+            persistedNotes.set(key, remaining - 1);
+            continue;
+          }
           if (note && note.by && actorName && note.by !== actorName) {
             return { invalidTransition: true, error: 'لا يمكن إضافة ملاحظة باسم مستخدم آخر.' };
           }
