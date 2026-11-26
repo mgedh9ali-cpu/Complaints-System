@@ -145,10 +145,11 @@ async function confirmSyncPassword(){
   }
   try{
     if(!pendingSyncPackage)return toast('لا توجد حزمة مزامنة معلّقة.','warn');
-    const password=$('#syncPassword')?.value||'';
+    const password=$('#syncPassword')?.value||'', owner=authenticatedUser, transfer=pendingSyncPackage;
     await flushUiBeforeAction();
-    const preview=await api('/api/sync/preview',{method:'POST',body:JSON.stringify({package:pendingSyncPackage,password})});
-    pendingSyncPreview={preview,password,owner:authenticatedUser};
+    const preview=await api('/api/sync/preview',{method:'POST',body:JSON.stringify({package:transfer,password})});
+    if(owner!==authenticatedUser||transfer!==pendingSyncPackage)return false;
+    pendingSyncPreview={preview,password,owner,transfer};
     const conflicts=(preview.conflicts||[]).filter(c=>c.kind!=='missing_from_incoming');
     modal('معاينة المزامنة الآمنة','لن يُحذف أي سجل محلي. عند تعارض نفس الرقم تبقى النسخة المحلية.',
       '<ul class="update-steps"><li>سجلات جديدة: '+esc(preview.added||0)+'</li><li>سجلات محلية غير موجودة بالملف وتبقى محفوظة: '+esc(preview.removed||0)+'</li><li>تعارضات تبقى فيها البيانات المحلية: '+conflicts.length+'</li></ul>'+
@@ -160,10 +161,11 @@ async function confirmSyncPassword(){
 }
 async function confirmSyncMerge(){
   const pending=pendingSyncPreview;
-  if(!pending||!pendingSyncPackage||pending.owner!==authenticatedUser)return toast('أعد معاينة ملف المزامنة.','warn');
+  if(!pending||!pendingSyncPackage||pending.owner!==authenticatedUser||pending.transfer!==pendingSyncPackage)return toast('أعد معاينة ملف المزامنة.','warn');
   try{
     await flushUiBeforeAction();
-    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:pendingSyncPackage,password:pending.password,expectedRevision:pending.preview.revision,merge:true})});
+    const result=await api('/api/sync/import',{method:'POST',body:JSON.stringify({package:pending.transfer,password:pending.password,expectedRevision:pending.preview.revision,merge:true})});
+    if(pending.owner!==authenticatedUser||pending.transfer!==pendingSyncPackage)return false;
     if(syncImportTarget)syncImportTarget.value='';
     const input=$('#syncImportFile');if(input)input.value='';
     pendingSyncPackage=null;pendingSyncPreview=null;syncImportTarget=null;closeModal();

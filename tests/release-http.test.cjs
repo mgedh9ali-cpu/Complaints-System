@@ -112,6 +112,27 @@ test('HTTP acceptance: sole operator, disabled staff APIs, attachments, confirma
  const savedSettings=await request(admin,'/api/settings','PUT',changedSettings,{'X-State-Revision':String(ownerSettings.revision)});
  assert.equal(savedSettings.status,200);assert.deepEqual(savedSettings.body.settings.categories,[]);
  assert.deepEqual((await request(admin,'/api/settings')).body.settings.categories,[]);
+ const beforeMerge=(await request(admin,'/api/state')).body;
+ const localRecord=beforeMerge.state.complaints.find(c=>c.id===id);
+ const mergeBundle=structuredClone(bundle);
+ mergeBundle.syncId=require('node:crypto').randomUUID();
+ mergeBundle.state.complaints=[{...localRecord,summary:'تعارض وارد لا يُستبدل'},{...localRecord,id:'SYNC-TEST-001',summary:'سجل وارد جديد'}];
+ mergeBundle.attachmentFiles=[];
+ mergeBundle.reminders=[{complaintId:'SYNC-TEST-001',reminderTime:new Date(Date.now()+86400000).toISOString(),note:'موعد متابعة من الجهاز الآخر',priority:'normal',dismissed:false}];
+ for(let attempt=0;attempt<2;attempt++){
+   mergeBundle.syncId=require('node:crypto').randomUUID();
+   const sealed=await sealPackage(mergeBundle,password);
+   const pv=await request(admin,'/api/sync/preview','POST',{package:sealed,password});
+   assert.equal(pv.status,200);assert.ok(pv.body.conflicts.some(c=>c.id===id));
+   const merged=await request(admin,'/api/sync/import','POST',{package:sealed,password,merge:true,expectedRevision:pv.body.revision});
+   assert.equal(merged.status,200,JSON.stringify(merged.body));assert.equal(merged.body.preservedConflicts,1);
+   const after=(await request(admin,'/api/state')).body.state;
+   assert.equal(after.complaints.find(c=>c.id===id).summary,localRecord.summary);
+   assert.ok(after.complaints.some(c=>c.id===probeId&&c.archivedAt));
+   assert.equal(after.complaints.filter(c=>c.id==='SYNC-TEST-001').length,1);
+   const rr=await request(admin,'/api/complaints/SYNC-TEST-001/reminders');
+   assert.equal(rr.status,200);assert.equal(rr.body.reminders.filter(r=>r.note==='موعد متابعة من الجهاز الآخر').length,1);
+ }
  const malformed=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:'{bad-json'});
  assert.equal(malformed.status,400);
  const logout=await fetch(base+'/api/auth/logout',{method:'POST',headers:{cookie:reviewer.cookie,'Content-Type':'application/json'},body:'{}'});

@@ -162,6 +162,7 @@ function createSyncService({
     if(merge){
       const localById=new Map(localState.complaints.map(c=>[c.id,c]));
       for(const c of payload.state.complaints)if(!localById.has(c.id))localById.set(c.id,c);
+      // Preserve local settings/notifications/templates unless the local office has no records.
       const base=localState.complaints.length?localState:payload.state;
       payload={...payload,state:{...base,complaints:[...localById.values()]},attachmentFiles:(payload.attachmentFiles||[]).filter(a=>accepted.has(a.complaintId))};
       if(!validateSyncPackage(payload).ok)return {ok:false,status:400,error:'تجاوز الدمج حدود البيانات المسموح بها.'};

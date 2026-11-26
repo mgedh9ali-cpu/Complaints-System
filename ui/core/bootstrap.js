@@ -58,6 +58,7 @@ function updateSignedInUi(){
 }
 function showLogin(){const overlay=$('#loginOverlay');if(overlay)overlay.hidden=false;$('#appShell')&&($('#appShell').hidden=true);document.body.dataset.signedIn='false';}
 async function logout(){
+  if(typeof cancelPendingSyncImport==='function')cancelPendingSyncImport();
   closeModal();
   if(typeof workdayListRows!=='undefined')workdayListRows=[];
   const draftKey=complaintDraftStorageKey();
