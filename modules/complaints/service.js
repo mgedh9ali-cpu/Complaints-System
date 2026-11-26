@@ -58,9 +58,24 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
   const statusUndos = new Map();
   const editUndos = new Map();
 
+  // The decoded state is kept in memory and keyed by the stored row header (revision + updated_at),
+  // so one action decodes it once instead of once per layer. Editing actions work on a private copy
+  // (readStateForWrite) and every write drops the entry (persistState), so a shared snapshot is never
+  // mutated or served after the stored bytes changed.
+  let stateCache = null;
+
+  function invalidateStateCache() { stateCache = null; }
+
   function readState() {
-    const row = db.prepare('SELECT state_json, updated_at, revision FROM app_state WHERE id = 1').get();
-    if (!row) return { state: emptyState(), updatedAt: null, revision: 0 };
+    const header = db.prepare('SELECT revision, updated_at FROM app_state WHERE id = 1').get();
+    if (!header) { invalidateStateCache(); return { state: emptyState(), updatedAt: null, revision: 0 }; }
+    const revision = Number(header.revision) || 0;
+    const updatedAt = header.updated_at || null;
+    if (stateCache && stateCache.revision === revision && stateCache.updatedAt === updatedAt) {
+      return { state: stateCache.state, updatedAt, revision };
+    }
+    const row = db.prepare('SELECT state_json FROM app_state WHERE id = 1').get();
+    if (!row) { invalidateStateCache(); return { state: emptyState(), updatedAt: null, revision: 0 }; }
     let state;
     try { state = storage.decodeJson(row.state_json, 'app-state'); }
     catch (error) { throw new Error('تعذر قراءة الحالة المحفوظة؛ أُوقف الحفظ لحماية البيانات.', { cause: error }); }
@@ -69,7 +84,27 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     if (!Array.isArray(state.notifications)) state.notifications = [];
     if (!Array.isArray(state.templates)) state.templates = [];
     if (!state.settings || typeof state.settings !== 'object') state.settings = {};
-    return { state, updatedAt: row.updated_at || null, revision: Number(row.revision) || 0 };
+    stateCache = { revision, updatedAt, state };
+    return { state, updatedAt, revision };
+  }
+
+  /**
+   * A mutating action swaps one record and appends to copied arrays, so it only needs its own
+   * complaints array: the cached snapshot and every snapshot already handed to a readState caller
+   * keep their records untouched, and an unchanged record keeps its identity.
+   */
+  function readStateForWrite() {
+    const snapshot = readState();
+    return { ...snapshot, state: { ...snapshot.state, complaints: (snapshot.state.complaints || []).slice() } };
+  }
+
+  /**
+   * Always the stored bytes: a bulk save compares the caller's proposal against exactly what is
+   * stored, even when the caller edited an object it received from the cache earlier.
+   */
+  function readStoredState() {
+    invalidateStateCache();
+    return readState();
   }
 
   function findIndex(state, complaintId) {
@@ -83,7 +118,12 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     return -1;
   }
 
-  function persistState(state, userId, now, nextRevision, auditEvents = [], expectedCurrentRevision = null, createdComplaint = null) {
+  function persistState(state, userId, now, nextRevision, auditEvents = [], {
+    expectedCurrentRevision = null, createdComplaint = null, previousComplaints = null
+  } = {}) {
+    // Drop the cached snapshot before writing so a failed or conflicting write is never served from
+    // memory afterwards, and the next read decodes the committed revision.
+    invalidateStateCache();
     const stateJson = storage.encodeJson(state, 'app-state');
     const actorId = userId || (db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get() || {}).id || null;
     if (!actorId) throw new Error('لا يوجد مستخدم لتسجيل تحديث الحالة.');
@@ -93,10 +133,11 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     }
     let conflict = false;
     const tx = db.transaction(() => {
-      // The create path already read this exact revision inside its write transaction.
-      // It only appends a new record, so comparing all previous payloads is unnecessary.
-      const existing = db.prepare(createdComplaint ? 'SELECT id, revision FROM app_state WHERE id = 1' : 'SELECT id, revision, state_json FROM app_state WHERE id = 1').get();
-      const previousComplaints = new Map((existing && !createdComplaint ? storage.decodeJson(existing.state_json, 'app-state').complaints || [] : []).map(c => [c.id, c]));
+      // The caller passes the complaints it already decoded, so the previous snapshot is never
+      // read and decrypted again inside the write (Issue #73).
+      const previousById = new Map();
+      for (const c of previousComplaints || []) if (c && typeof c.id === 'string') previousById.set(c.id, c);
+      const existing = db.prepare('SELECT revision FROM app_state WHERE id = 1').get();
       if (existing) {
         if (expectedCurrentRevision !== null && expectedCurrentRevision !== undefined) {
           const cas = db.prepare(
@@ -130,14 +171,14 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       }
       for (const c of createdComplaint ? [] : (state.complaints || [])) {
         if (!c || typeof c.id !== 'string') continue;
-        const previous = previousComplaints.get(c.id);
+        const previous = previousById.get(c.id);
+        // An unchanged record keeps its stored row (and its timestamp) instead of being re-encoded:
+        // actions replace a record by a copy, so an identical reference is an identical record.
+        if (previous === c) continue;
         if (previous && JSON.stringify(previous) === JSON.stringify(c)) continue;
         const payload = storage.encodeJson(c, 'complaint:' + c.id);
-        const row = db.prepare('SELECT id, payload_json FROM complaints WHERE id = ?').get(c.id);
+        const row = db.prepare('SELECT id FROM complaints WHERE id = ?').get(c.id);
         if (row) {
-          try {
-            if (JSON.stringify(storage.decodeJson(row.payload_json, 'complaint:' + c.id)) === JSON.stringify(c)) continue;
-          } catch (_) {}
           db.prepare('UPDATE complaints SET payload_json = ?, updated_at = ? WHERE id = ?').run(payload, now, c.id);
         } else {
           db.prepare(
@@ -158,7 +199,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
   }
 
   function saveState({ state, userId, expectedRevision, diffComplaints = defaultDiff, auditEvents = [] }) {
-    const current = readState();
+    const current = readStoredState();
     const currentRevision = Number(current.revision) || 0;
     if (expectedRevision === undefined || expectedRevision === null || Number.isNaN(Number(expectedRevision))) {
       return { conflict: true, currentRevision };
@@ -280,7 +321,9 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     if (JSON.stringify(current.state.settings || {}) !== JSON.stringify(state.settings || {})) {
       complaintChanges.push({ action: 'settings_updated', id: null, details: { before: current.state.settings || {}, after: state.settings || {} } });
     }
-    const persisted = persistState(state, userId, now, nextRevision, [...complaintChanges, ...auditEvents], currentRevision);
+    const persisted = persistState(state, userId, now, nextRevision, [...complaintChanges, ...auditEvents], {
+      expectedCurrentRevision: currentRevision, previousComplaints: current.state.complaints
+    });
     if (persisted && persisted.conflict) {
       return { conflict: true, currentRevision: readState().revision };
     }
@@ -291,7 +334,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
   }
 
   function createComplaintCore({ body, userId, username, asDraft = false }) {
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     const year = Number(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Damascus', year: 'numeric' }).format(new Date()));
     // The yearly counter is the only source of the next serial inside the write transaction;
     // reconcileCounters() aligns it with the archive at start-up and after an import.
@@ -318,7 +361,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     state.complaints = Array.isArray(state.complaints) ? state.complaints.slice() : [];
     state.complaints.push(complaint);
     const nextRevision = (Number(revision) || 0) + 1;
-    const persisted = persistState(state, userId, now, nextRevision, [{ action: asDraft ? 'complaint_draft_saved' : 'complaint_created', id, details: { status, revision: nextRevision } }], revision, complaint);
+    const persisted = persistState(state, userId, now, nextRevision, [{ action: asDraft ? 'complaint_draft_saved' : 'complaint_created', id, details: { status, revision: nextRevision } }], { expectedCurrentRevision: revision, createdComplaint: complaint });
     if(persisted.conflict)throw new Error('تغيرت البيانات أثناء إنشاء السجل؛ لم يُحفظ السجل.');
     return { ok: true, complaint, revision: nextRevision };
   }
@@ -331,7 +374,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
 
   function updateComplaint({ complaintId, body, userId, username }) {
     if(singleOperator&&['owner','coAssistants'].some(k=>Object.hasOwn(body||{},k)))return {ok:false,status:400,error:'الإسناد والمساعدون غير متاحين.'};
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
@@ -356,9 +399,10 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     complaint.updated = now;
     complaint.timeline = Array.isArray(complaint.timeline) ? complaint.timeline.slice() : [];
     complaint.timeline.unshift({ event: 'تعديل البيانات', by: username || 'system', at: now, detail: Object.keys(changes).join(', ') });
+    const previousComplaints = state.complaints.slice();
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision, [{ action: 'complaint_updated', id: complaintId, details: { changes } }]);
+    persistState(state, userId, now, nextRevision, [{ action: 'complaint_updated', id: complaintId, details: { changes } }], { previousComplaints });
     for (const [key,value] of editUndos) if(value.expiresAt<Date.now())editUndos.delete(key);
     if(editUndos.size>=100)editUndos.delete(editUndos.keys().next().value);
     const undoToken=crypto.randomBytes(32).toString('hex'),undoExpiresAt=Date.now()+60000;
@@ -371,25 +415,28 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     if(!record||record.complaintId!==complaintId)return {ok:false,status:409,error:'رمز التراجع غير صالح.'};
     if(record.userId!==userId)return {ok:false,status:403,error:'غير مصرح بالتراجع.'};
     if(record.changes.owner&&!roles.can(actorFor(userId),'complaints.assign'))return {ok:false,status:403,error:'ليس لديك صلاحية الإسناد.'};
-    const {state,revision}=readState(),idx=findIndex(state,complaintId);
+    const {state,revision}=readStateForWrite(),idx=findIndex(state,complaintId);
     if(Date.now()>record.expiresAt||revision!==record.revision||idx<0){editUndos.delete(token);return {ok:false,status:409,error:'انتهت مهلة التراجع أو وُجد تعديل أحدث.'};}
-    const complaint=state.complaints[idx];
+    const complaint={...state.complaints[idx]};
     if((complaint.archivedAt||['closed','cancelled'].includes(complaint.status)) && !(singleOperator && actorFor(userId)?.role==='admin'))return {ok:false,status:409,error:'لا يمكن التراجع بعد إغلاق السجل.'};
+    const previousComplaints=state.complaints.slice();
     const changes={};
     for(const [key,value] of Object.entries(record.changes)){
       changes[key]={before:complaint[key],after:value.before};
       if(value.before===undefined)delete complaint[key];else complaint[key]=value.before;
     }
     const now=new Date().toISOString();complaint.updated=now;
+    complaint.timeline=Array.isArray(complaint.timeline)?complaint.timeline.slice():[];
     complaint.timeline.unshift({event:'تراجع عن تعديل البيانات',by:username||'system',at:now,detail:Object.keys(changes).join(', ')});
-    persistState(state,userId,now,revision+1,[{action:'complaint_edit_undone',id:complaintId,details:{changes}}]);
+    state.complaints[idx]=complaint;
+    persistState(state,userId,now,revision+1,[{action:'complaint_edit_undone',id:complaintId,details:{changes}}],{previousComplaints});
     editUndos.delete(token);return {ok:true,complaint,revision:revision+1};
   }
 
   function changeStatus({ complaintId, toStatus, reason, userId, username, closureException, approvalId, completeProcessing = false }) {
     if (!complaintId || typeof complaintId !== 'string') return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
     if (['awaiting_reply', 'awaiting_approval'].includes(toStatus) || !Object.prototype.hasOwnProperty.call(ALLOWED_TRANSITIONS, toStatus)) return { ok: false, status: 400, error: 'حالة غير معروفة.' };
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
@@ -433,9 +480,10 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     complaint.statusHistory.push({ from: fromStatus, to: toStatus, at: now, by: username || null, reason: reason || null });
     complaint.timeline = Array.isArray(complaint.timeline) ? complaint.timeline.slice() : [];
     complaint.timeline.unshift({ event: 'تغيير الحالة', by: username || 'system', at: now, detail: `من ${STATUS_LABELS[fromStatus] || fromStatus} إلى ${STATUS_LABELS[toStatus] || toStatus}${reason ? ' — ' + reason : ''}` });
+    const previousComplaints = state.complaints.slice();
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision, [{ action: 'complaint_status_changed', id: complaintId, details: { from: fromStatus, to: toStatus, reason: reason || null } }]);
+    persistState(state, userId, now, nextRevision, [{ action: 'complaint_status_changed', id: complaintId, details: { from: fromStatus, to: toStatus, reason: reason || null } }], { previousComplaints });
     const undoToken = crypto.randomUUID();
     const undoExpiresAt = Date.now() + 60000;
     statusUndos.set(undoToken, {
@@ -465,7 +513,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       statusUndos.delete(token);
       return { ok: false, status: 409, error: 'انتهت صلاحية التراجع.' };
     }
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     if (Number(revision) !== Number(record.revision)) {
       statusUndos.delete(token);
       return { ok: false, status: 409, error: 'تغيرت مراجعة الحالة.' };
@@ -497,6 +545,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       by: username || 'system',
       detail: (STATUS_LABELS[record.to] || record.to) + ' ← ' + (STATUS_LABELS[record.from] || record.from)
     });
+    const previousComplaints = state.complaints.slice();
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
     statusUndos.delete(token);
@@ -504,7 +553,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       action: 'complaint_status_undone',
       id: record.complaintId || complaintId,
       details: { from: record.to, to: record.from }
-    }]);
+    }], { previousComplaints });
     return { ok: true, complaint, revision: nextRevision };
   }
 
@@ -516,7 +565,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     return result.ok ? { ...result, deletedId: complaintId } : result;
   }
   function archiveComplaint({ complaintId, userId, reason, approvalId } = {}) {
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
@@ -525,13 +574,14 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     complaint.archivedAt = now;
     complaint.archiveReason = reason || null;
     complaint.updated = now;
+    const previousComplaints = state.complaints.slice();
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision, [{ action: 'complaint_archived', id: complaintId, details: { reason: reason || null } }]);
+    persistState(state, userId, now, nextRevision, [{ action: 'complaint_archived', id: complaintId, details: { reason: reason || null } }], { previousComplaints });
     return { ok: true, complaint, revision: nextRevision };
   }
   function addReferral({ complaintId, entity, due, note, userId, username } = {}) {
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const prev = state.complaints[idx];
@@ -566,16 +616,17 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       at: now,
       detail: entity || ''
     });
+    const previousComplaints = state.complaints.slice();
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
     persistState(state, userId, now, nextRevision, [
       { action: 'complaint_referred', id: complaintId, details: { entity, due: due || null } },
       { action: 'complaint_status_changed', id: complaintId, details: { from: fromStatus, to: 'awaiting_reply' } }
-    ]);
+    ], { previousComplaints });
     return { ok: true, complaint, revision: nextRevision };
   }
   function recordReferralResponse({ complaintId, index, response, userId, username } = {}) {
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
@@ -585,13 +636,14 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     referrals[index] = { ...referrals[index], response: response || '', respondedAt: now, respondedBy: username || null };
     complaint.referrals = referrals;
     complaint.updated = now;
+    const previousComplaints = state.complaints.slice();
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision, [{ action: 'referral_response', id: complaintId, details: { index } }]);
+    persistState(state, userId, now, nextRevision, [{ action: 'referral_response', id: complaintId, details: { index } }], { previousComplaints });
     return { ok: true, complaint, revision: nextRevision };
   }
   function linkDuplicate({ complaintId, targetId, originalId, userId, username } = {}) {
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     const idx = findIndex(state, complaintId);
     targetId = targetId || originalId;
     const targetIdx = findIndex(state, targetId);
@@ -603,13 +655,14 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     const now = new Date().toISOString();
     complaint.duplicateOf = targetId;
     complaint.updated = now;
+    const previousComplaints = state.complaints.slice();
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision, [{ action: 'complaint_linked_duplicate', id: complaintId, details: { targetId } }]);
+    persistState(state, userId, now, nextRevision, [{ action: 'complaint_linked_duplicate', id: complaintId, details: { targetId } }], { previousComplaints });
     return { ok: true, complaint, revision: nextRevision };
   }
   function actOnReply({ complaintId, action, userId, username, text } = {}) {
-    const { state, revision } = readState();
+    const { state, revision } = readStateForWrite();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
@@ -625,12 +678,14 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     const reply = changed.reply;
     complaint.reply = reply;
     complaint.updated = now;
+    const previousComplaints = state.complaints.slice();
     state.complaints[idx] = complaint;
     const nextRevision = (Number(revision) || 0) + 1;
-    persistState(state, userId, now, nextRevision, [{ action: 'reply_' + action, id: complaintId, details: { status: reply.status } }]);
+    persistState(state, userId, now, nextRevision, [{ action: 'reply_' + action, id: complaintId, details: { status: reply.status } }], { previousComplaints });
     return { ok: true, complaint, revision: nextRevision };
   }
   function runReminders(asOf = new Date()) {
+    // Read-only while nothing is due, so an idle cycle never decrypts the archive again (Issue #73).
     const { state, revision } = readState();
     const now = asOf instanceof Date ? asOf : new Date(asOf);
     const configuredHours = Number(state.settings?.completionReminderHours);
@@ -653,11 +708,11 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       return { ...c, lastCompletionReminderAt: now.toISOString() };
     });
     if (!sent) return 0;
-    state.complaints = nextComplaints;
+    const previousComplaints = state.complaints;
     const nextRevision = (Number(revision) || 0) + 1;
     const systemUser = db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get();
     const safeSystemId = systemUser ? systemUser.id : null;
-    persistState(state, safeSystemId, now.toISOString(), nextRevision, events);
+    persistState({ ...state, complaints: nextComplaints }, safeSystemId, now.toISOString(), nextRevision, events, { previousComplaints });
     return sent;
   }
 
