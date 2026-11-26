@@ -228,6 +228,9 @@ function createSyncService({
           typeof complaint.updated === 'string' ? complaint.updated : now
         );
       }
+      // The imported snapshot is the new archive, so align the yearly counters with it
+      // inside the same transaction instead of scanning on every later creation (Issue #72).
+      if (typeof complaintsService.reconcileCounters === 'function') complaintsService.reconcileCounters();
       files.commitMetadata();
       mergeReminders(incomingReminders,accepted,userId);
       auditService.record(userId, 'sync_imported', 'sync', payload.syncId, {
