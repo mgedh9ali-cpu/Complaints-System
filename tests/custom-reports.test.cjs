@@ -20,7 +20,7 @@ test('custom HTML XML escape markup and CSV TSV guard formulas',async()=>{
  const m=buildModel(service,{columns:'id,summary'});
  for(const format of ['html','xml']){
   const result=(await encodeReport(m,format)).toString();
-  assert.ok(!result.includes('<script>'));assert.ok(result.includes('&lt;script&gt;'));
+  assert.ok(!result.includes('<script>alert(1)</script>'));assert.ok(result.includes('&lt;script&gt;'));if(format==='html'){assert.match(result,/sha256-[A-Za-z0-9+/=]+/);assert.ok(result.includes('report-search'));}
  }
  for(const format of ['csv','tsv'])assert.ok((await encodeReport(m,format)).toString().includes("'=1+1"));
  const json=JSON.parse((await encodeReport(m,'json')).toString());
