@@ -47,14 +47,15 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
     res.json({ csrfToken: sessionCsrfToken(req.session) });
   });
 
-  router.post('/auth/login', loginLimiter, (req, res, next) => {
+  router.post('/auth/login', loginLimiter, async (req, res, next) => {
+    try {
     const { username, password } = req.body || {};
     if (typeof username !== 'string' || typeof password !== 'string' || username.length > 100 || password.length > 200) {
       return res.status(400).json({ error: 'أدخل اسم المستخدم وكلمة المرور.' });
     }
     const code = req.body?.code;
     if (code !== undefined && (typeof code !== 'string' || code.length > 40)) return res.status(400).json({ error:'رمز التحقق غير صالح.' });
-    const result = authService.authenticate(username.trim(), password, code);
+    const result = await authService.authenticate(username.trim(), password, code);
     if (!result.ok) {
       return res.status(result.status || 401).json({ error: result.error || 'بيانات الدخول غير صحيحة.' });
     }
@@ -73,6 +74,9 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
         res.json({ user: { ...result.user, permissions: rolesService?.effectivePermissions(result.user) } });
       });
     });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post('/auth/activity',requireAuth,requireCsrf,(req,res)=>{
@@ -99,25 +103,30 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
       permissions: rolesService?.effectivePermissions(req.user) } });
   });
 
-  router.post('/auth/2fa/setup', requireAuth, requireCsrf, sensitiveLimiter, (req,res) => {
-    const result=authService.beginTwoFactor({userId:req.user.id,password:req.body?.password});
-    if(!result.ok)return res.status(result.status||400).json({error:result.error});
-    req.session.pendingTwoFactor=result.pending;
-    res.json({secret:result.secret,uri:result.uri});
+  router.post('/auth/2fa/setup', requireAuth, requireCsrf, sensitiveLimiter, async (req,res,next) => {
+    try {
+      const result=await authService.beginTwoFactor({userId:req.user.id,password:req.body?.password});
+      if(!result.ok)return res.status(result.status||400).json({error:result.error});
+      req.session.pendingTwoFactor=result.pending;
+      res.json({secret:result.secret,uri:result.uri});
+    } catch (error) { next(error); }
   });
   router.post('/auth/2fa/confirm', requireAuth, requireCsrf, sensitiveLimiter, (req,res) => {
     const result=authService.confirmTwoFactor({userId:req.user.id,pending:req.session.pendingTwoFactor,code:req.body?.code});
     res.status(result.ok?200:result.status||400).json(result);
   });
-  router.post('/auth/2fa/disable', requireAuth, requireCsrf, sensitiveLimiter, (req,res) => {
-    const result=authService.disableTwoFactor({userId:req.user.id,password:req.body?.password,code:req.body?.code});
-    res.status(result.ok?200:result.status||400).json(result);
+  router.post('/auth/2fa/disable', requireAuth, requireCsrf, sensitiveLimiter, async (req,res,next) => {
+    try {
+      const result=await authService.disableTwoFactor({userId:req.user.id,password:req.body?.password,code:req.body?.code});
+      res.status(result.ok?200:result.status||400).json(result);
+    } catch (error) { next(error); }
   });
 
-  router.post('/auth/change-password', requireAuth, requireCsrf, sensitiveLimiter, (req, res, next) => {
+  router.post('/auth/change-password', requireAuth, requireCsrf, sensitiveLimiter, async (req, res, next) => {
+    try {
     const body = req.body || {};
     const currentSid = req.sessionID || null;
-    const result = authService.changePassword({
+    const result = await authService.changePassword({
       userId: req.user.id,
       currentPassword: body.currentPassword,
       newPassword: body.newPassword,
@@ -140,6 +149,9 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
         });
       });
     });
+    } catch (error) {
+      next(error);
+    }
   });
 
   if(!singleOperator){
@@ -162,9 +174,10 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
     res.json({ user: { ...result.user, permissions: rolesService.effectivePermissions(result.user) } });
   });
 
-  router.post('/users', requireAuth, requireRole('admin'), requireCsrf, (req, res) => {
+  router.post('/users', requireAuth, requireRole('admin'), requireCsrf, async (req, res, next) => {
+    try {
     const body = req.body || {};
-    const result = authService.createUser({
+    const result = await authService.createUser({
       username: body.username,
       password: body.password,
       role: body.role,
@@ -174,6 +187,9 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
       return res.status(result.status || 400).json({ error: result.error || 'تعذر إنشاء المستخدم.' });
     }
     res.status(201).json({ user: result.user });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.patch('/users/:id/active', requireAuth, requireRole('admin'), requireCsrf, (req, res) => {

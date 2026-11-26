@@ -108,10 +108,10 @@ test('custom permissions are live, deny overrides work and administrative powers
   assert.equal(f.db.prepare('SELECT session_version AS n FROM users WHERE id=?').get('s1').n,1);
 });
 
-test('user creation rolls back with audit failure', t => {
+test('user creation rolls back with audit failure', async t => {
   const f=fixture(t);
   const auth=createAuthService({db:f.db,audit(){throw new Error('audit storage failed');}});
-  assert.throws(()=>auth.createUser({username:'newemployee',password:'Test-password-2026',role:'staff',actorId:'a1'}),/audit storage failed/);
+  await assert.rejects(()=>auth.createUser({username:'newemployee',password:'Test-password-2026',role:'staff',actorId:'a1'}),/audit storage failed/);
   assert.equal(f.db.prepare('SELECT id FROM users WHERE username=?').get('newemployee'),undefined);
 });
 
@@ -320,12 +320,12 @@ test('TOTP follows the RFC 6238 test vector and rejects old, malformed and repla
  assert.equal(verifyTotp(secret,'287082',{now:180000}),null);
 });
 
-test('two-factor enrollment encrypts its key, revokes sessions and consumes recovery codes once',t=>{
+test('two-factor enrollment encrypts its key, revokes sessions and consumes recovery codes once',async t=>{
  const f=fixture(t,true);const password='Test-password-for-MFA-2026';
- const result=f.auth.createUser({username:'secureduser',password,role:'staff',actorId:'a1'});assert.equal(result.ok,true);
+ const result=await f.auth.createUser({username:'secureduser',password,role:'staff',actorId:'a1'});assert.equal(result.ok,true);
  const userId=result.user.id;
- assert.equal(f.auth.beginTwoFactor({userId,password:'wrong'}).status,401);
- const setup=f.auth.beginTwoFactor({userId,password});assert.equal(setup.ok,true);
+ assert.equal((await f.auth.beginTwoFactor({userId,password:'wrong'})).status,401);
+ const setup=await f.auth.beginTwoFactor({userId,password});assert.equal(setup.ok,true);
  const {codeForStep}=require('../lib/totp');const step=Math.floor(Date.now()/30000);
  assert.equal(f.auth.confirmTwoFactor({userId,pending:setup.pending,code:'invalid'}).ok,false);
  const confirmed=f.auth.confirmTwoFactor({userId,pending:setup.pending,code:codeForStep(setup.secret,step)});
@@ -334,33 +334,33 @@ test('two-factor enrollment encrypts its key, revokes sessions and consumes reco
  assert.equal(row.totp_secret.includes(setup.secret),false);
  assert.equal(row.totp_recovery.includes(confirmed.recoveryCodes[0]),false);
  assert.equal(row.session_version,1);
- assert.equal(f.auth.authenticate('secureduser',password).ok,false);
- assert.equal(f.auth.authenticate('secureduser',password,confirmed.recoveryCodes[0]).ok,true);
- assert.equal(f.auth.authenticate('secureduser',password,confirmed.recoveryCodes[0]).ok,false);
+ assert.equal((await f.auth.authenticate('secureduser',password)).ok,false);
+ assert.equal((await f.auth.authenticate('secureduser',password,confirmed.recoveryCodes[0])).ok,true);
+ assert.equal((await f.auth.authenticate('secureduser',password,confirmed.recoveryCodes[0])).ok,false);
  const code=codeForStep(setup.secret,step+1);
- assert.equal(f.auth.authenticate('secureduser',password,code).ok,true);
- assert.equal(f.auth.authenticate('secureduser',password,code).ok,false);
- assert.equal(f.auth.disableTwoFactor({userId,password,code:confirmed.recoveryCodes[1]}).ok,true);
- assert.equal(f.auth.authenticate('secureduser',password).ok,true);
+ assert.equal((await f.auth.authenticate('secureduser',password,code)).ok,true);
+ assert.equal((await f.auth.authenticate('secureduser',password,code)).ok,false);
+ assert.equal((await f.auth.disableTwoFactor({userId,password,code:confirmed.recoveryCodes[1]})).ok,true);
+ assert.equal((await f.auth.authenticate('secureduser',password)).ok,true);
  assert.equal(f.auditService.verifyChain().ok,true);
 });
 
-test('long Unicode passwords do not collide after the bcrypt 72-byte boundary',()=>{
+test('long Unicode passwords do not collide after the bcrypt 72-byte boundary',async()=>{
  const {hashPassword,verifyPassword}=require('../lib/passwords');
  const prefix='كلمةمرورطويلة'.repeat(8),first=prefix+'أ',second=prefix+'ب';
- const hash=hashPassword(first);
- assert.equal(verifyPassword(first,hash),true);assert.equal(verifyPassword(second,hash),false);
+ const hash=await hashPassword(first);
+ assert.equal(await verifyPassword(first,hash),true);assert.equal(await verifyPassword(second,hash),false);
  const legacy=require('bcryptjs').hashSync('Legacy-password-2026',12);
- assert.equal(verifyPassword('Legacy-password-2026',legacy),true);
+ assert.equal(await verifyPassword('Legacy-password-2026',legacy),true);
 });
 
-test('successful legacy-password login upgrades its hash without changing the password or access',t=>{
+test('successful legacy-password login upgrades its hash without changing the password or access',async t=>{
  const f=fixture(t);const bcrypt=require('bcryptjs');
  f.db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(bcrypt.hashSync('Legacy-password-2026',12),'s1');
- assert.equal(f.auth.authenticate('employee','Legacy-password-2026').ok,true);
- assert.match(f.db.prepare('SELECT password_hash FROM users WHERE id=?').get('s1').password_hash,/^sha256-bcrypt-v1\$/);
+ assert.equal((await f.auth.authenticate('employee','Legacy-password-2026')).ok,true);
+ assert.match(f.db.prepare('SELECT password_hash FROM users WHERE id=?').get('s1').password_hash,/^sha256-scrypt-v1\$/);
  assert.ok(f.auditService.listEvents().some(e=>e.action==='password_hash_upgraded'));
- assert.equal(f.auth.authenticate('employee','Legacy-password-2026').ok,true);
+ assert.equal((await f.auth.authenticate('employee','Legacy-password-2026')).ok,true);
 });
 
 test('a committed audit event survives interrupted head publication and is recovered on restart',t=>{

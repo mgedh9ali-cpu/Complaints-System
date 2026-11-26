@@ -52,13 +52,13 @@ function setupDb() {
   return { db, dir };
 }
 
-test('changePassword rejects wrong current password and accepts valid change', () => {
+test('changePassword rejects wrong current password and accepts valid change', async () => {
   const { db, dir } = setupDb();
   try {
     const auth = createAuthService({ db, audit: () => {}, logger: null });
     auth.ensureBootstrapAdmin('adminuser', 'Old-password-12chars');
     const user = db.prepare('SELECT id FROM users WHERE username = ?').get('adminuser');
-    const bad = auth.changePassword({
+    const bad = await auth.changePassword({
       userId: user.id,
       currentPassword: 'wrong-password-xx',
       newPassword: 'New-password-12chars'
@@ -66,14 +66,14 @@ test('changePassword rejects wrong current password and accepts valid change', (
     assert.equal(bad.ok, false);
     assert.equal(bad.status, 401);
 
-    const good = auth.changePassword({
+    const good = await auth.changePassword({
       userId: user.id,
       currentPassword: 'Old-password-12chars',
       newPassword: 'New-password-12chars'
     });
     assert.equal(good.ok, true);
 
-    const login = auth.authenticate('adminuser', 'New-password-12chars');
+    const login = await auth.authenticate('adminuser', 'New-password-12chars');
     assert.equal(login.ok, true);
   } finally {
     db.close();
