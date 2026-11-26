@@ -171,11 +171,12 @@ test('workflow step shortcut persists allowed transitions through the status API
  assert.match(ui.node('#content').innerHTML,/قيد المعالجة/);
 });
 
-test('select all marks visible complaint rows and reveals bulk actions',async()=>{
- const ui=createFakeBrowser();for(let i=0;i<20;i++)await Promise.resolve();
- ui.goto('complaints');ui.click('select-all',undefined,{checked:true});
- assert.match(ui.node('#content').innerHTML,/تم تحديد 2 سجلًا/);
- assert.doesNotMatch(ui.node('#content').innerHTML,/bulk-assign/);
+test('registry has no selection column or bulk actions',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ ui.goto('complaints');const html=ui.node('#content').innerHTML;
+ assert.doesNotMatch(html,/row-check|select-all|bulkMount|bulk-open|bulk-priority|export-selected|clear-selection/);
+ assert.match(html,/SY-2026-10001/);
+ assert.match(html,/data-action="print-complaint-cover"/);
 });
 
 test('UI loads server state then opens complaint as an independent accessible workspace',async()=>{
