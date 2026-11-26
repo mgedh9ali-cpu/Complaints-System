@@ -148,7 +148,7 @@ test(
     assert.equal((await adminFetch('/api/users',{method:'POST',body:JSON.stringify({username:'reviewer1',role:'reviewer',password:'Review-password-2026'})})).status,410);
     const Database=require('better-sqlite3'),database=new Database(path.join(temp,'complaints.sqlite'));
     const {hashPassword}=require('../lib/passwords');
-    database.prepare('INSERT INTO users(id,username,password_hash,role,active,created_at) VALUES(?,?,?,?,1,?)').run('legacy-person','legacyadmin',hashPassword('Legacy-password-2026'),'admin',new Date().toISOString());
+    database.prepare('INSERT INTO users(id,username,password_hash,role,active,created_at) VALUES(?,?,?,?,1,?)').run('legacy-person','legacyadmin',await hashPassword('Legacy-password-2026'),'admin',new Date().toISOString());
     const secondary=await fetch(baseUrl+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'legacyadmin',password:'Legacy-password-2026'})});
     assert.equal(secondary.status,401);
     assert.equal(database.prepare('SELECT COUNT(*) AS n FROM users').get().n,2,'historical accounts must not be deleted');

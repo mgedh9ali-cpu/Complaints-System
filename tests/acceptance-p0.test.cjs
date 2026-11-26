@@ -57,7 +57,7 @@ test('acceptance: roles matrix blocks staff from backup and user admin', () => {
   assert.equal(roles.can('admin', 'sync.import'), true);
 });
 
-test('acceptance: password change and deactivate path work', () => {
+test('acceptance: password change and deactivate path work', async () => {
   const { db, dir } = setupDb();
   const sessionsDir = path.join(dir, 'sessions');
   fs.mkdirSync(sessionsDir);
@@ -69,16 +69,16 @@ test('acceptance: password change and deactivate path work', () => {
       path.join(sessionsDir, 'old.json'),
       JSON.stringify({ user: { id: user.id } })
     );
-    const changed = auth.changePassword({
+    const changed = await auth.changePassword({
       userId: user.id,
       currentPassword: 'Admin-password-12',
       newPassword: 'Admin-password-99',
       keepSessionId: null
     });
     assert.equal(changed.ok, true);
-    assert.equal(auth.authenticate('adminuser', 'Admin-password-99').ok, true);
+    assert.equal((await auth.authenticate('adminuser', 'Admin-password-99')).ok, true);
 
-    const staff = auth.createUser({
+    const staff = await auth.createUser({
       username: 'staffone',
       password: 'Staff-password-12',
       role: 'staff',

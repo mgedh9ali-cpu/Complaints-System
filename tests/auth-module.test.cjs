@@ -21,7 +21,7 @@ function setupDb() {
   return db;
 }
 
-test('auth service bootstrap, create, authenticate, deactivate', () => {
+test('auth service bootstrap, create, authenticate, deactivate', async () => {
   const db = setupDb();
   const audits = [];
   const service = createAuthService({
@@ -32,15 +32,15 @@ test('auth service bootstrap, create, authenticate, deactivate', () => {
   service.ensureBootstrapAdmin('admin', 'Admin-password-2026');
   assert.equal(service.listUsers().length, 1);
 
-  const authOk = service.authenticate('admin', 'Admin-password-2026');
+  const authOk = await service.authenticate('admin', 'Admin-password-2026');
   assert.equal(authOk.ok, true);
   assert.equal(authOk.user.role, 'admin');
 
-  const authFail = service.authenticate('admin', 'wrong');
+  const authFail = await service.authenticate('admin', 'wrong');
   assert.equal(authFail.ok, false);
   assert.equal(authFail.status, 401);
 
-  const created = service.createUser({
+  const created = await service.createUser({
     username: 'staff1',
     password: 'Staff-password-2026',
     role: 'staff',
@@ -48,7 +48,7 @@ test('auth service bootstrap, create, authenticate, deactivate', () => {
   });
   assert.equal(created.ok, true);
 
-  const weak = service.createUser({
+  const weak = await service.createUser({
     username: 'x',
     password: 'short',
     role: 'staff',

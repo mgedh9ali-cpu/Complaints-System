@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const {hashPassword,verifyPassword,needsUpgrade}=require('../../lib/passwords');
+const {hashPassword,hashPasswordSync,verifyPassword,needsUpgrade}=require('../../lib/passwords');
 const { revokeUserSessions } = require('../../lib/session-revoke');
 const { isValidUsername, isValidPassword } = require('../../lib/validation');
 const { createRolesService, CUSTOMIZABLE } = require('../roles/service');
@@ -55,7 +55,7 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
     }
   }
 
-  function authenticate(username, password, secondFactor) {
+  async function authenticate(username, password, secondFactor) {
     if (
       typeof username !== 'string' ||
       typeof password !== 'string' ||
@@ -65,16 +65,20 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
       return { ok: false, status: 400, error: 'أدخل اسم المستخدم وكلمة المرور.' };
     }
     const user = findByUsername(username.trim());
-    // Always run bcrypt (dummy path when user missing) to prevent timing-based username enumeration.
-    const matches = verifyPassword(password, user ? user.password_hash : null);
+    // Always verify a password (dummy path when the user is missing) so that
+    // timing cannot be used to enumerate accounts.
+    const matches = await verifyPassword(password, user ? user.password_hash : null);
     if (!user || !matches || user.active !== 1) {
       if (user && typeof audit === 'function') audit(user.id, 'login_failed', 'user', user.id);
       return { ok: false, status: 401, error: 'بيانات الدخول غير صحيحة.' };
     }
+    // Legacy hashes are upgraded after a successful login. The hash is computed
+    // outside the transaction because it runs in the worker pool.
+    const upgradedHash = needsUpgrade(user.password_hash) ? await hashPassword(password) : null;
     const accepted = db.transaction(() => {
       if (user.totp_secret && !consumeSecondFactor(user, secondFactor)) return false;
-      if(needsUpgrade(user.password_hash)){
-        db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(hashPassword(password),user.id);
+      if(upgradedHash){
+        db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(upgradedHash,user.id);
         if(typeof audit==='function')audit(user.id,'password_hash_upgraded','user',user.id,{});
       }
       if (typeof audit === 'function') audit(user.id, 'login_succeeded', 'user', user.id, { twoFactor: Boolean(user.totp_secret) });
@@ -91,13 +95,13 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
     };
   }
 
-  function createUser({ username, password, role, actorId }) {
+  async function createUser({ username, password, role, actorId }) {
     if (!isValidUsername(username) || !isValidPassword(password) || !ROLES.includes(role)) {
       return { ok: false, status: 400, error: 'اسم المستخدم أو كلمة المرور أو الدور غير صالح.' };
     }
     const id = crypto.randomUUID();
     const normalizedUsername = username.trim();
-    const passwordHash = hashPassword(password);
+    const passwordHash = await hashPassword(password);
     try {
       db.transaction(() => { db.prepare(
         'INSERT INTO users(id, username, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, 1, ?)'
@@ -150,7 +154,7 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
     };
   }
 
-  function changePassword({ userId, currentPassword, newPassword, keepSessionId }) {
+  async function changePassword({ userId, currentPassword, newPassword, keepSessionId }) {
     if (typeof currentPassword !== 'string' || currentPassword.length > 200 || typeof newPassword !== 'string') {
       return { ok: false, status: 400, error: 'أدخل كلمة المرور الحالية والجديدة.' };
     }
@@ -164,11 +168,11 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
     if (!user || user.active !== 1) {
       return { ok: false, status: 401, error: 'الحساب غير موجود أو غير فعال.' };
     }
-    if (!verifyPassword(currentPassword, user.password_hash)) {
+    if (!(await verifyPassword(currentPassword, user.password_hash))) {
       if (typeof audit === 'function') audit(userId, 'password_change_failed', 'user', userId, {});
       return { ok: false, status: 401, error: 'كلمة المرور الحالية غير صحيحة.' };
     }
-    const passwordHash = hashPassword(newPassword);
+    const passwordHash = await hashPassword(newPassword);
     db.transaction(() => {
       db.prepare('UPDATE users SET password_hash = ?, session_version = session_version + 1 WHERE id = ?').run(passwordHash, userId);
       if (typeof audit === 'function') audit(userId, 'password_changed', 'user', userId, {});
@@ -182,7 +186,7 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
   function ensureBootstrapAdmin(adminUsername, adminPassword) {
     const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
     if (userCount > 0) return null;
-    const passwordHash = hashPassword(adminPassword);
+    const passwordHash = hashPasswordSync(adminPassword);
     const id = crypto.randomUUID();
     db.transaction(() => { db.prepare(
       'INSERT INTO users(id, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)'
@@ -236,9 +240,9 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
     return used;
   }
 
-  function beginTwoFactor({userId,password}) {
+  async function beginTwoFactor({userId,password}) {
     const user=findByIdWithHash(userId);
-    if (!user || typeof password!=='string' || password.length>200 || !verifyPassword(password,user.password_hash)) return {ok:false,status:401,error:'كلمة المرور الحالية غير صحيحة.'};
+    if (!user || typeof password!=='string' || password.length>200 || !(await verifyPassword(password,user.password_hash))) return {ok:false,status:401,error:'كلمة المرور الحالية غير صحيحة.'};
     if (!storage.enabled) return {ok:false,status:409,error:'يلزم تفعيل تشفير التخزين قبل إعداد التحقق الثنائي.'};
     const enabled=db.prepare('SELECT totp_secret FROM users WHERE id=?').get(userId)?.totp_secret;
     if(enabled)return {ok:false,status:409,error:'التحقق الثنائي مفعل بالفعل.'};
@@ -264,9 +268,10 @@ function createAuthService({ db, audit, logger, sessionsDir }) {
     return {ok:true,recoveryCodes};
   }
 
-  function disableTwoFactor({userId,password,code}) {
+  async function disableTwoFactor({userId,password,code}) {
     const user=db.prepare('SELECT * FROM users WHERE id=?').get(userId);
-    if(!user?.totp_secret||typeof password!=='string'||password.length>200||!verifyPassword(password,user.password_hash)||!consumeSecondFactor(user,code))return {ok:false,status:401,error:'كلمة المرور أو رمز التحقق غير صحيح.'};
+    if(!user?.totp_secret||typeof password!=='string'||password.length>200)return {ok:false,status:401,error:'كلمة المرور أو رمز التحقق غير صحيح.'};
+    if(!(await verifyPassword(password,user.password_hash))||!consumeSecondFactor(user,code))return {ok:false,status:401,error:'كلمة المرور أو رمز التحقق غير صحيح.'};
     db.transaction(()=>{
       db.prepare('UPDATE users SET totp_secret=NULL,totp_recovery=NULL,totp_last_step=-1,session_version=session_version+1 WHERE id=?').run(userId);
       if(typeof audit==='function')audit(userId,'two_factor_disabled','user',userId,{});
