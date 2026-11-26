@@ -4,7 +4,7 @@ let recordTypeFilter='all';
 let dateFrom='';
 let dateTo='';
 let registryAdvancedOpen=false;
-const registryQueueLabels={all:'كل السجلات',late:'متجاوزة المهلة','due-soon':'تستحق خلال 48 ساعة',missing:'بيانات غير مكتملة','urgent-no-reply':'عاجلة بلا رد','waiting-referrals':'بانتظار رد جهة','new-today':'جديدة اليوم',archived:'الأرشيف'};
+const registryQueueLabels={all:'كل السجلات',late:'متجاوزة المهلة','due-soon':'تستحق خلال 48 ساعة',missing:'بيانات غير مكتملة','urgent-no-reply':'عاجلة بلا رد','new-today':'جديدة اليوم',archived:'الأرشيف'};
 function normalizeRegistryQueue(value){return Object.hasOwn(registryQueueLabels,value)?value:'all';}
 function waitingForReferral(c){return !c.archivedAt&&!['closed','cancelled'].includes(c.status)&&(c.status==='awaiting_reply'||(c.referrals||[]).some(r=>!r.response&&!r.completedAt));}
 function resetRegistryFilters(){
@@ -99,7 +99,7 @@ function filters(){
   return '<div class="table-tools registry-tools">'+
   '<div class="search-box registry-search"><span aria-hidden="true">⌕</span><input class="field" id="complaintSearch" aria-label="بحث في الشكاوى" placeholder="ابحث بالرقم أو الاسم أو الهاتف أو النص..." value="'+esc(searchText)+'"></div>'+
   '<div class="filter-group" role="group" aria-label="تصفية الحالة والأولوية">'+
-  '<select class="select-field" id="statusFilter" aria-label="تصفية حسب الحالة"><option value="all">كل الحالات</option>'+['draft','new','in_progress','awaiting_reply','awaiting_approval','closed','cancelled'].map(s=>'<option value="'+s+'" '+(statusFilter===s?'selected':'')+'>'+statusLabel(s)+'</option>').join('')+'</select>'+
+  '<select class="select-field" id="statusFilter" aria-label="تصفية حسب الحالة"><option value="all">كل الحالات</option>'+['draft','new','in_progress','closed','cancelled'].map(s=>'<option value="'+s+'" '+(statusFilter===s?'selected':'')+'>'+statusLabel(s)+'</option>').join('')+'</select>'+
   '<select class="select-field" id="priorityFilter" aria-label="تصفية حسب الأولوية"><option value="all">كل الأولويات</option>'+['urgent','high','normal','low'].map(p=>'<option value="'+p+'" '+(priorityFilter===p?'selected':'')+'>'+priorityLabel(p)+'</option>').join('')+'</select>'+
   '</div>'+
   '<details class="registry-advanced" id="registryAdvanced" '+(registryAdvancedOpen?'open':'')+'><summary>مرشحات إضافية <span class="small-copy">التصنيف والطبيعة والتاريخ</span></summary><div class="registry-advanced-fields">'+
@@ -131,7 +131,7 @@ function filteredComplaints(){
   return db.complaints.filter(c=>
     (quickView==='archived'?Boolean(c.archivedAt):!c.archivedAt)&&
     (!q||norm([c.id,c.name,c.phone,c.province,c.entity,c.category,c.nature,c.summary,c.details].join(' ')).includes(q))&&
-    (statusFilter==='all'||c.status===statusFilter)&&
+    (statusFilter==='all'||c.status===statusFilter||(statusFilter==='in_progress'&&['awaiting_reply','awaiting_approval'].includes(c.status)))&&
     (priorityFilter==='all'||c.priority===priorityFilter)&&
     (categoryFilter==='all'||c.category===categoryFilter)&&
     (natureFilter==='all'||(c.nature||'')===natureFilter)&&
@@ -141,7 +141,6 @@ function filteredComplaints(){
       (quickView==='late'&&isLate(c))||
       (quickView==='due-soon'&&isDueSoon(c))||
       (quickView==='missing'&&isIncomplete(c))||
-      (quickView==='waiting-referrals'&&waitingForReferral(c))||
       (quickView==='new-today'&&!['closed','cancelled'].includes(c.status)&&isCreatedToday(c))||
       (quickView==='urgent-no-reply'&&c.priority==='urgent'&&!c.reply))
   );
@@ -158,6 +157,6 @@ function complaintsPage(){
   return heading('سجل الشكاوى والاستفسارات','ابحث بالعربية مع تجاهل التشكيل. زر «بحث عام» لأي رقم أو اسم أو هاتف.',(!uiCan('complaints.create')?'':btn('＋ تسجيل سجل جديد','new-complaint','btn-primary'))+(uiCan('export.xlsx')?btn('تصدير PDF','export-registry-pdf'):'')+btn('أعمدة السجل','registry-columns')+(selectedIds.size?btn('إجراءات جماعية','bulk-open'):''))+
   activeRegistryFiltersHtml()+
   '<div class="registry-summary" aria-label="ملخص النتائج"><span class="reg-sum-item"><strong>'+rows.length+'</strong> نتيجة</span><span class="reg-sum-item">مفتوحة: <strong>'+openN+'</strong></span><span class="reg-sum-item'+(lateN?' is-late':'')+'">متأخرة: <strong>'+lateN+'</strong></span><span class="reg-sum-item muted">صفحة '+registryPage+' / '+totalPages+'</span></div>'+
-  '<div class="filters-row registry-chips"><button class="filter-chip '+(quickView==='all'?'active':'')+'" data-action="quick-filter" data-value="all">كل السجلات</button><button class="filter-chip '+(recordTypeFilter==='complaint'?'active':'')+'" data-action="filter-record-type" data-value="complaint">شكاوى فقط</button><button class="filter-chip '+(recordTypeFilter==='inquiry'?'active':'')+'" data-action="filter-record-type" data-value="inquiry">استفسارات فقط</button><button class="filter-chip '+(recordTypeFilter==='contact'?'active':'')+'" data-action="filter-record-type" data-value="contact">تواصل فقط</button><button class="filter-chip '+(quickView==='urgent-no-reply'?'active':'')+'" data-action="urgent-no-reply">عاجلة بلا رد</button><button class="filter-chip '+(quickView==='waiting-referrals'?'active':'')+'" data-action="registry-queue" data-queue="waiting-referrals">بانتظار رد جهة</button><button class="filter-chip" data-goto="replies">تنتظر الاعتماد</button><button class="filter-chip '+(quickView==='late'?'active':'')+'" data-action="filter-late">متجاوزة المهلة</button><button class="filter-chip '+(quickView==='missing'?'active':'')+'" data-action="quick-filter" data-value="missing">بيانات غير مكتملة</button><button class="filter-chip '+(quickView==='archived'?'active':'')+'" data-action="quick-filter" data-value="archived">الأرشيف</button></div>'+
+  '<div class="filters-row registry-chips"><button class="filter-chip '+(quickView==='all'?'active':'')+'" data-action="quick-filter" data-value="all">كل السجلات</button><button class="filter-chip '+(recordTypeFilter==='complaint'?'active':'')+'" data-action="filter-record-type" data-value="complaint">شكاوى فقط</button><button class="filter-chip '+(recordTypeFilter==='inquiry'?'active':'')+'" data-action="filter-record-type" data-value="inquiry">استفسارات فقط</button><button class="filter-chip '+(recordTypeFilter==='contact'?'active':'')+'" data-action="filter-record-type" data-value="contact">تواصل فقط</button><button class="filter-chip '+(quickView==='urgent-no-reply'?'active':'')+'" data-action="urgent-no-reply">عاجلة بلا رد</button><button class="filter-chip '+(quickView==='late'?'active':'')+'" data-action="filter-late">متجاوزة المهلة</button><button class="filter-chip '+(quickView==='missing'?'active':'')+'" data-action="quick-filter" data-value="missing">بيانات غير مكتملة</button><button class="filter-chip '+(quickView==='archived'?'active':'')+'" data-action="quick-filter" data-value="archived">الأرشيف</button></div>'+
   '<section class="panel table-panel registry-panel">'+filters()+'<div id="bulkMount">'+(selectedIds.size?'<div class="bulk-bar"><span>تم تحديد '+selectedIds.size+' سجلًا</span><div class="footer-actions"><button class="btn btn-sm" data-action="bulk-priority">تغيير الأولوية</button><button class="btn btn-sm" data-action="export-selected">تصدير المحدد</button><button class="btn btn-sm btn-quiet" data-action="clear-selection">إلغاء التحديد</button></div></div>':'')+'</div>'+complaintTable(visibleRows,{select:true,layout:layout,emptyMessage:db.complaints.length?'لا توجد شكاوى تطابق المرشحات الحالية. امسح المرشحات لعرض السجل.':'لا توجد شكاوى مسجلة بعد. يمكنك تسجيل سجل جديد.'})+'<div class="table-footer registry-footer"><span>عرض '+(visibleRows.length?((registryPage-1)*50+1):0)+'–'+((registryPage-1)*50+visibleRows.length)+' من '+rows.length+'</span><div class="pager"><button class="btn btn-sm" data-action="registry-prev" '+(registryPage<=1?'disabled':'')+'>السابق</button> <span class="pager-label">'+registryPage+' / '+totalPages+'</span> <button class="btn btn-sm" data-action="registry-next" '+(registryPage>=totalPages?'disabled':'')+'>التالي</button></div></div></section>';
 }
