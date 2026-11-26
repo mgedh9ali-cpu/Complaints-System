@@ -110,3 +110,69 @@ test('HTTP acceptance: sole operator, disabled staff APIs, attachments, confirma
  assert.equal(logout.status,403,'logout must retain CSRF protection');
  assert.equal((await request(reviewer,'/api/auth/logout','POST',{})).status,200);
 });
+
+test('startup uses the existing owner when initial admin configuration is invalid', { timeout: 30000 }, async t => {
+  const { spawnSync } = require('node:child_process');
+  const { openDatabase } = require('../config/db');
+  const { createAuthService } = require('../modules/auth/service');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'complaints-owner-startup-'));
+  let child;
+  t.after(async () => {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      const exit = new Promise(resolve => child.once('exit', resolve));
+      child.kill();
+      await exit;
+    }
+    fs.rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  const port = await freePort();
+  const password = 'Test-owner-password-2026';
+  const env = {
+    ...process.env,
+    HOST: '127.0.0.1', PORT: String(port), ALLOW_LAN: 'false', COOKIE_SECURE: 'false',
+    SESSION_SECRET: 'test-only-owner-session-secret-2026',
+    DATA_KEY: 'test-only-owner-storage-secret-2026',
+    BACKUP_SECRET: 'test-only-owner-backup-secret-2026',
+    ADMIN_USERNAME: 'invalid owner name', ADMIN_PASSWORD: 'x'.repeat(201),
+    DATABASE_PATH: path.join(directory, 'office.sqlite'),
+    SESSIONS_DIR: path.join(directory, 'sessions'),
+    INSTANCE_ID_PATH: path.join(directory, 'instance'),
+    BACKUP_DIR: path.join(directory, 'backups')
+  };
+  const cwd = path.join(__dirname, '..');
+  const fresh = spawnSync(process.execPath, ['server.js'], { cwd, env, encoding: 'utf8', timeout: 7000 });
+  assert.equal(fresh.status, 1, fresh.stderr);
+  assert.match(fresh.stderr, /ADMIN_USERNAME/);
+  const badPassword = spawnSync(process.execPath, ['server.js'], {
+    cwd, env: { ...env, ADMIN_USERNAME: 'existing-owner' }, encoding: 'utf8', timeout: 7000
+  });
+  assert.equal(badPassword.status, 1, badPassword.stderr);
+  assert.match(badPassword.stderr, /ADMIN_PASSWORD/);
+
+  const db = openDatabase(env.DATABASE_PATH, { storageKey: env.DATA_KEY });
+  const ownerId = createAuthService({ db }).ensureBootstrapAdmin('existing-owner', password);
+  db.close();
+
+  child = spawn(process.execPath, ['server.js'], { cwd, env, stdio: ['ignore', 'ignore', 'pipe'] });
+  let output = '';
+  child.stderr.on('data', data => { output += data; });
+
+  const base = 'http://127.0.0.1:' + port;
+  let online = false;
+  for (let attempt = 0; attempt < 100 && !online; attempt++) {
+    assert.equal(child.exitCode, null, output);
+    try {
+      online = (await fetch(base + '/api/health')).ok;
+    } catch {}
+    if (!online) await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  assert.ok(online, output);
+  const response = await fetch(base + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'existing-owner', password })
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).user.id, ownerId);
+});

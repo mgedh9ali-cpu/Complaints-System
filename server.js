@@ -15,7 +15,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 
-const { loadEnv } = require('./config/env');
+const { loadEnv, loadBootstrapAdmin } = require('./config/env');
 const { openDatabase } = require('./config/db');
 const { createSessionMiddleware } = require('./config/session');
 const { createHelmetMiddleware } = require('./config/security');
@@ -92,10 +92,16 @@ const authService = createAuthService({
   logger,
   sessionsDir: env.sessionsDir
 });
-measureStartupPhase('bootstrapAccount', () => authService.ensureBootstrapAdmin(env.adminUsername, env.adminPassword));
+measureStartupPhase('bootstrapAccount', () => {
+  if (db.prepare('SELECT 1 FROM users LIMIT 1').get()) return;
+  const { username, password } = loadBootstrapAdmin();
+  authService.ensureBootstrapAdmin(username, password);
+});
 
 const middleware = createAuthMiddleware({ db, audit });
-const rejectTeamOperations=require('./lib/single-operator').installSingleOperator({db,authService,middleware,username:env.adminUsername});
+const rejectTeamOperations = require('./lib/single-operator').installSingleOperator({
+  db, authService, middleware, username: process.env.ADMIN_USERNAME?.trim()
+});
 const { ensureCsrfToken } = middleware;
 
 const rolesService = createRolesService({ db, audit });

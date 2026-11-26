@@ -4,9 +4,11 @@ const path = require('node:path');
 const { version } = require('../package.json');
 const { isValidUsername, isValidPassword } = require('../lib/validation');
 
+const placeholder = /^(?:replace[-_ ]with|change[-_ ]me)\b/i;
+
 function requiredEnv(name, minLength = 1) {
   const value = process.env[name];
-  if (!value || value.length < minLength || /^replace[-_ ]with\b/i.test(value.trim()) || /^change[-_ ]me\b/i.test(value.trim())) {
+  if (!value || value.length < minLength || placeholder.test(value.trim())) {
     throw new Error(`Missing or too-short environment variable: ${name}`);
   }
   return value;
@@ -38,17 +40,11 @@ function loadEnv() {
     throw new Error('SESSION_SECRET, DATA_KEY and BACKUP_SECRET must be three distinct values.');
   }
 
-  const adminUsername = requiredEnv('ADMIN_USERNAME', 3).trim();
-  const adminPassword = requiredEnv('ADMIN_PASSWORD', 12);
-  if (!isValidUsername(adminUsername) || !isValidPassword(adminPassword)) throw new Error('Invalid ADMIN_USERNAME or ADMIN_PASSWORD.');
-
   return {
     host,
     port,
     sessionSecret,
     storageKey,
-    adminUsername,
-    adminPassword,
     databasePath,
     sessionsDir: path.resolve(process.env.SESSIONS_DIR || path.join(dataDir, 'sessions')),
     instanceIdPath: path.resolve(
@@ -60,4 +56,15 @@ function loadEnv() {
   };
 }
 
-module.exports = { loadEnv, requiredEnv };
+function loadBootstrapAdmin() {
+  const { ADMIN_USERNAME, ADMIN_PASSWORD } = process.env;
+  if (!isValidUsername(ADMIN_USERNAME) || placeholder.test(ADMIN_USERNAME.trim())) {
+    throw new Error('تعذر إنشاء حساب المدير الأول. اضبط ADMIN_USERNAME باسم من 3 إلى 64 حرفًا دون مسافات.');
+  }
+  if (!isValidPassword(ADMIN_PASSWORD) || placeholder.test(ADMIN_PASSWORD.trim())) {
+    throw new Error('تعذر إنشاء حساب المدير الأول. اضبط ADMIN_PASSWORD بكلمة مرور من 12 إلى 200 حرف.');
+  }
+  return { username: ADMIN_USERNAME.trim(), password: ADMIN_PASSWORD };
+}
+
+module.exports = { loadEnv, loadBootstrapAdmin, requiredEnv };
