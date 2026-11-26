@@ -828,3 +828,43 @@ html .intake-quick .intake-save-actions > [data-action="intake-settings"] {
   .intake-quick .intake-save-actions > .small-copy { flex-basis: 100%; margin: 0; }
   html .intake-quick .intake-save-actions > .btn { flex: 1 1 80px; min-width: 0; }
 }
+
+
+/* Settings workspace: scoped to the settings page. */
+.settings-workspace { display:grid; gap:16px; min-width:0; }
+.settings-nav { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr)); gap:8px; padding:10px; }
+.settings-nav .btn { min-height:46px; white-space:normal; text-align:start; justify-content:flex-start; gap:8px; }
+.settings-nav .btn[aria-pressed="true"] { border-color:currentColor; font-weight:700; }
+.settings-content { display:grid; gap:12px; min-width:0; }
+.settings-content > .panel { margin:0 !important; min-width:0; }
+.settings-content .panel-header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; padding:16px 20px; }
+.settings-content .panel-body { padding:16px 20px; min-width:0; }
+.settings-content .footer-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.settings-content .btn { white-space:normal; }
+.settings-preferences-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:start; }
+.settings-preferences-grid .form-field { min-width:0; }
+.settings-preferences-grid .select-field { width:100%; min-width:0; }
+.settings-content .settings-toggle { display:flex; align-items:center; gap:10px; padding:12px 0; }
+.settings-content .settings-toggle input { accent-color:var(--accent,#355436); width:19px; height:19px; flex:none; }
+.settings-option-groups { display:grid; gap:8px; }
+.settings-option-groups > details { border:1px solid var(--line, #a9b8a4); border-radius:12px; padding:0 12px; min-width:0; }
+.settings-option-groups > details > summary { cursor:pointer; padding:12px 2px; font-weight:700; }
+.settings-option-groups > details[open] { padding-block-end:12px; }
+.settings-option-count { font-weight:400; font-size:.85em; margin-inline-start:10px; }
+.settings-content .setting-row { gap:12px; flex-wrap:wrap; min-width:0; }
+.settings-content .setting-row > div:first-child { min-width:0; overflow-wrap:anywhere; }
+.settings-content .dp-status-grid { grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:10px; }
+.settings-content .dp-status-card { min-width:0; min-height:0; padding:14px; overflow-wrap:anywhere; }
+.settings-content .dp-status-card::before,.settings-content .dp-status-card::after { display:none; }
+.settings-content .data-protection-center code { overflow-wrap:anywhere; white-space:normal; }
+.settings-content #dpIntervalMinutes,.settings-content #sessionIdleMinutes { max-width:320px; }
+.settings-content .panel-body > p { line-height:1.65; }
+.settings-content .settings-table-scroll { overflow-x:auto; }
+@media(max-width:850px) {
+  .settings-content .dp-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+@media(max-width:560px) {
+  .settings-preferences-grid,.settings-content .dp-status-grid { grid-template-columns:minmax(0,1fr) !important; }
+  .settings-content .panel-body,.settings-content .panel-header { padding:12px; }
+  .settings-nav { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
