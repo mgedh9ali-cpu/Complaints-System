@@ -24,7 +24,8 @@ function createAttachmentsRouter({
   audit,
   rolesService,
   complaintsService,
-  db
+  db,
+  singleOperator = false
 }) {
   const router = express.Router();
   const { requireAuth, requireCsrf } = middleware;
@@ -173,7 +174,20 @@ function createAttachmentsRouter({
       if (!complaintExists(parsed.complaintId)) {
         return res.status(404).json({ error: 'الشكوى المرتبطة بالملف غير موجودة.' });
       }
-      res.status(409).json({ error: 'قدّم طلب حذف من مسار الموافقات؛ يلزم قرار مدير مختلف عن مقدم الطلب.' });
+      if (!singleOperator || req.user.role !== 'admin') return res.status(409).json({ error: 'قدّم طلب حذف من مسار الموافقات.' });
+      if (!attachmentsService.getPath(parsed.storedName)) return res.status(404).json({error:'المرفق غير موجود.'});
+      let archived;
+      try {
+        db.transaction(() => {
+          archived = attachmentsService.archive(parsed.storedName);
+          audit(req.user.id, 'attachment_deleted', 'attachment', parsed.storedName, {reason, retainedInArchive:true, complaintId:parsed.complaintId});
+        })();
+      } catch (error) {
+        if (archived) attachmentsService.restoreArchived(archived);
+        throw error;
+      }
+      audit.syncHead?.();
+      res.json({ok:true, retainedInArchive:true});
     }
   );
 

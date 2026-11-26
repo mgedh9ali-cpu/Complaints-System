@@ -117,7 +117,7 @@ async function retryIncompleteRecords(){
 }
 
 function dashboardBriefRank(tasks){
-  const order={'urgent-no-reply':0,'new-today':1,missing:2};
+  const order={late:0,'urgent-no-reply':1,'due-soon':2,missing:3,'new-today':4};
   return [...tasks].sort((a,b)=>(order[a.key]??99)-(order[b.key]??99));
 }
 
@@ -125,6 +125,7 @@ function dashboard(){
   const open=db.complaints.filter(c=>!c.archivedAt&&!['closed','cancelled'].includes(c.status));
   const urgentNoReply=open.filter(c=>c.priority==='urgent'&&!c.reply);
   const newToday=open.filter(isCreatedToday);
+  const late=open.filter(isLate), dueSoon=open.filter(c=>isDueSoon(c));
   const missing=incompleteRecords();
   const priority=[...open].sort((a,b)=>{
     const score=c=>(c.priority==='urgent'?-1e12:c.priority==='high'?-1e11:0)+(isIncomplete(c)?-1e9:0);
@@ -133,6 +134,8 @@ function dashboard(){
   }).slice(0,5);
 
   const rawTasks=[
+    {key:'late',n:late.length,color:'red',icon:'!',label:'سجلات تجاوزت المهلة',description:'مهل معتمدة انتهت',action:'filter-late'},
+    {key:'due-soon',n:dueSoon.length,color:'amber',icon:'◷',label:'مهل تستحق خلال 48 ساعة',description:'سجلات مفتوحة تقترب مهلتها المعتمدة',action:'filter-due-soon'},
     {key:'urgent-no-reply',n:urgentNoReply.length,color:'red',icon:'⚡',label:'عاجلة تحتاج متابعة',description:'أولوية عاجلة ولم تُغلق بعد',action:'urgent-no-reply'},
     {key:'missing',n:missing.length,color:'amber',icon:'✎',label:'بيانات غير مكتملة',description:'يلزم استكمال الجهة أو التصنيف أو المحافظة',action:'filter-missing'},
     {key:'new-today',n:newToday.length,color:'blue',icon:'＋',label:'جديدة اليوم',description:'السجلات المفتوحة المسجلة اليوم بتوقيت دمشق',queue:'new-today'}
@@ -164,6 +167,7 @@ function dashboard(){
   return '<div class="dashboard-workspace">'+heading('مكتب الفرز والمتابعة','رتّب العمل حسب الأولوية والبيانات الناقصة، ثم انتقل مباشرة إلى الإجراء المطلوب.',uiCan('complaints.create')?btn('＋ تسجيل سجل جديد','new-complaint','btn-primary'):'')+
     (typeof workdayPanel==='function'?workdayPanel():'')+
     briefBanner+
+    (!db.settings.slaApproved?'<p class="small-copy" role="status">عدّاد المهلة متوقف — لا توجد مهلة عامة معتمدة. تذكيرات المراجعة الفردية تعمل مستقلّة.</p>':'')+
     '<div class="dashboard-stats" aria-label="مؤشرات سريعة">'+
       [['جميع السجلات',totalActive],['مفتوحة',open.length],['غير مكتملة',missing.length],['عاجلة',urgentNoReply.length]].map(([label,n],i)=>
         '<div class="stat-item '+(i===0?'stat-primary':i===2&&n?'alert':'')+'"><strong>'+n+'</strong><span>'+label+'</span></div>'

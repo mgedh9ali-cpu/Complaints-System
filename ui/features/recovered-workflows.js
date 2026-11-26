@@ -162,3 +162,19 @@ async function applyRecoveredBulk(type,value){
  }
 }
 
+
+window.addEventListener('complaints:owner-attachment-delete',event=>{
+ const {complaintId,storedName}=event.detail||{};
+ if(!uiCan('attachments.delete'))return toast('لا تملك صلاحية حذف المرفق.','error');
+ modal('حذف المرفق','سيُنقل الملف إلى الأرشيف ويُوثق السبب في سجل التدقيق.',
+ '<div class="form-field"><label for="attachmentDeleteReason">سبب الحذف</label><textarea class="textarea-field" id="attachmentDeleteReason" required minlength="3" maxlength="500"></textarea></div>',
+ '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-danger" data-action="confirm-attachment-delete" data-file="'+esc(storedName)+'" data-id="'+esc(complaintId)+'">تأكيد الحذف</button>');
+});
+async function confirmAttachmentDelete(file){
+ if(!uiCan('attachments.delete'))return toast('لا تملك صلاحية حذف المرفق.','error');
+ const reason=($('#attachmentDeleteReason')?.value||'').trim();
+ if(reason.length<3||reason.length>500)return toast('أدخل سبب الحذف.','warn');
+ await flushUiBeforeAction();
+ await api('/api/attachments/'+encodeURIComponent(file),{method:'DELETE',body:JSON.stringify({reason})});
+ closeModal();await reloadStoredState();toast('تم حذف المرفق من القائمة وحفظه في الأرشيف.');
+}

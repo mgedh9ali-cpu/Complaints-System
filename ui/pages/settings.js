@@ -11,7 +11,7 @@ function desktopMaintenancePanel(){
 async function runDesktopMaintenance(command){
   try{
     if(!window.complaintsDesktop?.runMaintenance)return;
-    if(command==='download-update')await flushUiBeforeAction();
+    if(['download-update','restore-complete'].includes(command))await flushUiBeforeAction();
     await window.complaintsDesktop.runMaintenance(command);
     if(command==='choose-backup-directory'){
       _protectionStatusLoadedAt=0;_backupHistoryLoadedAt=0;

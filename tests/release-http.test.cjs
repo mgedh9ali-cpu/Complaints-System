@@ -69,10 +69,8 @@ test('HTTP acceptance: sole operator, disabled staff APIs, attachments, confirma
  const download=await request(reviewer,'/api/attachments/'+encodeURIComponent(storedName));
  assert.equal(download.status,200);assert.equal(download.body.toString(),'private fictional document');
  assert.equal((await fetch(base+'/api/attachments/'+encodeURIComponent(storedName))).status,401);
- assert.equal((await request(admin,'/api/attachments/'+storedName,'DELETE',{reason:'حذف مباشر مرفوض'})).status,409);
- const removal=await request(staff,'/api/approvals','POST',{kind:'attachment_delete',complaintId:id,targetId:storedName,reason:'طلب حذف اصطناعي'});
- assert.equal(removal.status,201);
- assert.equal((await request(admin,'/api/approvals/'+removal.body.id+'/decision','POST',{decision:'approved',reason:'موافقة مدير على الطلب'})).status,200);
+ assert.equal((await request(admin,'/api/attachments/'+storedName,'DELETE',{})).status,400);
+ assert.equal((await request(admin,'/api/attachments/'+storedName,'DELETE',{reason:'أرشفة المرفق بقرار المالك'})).status,200);
  assert.equal((await request(reviewer,'/api/attachments/'+storedName)).status,404);
  assert.equal((await request(admin,'/api/complaints/'+id,'PATCH',{owner:'employee'})).status,400);
  assert.equal((await request(admin,'/api/complaints/'+id,'PATCH',{coAssistants:['employee']})).status,400);

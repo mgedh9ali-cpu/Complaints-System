@@ -380,6 +380,7 @@ async function restoreWizardStep2() {
       method: 'POST',
       body: JSON.stringify({ name })
     });
+    if(!result.ok||!result.contentVerified)throw new Error('لم يكتمل فحص المحتوى المشفر. لا تعتمد هذه النسخة للاستعادة.');
     _restoreWizard = { step: 3, name, result };
     restoreWizardStep3();
     return result;
@@ -438,10 +439,10 @@ async function restoreWizardStep5() {
   await Promise.all([loadProtectionStatus(true), loadBackupHistory(true)]);
   modal(
     'معالج الاستعادة — الخطوة 5/5',
-    'اكتمل اختبار الاستعادة',
+    'اكتمل اختبار الاستعادة — لم تُستبدل البيانات',
     '<div class="risk-note">نتيجة الفحص: <strong>ناجحة</strong>. سُجّل «آخر اختبار استعادة» في مركز الحماية.</div>' +
       '<p class="small-copy">للاستبدال الكامل: من Windows «النسخ والاستعادة ← استعادة نسخة كاملة…» مع ملف المفتاح المنفصل، ثم أعد فتح التطبيق وسجّل الدخول بحسابات النسخة.</p>',
-    '<button class="btn btn-primary" data-action="close-modal">إغلاق</button>'
+    '<button class="btn" data-action="close-modal">إغلاق</button>'+(window.complaintsDesktop?.runMaintenance?'<button class="btn btn-primary" data-action="desktop-maintenance" data-command="restore-complete">فتح الاستعادة الفعلية</button>':'')
   );
   if (typeof page !== 'undefined' && page === 'settings' && typeof render === 'function') render();
 }

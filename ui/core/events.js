@@ -57,6 +57,7 @@ case 'request-complaint-delete':requestComplaintDeletion(id);break;
  case 'confirm-owner-delete':await withButtonLock(el,()=>confirmOwnerDelete(id),'جارٍ الحذف…');break;
 case 'export-complaint-pdf':await withButtonLock(el,()=>exportComplaintDocument(id,'pdf'),'جارٍ إنشاء PDF…');break;
 case 'export-complaint-word':await withButtonLock(el,()=>exportComplaintDocument(id,'docx'),'جارٍ إنشاء Word…');break;
+case 'confirm-attachment-delete':await withButtonLock(el,()=>confirmAttachmentDelete(el.dataset.file),'جارٍ الحذف…');break;
 case 'attachment-preview':await withButtonLock(el,()=>previewAttachment(el.dataset.file,el.dataset.name,el.dataset.mime),'جارٍ فتح المرفق…');break;
 case 'referral-next':{const v=$('#refComplaint')?.value;closeModal();if(v)newReferral(v);break;}
 case 'reply-next':{const v=$('#replyComplaint')?.value;closeModal();if(v)replyEditor(v);break;}

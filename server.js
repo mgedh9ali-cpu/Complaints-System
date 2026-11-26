@@ -157,7 +157,7 @@ app.use(
 
 app.use(['/api/sync/preview', '/api/sync/import'], middleware.requireAuth,
   rolesService.requirePermission('sync.import'), middleware.requireCsrf,
-  express.json({ limit: '32mb', strict: true }));
+  express.json({ limit: '48mb', strict: true }));
 app.use(express.json({ limit: '8mb', strict: true }));
 
 const writeLimiter = rateLimit({
@@ -220,7 +220,8 @@ app.use(
     audit,
     rolesService,
     complaintsService,
-    db
+    db,
+    singleOperator: true
   })
 );
 app.use('/api', createReportsRouter({ reportsService, middleware, audit, rolesService }));

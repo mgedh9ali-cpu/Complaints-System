@@ -1,7 +1,7 @@
 /* Workday tools use authenticated local APIs; background reads never replace edits. */
 let workdayReminders=[],workdayLoadedAt=0,workdayPending=false,workdayOwner=null;
 function workdayPanel(){return '<section class="panel workday-panel"><div class="panel-header"><h2>متابعة اليوم</h2><button type="button" class="btn btn-sm" data-action="refresh-workday">تحديث</button></div><div class="panel-body" id="workdayMount" aria-label="المتابعة وحالة النسخ">جارٍ تحميل المتابعة وحالة النسخ الاحتياطي…</div></section>';}
-function workdayRecords(records,reminders=[],now=Date.now()){
+function workdayRecords(records,reminders=[],now=Date.now(),slaApproved=typeof db!=='undefined'&&Boolean(db.settings?.slaApproved)){
  const today=workDayKey(now),byId=new Map();
  const reminderIds=new Set(reminders.filter(r=>{const day=workDayKey(r.reminderTime);return day&&day<=today;}).map(r=>r.complaintId));
  for(const c of records||[]){
@@ -9,6 +9,8 @@ function workdayRecords(records,reminders=[],now=Date.now()){
   const reasons=[];
   if(reminderIds.has(c.id))reasons.push('موعد متابعة');
   if(isIncomplete(c))reasons.push('استكمال بيانات');
+  if(c.status==='awaiting_reply')reasons.push('متابعة سجل بانتظار الرد');
+  if(slaApproved&&c.status!=='draft'&&Number.isFinite(Date.parse(c.due))&&Date.parse(c.due)<=now)reasons.push('تجاوز المهلة المعتمدة');
   if(reasons.length)byId.set(c.id,{complaint:c,reasons});
  }
  return [...byId.values()].sort((a,b)=>(b.reasons.includes('موعد متابعة')?1:0)-(a.reasons.includes('موعد متابعة')?1:0));
