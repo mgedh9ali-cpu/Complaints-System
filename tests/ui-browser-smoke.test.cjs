@@ -7,6 +7,10 @@ const {assembleUiBundle}=require('../lib/ui-bundle');
 function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLocalStorage=new Map()){
  const events=new Map(),windowEvents=new Map(),nodes=new Map(),historyEntries=[],downloads=[];
  const localStorage=sharedLocalStorage,sessionStorage=new Map();
+ let timerId=0;const intakeTimers=new Map();
+ const setMockTimeout=(fn,ms)=>{if(ms!==220&&ms!==350)return 0;const id=++timerId;intakeTimers.set(id,{fn,ms});return id;};
+ const clearMockTimeout=id=>intakeTimers.delete(id);
+ function runIntakeTimers(ms){for(const [id,timer] of [...intakeTimers])if(timer.ms===ms&&intakeTimers.delete(id))timer.fn();}
  function node(key){
   if(!nodes.has(key))nodes.set(key,{
    id:key.startsWith('#')?key.slice(1):key,innerHTML:'',textContent:'',value:'',hidden:false,style:{},dataset:{},
@@ -79,7 +83,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
   sessionStorage:{getItem(key){return sessionStorage.get(key)||null},setItem(key,value){sessionStorage.set(key,String(value))},removeItem(key){sessionStorage.delete(key)}},
   localStorage:{getItem(key){return localStorage.get(key)||null},setItem(key,value){localStorage.set(key,String(value))},removeItem(key){localStorage.delete(key)}},
   structuredClone,URL,Date,Intl,console:{log(){},warn(){},error(){}},
-  setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},confirm:()=>true,
+  setTimeout:setMockTimeout,clearTimeout:clearMockTimeout,setInterval:()=>0,clearInterval(){},confirm:()=>true,
   CustomEvent:class{constructor(type,options){this.type=type;this.detail=options?.detail;}}
  };
  vm.runInNewContext(assembleUiBundle(),context,{filename:'app.bundle.js',timeout:4000});
@@ -107,7 +111,7 @@ function createFakeBrowser(role='admin',initialReply=null,userId='u1',sharedLoca
   }};
   return events.get('click')({target,preventDefault(){},stopPropagation(){}});
  }
- return {node,events,windowEvents,location,historyEntries,click,navigate,goto,calls,state,window,downloads,localStorage,sessionStorage};
+ return {node,events,windowEvents,location,historyEntries,click,navigate,goto,calls,state,window,downloads,localStorage,sessionStorage,runIntakeTimers};
 }
 
 test('dashboard quick links navigate to their requested page',async()=>{
@@ -806,3 +810,20 @@ test('packaged smoke routes use visible registry controls without requiring hidd
 });
 
  test('simplified owner workspace removes redundant panels but retains editing',async()=>{const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('dashboard');assert.doesNotMatch(ui.node('#content').innerHTML,/أولوية المتابعة/);ui.click('detail','SY-2026-10001');const html=ui.node('#content').innerHTML;assert.doesNotMatch(html,/إجراءات الحالة|<h3>سجل الإجراءات|تأكيد الإجراءات|ردود الإحالات|class="floating-actions"/);assert.match(html,/data-action="edit-complaint"/);ui.click('edit-complaint','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/حفظ التعديلات/);});
+
+
+test('intake coalesces typing, delays record lookup and flushes on close',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
+ await ui.click('new-complaint');const key='complaints-draft-v1:u1';
+ for(const value of ['أ','أب','أبج']){ui.node('#cSummary').value=value;ui.events.get('input')({target:ui.node('#cSummary')});}
+ assert.equal(ui.localStorage.has(key),false);
+ ui.runIntakeTimers(350);assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'أبج');
+ ui.node('#cPhone').value='0912345678';ui.events.get('input')({target:ui.node('#cPhone')});
+ assert.doesNotMatch(ui.node('#duplicateMount').innerHTML,/سجل سابق/);
+ ui.runIntakeTimers(220);assert.match(ui.node('#duplicateMount').innerHTML,/سجل سابق/);
+ ui.node('#cPhone').value='';ui.events.get('input')({target:ui.node('#cPhone')});
+ assert.doesNotMatch(ui.node('#duplicateMount').innerHTML,/سجل سابق/);
+ ui.node('#cSummary').value='قبل الإغلاق';ui.events.get('input')({target:ui.node('#cSummary')});
+ await ui.click('close-modal');assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'قبل الإغلاق');
+ ui.runIntakeTimers(350);assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'قبل الإغلاق');
+});

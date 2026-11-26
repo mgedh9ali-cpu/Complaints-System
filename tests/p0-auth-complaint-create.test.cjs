@@ -163,3 +163,23 @@ test('changeStatus requires reason for closed and cancelled', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+
+test('append-only creation preserves earlier rows and rolls back the counter on audit failure',()=>{
+ const {db,dir}=setupDb();
+ try{
+  const auth=createAuthService({db,audit:()=>{},logger:null});auth.ensureBootstrapAdmin('adminuser','Admin-password-12');
+  const user=db.prepare('SELECT id,username FROM users WHERE username=?').get('adminuser');
+  let fail=false;
+  const service=createComplaintsService({db,audit:()=>{if(fail)throw Error('synthetic audit failure');},logger:null});
+  const create=()=>service.createComplaint({body:{summary:'اختبار الحفظ المتتابع'},userId:user.id,username:user.username});
+  const first=create();const old=db.prepare('SELECT * FROM complaints WHERE id=?').get(first.complaint.id);
+  db.prepare('UPDATE complaint_counters SET value=0').run();
+  const second=create();assert.notEqual(first.complaint.id,second.complaint.id);
+  assert.deepEqual(db.prepare('SELECT * FROM complaints WHERE id=?').get(first.complaint.id),old);
+  const before=service.readState();const counter=db.prepare('SELECT * FROM complaint_counters').all();
+  fail=true;assert.throws(create,/synthetic audit failure/);
+  assert.deepEqual(service.readState(),before);assert.deepEqual(db.prepare('SELECT * FROM complaint_counters').all(),counter);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM complaints').get().n,2);
+ }finally{db.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
