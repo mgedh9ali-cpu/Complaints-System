@@ -23,8 +23,8 @@ function missingFieldsHtml(c){
 }
 function isLate(c){return !c.archivedAt && db.settings.slaApproved && !['closed','cancelled','draft'].includes(c.status) && Number.isFinite(new Date(c.due).getTime()) && Date.now()>new Date(c.due).getTime();}
 function isDueSoon(c,now=Date.now()){const due=Date.parse(c?.due);return Boolean(c&&!c.archivedAt&&db.settings.slaApproved&&!['closed','cancelled','draft'].includes(c.status)&&Number.isFinite(due)&&due>now&&due<=now+48*60*60*1000);}
-function statusLabel(s){return ({draft:'غير مكتملة',new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'بانتظار رد الجهة',awaiting_approval:'بانتظار الاعتماد',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
-function statusClass(s){return ({draft:'new',new:'new',in_progress:'progressing',awaiting_reply:'waiting',awaiting_approval:'waiting',closed:'closed',cancelled:'closed'})[s]||'closed';}
+function statusLabel(s){return ({draft:'غير مكتملة',new:'جديدة',in_progress:'قيد المعالجة',awaiting_reply:'قيد المعالجة',awaiting_approval:'قيد المعالجة',closed:'مغلقة',cancelled:'ملغاة'})[s]||s;}
+function statusClass(s){return ({draft:'new',new:'new',in_progress:'progressing',awaiting_reply:'progressing',awaiting_approval:'progressing',closed:'closed',cancelled:'closed'})[s]||'closed';}
 function recordOptions(key, items = db.settings?.[key]) {
   const cleared = db.settings?.clearedOptionLists;
   return Array.isArray(items) && (items.length || (Array.isArray(cleared) && cleared.includes(key)))
@@ -60,13 +60,6 @@ function setGlassPreference(value){document.documentElement?.classList.toggle('r
 function enhanceGlassDetail(){
  const article=$('.complaint-page');if(!article)return;
  const c=db.complaints.find(x=>x.id===currentId);if(!c)return;
- const header=$('.complaint-page-header',article);
- if(header&&typeof document.createElement==='function'){
-  const steps=document.createElement('nav');steps.className='glass-steps';steps.setAttribute('aria-label','مراحل المعالجة');
-  const allowed={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:[],cancelled:[]};
-  steps.innerHTML=['new','in_progress','awaiting_reply','awaiting_approval','closed'].map(status=>'<button type="button" data-action="glass-step" data-status="'+status+'" '+(c.status===status?'aria-current="step"':'')+' '+(!(allowed[c.status]||[]).includes(status)?'disabled':'')+'>'+esc(statusLabel(status))+'</button>').join('');
-  header.after?.(steps);
- }
  const title=$('.complaint-page-heading h1',article);if(title)title.style.viewTransitionName='complaint-title';
  $$('.row-check').forEach(check=>{if(check.dataset.id===currentId)check.closest?.('tr')?.classList.add('is-selected');});
  const reason=$('#statusReason');if(reason)reason.closest?.('.form-field')?.classList.add('reason-sheet');
@@ -85,7 +78,7 @@ async function chooseWorkflowStep(status){
  const complaint=db.complaints.find(item=>item.id===currentId);let select=$('#detailStatus');
  if(complaint&&!select&&typeof openRecordStatus==='function'){openRecordStatus(currentId);select=$('#detailStatus');}
  if(!complaint||!select||!uiCan('complaints.status'))return toast('لا تملك صلاحية تغيير حالة الشكوى.','error');
- const allowed={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]};
+ const allowed={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['closed','cancelled'],awaiting_reply:['in_progress','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]};
  if(!(allowed[complaint.status]||[]).includes(status))return toast('انتقال الحالة غير مسموح.','error');
  select.value=status;updateReasonSheet();
  if(['closed','cancelled'].includes(status)){
@@ -105,7 +98,7 @@ function renderCommands(query){
  const q=norm(query),mount=$('#commandResults');if(!mount)return;
  const highlight=text=>{const raw=String(text||''),at=raw.toLowerCase().indexOf(query.toLowerCase());return query&&at>=0?esc(raw.slice(0,at))+'<mark>'+esc(raw.slice(at,at+query.length))+'</mark>'+esc(raw.slice(at+query.length)):esc(raw);};
  const records=q?db.complaints.filter(c=>norm([c.id,c.summary,c.name,c.phone].join(' ')).includes(q)).slice(0,15):recentComplaintIds.map(id=>db.complaints.find(c=>c.id===id)).filter(Boolean).slice(0,6);
- const pages=[['dashboard','لوحة العمل'],['complaints','سجل الشكاوى'],['referrals','الإحالات'],['replies','الردود'],['reports','التقارير'],['settings','الإعدادات']].filter(x=>!q||norm(x[1]).includes(q));
+ const pages=[['dashboard','لوحة العمل'],['complaints','سجل الشكاوى'],['reports','التقارير'],['settings','الإعدادات']].filter(x=>!q||norm(x[1]).includes(q));
  mount.innerHTML='<h3>'+(q?'الشكاوى':'آخر ما فتحته')+'</h3>'+records.map(c=>'<button data-action="detail" data-id="'+esc(c.id)+'">'+highlight(c.summary)+'<small dir="ltr">'+highlight(c.id)+'</small></button>').join('')+'<h3>الصفحات</h3>'+pages.map(([id,label])=>'<button data-action="command-page" data-page-target="'+id+'">'+highlight(label)+'</button>').join('')+(authenticatedUser.role!=='reviewer'&&(!q||norm('تسجيل شكوى جديدة').includes(q))?'<h3>إجراءات</h3><button data-action="new-complaint">＋ تسجيل شكوى جديدة</button>':'')+(!records.length&&!pages.length?'<p>لا توجد نتائج مطابقة.</p>':'');
 }
 function csvSafe(value){if(value==null)return "";const s=String(value);return /^[\x00-\x1F\s]*[=+\-@]/.test(s)?"'"+s:s;}
