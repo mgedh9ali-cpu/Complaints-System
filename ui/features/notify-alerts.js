@@ -31,18 +31,20 @@
     }catch(_){}
   }
   function showNewAlert(n){
+    if(!authenticatedUser||document.visibilityState==='hidden')return;
+    const brief=(value,limit)=>{const text=String(value||'').replace(/\s+/g,' ').trim();return text.length>limit?text.slice(0,limit-1)+'…':text;};
     const node=document.createElement('div');
     node.className='alarm-toast notif-alert';
     node.setAttribute('role','status');
     node.innerHTML='<div class="alarm-toast-icon" aria-hidden="true">✉</div>'+
-      '<div class="alarm-toast-body"><strong>'+'إشعار جديد في النظام'+'</strong>'+
-      '<p>'+'افتح مركز الإشعارات للاطلاع على التفاصيل.'+'</p>'+
+      '<div class="alarm-toast-body"><strong>'+esc(brief(n.title,70)||'إشعار جديد')+'</strong>'+
+      (n.body?'<p>'+esc(brief(n.body,120))+'</p>':'')+
       '<small>'+esc(typeof timeText==='function'?timeText(n.date||n.at):'')+'</small></div>'+
       '<div class="alarm-toast-actions">'+
-      (n.complaintId?'<button type="button" class="btn btn-sm btn-primary" data-action="notification-open" data-id="'+esc(n.complaintId)+'">فتح الشكوى</button>':'')+
+      (n.complaintId?'<button type="button" class="btn btn-sm btn-primary" data-action="notification-open" data-id="'+esc(n.complaintId)+'">فتح السجل</button>':'')+
       '<button type="button" class="btn btn-sm" data-action="goto-notifications">مركز الإشعارات</button>'+
       '</div>';
-    (document.getElementById('toastRegion')||document.body).appendChild(node);
+    (document.getElementById('appShell')||document.getElementById('toastRegion')||document.body).appendChild(node);
     setTimeout(()=>node.remove(),8000);
   }
   function processNotifications(list, initial=false){
@@ -76,6 +78,9 @@
     processNotifications(db.notifications||[],true);
     return result;
   };
+  function clearNotificationAlerts(){document.querySelectorAll('.notif-alert').forEach(node=>node.remove());}
+  window.addEventListener('blur',clearNotificationAlerts);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')clearNotificationAlerts();});
   setInterval(()=>{void window.pollNotificationAlerts();},45000);
   document.addEventListener('complaints:render',()=>{
     if(page==='notifications')remoteList=db.notifications||[];

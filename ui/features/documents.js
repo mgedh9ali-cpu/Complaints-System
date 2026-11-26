@@ -138,10 +138,12 @@ function printComplaintCover(id){
 }
 
 function canEditRecord(c){return Boolean(c&&uiCan('complaints.update')&&(authenticatedUser?.role==='admin'||(!c.archivedAt&&!['closed','cancelled'].includes(c.status))));}
+function canCompleteRecord(c){return Boolean(c&&!c.archivedAt&&uiCan('complaints.status')&&['new','in_progress','awaiting_reply','awaiting_approval'].includes(c.status));}
 function complaintRecordActions(c,withView=true){
  const action=(label,name,extra='')=>'<button type="button" class="btn btn-sm '+extra+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
  let html=withView?action('عرض','detail'):'';
  if(canEditRecord(c))html+=action('تعديل','edit-complaint');
+ if(canCompleteRecord(c))html+=action('إتمام المعالجة','complete-record','btn-primary');
  if(!withView&&uiCan('complaints.delete')&&!c.archivedAt)html+=action('حذف','request-complaint-delete','btn-danger');
  if(withView)html+=action('طباعة','print-complaint-cover','btn-print');
  return html+action('المزيد','complaint-more');
@@ -149,12 +151,11 @@ function complaintRecordActions(c,withView=true){
 function complaintActionsModal(id){
  const c=db.complaints.find(item=>item.id===id);if(!c)return;
  const action=(label,name,kind='')=>'<button type="button" class="btn '+kind+'" data-action="'+name+'" data-id="'+esc(c.id)+'">'+label+'</button>';
- let body='<section class="record-action-group"><h3>إدارة السجل</h3><div class="record-action-buttons">'+(uiCan('complaints.create')?action('تسجيل سجل جديد','new-complaint'):'')+(canEditRecord(c)?action('تعديل السجل','edit-complaint'):'')+(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status)?action('موعد مراجعة وتذكير','set-reminder'):'')+(uiCan('settings.manage')?action('تعديل خيارات التسجيل','intake-settings'):'')+(uiCan('complaints.status')&&!c.archivedAt?action('تغيير الحالة','open-record-status'):'')+((c.referrals||[]).length?action('متابعة الإحالات','open-record-referrals'):'')+'</div></section>';
+ let body='<section class="record-action-group"><h3>إدارة السجل</h3><div class="record-action-buttons">'+(uiCan('complaints.create')?action('تسجيل سجل جديد','new-complaint'):'')+(canEditRecord(c)?action('تعديل السجل','edit-complaint'):'')+(uiCan('complaints.update')&&!c.archivedAt&&!['closed','cancelled'].includes(c.status)?action('موعد مراجعة وتذكير','set-reminder'):'')+(uiCan('settings.manage')?action('تعديل خيارات التسجيل','intake-settings'):'')+(uiCan('complaints.status')&&!c.archivedAt?action('تغيير الحالة','open-record-status'):'')+ (canCompleteRecord(c)?action('إتمام المعالجة','complete-record','btn-primary'):'')+'</div></section>';
  if(typeof approvalRequests!=='undefined'&&approvalRequests.some(r=>r.complaint_id===c.id&&r.status==='pending')&&uiCan('approvals.decide'))body+='<section class="record-action-group">'+action('الطلبات السابقة','open-record-approvals')+'</section>';
  body+='<section class="record-action-group"><h3>الطباعة والتصدير</h3><div class="record-action-buttons">'+action('طباعة الشكوى','print-complaint-cover','btn-print');
  if(uiCan('export.xlsx')&&!c.archivedAt)body+=action('تصدير PDF','export-complaint-pdf')+action('تصدير Word','export-complaint-word');
  body+='</div></section>';
- if(uiCan('complaints.create')||uiCan('complaints.update'))body+='<section class="record-action-group"><h3>إنشاء نسخة</h3><div class="record-action-buttons">'+action('نسخ إلى شكوى جديدة','copy-complaint','btn-copy')+'</div></section>';
  if(uiCan('complaints.delete')&&!c.archivedAt)body+='<section class="record-action-group"><h3>الأرشفة</h3><p class="small-copy">يحتاج الحذف من السجل النشط إلى تأكيدك مع توثيق السبب.</p><div class="record-action-buttons">'+action('حذف من السجل النشط','request-complaint-delete','btn-danger')+'</div></section>';
  modal('إجراءات السجل',esc(c.id)+' · '+esc(c.summary||''),body,'<button type="button" class="btn" data-action="close-modal">إغلاق</button>');
 }

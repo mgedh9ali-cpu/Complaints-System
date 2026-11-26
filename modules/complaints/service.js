@@ -181,6 +181,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       if (prev.created && c.created !== prev.created) {
         return { invalidTransition: true, error: 'لا يمكن تغيير تاريخ إنشاء الشكوى.' };
       }
+      if ((prev.closedAt || null) !== (c.closedAt || null)) return { invalidTransition: true, error: 'تاريخ الإغلاق يُحدّث عبر مسار تغيير الحالة فقط.' };
       if (JSON.stringify(prev.statusHistory || []) !== JSON.stringify(c.statusHistory || [])) {
         return { invalidTransition: true, error: 'سجل الحالة يُحدَّث عبر مسار تغيير الحالة فقط.' };
       }
@@ -374,7 +375,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     editUndos.delete(token);return {ok:true,complaint,revision:revision+1};
   }
 
-  function changeStatus({ complaintId, toStatus, reason, userId, username, closureException, approvalId }) {
+  function changeStatus({ complaintId, toStatus, reason, userId, username, closureException, approvalId, completeProcessing = false }) {
     if (!complaintId || typeof complaintId !== 'string') return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
     if (['awaiting_reply', 'awaiting_approval'].includes(toStatus) || !Object.prototype.hasOwnProperty.call(ALLOWED_TRANSITIONS, toStatus)) return { ok: false, status: 400, error: 'حالة غير معروفة.' };
     const { state, revision } = readState();
@@ -382,9 +383,12 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
     const complaint = { ...state.complaints[idx] };
     const fromStatus = complaint.status || 'new';
+    const previousClosedAt = complaint.closedAt || complaint.closed || (complaint.statusHistory || []).filter(h => h.to === 'closed').at(-1)?.at || null;
+    if (complaint.archivedAt) return { ok: false, status: 409, error: 'السجل مؤرشف.' };
     if (fromStatus === toStatus) return { ok: true, unchanged: true, complaint, revision };
     const allowed = ALLOWED_TRANSITIONS[fromStatus] || [];
-    if (!allowed.includes(toStatus) && !(toStatus === 'in_progress' && ['closed','cancelled'].includes(fromStatus))) {
+    const directCompletion = completeProcessing === true && fromStatus === 'new' && toStatus === 'closed';
+    if (!allowed.includes(toStatus) && !directCompletion && !(toStatus === 'in_progress' && ['closed','cancelled'].includes(fromStatus))) {
       return { ok: false, status: 409, error: `لا يمكن الانتقال من «${STATUS_LABELS[fromStatus] || fromStatus}» إلى «${STATUS_LABELS[toStatus] || toStatus}».` };
     }
     if (toStatus === 'in_progress' && ['closed','cancelled'].includes(fromStatus)) {
@@ -411,6 +415,8 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     }
     const now = new Date().toISOString();
     complaint.status = toStatus;
+    if (toStatus === 'closed') complaint.closedAt = now;
+    else if (fromStatus === 'closed') { delete complaint.closedAt; delete complaint.closed; }
     complaint.updated = now;
     complaint.statusHistory = Array.isArray(complaint.statusHistory) ? complaint.statusHistory.slice() : [];
     complaint.statusHistory.push({ from: fromStatus, to: toStatus, at: now, by: username || null, reason: reason || null });
@@ -425,6 +431,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       complaintId,
       from: fromStatus,
       to: toStatus,
+      previousClosedAt: fromStatus === 'closed' ? previousClosedAt : null,
       userId,
       revision: nextRevision,
       expiresAt: undoExpiresAt
@@ -461,6 +468,8 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     }
     const now = new Date().toISOString();
     complaint.status = record.from;
+    if (record.from === 'closed') complaint.closedAt = record.previousClosedAt || now;
+    else if (record.to === 'closed') { delete complaint.closedAt; delete complaint.closed; }
     complaint.updated = now;
     complaint.statusHistory = Array.isArray(complaint.statusHistory) ? complaint.statusHistory.slice() : [];
     complaint.statusHistory.push({

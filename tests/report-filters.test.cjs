@@ -101,3 +101,14 @@ test('retired waiting states aggregate as processing in reports and exports with
  const csv=service.buildCsv({status:'in_progress'});assert.equal(csv.count,3);assert.doesNotMatch(csv.buffer.toString(),/awaiting_reply|awaiting_approval/);
  assert.equal(JSON.stringify(records),original);
 });
+
+test('completed records remain searchable in reports and exports but do not count as overdue',()=>{
+ const completed=['complaint','inquiry','contact'].map(recordType=>({id:recordType,recordType,status:'closed',created:'2026-11-01',closedAt:'2026-11-02',due:'2026-11-03',category:'مياه'}));
+ const records=[...completed,{id:'open',status:'new',created:'2026-11-01',due:'2026-11-03',category:'مياه'}];
+ const context=setup(records);context.now=fixed;
+ const model=vm.runInContext("buildReportModel(db.complaints,{status:'closed'},db.settings,now)",context);
+ assert.equal(model.closed,3);assert.equal(model.late,0);assert.equal(model.compliance,100);
+ const service=createReportsService({complaintsService:{readState:()=>({state:{complaints:records,settings:{slaApproved:true}}})}});
+ assert.equal(service.buildSummaryReport({status:'closed',category:'مياه'}).totals.byStatus.closed,3);
+ assert.equal(service.buildCsv({status:'closed'}).count,3);
+});

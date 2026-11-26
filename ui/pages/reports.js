@@ -36,7 +36,7 @@ function buildReportModel(complaints,filters={},settings={},now=Date.now()){
  const eligible=settings.slaApproved?records.filter(c=>!['draft','cancelled'].includes(c.status)&&Number.isFinite(Date.parse(c.created))&&Number.isFinite(Date.parse(c.due))):[];
  const compliant=eligible.filter(c=>{
   if(c.status!=='closed')return now<=Date.parse(c.due);
-  const closedAt=(c.statusHistory||[]).filter(t=>t.to==='closed').at(-1)?.at||c.closedAt||c.closed||c.updated;
+  const closedAt=c.closedAt||(c.statusHistory||[]).filter(t=>t.to==='closed').at(-1)?.at||c.closed||c.updated;
   return Number.isFinite(Date.parse(closedAt))&&Date.parse(closedAt)<=Date.parse(c.due);
  });
  const late=settings.slaApproved?records.filter(c=>!['draft','closed','cancelled'].includes(c.status)&&Number.isFinite(Date.parse(c.due))&&Date.parse(c.due)<now).length:0;
@@ -101,7 +101,7 @@ function reportsPage(){
  '<p class="report-scope" role="status">التصفية المطبقة: '+safe(scope)+' · '+total+' من '+all.length+' سجل · تحديث '+safe(new Intl.DateTimeFormat('ar-SY-u-nu-latn',{timeZone:'Asia/Damascus',dateStyle:'short',timeStyle:'short'}).format(new Date()))+'</p>'+
  (!total?'<div class="empty-state">لا توجد شكاوى تطابق التصفية؛ غيّر الفترة أو أعد ضبط المرشحات.</div>':'')+
  '<div class="mini-card-grid report-summary">'+[['إجمالي السجلات',total],['سجلات مغلقة',model.closed],['سجلات مفتوحة',records.filter(c=>!['draft','closed','cancelled'].includes(c.status)).length],['سجلات متجاوزة للمهلة',model.late]].map(([label,count])=>'<div class="mini-card"><small>'+label+'</small><strong>'+count+'</strong></div>').join('')+'</div>'+
- (typeof reportInsightPanel==='function'?reportInsightPanel(records):'')+reportProcessingMetrics(records)+'<div class="report-chart-grid">'+panel('الشكاوى المسجلة خلال الفترة',chartSubtitle,bars,'report-trend')+panel('الاتجاه التراكمي للتسجيل',chartSubtitle,trend)+panel('توزيع الحالات','الأعداد والنسب من نتائج التصفية المطبقة',donut)+panel('توزيع الأولويات','مقارنة أعداد الشكاوى حسب درجة الأولوية',horizontal(model.group('priority').map(([p,n])=>[REPORT_PRIORITY_LABELS[p]||p,n]),'لا توجد أولويات مسجلة.'))+panel('حسب التصنيف','الأكثر تسجيلًا أولًا',horizontal(model.group('category'),'لا توجد تصنيفات مسجلة.'))+panel('حسب المحافظة','التوزيع الجغرافي لنتائج التصفية',horizontal(model.group('province'),'لا توجد محافظات مسجلة.'))+panel('عمر السجلات','العمر منذ التسجيل، وليس مدة الإغلاق',horizontal(['أقل من 7 أيام','من 7 إلى 30 يومًا','أكثر من 30 يومًا','تاريخ غير معروف'].map((label,i)=>[label,model.ageCounts[i]]).filter(([,n])=>n>0),'لا توجد سجلات لعرض أعمارها.'))+
+ '<div class="report-chart-grid">'+panel('الشكاوى المسجلة خلال الفترة',chartSubtitle,bars,'report-trend')+panel('الاتجاه التراكمي للتسجيل',chartSubtitle,trend)+panel('توزيع الحالات','الأعداد والنسب من نتائج التصفية المطبقة',donut)+panel('توزيع الأولويات','مقارنة أعداد الشكاوى حسب درجة الأولوية',horizontal(model.group('priority').map(([p,n])=>[REPORT_PRIORITY_LABELS[p]||p,n]),'لا توجد أولويات مسجلة.'))+panel('حسب التصنيف','الأكثر تسجيلًا أولًا',horizontal(model.group('category'),'لا توجد تصنيفات مسجلة.'))+panel('حسب المحافظة','التوزيع الجغرافي لنتائج التصفية',horizontal(model.group('province'),'لا توجد محافظات مسجلة.'))+panel('عمر السجلات','العمر منذ التسجيل، وليس مدة الإغلاق',horizontal(['أقل من 7 أيام','من 7 إلى 30 يومًا','أكثر من 30 يومًا','تاريخ غير معروف'].map((label,i)=>[label,model.ageCounts[i]]).filter(([,n])=>n>0),'لا توجد سجلات لعرض أعمارها.'))+
  panel('امتثال المهلة الإجمالي','يُحسب فقط عند اعتماد سياسة المهلة', '<div class="report-compliance"><div class="compliance-ring" style="--value:'+(model.compliance??0)+'" role="img" aria-label="امتثال المهلة '+(model.compliance===null?'غير متاح':model.compliance+' بالمئة')+'"><strong>'+(model.compliance===null?'—':model.compliance+'%')+'</strong></div><p>'+(model.compliance===null?'لا توجد مهل معتمدة قابلة للحساب.':model.compliant+' من '+model.eligible+' سجلًا ضمن المهلة. تعتمد السجلات المغلقة تاريخ الإغلاق، والمفتوحة الوقت الحالي.')+'</p></div>')+'</div></div>';
 }
 
@@ -117,7 +117,7 @@ function reportProcessingMetrics(records){
  const durations=[],reasons=new Map();let reopened=0;
  for(const c of records){
   const history=c.statusHistory||[];
-  const closed=history.filter(h=>h.to==='closed').at(-1)?.at||c.closedAt;
+  const closed=c.closedAt||history.filter(h=>h.to==='closed').at(-1)?.at||c.closed;
   const days=(Date.parse(closed)-Date.parse(c.created))/86400000;
   if(c.status==='closed'&&Number.isFinite(days)&&days>=0)durations.push(days);
   if(history.some(h=>['closed','cancelled'].includes(h.from)&&h.to==='in_progress'))reopened++;
