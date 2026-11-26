@@ -43,11 +43,6 @@ test('HTTP acceptance: sole operator, disabled staff APIs, attachments, confirma
   return {status:response.status,body:data,headers:response.headers};
  }
  const admin=await login('director');
-  const ownerProbe=await request(admin,'/api/complaints','POST',{summary:'اختبار صلاحيات المالك',province:'دمشق',category:'استفسار عام'});
-  assert.equal(ownerProbe.status,201);const probeId=ownerProbe.body.complaint.id;
-  assert.equal((await request(admin,'/api/complaints/'+probeId,'DELETE',{})).status,409);
-  assert.equal((await request(admin,'/api/complaints/'+probeId,'DELETE',{reason:'أرشفة اختبارية'})).status,200);
-  assert.equal((await request(admin,'/api/complaints/'+probeId,'PATCH',{summary:'تعديل مؤرشف موثق'})).status,200);
  for(const url of ['/api/users','/api/assignees','/api/roles'])assert.equal((await request(admin,url)).status,410);
  assert.equal((await request(admin,'/api/users','POST',{username:'employee',role:'staff',password:'Test-password-2026'})).status,410);
  const denied=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'employee',password:'Test-password-2026'})});assert.equal(denied.status,401);
@@ -109,6 +104,16 @@ test('HTTP acceptance: sole operator, disabled staff APIs, attachments, confirma
  const events=(await request(admin,'/api/audit')).body.events;
  assert.ok(events.some(e=>e.action==='attachment_accessed'));
  assert.ok(events.some(e=>e.action==='csv_export'));
+  const ownerProbe=await request(admin,'/api/complaints','POST',{summary:'اختبار صلاحيات المالك',province:'دمشق',category:'استفسار عام'});
+  assert.equal(ownerProbe.status,201);const probeId=ownerProbe.body.complaint.id;
+  assert.equal((await request(admin,'/api/complaints/'+probeId,'DELETE',{})).status,409);
+  assert.equal((await request(admin,'/api/complaints/'+probeId,'DELETE',{reason:'أرشفة اختبارية'})).status,200);
+  assert.equal((await request(admin,'/api/complaints/'+probeId,'PATCH',{summary:'تعديل مؤرشف موثق'})).status,200);
+ const ownerSettings=(await request(admin,'/api/settings')).body;
+ const changedSettings={...ownerSettings.settings,categories:[],clearedOptionLists:['categories']};
+ const savedSettings=await request(admin,'/api/settings','PUT',changedSettings,{'X-State-Revision':String(ownerSettings.revision)});
+ assert.equal(savedSettings.status,200);assert.deepEqual(savedSettings.body.settings.categories,[]);
+ assert.deepEqual((await request(admin,'/api/settings')).body.settings.categories,[]);
  const malformed=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:'{bad-json'});
  assert.equal(malformed.status,400);
  const logout=await fetch(base+'/api/auth/logout',{method:'POST',headers:{cookie:reviewer.cookie,'Content-Type':'application/json'},body:'{}'});

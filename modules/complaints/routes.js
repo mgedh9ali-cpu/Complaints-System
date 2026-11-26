@@ -201,10 +201,14 @@ function createComplaintsRouter({
       if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
         return res.status(400).json({ error: 'بنية تعديل الشكوى غير صالحة.' });
       }
-      const current = complaintsService.readState().state.complaints.find(
-        item => item && item.id === req.params.id
-      );
-      const allowedPriorities = complaintsService.readState().state.settings.priorities?.map(p => p.value) || [];
+      const snapshot = complaintsService.readState();
+      const revisionHeader = req.get('X-State-Revision');
+      if (revisionHeader !== undefined) {
+        if (!/^(0|[1-9]\d*)$/.test(revisionHeader) || !Number.isSafeInteger(Number(revisionHeader))) return res.status(400).json({error:'رقم إصدار البيانات غير صالح.'});
+        if (Number(revisionHeader) !== snapshot.revision) return res.status(409).json({error:'تغيرت البيانات منذ فتح السجل. أعد تحميله قبل التعديل.',currentRevision:snapshot.revision});
+      }
+      const current = snapshot.state.complaints.find(item => item && item.id === req.params.id);
+      const allowedPriorities = snapshot.state.settings.priorities?.map(p => p.value) || [];
       if (current && !validComplaint({ ...current, ...incoming }, { allowedPriorities: [...allowedPriorities, current.priority] })) {
         return res.status(400).json({ error: 'حقول تعديل الشكوى غير صالحة.' });
       }
