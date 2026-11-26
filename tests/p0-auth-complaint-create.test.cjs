@@ -175,6 +175,7 @@ test('append-only creation preserves earlier rows and rolls back the counter on 
   const create=()=>service.createComplaint({body:{summary:'اختبار الحفظ المتتابع'},userId:user.id,username:user.username});
   const first=create();const old=db.prepare('SELECT * FROM complaints WHERE id=?').get(first.complaint.id);
   db.prepare('UPDATE complaint_counters SET value=0').run();
+  service.reconcileCounters();
   const second=create();assert.notEqual(first.complaint.id,second.complaint.id);
   assert.deepEqual(db.prepare('SELECT * FROM complaints WHERE id=?').get(first.complaint.id),old);
   const before=service.readState();const counter=db.prepare('SELECT * FROM complaint_counters').all();

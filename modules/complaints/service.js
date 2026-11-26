@@ -33,6 +33,27 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
   const storage = storageFor(db);
   db.exec('CREATE TABLE IF NOT EXISTS complaint_counters(year INTEGER PRIMARY KEY, value INTEGER NOT NULL)');
   const actorFor = userId => db.prepare('SELECT id, username, role FROM users WHERE id=?').get(userId);
+  /**
+   * Raise every yearly counter to the archive maximum and never lower it.
+   * The archive is scanned only here: at start-up (which also covers a restore followed by a
+   * restart) and right after an import, never on the creation path (Issue #72).
+   */
+  function reconcileCounters() {
+    const maximums = new Map();
+    for (const row of db.prepare('SELECT id FROM complaints').iterate()) {
+      const match = /^SY-(\d{4})-([0-9]{4,7})$/.exec(String(row && row.id || ''));
+      if (!match) continue;
+      const year = Number(match[1]), sequence = Number(match[2]);
+      if (!Number.isSafeInteger(year) || !Number.isSafeInteger(sequence)) continue;
+      maximums.set(year, Math.max(maximums.get(year) || 0, sequence));
+    }
+    const upsert = db.prepare(
+      'INSERT INTO complaint_counters(year, value) VALUES(?, ?) ON CONFLICT(year) DO UPDATE SET value = MAX(value, excluded.value)'
+    );
+    db.transaction(() => { for (const [year, value] of maximums) upsert.run(year, value); })();
+    return maximums;
+  }
+  reconcileCounters();
   function syncAudit() { if (!db.inTransaction && typeof audit?.syncHead === 'function') audit.syncHead(); }
   const statusUndos = new Map();
   const editUndos = new Map();
@@ -263,30 +284,20 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
     if (persisted && persisted.conflict) {
       return { conflict: true, currentRevision: readState().revision };
     }
+    // Seeding the first snapshot (revision 0) is the only save path that may introduce archive
+    // identities outside creation/import, so align the counters once for it as well.
+    if (currentRevision === 0 && (state.complaints || []).length) reconcileCounters();
     return { conflict: false, updatedAt: now, revision: nextRevision, complaintChanges };
   }
 
   function createComplaintCore({ body, userId, username, asDraft = false }) {
     const { state, revision } = readState();
     const year = Number(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Damascus', year: 'numeric' }).format(new Date()));
-    let maximum = 0;
-    const prefix = 'SY-' + year + '-';
-    const pattern = new RegExp('^' + prefix + '([0-9]{4,7})$');
-    // Restrict the indexed scan to IDs for the current year.
-    for (const row of db.prepare('SELECT id FROM complaints WHERE id >= ? AND id < ?').iterate(prefix, prefix + ':')) {
-      const match = String(row.id).match(pattern);
-      if (match) maximum = Math.max(maximum, Number(match[1]));
-    }
-    // Legacy or imported records may also exist in the saved state.
-    for (const c of state.complaints || []) {
-      const match = String(c && c.id || '').match(pattern);
-      if (match) maximum = Math.max(maximum, Number(match[1]));
-    }
-    const existing = db.prepare('SELECT value FROM complaint_counters WHERE year=?').get(year);
-    const base = Math.max(maximum, existing ? Number(existing.value) : 0);
-    db.prepare('INSERT INTO complaint_counters(year,value) VALUES(?,?) ON CONFLICT(year) DO UPDATE SET value=excluded.value').run(year, base);
-    db.prepare('UPDATE complaint_counters SET value=value+1 WHERE year=?').run(year);
-    const sequence = db.prepare('SELECT value FROM complaint_counters WHERE year=?').get(year).value;
+    // The yearly counter is the only source of the next serial inside the write transaction;
+    // reconcileCounters() aligns it with the archive at start-up and after an import.
+    const sequence = Number(db.prepare(
+      'INSERT INTO complaint_counters(year, value) VALUES(?, 1) ON CONFLICT(year) DO UPDATE SET value = value + 1 RETURNING value'
+    ).get(year).value);
     const id = 'SY-' + year + '-' + String(sequence).padStart(6, '0');
     const now = new Date().toISOString();
     const status = asDraft ? 'draft' : 'new';
@@ -651,7 +662,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
   }
 
   return {
-    readState, saveState, createComplaint, updateComplaint, deleteComplaint, archiveComplaint,
+    readState, saveState, reconcileCounters, createComplaint, updateComplaint, deleteComplaint, archiveComplaint,
     changeStatus, undoStatus, undoEdit, addReferral, recordReferralResponse, linkDuplicate, actOnReply, runReminders,
     ALLOWED_TRANSITIONS, REASON_REQUIRED, STATUS_LABELS
   };
