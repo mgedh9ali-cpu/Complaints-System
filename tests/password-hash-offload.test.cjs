@@ -133,7 +133,9 @@ test('GET /api/health is answered while a login hash still runs in the worker th
   const password = 'Offload-password-2026';
   // The slow parameters are used for the seed hash too: scrypt derives a
   // different key for different N/r/p, and the test only changes the cost.
-  slowScryptOptions = { N: 65536, r: 8, p: 2, maxmem: 256 * 1024 * 1024 };
+  // p is raised so the job stays long on every runner (Windows and CI derive
+  // the same parameters several times faster than a developer machine).
+  slowScryptOptions = { N: 65536, r: 8, p: 4, maxmem: 256 * 1024 * 1024 };
   insertUser(db, { id: 'offload-user', username: 'offload-admin', passwordHash: await hashPassword(password) });
 
   const authService = createAuthService({ db, audit: () => {} });
@@ -205,7 +207,11 @@ test('GET /api/health is answered while a login hash still runs in the worker th
     assert.equal(login.status, 200);
     const body = await login.json();
     assert.equal(body.user.username, 'offload-admin');
-    assert.ok(loginMs > 400, 'the artificially slow login hash should have taken a while, took ' + loginMs + 'ms');
+    // Ordering, not a wall-clock limit: the login response can only arrive after
+    // its own offloaded hash finished, whatever the machine speed.
+    assert.ok(loginMs >= slowRun.finished - slowRun.started,
+      'the login response arrived before its offloaded hash finished (' +
+      JSON.stringify({ loginMs, slowRun }) + ')');
   } finally {
     slowScryptOptions = null;
     await new Promise((resolve) => server.close(resolve));
