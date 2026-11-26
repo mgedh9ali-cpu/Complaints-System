@@ -10,8 +10,8 @@ const { applyReplyTransition } = require('../../lib/reply-workflow');
 const ALLOWED_TRANSITIONS = Object.freeze({
   draft: ['new', 'cancelled'],
   new: ['in_progress', 'cancelled', 'draft'],
-  in_progress: ['awaiting_reply', 'awaiting_approval', 'closed', 'cancelled'],
-  awaiting_reply: ['in_progress', 'awaiting_approval', 'closed', 'cancelled'],
+  in_progress: ['closed', 'cancelled'],
+  awaiting_reply: ['in_progress', 'closed', 'cancelled'],
   awaiting_approval: ['in_progress', 'closed', 'cancelled'],
   closed: [],
   cancelled: []
@@ -354,7 +354,7 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
 
   function changeStatus({ complaintId, toStatus, reason, userId, username, closureException, approvalId }) {
     if (!complaintId || typeof complaintId !== 'string') return { ok: false, status: 400, error: 'معرّف الشكوى غير صالح.' };
-    if (!Object.prototype.hasOwnProperty.call(ALLOWED_TRANSITIONS, toStatus)) return { ok: false, status: 400, error: 'حالة غير معروفة.' };
+    if (['awaiting_reply', 'awaiting_approval'].includes(toStatus) || !Object.prototype.hasOwnProperty.call(ALLOWED_TRANSITIONS, toStatus)) return { ok: false, status: 400, error: 'حالة غير معروفة.' };
     const { state, revision } = readState();
     const idx = findIndex(state, complaintId);
     if (idx < 0) return { ok: false, status: 404, error: 'الشكوى غير موجودة.' };
@@ -374,13 +374,13 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
         return { ok: false, status: 400, error: 'سبب إعادة الفتح مطلوب.' };
       }
     }
-    if (toStatus === 'closed') {
+    if (toStatus === 'closed' && !singleOperator) {
       const openRefs = (complaint.referrals || []).filter((r) => r && !r.response);
       if (openRefs.length) return { ok: false, status: 409, error: 'لا يمكن الإغلاق قبل استلام ردود الإحالات.' };
     }
     if (toStatus === 'cancelled') {
       const hasOfficial = (complaint.referrals || []).some((r) => r && r.entity);
-      if (hasOfficial && !approvalId) {
+      if (hasOfficial && !approvalId && !singleOperator) {
         return { ok: false, status: 409, approvalRequired: true, error: 'الإلغاء بعد إحالة رسمية يتطلب موافقة ثانية.' };
       }
     }
