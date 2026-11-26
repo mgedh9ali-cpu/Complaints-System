@@ -6,8 +6,8 @@ async function changeStatus(id){
   const allowed={
     draft:['new','cancelled'],
     new:['in_progress','cancelled','draft'],
-    in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],
-    awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],
+    in_progress:['closed','cancelled'],
+    awaiting_reply:['in_progress','closed','cancelled'],
     awaiting_approval:['in_progress','closed','cancelled'],
     closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]
   };
