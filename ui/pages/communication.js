@@ -18,16 +18,31 @@ function referralsPage(){
   :'<div class="empty-state"><p>لا توجد إحالات مسجّلة بعد.</p><button class="btn btn-primary" data-action="new-referral">إنشاء إحالة</button></div>')+
   '</section>';
 }
+function replyRowDetails(c) {
+  const id = esc(c.id), reply = c.reply;
+  const approved = ['approved', 'sent'].includes(reply.status);
+  let actions = reply.status === 'draft' && uiCan('replies.draft')
+    ? '<button class="btn btn-sm" data-action="reply-create" data-id="' + id + '">تعديل المسودة</button>' : '';
+  if (approved) actions += '<button class="btn btn-sm" data-action="print-approved-reply" data-id="' + id + '">طباعة الرد مع رمز تحقق</button>';
+  if (reply.status === 'draft' && uiCan('replies.draft')) actions += '<button class="btn btn-sm" data-action="reply-review" data-id="' + id + '">إرسال للمراجعة</button>';
+  if (['draft', 'review', 'approval'].includes(reply.status) && uiCan('replies.approve'))
+    actions += '<button class="btn btn-sm btn-primary" data-action="reply-approve" data-id="' + id + '">اعتماد الرد</button>';
+  if (reply.status === 'approved' && uiCan('replies.send')) actions += '<button class="btn btn-sm btn-primary" data-action="reply-sent" data-id="' + id + '">توثيق الإرسال</button>';
+  return '<details><summary>فتح الرد</summary>' +
+    (approved ? '<div class="approval-stamp" role="status" aria-label="الرد معتمد داخليًا"><strong>تم اعتماد الرد</strong><span>اعتماد إداري داخلي</span>' +
+      (reply.approvedAt ? '<small>' + esc(reply.approvedBy || '') + ' · ' + timeText(reply.approvedAt) + '</small>' : '') + '</div>' : '') +
+    replyStatusPill(reply.status) + '<p class="detail-prose">' + esc(reply.text || '') + '</p><div class="footer-actions">' + actions + '</div></details>';
+}
+
 function repliesPage(){
   const rows=db.complaints.filter(c=>!c.archivedAt&&c.reply);
   return heading('الردود والاعتماد','مسار الرد: مسودة ← مراجعة ← اعتمادك بعد المراجعة ← توثيق الإرسال.',btn('＋ إنشاء رد','new-reply','btn-primary'))+
-  '<div class="risk-note">لا يُسمح لمُعدّ الرد باعتماده؛ يجب الاعتماد من حساب مخوّل آخر.</div>'+
   '<section class="panel table-panel"><div class="panel-header"><div><h2>ملفات الردود</h2><p>'+rows.length+' رد مرتبط بسجل شكوى</p></div></div>'+
   (rows.length?
     '<div class="table-wrap"><table><thead><tr><th>رقم الشكوى</th><th>الموضوع</th><th>معدّ الرد</th><th>الحالة</th><th>آخر تحديث</th><th></th></tr></thead><tbody>'+
-    rows.map(c=>'<tr><td><span class="ticket-id">'+esc(c.id)+'</span></td><td>'+esc(c.summary)+'</td><td>'+esc(c.reply.author)+'</td><td>'+replyStatusPill(c.reply.status)+'</td><td>'+dateText(c.updated)+'</td><td><button class="btn btn-sm btn-primary" data-action="detail" data-id="'+esc(c.id)+'">فتح الرد</button></td></tr>').join('')+
+    rows.map(c=>'<tr><td><span class="ticket-id">'+esc(c.id)+'</span></td><td>'+esc(c.summary)+'</td><td>'+esc(c.reply.author)+'</td><td>'+replyStatusPill(c.reply.status)+'</td><td>'+dateText(c.updated)+'</td><td>'+replyRowDetails(c)+'</td></tr>').join('')+
     '</tbody></table></div>'
-  :'<div class="empty-state"><p>لا توجد ردود بعد. افتح شكوى ثم اختر «صياغة رد».</p><button class="btn btn-primary" data-action="new-reply">إنشاء رد</button></div>')+
+  :'<div class="empty-state"><p>لا توجد ردود بعد.</p><button class="btn btn-primary" data-action="new-reply">إنشاء رد</button></div>')+
   '</section>';
 }
 function replyStatusPill(s){const m={draft:['مسودة','new'],review:['مراجعة','waiting'],approval:['بانتظار الاعتماد','waiting'],approved:['معتمد','progressing'],sent:['تم توثيق الإرسال','closed']};const x=m[s]||[s,'closed'];return '<span class="pill '+x[1]+'">'+x[0]+'</span>';}

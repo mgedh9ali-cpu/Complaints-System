@@ -7,22 +7,12 @@ function suggestedNextStep(c){
   const incomplete = isIncomplete(c);
   if((c.status==='draft'||incomplete)&&can('complaints.update'))
     return {title:'استكمال البيانات',desc:missingFields(c).map(field=>field.label).join('، '),action:'edit-complaint',label:'استكمال الآن'};
-  if(c.reply?.status==='approved'&&can('replies.send'))
-    return {title:'توثيق إرسال الرد',desc:'الرد معتمد. وثّق إرساله بعد إبلاغ المشتكي فعليًا.',action:'reply-sent',label:'توثيق الإرسال'};
-  if(c.reply?.status==='sent'&&can('complaints.status'))
-    return {title:'مراجعة إغلاق السجل',desc:'راجع اكتمال الإحالات ونتيجة المعالجة قبل الإغلاق.',action:'focus-status',label:'إجراءات الحالة'};
-  if(['review','approval'].includes(c.reply?.status)&&can('replies.approve'))
-    return {title:'مراجعة الرد واعتماده',desc:'راجع النص في قسم الردود قبل الاعتماد.',action:'focus-reply',label:'مراجعة الرد'};
-  if(c.reply?.status==='draft'&&can('replies.draft'))
-    return {title:'مراجعة مسودة الرد',desc:'راجع النص أو عدّله قبل إرساله للمراجعة والاعتماد.',action:'focus-reply',label:'فتح المسودة'};
   if(c.status==='new'&&can('complaints.status'))
     return {title:'بدء المعالجة',desc:'حدّد الحالة الجديدة وسجّل إجراء المتابعة.',action:'focus-status',label:'إجراءات الحالة'};
   if(c.status==='awaiting_reply'&&can('complaints.read'))
     return {title:'متابعة رد الجهة',desc:'راجع الإحالة وسجّل رد الجهة عند وروده.',action:'focus-referrals',label:'عرض الإحالات'};
   if(c.status==='in_progress'&&!(c.referrals||[]).length&&!c.reply&&can('complaints.update'))
     return {title:'إحالة إلى الجهة المختصة',desc:'سجّل الجهة والموعد المتوقع للرد، أو صغ ردًا من قسم الردود.',action:'referral-create',label:'إضافة إحالة'};
-  if(c.status==='awaiting_approval'&&!c.reply&&can('replies.draft'))
-    return {title:'صياغة الرد',desc:'لا يوجد رد مرتبط بهذا السجل بعد.',action:'reply-create',label:'صياغة رد'};
   if(typeof isLate==='function'&&isLate(c)&&can('complaints.status'))
     return {title:'معالجة التأخير',desc:'راجع الحالة والموعد القادم قبل إغلاق المتابعة.',action:'focus-status',label:'مراجعة الحالة'};
   return null;
@@ -32,7 +22,7 @@ function nextStepPanelHtml(c){
   const step = suggestedNextStep(c);
   if(!step) return '';
   let btn = '';
-  if(['edit-complaint','reply-create','reply-sent'].includes(step.action))
+  if(step.action === 'edit-complaint')
     btn = '<button class="btn btn-sm btn-primary" data-action="'+step.action+'" data-id="'+esc(c.id)+'">'+esc(step.label)+'</button>';
   else if(step.action === 'referral-create')
     btn = '<button class="btn btn-sm btn-primary" data-action="referral-create" data-id="' + esc(c.id) + '">' + esc(step.label) + '</button>';
@@ -40,8 +30,6 @@ function nextStepPanelHtml(c){
     btn = '<button class="btn btn-sm btn-primary" data-action="survey" data-id="' + esc(c.id) + '">' + esc(step.label) + '</button>';
   else if(step.action === 'focus-status')
     btn = '<button class="btn btn-sm btn-primary" data-action="detail-section" data-target="complaint-actions">' + esc(step.label) + '</button>';
-  else if(step.action === 'focus-reply')
-    btn = '<button class="btn btn-sm btn-primary" data-action="detail-section" data-target="complaint-reply">' + esc(step.label) + '</button>';
   else if(step.action === 'focus-referrals')
     btn = '<button class="btn btn-sm btn-primary" data-action="detail-section" data-target="complaint-referrals">' + esc(step.label) + '</button>';
   else if(step.action === 'focus-summary')
@@ -82,13 +70,6 @@ function installDetailNextStepEnhancer(){
     }
     if(html.indexOf('pill-inquiry') < 0 && html.indexOf('pill-complaint') < 0 && typeof pillRecordType === 'function'){
       html = html.replace('<div class="complaint-page-badges">', '<div class="complaint-page-badges">' + pillRecordType(c));
-    }
-    if(html.indexOf('نوع السجل') < 0){
-      const label = (typeof isInquiryRecord === 'function' && isInquiryRecord(c)) ? 'استفسار' : 'شكوى';
-      html = html.replace(
-        '<div class="detail-field"><span>اسم المشتكي</span>',
-        '<div class="detail-field"><span>نوع السجل</span><span>' + label + '</span></div><div class="detail-field"><span>اسم المشتكي</span>'
-      );
     }
     return html;
   }

@@ -191,7 +191,7 @@ async function copyComplaint(id){
     summary:(c.summary||'')+(c.summary&&!String(c.summary).includes('(نسخة)')?' (نسخة)':''),
     details:c.details||'',
     source:c.source||'phone',
-    recordType:c.recordType||(String(c.category||'').includes('استفسار')||String(c.nature||'').includes('استفسار')?'inquiry':'complaint'),
+    recordType:recordTypeOf(c),
     relatedToCurrent:c.relatedToCurrent,
     asDraft:true
   };

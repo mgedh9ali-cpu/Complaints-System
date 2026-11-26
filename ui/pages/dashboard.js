@@ -1,18 +1,16 @@
 function heading(title,desc,actions=''){return '<div class="page-heading"><div><h1>'+title+'</h1><p>'+desc+'</p></div><div class="heading-actions">'+actions+'</div></div>';}
 function btn(label,action,kind=''){return '<button class="btn '+kind+'" data-action="'+action+'">'+label+'</button>';}
 
-function isInquiryRecord(c){
-  if(!c) return false;
-  if(c.recordType==='inquiry') return true;
-  if(c.recordType==='complaint') return false;
-  const cat=norm(c.category||'');
-  const nat=norm(c.nature||'');
-  return cat.includes('استفسار') || nat==='استفسار' || nat.includes('استفسار');
+function recordTypeOf(c) {
+  if (['complaint','inquiry','contact'].includes(c?.recordType)) return c.recordType;
+  const category = norm(c?.category || '');
+  const nature = norm(c?.nature || '');
+  return category.includes('استفسار') || nature.includes('استفسار') ? 'inquiry' : 'complaint';
 }
-function pillRecordType(c){
-  if(isInquiryRecord(c))
-    return '<span class="pill pill-inquiry" title="استفسار">استفسار</span>';
-  return '<span class="pill pill-complaint" title="شكوى">شكوى</span>';
+function pillRecordType(c) {
+  const type = recordTypeOf(c);
+  const label = intakeTypes[type];
+  return '<span class="pill pill-' + (type === 'contact' ? 'inquiry' : type) + '">' + label + '</span>';
 }
 
 /** Current registry layout preference: 'table' | 'cards' */

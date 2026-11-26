@@ -274,9 +274,11 @@ function createComplaintsService({ db, audit, logger, rolesService, singleOperat
       nature: body.nature || '', priority: body.priority || 'normal', status,
       ...(singleOperator?{}:{owner:username||null}), summary: body.summary || '', details: body.details || '',
       firstContactDate: body.firstContactDate || null,
+      ...(body.recordType ? { recordType: body.recordType } : {}),
+      ...(body.relatedToCurrent ? { relatedToCurrent: body.relatedToCurrent } : {}),
       created: now, updated: now,
       due: new Date(Date.now() + (Number(state.settings.slaDays) || 7) * 86400000).toISOString(),
-      notes: [], timeline: [{ event: asDraft ? 'حفظ مسودة' : 'تسجيل الشكوى', by: username || 'system', at: now, detail: asDraft ? 'مسودة غير منشورة.' : 'تم الإنشاء عبر API.' }],
+      notes: [], timeline: [{ event: asDraft ? 'حفظ مسودة' : ({ inquiry:'تسجيل الاستفسار', contact:'تسجيل التواصل' }[body.recordType] || 'تسجيل الشكوى'), by: username || 'system', at: now, detail: asDraft ? 'مسودة غير منشورة.' : 'تم الإنشاء عبر API.' }],
       referrals: [], reply: null, confidentiality: body.confidentiality || 'normal',
       attachments: [], ...(singleOperator?{}:{coAssistants:[]}), statusHistory: []
     };

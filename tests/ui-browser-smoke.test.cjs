@@ -180,7 +180,7 @@ test('UI loads server state then opens complaint as an independent accessible wo
  assert.match(page,/data-complaint-id="SY-2026-10001"/);
  assert.match(page,/id="complaint-summary"/);
  assert.match(page,/id="complaint-actions"/);
- assert.match(page,/id="complaint-reply"/);
+ assert.doesNotMatch(page,/id="complaint-reply"/);
  assert.match(page,/id="complaint-timeline"/);
  assert.match(page,/id="complaint-notes"/);
  assert.match(page,/data-action="detail-back"/);
@@ -468,7 +468,7 @@ test('inquiry review keeps contact details and saves optional fields without an 
  ui.node('#cSummary').value='استفسار عن المعاملة';
  ui.node('#cName').value='متصل للاختبار';ui.node('#cPhone').value='0912345678';ui.node('#cFirstContactDate').value='2026-11-10';
  let review=ui.node('#modalRoot').innerHTML;
- assert.match(review,/حفظ كمسودة/);
+ assert.match(review,/>حفظ<\/button>/);
  assert.equal(ui.node('#cName').value,'متصل للاختبار');
  assert.equal(ui.node('#cFirstContactDate').value,'2026-11-10');
  ui.click('intake-related');
@@ -490,7 +490,7 @@ test('record view uses inquiry labels, escapes long text, and renders the subjec
  assert.match(html,/السطر الأول\nالسطر الثاني &lt;img src=x&gt;/);
  assert.doesNotMatch(html,/<script>test|<img src=x>/);
  assert.match(html,/class="ticket-id" dir="ltr"/);
- for(const id of ['complaint-summary','complaint-actions','complaint-reply','complaint-attachments','complaint-timeline','complaint-notes'])
+ for(const id of ['complaint-summary','complaint-actions','complaint-attachments','complaint-timeline','complaint-notes'])
   assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1);
 });
 
@@ -498,7 +498,7 @@ test('operator can approve their own reviewed reply',async()=>{
  const own=createFakeBrowser('admin',{status:'review',text:'رد للاختبار',authorId:'u1'});
  const independent=createFakeBrowser('admin',{status:'review',text:'رد للاختبار',authorId:'another'});
  for(let i=0;i<25;i++)await Promise.resolve();
- own.click('detail','SY-2026-10001');independent.click('detail','SY-2026-10001');
+ own.navigate('replies');independent.navigate('replies');
  assert.match(own.node('#content').innerHTML,/data-action="reply-approve"/);
  assert.match(independent.node('#content').innerHTML,/data-action="reply-approve"/);
 });
@@ -629,7 +629,7 @@ test('known metadata opens an anonymous record without requiring optional contac
  ui.node('#cSummary').value='سجل بلا معلومات شخصية';ui.node('#cEntity').value='جهة معروفة';
  ui.node('#cCategory').value='خدمات';ui.node('#cProvince').value='دمشق';
  ui.events.get('input')({target:ui.node('#cEntity')});
- assert.equal(ui.node('[data-action="save-complaint"]').textContent,'فتح سجل');
+ assert.match(ui.node('#modalRoot').innerHTML,/data-action="save-complaint">حفظ<\/button>/);
  await ui.click('save-complaint');for(let i=0;i<35;i++)await Promise.resolve();
  const body=JSON.parse(ui.calls.find(c=>c.url==='/api/complaints'&&c.method==='POST').body);
  assert.equal(body.asDraft,false);assert.equal(body.name,'');assert.equal(body.details,'');

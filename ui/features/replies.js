@@ -91,7 +91,9 @@ async function saveReply(id){
   await flushUiBeforeAction();
   await api('/api/complaints/'+encodeURIComponent(id)+'/reply',{method:'PATCH',body:JSON.stringify({action:'draft',text})});
   await reloadStoredState();
-  detailModal(id);toast('تم حفظ المسودة في قاعدة البيانات.');
+  if (page === 'replies') { closeModal(); render(); }
+  else detailModal(id);
+  toast('تم حفظ المسودة في قاعدة البيانات.');
  }catch(error){
   db=original;
   if(error.status===409||error.status===428)stateConflict=true;
@@ -127,7 +129,8 @@ async function replyAction(id,action){
   }
   await api('/api/complaints/'+encodeURIComponent(id)+'/reply',{method:'PATCH',body:JSON.stringify({action:({'reply-review':'review','reply-approve':'approve','reply-sent':'sent'})[action]})});
   await reloadStoredState();
-  detailModal(id);
+  if (page === 'replies') { closeModal(); render(); }
+  else detailModal(id);
   toast(action==='reply-review'?'أُرسل للمراجعة.':action==='reply-approve'?'تم اعتماد الرد.':'تم توثيق الإرسال.');
  }catch(error){
   db=original;

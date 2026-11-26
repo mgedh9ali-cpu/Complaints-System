@@ -25,38 +25,24 @@ function complaintDetailField(label, value, direction = '') {
     (direction ? ' dir="' + direction + '"' : '') + '>' + esc(value || 'غير مسجل') + '</dd></div>';
 }
 
-function complaintDetailReply(c) {
-  const id = esc(c.id), reply = c.reply;
-  const receipt = '<button class="btn btn-sm" data-action="print-receipt" data-id="' + id + '">إيصال استلام PDF</button>';
-  if (!reply) return '<section class="detail-section" id="complaint-reply"><h3>الرد الخارجي</h3><p class="detail-empty">لم يُضف رد بعد.</p><div class="footer-actions">' +
-    (uiCan('replies.draft') ? '<button class="btn btn-sm" data-action="reply-create" data-id="' + id + '">صياغة رد</button>' : '') + receipt + '</div></section>';
-  const approved = ['approved', 'sent'].includes(reply.status);
-  let actions = receipt;
-  if (approved) actions += '<button class="btn btn-sm" data-action="print-approved-reply" data-id="' + id + '">طباعة الرد مع رمز تحقق</button>';
-  if (reply.status === 'draft' && uiCan('replies.draft')) actions += '<button class="btn btn-sm" data-action="reply-review" data-id="' + id + '">إرسال للمراجعة</button>';
-  if (['draft', 'review', 'approval'].includes(reply.status) && uiCan('replies.approve'))
-    actions += '<button class="btn btn-sm btn-primary" data-action="reply-approve" data-id="' + id + '">اعتماد الرد</button>';
-  if (reply.status === 'approved' && uiCan('replies.send')) actions += '<button class="btn btn-sm btn-primary" data-action="reply-sent" data-id="' + id + '">توثيق الإرسال</button>';
-  return '<section class="detail-section" id="complaint-reply"><h3>الرد الخارجي</h3>' +
-    (approved ? '<div class="approval-stamp" role="status" aria-label="الرد معتمد داخليًا"><strong>تم اعتماد الرد</strong><span>اعتماد إداري داخلي</span>' +
-      (reply.approvedAt ? '<small>' + esc(reply.approvedBy || '') + ' · ' + timeText(reply.approvedAt) + '</small>' : '') + '</div>' : '') +
-    replyStatusPill(reply.status) + '<p class="detail-prose">' + esc(reply.text || '') + '</p><div class="footer-actions">' + actions + '</div></section>';
-}
-
 function complaintDetailPage() {
   const id = currentId;
   ensureManagedSettings();
   const c = db.complaints.find(x => x.id === id);
   if (!c) return heading('السجل غير موجود', 'لا يمكن عرض هذا الرقم المرجعي.', '<button class="btn" data-action="detail-back">عودة للسجل</button>');
-  const inquiry = typeof isInquiryRecord === 'function' && isInquiryRecord(c);
-  const label = inquiry ? 'الاستفسار' : 'الشكوى';
+  const type = recordTypeOf(c);
+  const label = { complaint:'الشكوى', inquiry:'الاستفسار', contact:'التواصل' }[type];
   const transitions = {draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:[],cancelled:[]};
   const next = c.archivedAt ? [] : (['closed','cancelled'].includes(c.status) && uiCan('complaints.reopen') ? ['in_progress'] : transitions[c.status] || []);
   const action = (name, text, kind = '') => '<button type="button" class="btn btn-sm ' + kind + '" data-action="' + name + '" data-id="' + esc(id) + '">' + text + '</button>';
-  const fields = [['نوع السجل', inquiry ? 'استفسار' : 'شكوى'], [inquiry ? 'اسم المتصل' : 'اسم المشتكي', c.name], ['رقم الهاتف', c.phone, 'ltr'],
+  const fields = [['نوع السجل', intakeTypes[type]], [type === 'complaint' ? 'اسم المشتكي' : 'اسم المتصل', c.name], ['رقم الهاتف', c.phone, 'ltr'],
     ['قناة الورود', ({phone:'الهاتف',whatsapp:'واتساب',telegram:'تلغرام',other:'أخرى'})[c.source] || c.source],
     ['المحافظة', c.province], ['التصنيف', c.category], ['طبيعة السجل', c.nature], ['الجهة المختصة', c.entity],
     ['تاريخ أول تواصل', c.firstContactDate], ['تاريخ التسجيل', dateText(c.created)]];
+  if (type !== 'complaint' && c.relatedToCurrent) {
+    const related = { yes:'نعم', no:'لا', unknown:'غير محدد' }[c.relatedToCurrent];
+    fields.push(['متعلق بالوضع الحالي', related]);
+  }
   const summary = '<section class="detail-section" id="complaint-summary"><h3>بيانات ' + label + '</h3><dl class="record-data-grid">' +
     fields.map(([title, value, dir]) => complaintDetailField(title, value, dir)).join('') + '</dl><div class="record-description"><h4>التفاصيل</h4><p class="detail-prose">' + esc(c.details || 'لم تُضف تفاصيل إضافية.') + '</p></div></section>';
   const canChangeStatus = uiCan('complaints.status') && next.length > 0;
@@ -76,11 +62,11 @@ function complaintDetailPage() {
   return '<article class="complaint-page' + (authenticatedUser?.role === 'reviewer' ? ' readonly' : '') + (authenticatedUser?.role === 'admin' ? ' can-approve' : '') + '" data-complaint-id="' + esc(id) + '">' +
     '<div class="complaint-page-header"><button class="btn" data-action="detail-back">العودة إلى السجل</button><div class="complaint-page-heading"><span class="eyebrow">ملف ' + label + '</span><h1>' + esc(c.summary) + '</h1><p class="record-reference">الرقم المرجعي <strong class="ticket-id" dir="ltr"><bdi>' + esc(id) + '</bdi></strong></p>' +
     '<div class="complaint-page-badges">' + (typeof pillRecordType === 'function' ? pillRecordType(c) : '') + pillStatus(c.status) + pillPriority(c.priority) + slaIndicator(c) + '<span class="age-badge' + (isLate(c) ? ' late' : '') + '">مدة البقاء: ' + ageDays(c) + ' يوم</span></div></div></div>' +
-    recordOverviewHtml(c) + '<div class="complaint-record-actions" aria-label="إجراءات السجل">' + complaintRecordActions(c, false) + action('print-complaint-cover', 'طباعة', 'btn-print') +
+    recordOverviewHtml(c) + '<div class="complaint-record-actions" aria-label="إجراءات السجل">' + complaintRecordActions(c, false) + action('print-complaint-cover', 'طباعة', 'btn-print') + action('print-receipt', 'إيصال استلام PDF') +
     (uiCan('complaints.update') ? action('set-reminder', 'تذكير') + action('add-note', 'ملاحظة داخلية') : '') + '</div>' +
     '<nav class="complaint-page-tabs" aria-label="أقسام ملف السجل">' +
-    [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-actions','المعالجة'],['complaint-reply','الردود'],['complaint-referrals','الإحالات'],['complaint-timeline','سجل الأحداث'],['complaint-notes','الملاحظات']].map(([target, title]) => '<button type="button" data-action="detail-section" data-target="' + target + '">' + title + '</button>').join('') +
-    '</nav><div class="complaint-page-content"><div class="detail-grid"><div>' + summary + complaintDetailReply(c) + '<section class="detail-section" id="complaint-attachments"><h3>المرفقات الخاصة</h3></section>' +
+    [['complaint-summary','البيانات'],['complaint-attachments','المرفقات'],['complaint-actions','المعالجة'],['complaint-referrals','الإحالات'],['complaint-timeline','سجل الأحداث'],['complaint-notes','الملاحظات']].map(([target, title]) => '<button type="button" data-action="detail-section" data-target="' + target + '">' + title + '</button>').join('') +
+    '</nav><div class="complaint-page-content"><div class="detail-grid"><div>' + summary + '<section class="detail-section" id="complaint-attachments"><h3>المرفقات الخاصة</h3></section>' +
     '<section class="detail-section" id="complaint-referrals"><h3>الإحالات والمتابعة</h3><div class="footer-actions">' + referralActions + '</div></section>' +
     complaintWorkflowPanel(c) + '</div><aside class="record-side" aria-label="المعالجة وسجل الإجراءات">' + processing + timeline + notes + '</aside></div></div></article>';
 }

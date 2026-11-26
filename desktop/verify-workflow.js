@@ -28,18 +28,26 @@ async function verifyWorkflow(webContents, credentials) {
     stage = 'intake';
     click('#headerCreateButton');
     await until(()=>find('#newComplaintForm'));
+    click('#modalRoot .intake-save-actions [data-action="close-modal"]');
+    await until(()=>!find('#modalRoot').dataset.open);
+    assert((await records()).length===0);
+    click('#headerCreateButton');
+    await until(()=>find('#newComplaintForm'));
+    click('[data-action="intake-pick-type"][data-type="contact"]');
     find('#intakeAdditional').open=true;
     for (const [id,value] of Object.entries({cName:'بيانات اختبارية',cPhone:'0999999999',cSummary:'اختبار سير العمل للحزمة',cDetails:'سجل اصطناعي لفحص الواجهة فقط'}))fill('#'+id,value);
     fill('#cEntity',find('#intakeEntities option').value);
     fill('#cCategory',find('#intakeCategories option').value);
     fill('#cProvince',find('#cProvince option[value]:not([value=""])').value);
+    fill('#cRelatedToCurrent','yes');
     click('[data-action="save-complaint"]');
     await until(()=>find('.intake-saved-id bdi'));
     const id=find('.intake-saved-id bdi').textContent.trim();
-    assert((await records()).some(c=>c.id===id&&c.status==='new'));
+    assert((await records()).some(c=>c.id===id&&c.status==='new'&&c.recordType==='contact'&&c.relatedToCurrent==='yes'));
     click('[data-action="close-modal"]');
 
     stage = 'search';
+    click('[data-action="filter-record-type"][data-value="contact"]');
     fill('#complaintSearch',id);
     await until(()=>find('.registry-summary strong')?.textContent==='1'&&find('#content').textContent.includes(id));
     click('[data-action="detail"][data-id="'+id+'"]');
@@ -76,11 +84,16 @@ async function verifyWorkflow(webContents, credentials) {
     await until(()=>!find('#modalRoot').dataset.open&&find('#content').textContent.includes('رد جهة اصطناعي'));
 
     stage = 'reply';
-    click('#complaint-reply [data-action="reply-create"]');
+    assert(!find('#complaint-reply'));
+    click('.nav-link[data-page="replies"]');
+    await until(()=>find('#content [data-action="new-reply"]'));
+    click('#content [data-action="new-reply"]');
+    fill('#replyComplaint',id);
+    click('[data-action="reply-next"]');
     await until(()=>find('#replyText'));
     fill('#replyText','مسودة رد اصطناعية');click('[data-action="save-reply"]');
     await until(async()=>(await records()).find(c=>c.id===id)?.reply?.status==='draft');
-    await until(()=>!find('#modalRoot').dataset.open&&find('#complaint-notes')&&find('#complaint-reply'));
+    await until(()=>!find('#modalRoot').dataset.open&&find('#content').textContent.includes('مسودة رد اصطناعية'));
     return {passed:true,checks:['login','intake','search','queue-reset','referral','referral-response','reply-draft']};
   }
   return webContents.executeJavaScript('(' + exercise.toString() + ')(' + JSON.stringify(credentials) + ')');

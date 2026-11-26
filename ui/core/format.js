@@ -62,7 +62,7 @@ function enhanceGlassDetail(){
 }
 function updateReasonSheet(){const reason=$('#statusReason');if(reason){const next=$('#detailStatus')?.value;const current=db.complaints.find(c=>c.id===currentId);const required=Boolean(next)&&(['closed','cancelled'].includes(next)||['closed','cancelled'].includes(current?.status));reason.required=required;const wrap=reason.closest?.('.form-field');if(wrap)wrap.hidden=!required;}}
 function scrollComplaintSection(target,source){
- const allowed=new Set(['complaint-summary','complaint-attachments','complaint-actions','complaint-reply','complaint-referrals','complaint-timeline','complaint-notes']);
+ const allowed=new Set(['complaint-summary','complaint-attachments','complaint-actions','complaint-referrals','complaint-timeline','complaint-notes']);
  if(!allowed.has(target))return;
  const section=document.getElementById(target);if(!section)return;
  $$('[data-action="detail-section"]').forEach(tab=>{if(tab===source)tab.setAttribute('aria-current','location');else tab.removeAttribute('aria-current');});

@@ -4,8 +4,11 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
+const { setTimeout: delay } = require('node:timers/promises');
 const { API, selectRelease, downloadVerified, fileHash, createReleaseFetch } = require('./update-core');
 const { createNetworkFetch } = require('./update-network');
+
+const portableFilename = /^complaints-system-.*-portable(?: \(\d+\))?\.exe$/i;
 
 function readReceipt(base) {
   try { return JSON.parse(fs.readFileSync(path.join(base, 'update-receipt.json'), 'utf8')); }
@@ -110,7 +113,7 @@ async function runUpdate({ app, window, paths, runtime, admin }) {
     if (!await runtime.backupScheduler.runOnce()) throw new Error('لم تكتمل النسخة الاحتياطية. أعد المحاولة بعد اكتمال النسخ أو إصلاح مجلده. لم يبدأ التثبيت.');
     const user = await admin();
     const portable = process.env.PORTABLE_EXECUTABLE_FILE;
-    const oldPortable = portable && /^complaints-system-.*-portable\.exe$/i.test(path.basename(portable))
+    const oldPortable = portable && portableFilename.test(path.basename(portable))
       ? { file: path.resolve(portable), sha256: await fileHash(portable) } : null;
     const receipt = { ...release, state: 'pending', staging, oldPortable };
     const config = path.join(staging, 'install.json');
@@ -147,9 +150,20 @@ async function completeUpdate({ app, window, paths }) {
   let cleanupPending = false;
   if (receipt.oldPortable && !process.env.PORTABLE_EXECUTABLE_FILE) {
     const old = receipt.oldPortable;
-    if (/^complaints-system-.*-portable\.exe$/i.test(path.basename(old.file)) && path.resolve(old.file) !== path.resolve(app.getPath('exe'))) {
+    if (portableFilename.test(path.basename(old.file)) && path.resolve(old.file) !== path.resolve(app.getPath('exe'))) {
       try {
-        if (fs.existsSync(old.file) && await fileHash(old.file) === old.sha256) fs.unlinkSync(old.file);
+        if (fs.existsSync(old.file) && await fileHash(old.file) === old.sha256) {
+          for (let attempt = 0; ; attempt++) {
+            try {
+              fs.rmSync(old.file, { force: true });
+              break;
+            } catch (error) {
+              if (attempt >= 4 || !['EBUSY', 'EPERM', 'EACCES'].includes(error.code)) throw error;
+              await delay(500);
+              if (!fs.existsSync(old.file) || await fileHash(old.file) !== old.sha256) break;
+            }
+          }
+        }
       } catch (_) { cleanupPending = true; }
     }
   }
@@ -161,7 +175,7 @@ async function completeUpdate({ app, window, paths }) {
   saveReceipt(paths.applicationBase, { ...receipt, state: 'complete', cleanupPending });
   if (receipt.state === 'complete') return false;
   const view = statusWindow(window);
-  view.show({ message: 'اكتمل التحديث بنجاح. حُفظت قاعدة البيانات والمرفقات والإعدادات.' + (cleanupPending ? ' تعذّر تنظيف بعض ملفات التطبيق القديمة؛ يمكنك حذفها بعد إغلاقها.' : ''), version: receipt.version, notes: receipt.notes, done: true });
+  view.show({ message: 'اكتمل التحديث بنجاح. حُفظت قاعدة البيانات والمرفقات والإعدادات.' + (cleanupPending ? ' بعض ملفات النسخة القديمة قيد الاستخدام. ستُعاد محاولة تنظيفها عند التشغيل القادم.' : ''), version: receipt.version, notes: receipt.notes, done: true });
   return true;
 }
 module.exports = { runUpdate, completeUpdate, readReceipt, saveReceipt };

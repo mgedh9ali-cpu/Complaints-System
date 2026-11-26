@@ -9,10 +9,6 @@ function floatingDetailActions(c){
     actions.push('<button type="button" class="btn btn-sm" data-action="edit-complaint" data-id="'+id+'">تعديل</button>');
   if(uiCan('complaints.status')&&!c.archivedAt)
     actions.push('<button type="button" class="btn btn-sm" data-action="detail-section" data-target="complaint-actions">تغيير الحالة</button>');
-  if(uiCan('replies.draft')&&!c.reply&&!c.archivedAt&&!closed)
-    actions.push('<button type="button" class="btn btn-sm btn-primary" data-action="reply-create" data-id="'+id+'">صياغة رد</button>');
-  else if(c.reply&&['draft','review','approval'].includes(c.reply.status))
-    actions.push('<button type="button" class="btn btn-sm btn-primary" data-action="detail-section" data-target="complaint-reply">متابعة الرد</button>');
   if(uiCan('complaints.update')&&!c.archivedAt&&!closed)
     actions.push('<button type="button" class="btn btn-sm" data-action="referral-create" data-id="'+id+'">إحالة</button>');
   actions.push('<button type="button" class="btn btn-sm" data-action="print-complaint-cover" data-id="'+id+'">طباعة</button>');

@@ -164,7 +164,7 @@ test('an old build with a reused version cannot confirm or delete pending update
 });
 test('the original portable executable is removed only after the new installed build starts; a changed file is kept', async t => {
   for (const changed of [false, true]) {
-    const h = harness(t), portable = path.join(h.base, 'complaints-system-1.0.0-rc.8-portable.exe');
+    const h = harness(t), portable = path.join(h.base, 'complaints-system-1.0.0-rc.8-portable (1).exe');
     fs.writeFileSync(portable, bytes); h.environment.PORTABLE_EXECUTABLE_FILE = portable;
     await h.updater.runUpdate(h.options);
     assert.equal(fs.existsSync(portable), true, 'download or shutdown must never remove the previous executable');
