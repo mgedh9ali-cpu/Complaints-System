@@ -63,9 +63,9 @@ test('operational reports chart real records, escape labels and retain local exp
 });
 
 test('approval mark appears only on approved or sent replies and supports print', () => {
-  const detail = read('ui/pages/detail.js');
+  const communication = read('ui/pages/communication.js');
   const css = read('redesign.css');
-  const render = vm.runInNewContext(detail + ';complaintDetailReply', {
+  const render = vm.runInNewContext(communication + ';replyRowDetails', {
     document:{addEventListener(){}}, esc: value => String(value || ''), uiCan: () => false,
     authenticatedUser: {id:'viewer',username:'viewer'},
     timeText: value => value, replyStatusPill: status => status
