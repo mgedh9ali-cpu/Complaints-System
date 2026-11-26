@@ -66,7 +66,7 @@ function complaintWorkflowPanel(c){
 }
 function openRecordStatus(id){
  const c=db.complaints.find(x=>x.id===id);if(!c||c.archivedAt||!uiCan('complaints.status'))return toast('لا يمكن تغيير حالة هذا السجل.','warn');
- const transitions={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['awaiting_reply','awaiting_approval','closed','cancelled'],awaiting_reply:['in_progress','awaiting_approval','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]};
+ const transitions={draft:['new','cancelled'],new:['in_progress','cancelled','draft'],in_progress:['closed','cancelled'],awaiting_reply:['in_progress','closed','cancelled'],awaiting_approval:['in_progress','closed','cancelled'],closed:uiCan('complaints.reopen')?['in_progress']:[],cancelled:uiCan('complaints.reopen')?['in_progress']:[]};
  const next=transitions[c.status]||[];if(!next.length)return toast('لا توجد انتقالات متاحة.','warn');
  modal('تغيير الحالة',esc(id),'<div class="form-field"><label for="detailStatus">الحالة الجديدة</label><select class="select-field" id="detailStatus"><option value="">اختر الحالة</option>'+next.map(s=>'<option value="'+esc(s)+'">'+esc(statusLabel(s))+'</option>').join('')+'</select></div><div class="form-field"><label for="statusReason">السبب</label><textarea class="textarea-field" id="statusReason"></textarea></div>', '<button class="btn" data-action="close-modal">إلغاء</button><button class="btn btn-primary" data-action="change-status" data-id="'+esc(id)+'">حفظ الحالة</button>');
  updateReasonSheet();
