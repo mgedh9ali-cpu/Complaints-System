@@ -48,7 +48,7 @@ function pillPriority(p){return '<span class="pill '+priorityClass(p)+'">'+esc(p
 function logEvent(c,event,detail,by=(authenticatedUser?.username||'النظام')){c.timeline.unshift({event,detail,by,at:new Date().toISOString()});c.updated=new Date().toISOString();}
 function notify(title,body){db.notifications.unshift({id:Date.now(),title,body,date:new Date().toISOString(),read:false});persist();}
 function toast(msg,type=''){const r=$('#toastRegion');const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;r.append(el);setTimeout(()=>el.remove(),3500);return type==='error'||type==='warn'?false:undefined;}
-function countStatus(s){return db.complaints.filter(c=>!c.archivedAt&&c.status===s).length;}
+function countStatus(s){return db.complaints.filter(c=>!c.archivedAt&&(c.status===s||(s==='in_progress'&&['awaiting_reply','awaiting_approval'].includes(c.status)))).length;}
 function pendingApprovals(){return db.complaints.filter(c=>!c.archivedAt&&c.reply&&['review','approval'].includes(c.reply.status));}
 function lateComplaints(){return db.complaints.filter(isLate);}
 function referralList(){return db.complaints.filter(c=>!c.archivedAt).flatMap(c=>(c.referrals||[]).map((r,i)=>({...r,complaintId:c.id,complaintSummary:c.summary,refIndex:i})));}

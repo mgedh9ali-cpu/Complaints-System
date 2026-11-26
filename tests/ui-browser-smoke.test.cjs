@@ -687,14 +687,15 @@ test('reviewer completion preview exposes missing fields and view without edit c
 test('work queues clear unrelated filters and show only matching open records',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<30;i++)await Promise.resolve();
  const base=ui.state.complaints[0];
- base.referrals=[{entity:'جهة',response:'',due:'2026-11-20'}];
+ ui.state.settings.slaApproved=true;
+ base.status='in_progress';base.due='2020-01-01T00:00:00Z';
  ui.state.complaints.push({...base,id:'SY-2026-10002',status:'closed'});
- ui.state.complaints.push({...base,id:'SY-2026-10003',referrals:[]});
+ ui.state.complaints.push({...base,id:'SY-2026-10003',due:'2099-01-01T00:00:00Z'});
  ui.goto('complaints');
  ui.events.get('change')({target:{id:'dateFrom',value:'2099-01-01',classList:{contains:()=>false}}});
  ui.click('filter-record-type',undefined,{value:'inquiry'});
- assert.match(ui.node('#content').innerHTML,/data-action="registry-queue" data-queue="waiting-referrals"/);
- ui.click('registry-queue',undefined,{queue:'waiting-referrals'});
+ assert.match(ui.node('#content').innerHTML,/data-action="filter-late"/);
+ ui.click('filter-late');
  const html=ui.node('#content').innerHTML;
  assert.equal(ui.location.hash,'#complaints');assert.match(html,/SY-2026-10001/);assert.doesNotMatch(html,/SY-2026-10002|SY-2026-10003/);
  assert.match(html,/data-filter-key="queue"/);assert.doesNotMatch(html,/2099-01-01/);
@@ -795,10 +796,13 @@ test('owner attachment archive uses delegated action and authenticated DELETE on
 test('packaged smoke routes use visible registry controls without requiring hidden navigation',async()=>{
  const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();
  ui.goto('complaints');
- assert.match(ui.node('#content').innerHTML,/data-action="registry-queue" data-queue="waiting-referrals"/);
- assert.match(ui.node('#content').innerHTML,/data-goto="replies"/);
- ui.goto('replies');
- assert.match(ui.node('#content').innerHTML,/data-action="new-reply"/);
+ const html=ui.node('#content').innerHTML;
+ assert.doesNotMatch(html,/data-queue="waiting-referrals"|data-goto="replies"|value="awaiting_reply"|value="awaiting_approval"/);
+ assert.match(html,/data-action="filter-late"/);
+ assert.match(html,/value="in_progress"/);
+ ui.click('detail','SY-2026-10001');
+ assert.doesNotMatch(ui.node('#content').innerHTML,/complaint-referrals|data-action="referral-create"|data-action="survey"|glass-steps/);
+ assert.match(ui.node('#content').innerHTML,/data-action="edit-complaint"/);
 });
 
  test('simplified owner workspace removes redundant panels but retains editing',async()=>{const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('dashboard');assert.doesNotMatch(ui.node('#content').innerHTML,/أولوية المتابعة/);ui.click('detail','SY-2026-10001');const html=ui.node('#content').innerHTML;assert.doesNotMatch(html,/إجراءات الحالة|<h3>سجل الإجراءات|تأكيد الإجراءات|ردود الإحالات|class="floating-actions"/);assert.match(html,/data-action="edit-complaint"/);ui.click('edit-complaint','SY-2026-10001');assert.match(ui.node('#modalRoot').innerHTML,/حفظ التعديلات/);});

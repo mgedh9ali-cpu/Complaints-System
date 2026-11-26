@@ -63,61 +63,23 @@ async function verifyWorkflow(webContents, credentials) {
     await until(async()=>(await records()).some(c=>c.id===id&&c.summary==='اختبار حفظ التعديلات'&&!c.province&&!c.category&&!c.entity&&!c.details),'Save changed subject with optional fields cleared');
     await until(()=>!find('#modalRoot').dataset.open&&find('#content h1')?.textContent==='اختبار حفظ التعديلات');
 
-    stage = 'referral';
-    click('[data-action="referral-create"]');
-    await until(()=>find('#rEntity'));
-    fill('#rEntity',find('#rEntity option[value]:not([value=""])').value);
-    fill('#rNote','إحالة اصطناعية');
-    click('[data-action="save-referral"]');
-    await until(async()=>((await records()).find(c=>c.id===id)?.referrals||[]).length===1);
-    await until(()=>!find('#modalRoot').dataset.open&&find('#content [data-action="complaint-more"]'));
-
-    stage = 'queue';
+    stage = 'simplified record';
+    assert(!find('#complaint-referrals')&&!find('[data-action="referral-create"]')&&!find('[data-action="survey"]')&&!find('.glass-steps'),'Removed referral and status controls must remain absent');
+    stage = 'registry filters';
     click('.nav-link[data-page="complaints"]');
     await until(()=>find('#statusFilter'));
+    assert(!find('#statusFilter option[value="awaiting_reply"]')&&!find('#statusFilter option[value="awaiting_approval"]')&&!find('[data-queue="waiting-referrals"]')&&!find('#content [data-goto="replies"]'),'Retired registry options must remain absent');
     find('#statusFilter').value='closed';find('#statusFilter').dispatchEvent(new Event('change',{bubbles:true}));
     find('#dateFrom').value='2099-01-01';find('#dateFrom').dispatchEvent(new Event('change',{bubbles:true}));
     click('[data-action="filter-record-type"][data-value="inquiry"]');
-    // The referral shortcut was deliberately removed from the dashboard. The
-    // waiting-record queue is still available as a visible registry filter.
-    const waitingQueue='#content [data-action="registry-queue"][data-queue="waiting-referrals"]';
-    await until(()=>find(waitingQueue),'Waiting-for-response filter in registry');
-    click(waitingQueue);
-    await until(()=>find('[data-filter-key="queue"]')&&find('#content').textContent.includes(id));
-    assert(find('#statusFilter').value==='all'&&find('#dateFrom').value==='');
-
-    stage = 'referral response';
+    click('#content [data-action="filter-late"]');
+    await until(()=>find('[data-filter-key="queue"]')&&find('#statusFilter').value==='all'&&find('#dateFrom').value==='');
+    click('#content [data-action="remove-registry-filter"][data-filter-key="queue"]');
+    await until(()=>find('#content').textContent.includes(id));
     click('[data-action="detail"][data-id="'+id+'"]');
-    click('#content [data-action="complaint-more"]');
-    await until(()=>find('[data-action="open-record-referrals"]'));
-    click('[data-action="open-record-referrals"]');
-    await until(()=>find('[data-action="referral-response"][data-index="0"]'));
-    click('[data-action="referral-response"][data-index="0"]');
-    await until(()=>find('#referralResponse'));
-    fill('#referralResponse','رد جهة اصطناعي');click('[data-action="save-referral-response"]');
-    await until(async()=>(await records()).find(c=>c.id===id)?.referrals[0]?.response==='رد جهة اصطناعي');
-    await until(()=>!find('#modalRoot').dataset.open);
-    click('#content [data-action="complaint-more"]');
-    click('[data-action="open-record-referrals"]');
-    await until(()=>find('#modalRoot').textContent.includes('رد جهة اصطناعي'));
-    click('#modalRoot .modal-close');
-
-    stage = 'reply';
-    assert(!find('#complaint-reply'));
-    // The standalone replies navigation entry is hidden by design. Enter the
-    // same page through the visible registry approval filter instead.
-    click('.nav-link[data-page="complaints"]');
-    await until(()=>find('#content [data-goto="replies"]'),'Registry approval filter');
-    click('#content [data-goto="replies"]');
-    await until(()=>find('#content [data-action="new-reply"]'),'Reply creation action');
-    click('#content [data-action="new-reply"]');
-    fill('#replyComplaint',id);
-    click('[data-action="reply-next"]');
-    await until(()=>find('#replyText'));
-    fill('#replyText','مسودة رد اصطناعية');click('[data-action="save-reply"]');
-    await until(async()=>(await records()).find(c=>c.id===id)?.reply?.status==='draft');
-    await until(()=>!find('#modalRoot').dataset.open&&find('#content').textContent.includes('مسودة رد اصطناعية'));
-    return {passed:true,checks:['login','intake','search','save-changes','queue-reset','referral','referral-response','reply-draft']};
+    await until(()=>find('.complaint-page')?.dataset.complaintId===id);
+    assert(find('#content [data-action="edit-complaint"]'));
+    return {passed:true,checks:['login','intake','search','save-changes','simplified-record','queue-reset']};
   }
   return webContents.executeJavaScript('(' + exercise.toString() + ')(' + JSON.stringify(credentials) + ')');
 }

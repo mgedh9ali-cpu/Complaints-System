@@ -211,18 +211,19 @@ test(
       },
     );
     assert.equal(tableStart.status, 200);
-    const tableAwaitingReply = await request(
-      "/api/complaints/" + tableComplaint.id + "/status",
-      {
-        method: "PATCH",
-        body: JSON.stringify({ status: "awaiting_reply" }),
-      },
-    );
-    assert.equal(
-      tableAwaitingReply.status,
-      200,
-      "the next transition should read the status saved in the complaints table",
-    );
+    for (const status of ["awaiting_reply", "awaiting_approval"]) {
+      const rejected = await request("/api/complaints/" + tableComplaint.id + "/status", {
+        method: "PATCH", body: JSON.stringify({status}),
+      });
+      assert.equal(rejected.status, 400, "retired workflow states cannot be selected");
+    }
+    const tableClose = await request("/api/complaints/" + tableComplaint.id + "/status", {
+      method: "PATCH", body: JSON.stringify({status:"closed",reason:"اكتملت المعالجة"}),
+    });
+    assert.equal(tableClose.status, 200, "the next transition reads the persisted status");
+    const persisted = (await (await request("/api/state")).json()).state.complaints.find(c => c.id === tableComplaint.id);
+    assert.equal(persisted.status, "closed");
+    assert.equal(persisted.statusHistory.at(-1).from, "in_progress");
 
     const auditResponse = await request("/api/audit");
     assert.equal(auditResponse.status, 200);

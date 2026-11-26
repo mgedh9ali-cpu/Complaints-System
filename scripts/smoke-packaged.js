@@ -46,7 +46,7 @@ async function smoke(executable,serverScript){
    assert.ok(fs.existsSync(resultPath),'Chromium font verification timed out');
    const result=JSON.parse(fs.readFileSync(resultPath,'utf8'));
    assert.equal(result.ok,true,'Bundled font rendered');
-   assert.equal(result.workflow?.passed,true,'Packaged UI intake, search, registry queue, referral and reply');
+   assert.equal(result.workflow?.passed,true,'Packaged UI intake, search, editing and simplified registry filters');
   }
   const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'release_admin',password})});
   assert.equal(login.status,200,'Packaged login');
@@ -62,7 +62,7 @@ async function smoke(executable,serverScript){
   const metrics=await(await fetch(base+'/api/health/metrics',{headers:{cookie}})).json();
   assert.equal(metrics.integrity,'ok');assert.equal(metrics.contentEncryptionEnabled,true);
   assert.equal((await fetch(base+'/.env')).status,404);
-  console.log(JSON.stringify({passed:true,platform:process.platform,mode:serverScript?'packaged-server':'desktop-application',startupReadyMs,checks:['startup',...(serverScript?[]:['chromium-thmanyah-rendering','ui-intake-search-referral-reply']),'login','encrypted-sqlite','complaint-write','arabic-pdf','xlsx','private-config']}));
+  console.log(JSON.stringify({passed:true,platform:process.platform,mode:serverScript?'packaged-server':'desktop-application',startupReadyMs,checks:['startup',...(serverScript?[]:['chromium-thmanyah-rendering','ui-intake-search-simplified-registry']),'login','encrypted-sqlite','complaint-write','arabic-pdf','xlsx','private-config']}));
  }finally{
   if(process.platform==='win32'&&child.pid)spawnSync('taskkill',['/PID',String(child.pid),'/T','/F'],{stdio:'ignore',windowsHide:true});
   else if(child.pid&&child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>{const timer=setTimeout(()=>child.kill('SIGKILL'),2000);child.once('exit',()=>{clearTimeout(timer);resolve();});});}
