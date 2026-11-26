@@ -828,3 +828,14 @@ test('intake coalesces typing, delays record lookup and flushes on close',async(
  await ui.click('close-modal');assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'قبل الإغلاق');
  ui.runIntakeTimers(350);assert.equal(JSON.parse(ui.localStorage.get(key)).cSummary,'قبل الإغلاق');
 });
+
+
+test('registry keeps secondary filters and presets inside a collapsed panel',async()=>{
+ const ui=createFakeBrowser();for(let i=0;i<25;i++)await Promise.resolve();ui.goto('complaints');
+ const html=ui.node('#content').innerHTML;
+ const panel=html.indexOf('id="registryAdvanced"');const end=html.indexOf('</details>',panel);
+ assert.ok(panel>=0&&end>panel);assert.doesNotMatch(html.slice(panel,html.indexOf('>',panel)),/\bopen\b/);
+ for(const id of ['statusFilter','priorityFilter','categoryFilter','natureFilter','dateFrom','dateTo'])assert.ok(html.indexOf('id="'+id+'"')>panel&&html.indexOf('id="'+id+'"')<end,id);
+ assert.ok(html.indexOf('saved-filters-bar')>panel&&html.indexOf('saved-filters-bar')<end);
+ assert.doesNotMatch(html,/لا يوجد بعد|data-action="urgent-no-reply"/);assert.match(html,/data-action="global-search"/);
+});
