@@ -102,7 +102,6 @@ const middleware = createAuthMiddleware({ db, audit });
 const rejectTeamOperations = require('./lib/single-operator').installSingleOperator({
   db, authService, middleware, username: process.env.ADMIN_USERNAME?.trim()
 });
-const { ensureCsrfToken } = middleware;
 
 const rolesService = createRolesService({ db, audit });
 const complaintsService = createComplaintsService({ db, audit, logger, rolesService, singleOperator:true });
@@ -155,7 +154,6 @@ app.use(
     cookieSecure: env.cookieSecure
   })
 );
-app.use(ensureCsrfToken);
 
 app.use(['/api/sync/preview', '/api/sync/import'], middleware.requireAuth,
   rolesService.requirePermission('sync.import'), middleware.requireCsrf,

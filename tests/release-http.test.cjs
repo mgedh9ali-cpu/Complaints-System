@@ -168,6 +168,11 @@ test('startup uses the existing owner when initial admin configuration is invali
     if (!online) await new Promise(resolve => setTimeout(resolve, 50));
   }
   assert.ok(online, output);
+  for (const url of ['/', '/app.bundle.js', '/api/auth/me', '/api/csrf']) {
+    const anonymous = await fetch(base + url);
+    await anonymous.arrayBuffer();
+    assert.equal(anonymous.headers.has('set-cookie'), false, url);
+  }
   const response = await fetch(base + '/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

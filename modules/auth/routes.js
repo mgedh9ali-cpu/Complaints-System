@@ -38,7 +38,7 @@ function createAuthRouter({ authService, middleware, audit, rolesService, single
     message: { error: 'تم تجاوز عدد المحاولات لهذه العملية. حاول لاحقًا.' }
   });
 
-  router.get('/csrf', requireAuth, (req, res) => {
+  router.get('/csrf', requireAuth, middleware.ensureCsrfToken, (req, res) => {
     res.json({ csrfToken: req.session.csrfToken });
   });
 
