@@ -96,6 +96,9 @@ jobs:
           node scripts/smoke-packaged.js "$executable" | Tee-Object -FilePath dist-desktop/startup-installed-layout.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Verify upgrade from published rc.20 with existing records
+        run: ./scripts/verify-windows-upgrade.ps1
+
       - name: Verify installing twice updates the same application
         shell: pwsh
         run: |
