@@ -36,6 +36,34 @@ function median(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+function seedArchive(service, size, body) {
+  if (size === 0) return;
+  const { state, revision } = service.readState();
+  const now = new Date().toISOString();
+  const complaints = Array.from({ length: size }, (_, index) => ({
+    ...body,
+    id: 'BENCH-' + (index + 1),
+    status: 'new',
+    confidentiality: 'normal',
+    firstContactDate: null,
+    created: now,
+    updated: now,
+    due: now,
+    timeline: [{ event: 'تسجيل الشكوى', by: actor.username, at: now, detail: 'تم الإنشاء عبر API.' }],
+    notes: [],
+    referrals: [],
+    reply: null,
+    attachments: [],
+    statusHistory: []
+  }));
+  const seeded = service.saveState({
+    state: { ...state, complaints },
+    userId: actor.userId,
+    expectedRevision: revision
+  });
+  if (seeded.conflict || seeded.invalidTransition) throw new Error(seeded.error || 'The benchmark archive did not save.');
+}
+
 function runFor(size, openDatabase, createComplaintsService) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-save-'));
   const databasePath = path.join(dir, 'bench.sqlite');
@@ -48,7 +76,7 @@ function runFor(size, openDatabase, createComplaintsService) {
     const createArgs = { ...actor, body: sample() };
 
     const seedStarted = performance.now();
-    for (let i = 0; i < size; i += 1) service.createComplaint(createArgs);
+    seedArchive(service, size, createArgs.body);
     const seedMs = performance.now() - seedStarted;
 
     const createTimes = [];
