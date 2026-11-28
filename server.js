@@ -270,6 +270,7 @@ const PUBLIC_FILES = {
   '/assets/fonts/thmanyah/thmanyahsans-Bold.woff2': 'assets/fonts/thmanyah/thmanyahsans-Bold.woff2',
   '/assets/fonts/thmanyah/thmanyahsans-Black.woff2': 'assets/fonts/thmanyah/thmanyahsans-Black.woff2',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',
+  '/whatsapp-import.js': 'lib/whatsapp-import.js',
   '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',
   '/app.js': 'app.js',
   '/manifest.json': 'manifest.json',
