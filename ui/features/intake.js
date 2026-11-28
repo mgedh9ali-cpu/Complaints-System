@@ -83,9 +83,10 @@ function intakeQuickFormHtml() {
     selectField('طبيعة السجل','cNature',db.settings.natures||[],d.cNature||'',false)+
     selectField('الأولوية','cPriority',db.settings.priorities,d.cPriority||'normal',false)+
     selectField('قناة الورود','cSource',[{value:'phone',label:'الهاتف'},{value:'whatsapp',label:'واتساب'},{value:'telegram',label:'تلغرام'},{value:'other',label:'أخرى'}],d.cSource||'phone',false)+
-    field('تاريخ أول تواصل','cFirstContactDate',d.cFirstContactDate||workDayKey(new Date()),'date',false)+
+    field('تاريخ أول تواصل','cFirstContactDate',intakeWizard.whatsappImported ? d.cFirstContactDate : d.cFirstContactDate || workDayKey(new Date()),'date',false)+
     '<div class="form-field"><label for="cRelatedToCurrent">متعلق بالوضع الحالي</label><select class="select-field" id="cRelatedToCurrent">'+[['unknown','غير محدد'],['yes','نعم'],['no','لا']].map(([v,l])=>'<option value="'+v+'" '+((d.cRelatedToCurrent||'unknown')===v?'selected':'')+'>'+l+'</option>').join('')+'</select></div></div>'+
-    '<div id="intakeAttachmentsMount"></div><p class="small-copy">تُحفظ بيانات المسودة على هذا الجهاز. بعد إعادة تشغيل التطبيق أعد اختيار المرفقات قبل الحفظ.</p></details>';
+    '<div id="intakeAttachmentsMount"></div>'+(!intakeWizard.whatsappImported ?
+    '<p class="small-copy">تُحفظ بيانات المسودة على هذا الجهاز. بعد إعادة تشغيل التطبيق أعد اختيار المرفقات قبل الحفظ.</p>' : '')+'</details>';
 }
 
 function intakeTitle() { return 'تسجيل ' + intakeTypes[intakeWizard.recordType]; }
@@ -187,6 +188,11 @@ function saveComplaintDraft() {
   intakeDraftTimer=null;
   const key=complaintDraftStorageKey();
   if(!key||intakeWizard.completed)return;
+  if (intakeWizard.whatsappImported) {
+    const status = $('#intakeDraftStatus');
+    if (status) status.textContent = 'معلومات واتساب تبقى في النموذج حتى تحفظ السجل. احفظ قبل إغلاق النموذج.';
+    return;
+  }
   intakeCollectVisible();
   const hasContent = ['cName','cSummary','cDetails'].some(field => String(intakeWizard.data[field] || '').trim());
   if (matchingIntakeDraft() || (!hasContent && !intakeWizard.files.length)) return;
@@ -224,6 +230,7 @@ function restoreComplaintDraft() {
     intakeCollectVisible();
     const draft = matchingIntakeDraft();
     if (!draft || draft._ownerUserId !== String(authenticatedUser?.id || '')) return;
+    intakeWizard.whatsappImported = false;
     intakeWizard.data = Object.assign({}, draft);
     if (Object.hasOwn(intakeTypes, draft._recordType)) {
       intakeWizard.recordType = draft._recordType;

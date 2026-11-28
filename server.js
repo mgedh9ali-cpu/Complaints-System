@@ -32,6 +32,7 @@ const { createDashboardService } = require('./modules/dashboard/service');
 const { createDashboardRouter } = require('./modules/dashboard/routes');
 const { createAttachmentsService } = require('./modules/attachments/service');
 const { createAttachmentsRouter } = require('./modules/attachments/routes');
+const { createWhatsAppRouter } = require('./modules/whatsapp/routes');
 const { createReportsService } = require('./modules/reports/service');
 const { createReportsRouter } = require('./modules/reports/routes');
 const { createSettingsService } = require('./modules/settings/service');
@@ -195,6 +196,7 @@ app.use('/api', (req, res, next) => {
 });
 app.use('/api',rejectTeamOperations);
 app.use('/api', createHealthRouter({ healthService, middleware }));
+app.use('/api', createWhatsAppRouter({ middleware, rolesService }));
 app.use('/api', createAuthRouter({ authService, middleware, audit, rolesService, singleOperator:true }));
 app.use('/api', createApprovalsRouter({ approvalsService, middleware, rolesService }));
 app.use(
@@ -271,7 +273,6 @@ const PUBLIC_FILES = {
   '/assets/fonts/thmanyah/thmanyahsans-Black.woff2': 'assets/fonts/thmanyah/thmanyahsans-Black.woff2',
   '/thmanyah-fonts.css': 'thmanyah-fonts.css',
   '/whatsapp-import.js': 'lib/whatsapp-import.js',
-  '/attachments-ui-bridge.js': 'attachments-ui-bridge.js',
   '/app.js': 'app.js',
   '/manifest.json': 'manifest.json',
   '/sw.js': 'sw.js',

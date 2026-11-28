@@ -5,7 +5,7 @@
  * HTML, API responses, user data and the live app bundle remain network-only.
  * The local Express process is required for the complaints system to operate.
  */
-const CACHE_NAME = 'complaints-ui-thmanyah-private-v9';
+const CACHE_NAME = 'complaints-ui-thmanyah-private-v10';
 const STATIC_ASSETS = new Set([
   '/app.js',
   '/ui-system.css',
@@ -21,8 +21,7 @@ const STATIC_ASSETS = new Set([
   '/assets/fonts/cairo-latin-wght-normal.woff2',
 
 
-  '/ui-enhancements.js',
-  '/attachments-ui-bridge.js'
+  '/ui-enhancements.js'
 ]);
 
 self.addEventListener('install', (event) => {

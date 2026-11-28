@@ -40,3 +40,36 @@ test('supports Arabic digits and bracketed dates, rejects unknown input',()=>{
   assert.throws(()=>parseWhatsAppExport('not an export'));
   assert.throws(()=>summarizeWhatsAppExport(p));
 });
+
+test('matches iOS voice references and explicit omitted audio without mislabeling conversation text', () => {
+  const parsed = parseWhatsAppExport([
+    '[28/11/2026, 10:34:01] مواطن: <attached: 00000009-AUDIO-2026-11-28-10-34-01.opus>',
+    '[28/11/2026, 10:34:02] المكتب: audio omitted',
+    '[28/11/2026, 10:34:03] مواطن: ظهر نص <Media omitted> على الشاشة'
+  ].join('\n'));
+  assert.equal(parsed.messages[0].attachmentName, '00000009-AUDIO-2026-11-28-10-34-01.opus');
+  assert.equal(parsed.messages[0].audio, true);
+  assert.equal(parsed.messages[1].audio, true);
+  assert.equal(parsed.messages[2].mediaOmitted, false);
+  const result = summarizeWhatsAppExport(parsed, {
+    citizenSender: 'مواطن', transcripts: { 1: 'قدمت الطلب من أسبوع', 2: 'أرسل رقم الطلب' }
+  });
+  assert.match(result.summary, /قدمت الطلب من أسبوع/);
+  assert.doesNotMatch(result.summary, /أرسل رقم الطلب/);
+  assert.match(result.details, /مقتطفات من الطرف الآخر\nأرسل رقم الطلب/);
+  assert.deepEqual(result.untranscribedAudio, []);
+});
+
+test('retains late updates and substantive voice evidence in longer chats', () => {
+  const parsed = parseWhatsAppExport([
+    '28/11/2026, 10:00 - مواطن: السلام عليكم',
+    ...Array.from({ length: 8 }, (_, i) => '28/11/2026, 10:0' + (i + 1) + ' - مواطن: رسالة متابعة ' + i),
+    '28/11/2026, 10:09 - مواطن: PTT-20261128-WA0001.opus (file attached)',
+    '28/11/2026, 10:10 - مواطن: هذه آخر الملاحظات'
+  ].join('\n'));
+  const result = summarizeWhatsAppExport(parsed, { citizenSender: 'مواطن', transcripts: { 10: 'رقم الطلب 1234' } });
+  assert.equal(result.evidence.length, 5);
+  assert.match(result.summary, /رقم الطلب 1234/);
+  assert.match(result.summary, /هذه آخر الملاحظات/);
+  assert.doesNotMatch(result.summary, /السلام عليكم/);
+});

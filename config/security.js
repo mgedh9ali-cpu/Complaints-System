@@ -15,6 +15,7 @@ function createHelmetMiddleware() {
         connectSrc: ["'self'"],
         fontSrc: ["'self'"],
         upgradeInsecureRequests: null,
+        mediaSrc: ["'self'", 'blob:'],
         frameSrc: ["'self'", 'blob:'],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
